@@ -1,0 +1,15 @@
+# Gitleaks configuration file
+title = "Yalla Lebanon Secret Scanning Configuration"
+
+[allowlist]
+description = "Ignore documentation, example configuration templates, and test mocks"
+paths = [
+  '''\.env\.example''',
+  '''package-lock\.json''',
+  '''bun\.lock''',
+  '''test/.*'''
+]
+regexes = [
+  '''mock-test-[a-zA-Z0-9_-]+''',
+  '''phone_[0-9]{8}'''
+]

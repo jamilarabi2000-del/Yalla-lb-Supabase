@@ -1,0 +1,11 @@
+node_modules/
+build/
+functions/lib/
+# dist/ is included for deployment artifact packaging
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+serviceAccount*.json
+*-service-account.json

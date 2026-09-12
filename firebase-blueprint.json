@@ -1,0 +1,360 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Authentic Lebanese artisanal product catalog item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 200 },
+        "arabicName": { "type": "string", "maxLength": 200 },
+        "artisan": { "type": "string", "maxLength": 150 },
+        "seller": { "type": "string", "maxLength": 150 },
+        "sellerId": { "type": "string" },
+        "arabicSeller": { "type": "string", "maxLength": 150 },
+        "origin": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 50 },
+        "priceUSD": { "type": "number" },
+        "originalPriceUSD": { "type": "number" },
+        "discountPercentage": { "type": "number" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "image": { "type": "string" },
+        "additionalImages": { "type": "array" },
+        "videoUrl": { "type": "string" },
+        "videos": { "type": "array" },
+        "description": { "type": "string", "maxLength": 2000 },
+        "craftStory": { "type": "string", "maxLength": 2000 },
+        "stock": { "type": "number" },
+        "isFeatured": { "type": "boolean" },
+        "isBestseller": { "type": "boolean" },
+        "isPublished": { "type": "boolean" },
+        "displayOrder": { "type": "number" },
+        "tags": { "type": "array" },
+        "keywords": { "type": "array" },
+        "arabicKeywords": { "type": "array" },
+        "seoTitle": { "type": "string" },
+        "seoArabicTitle": { "type": "string" },
+        "seoDescription": { "type": "string" },
+        "weightOrVolume": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "priceUSD"]
+    },
+    "ProductPrivate": {
+      "title": "ProductPrivate",
+      "description": "Private operational product inventory and internal merchandising details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "sellerItemCode": { "type": "string" },
+        "lowStockThreshold": { "type": "number" },
+        "lowStockNotice": { "type": "string" },
+        "customStockLabel": { "type": "string" },
+        "costPriceUSD": { "type": "number" }
+      },
+      "required": ["id", "productId"]
+    },
+    "Seller": {
+      "title": "Seller",
+      "description": "Artisan cooperant, workshop, and brand profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameEn": { "type": "string", "maxLength": 150 },
+        "nameAr": { "type": "string", "maxLength": 150 },
+        "region": { "type": "string", "maxLength": 100 },
+        "bioEn": { "type": "string", "maxLength": 2000 },
+        "bioAr": { "type": "string", "maxLength": 2000 },
+        "logo": { "type": "string" },
+        "bannerImage": { "type": "string" },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "format": "email" },
+        "website": { "type": "string" },
+        "isFeatured": { "type": "boolean" },
+        "displayOrder": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "nameEn", "nameAr"]
+    },
+    "CategoryItem": {
+      "title": "CategoryItem",
+      "description": "Product taxonomy and navigation category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nameEn": { "type": "string", "maxLength": 100 },
+        "nameAr": { "type": "string", "maxLength": 100 },
+        "icon": { "type": "string" },
+        "descriptionEn": { "type": "string", "maxLength": 500 },
+        "descriptionAr": { "type": "string", "maxLength": 500 },
+        "displayOrder": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "nameEn", "nameAr"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global operational settings, currencies, announcements, and flags",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "siteName": { "type": "string" },
+        "usdRate": { "type": "number" },
+        "announcement": { "type": "string" },
+        "supportPhone": { "type": "string" },
+        "supportEmail": { "type": "string" }
+      }
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and delivery info",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "firstName": { "type": "string", "maxLength": 100 },
+        "lastName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string", "maxLength": 30 },
+        "avatar": { "type": "string" },
+        "defaultGovernorate": { "type": "string", "maxLength": 50 },
+        "defaultCity": { "type": "string", "maxLength": 50 },
+        "defaultAddress": { "type": "string", "maxLength": 200 },
+        "defaultBuilding": { "type": "string", "maxLength": 100 },
+        "defaultNotes": { "type": "string", "maxLength": 500 },
+        "role": { "type": "string", "enum": ["customer", "seller", "admin"] },
+        "sellerId": { "type": "string" },
+        "isBanned": { "type": "boolean" }
+      },
+      "required": ["name", "email"]
+    },
+    "Wishlist": {
+      "title": "Wishlist",
+      "description": "User saved artisan products",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "productIds": { "type": "array" }
+      },
+      "required": ["userId"]
+    },
+    "Cart": {
+      "title": "Cart",
+      "description": "User shopping cart items",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "items": { "type": "array" }
+      },
+      "required": ["userId"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order with status, items, shipping and tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "items": { "type": "array" },
+        "shipping": { "type": "object" },
+        "paymentMethod": { "type": "string" },
+        "currency": { "type": "string" },
+        "subtotalUSD": { "type": "number" },
+        "deliveryFeeUSD": { "type": "number" },
+        "discountUSD": { "type": "number" },
+        "totalUSD": { "type": "number" },
+        "totalLBP": { "type": "number" },
+        "appliedCoupon": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "crafting", "courier_assigned", "in_transit", "delivered", "cancelled"] },
+        "estimatedDelivery": { "type": "string" },
+        "trackingNumber": { "type": "string" }
+      },
+      "required": ["id", "totalUSD", "items", "shipping"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Artisan product review and rating",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string", "maxLength": 100 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string" },
+        "orderId": { "type": "string" },
+        "adminReply": { "type": "string", "maxLength": 1000 },
+        "adminReplyAt": { "type": "string" }
+      },
+      "required": ["id", "productId", "rating", "comment"]
+    },
+    "CMSContent": {
+      "title": "CMSContent",
+      "description": "Dynamic CMS content for site headers, titles, texts, banners, footer, news and sections managed by admin",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string" },
+        "announcementTicker": { "type": "string" },
+        "heroTitle": { "type": "string" },
+        "heroSubtitle": { "type": "string" },
+        "heroBadge": { "type": "string" },
+        "heroPrimaryBtnText": { "type": "string" },
+        "heroSecondaryBtnText": { "type": "string" },
+        "homeFeaturedTitle": { "type": "string" },
+        "homeFeaturedSubtitle": { "type": "string" },
+        "homeRegionsTitle": { "type": "string" },
+        "homeRegionsSubtitle": { "type": "string" },
+        "homeArtisansTitle": { "type": "string" },
+        "homeArtisansSubtitle": { "type": "string" },
+        "homeReviewsTitle": { "type": "string" },
+        "homeNewsletterTitle": { "type": "string" },
+        "homeNewsletterSubtitle": { "type": "string" },
+        "productsPageTitle": { "type": "string" },
+        "productsPageSubtitle": { "type": "string" },
+        "checkoutPageTitle": { "type": "string" },
+        "checkoutPageSubtitle": { "type": "string" },
+        "accountPageTitle": { "type": "string" },
+        "footerAboutText": { "type": "string" },
+        "footerCopyright": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "contactAddress": { "type": "string" },
+        "contactHours": { "type": "string" }
+      }
+    },
+    "RecentActivity": {
+      "title": "RecentActivity",
+      "description": "Log of critical admin actions and system state shifts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "actionType": { "type": "string", "enum": ["product_add", "product_update", "product_delete", "order_status", "meta_change", "cms_update"] },
+        "summary": { "type": "string", "maxLength": 500 },
+        "details": { "type": "string", "maxLength": 1000 },
+        "adminEmail": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "actionType", "summary"]
+    },
+    "AdminConfig": {
+      "title": "AdminConfig",
+      "description": "Secure administration and portal settings",
+      "type": "object",
+      "properties": {
+        "passcode": { "type": "string" }
+      },
+      "required": ["passcode"]
+    },
+    "DiscountRule": {
+      "title": "DiscountRule",
+      "description": "Admin configured promotional discount rule",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 150 },
+        "type": { "type": "string", "enum": ["percentage", "fixed"] },
+        "value": { "type": "number" },
+        "target": { "type": "string", "enum": ["checkout", "product", "category", "seller", "brand"] },
+        "targetValue": { "type": "string", "maxLength": 150 },
+        "couponCode": { "type": "string", "maxLength": 50 },
+        "isActive": { "type": "boolean" },
+        "minPurchaseUSD": { "type": "number" }
+      },
+      "required": ["id", "name", "type", "value", "target", "isActive"]
+    },
+    "PhoneRegistry": {
+      "title": "PhoneRegistry",
+      "description": "Unique index of registered Lebanese phone numbers",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "phone": { "type": "string" },
+        "cleanDigits": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "phone", "cleanDigits"]
+    },
+    "SearchLog": {
+      "title": "SearchLog",
+      "description": "Logs user search queries for analytics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "query": { "type": "string", "maxLength": 200 },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "query", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Public catalog of artisanal products"
+    },
+    "/sellers/{sellerId}": {
+      "schema": { "$ref": "#/entities/Seller" },
+      "description": "Artisan sellers and brands directory"
+    },
+    "/categories/{catId}": {
+      "schema": { "$ref": "#/entities/CategoryItem" },
+      "description": "Product taxonomy and navigation hierarchy"
+    },
+    "/site_settings/{docId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global operational settings and flags"
+    },
+    "/phone_registry/{phoneKey}": {
+      "schema": { "$ref": "#/entities/PhoneRegistry" },
+      "description": "Unique mapping index of user phone numbers"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile document"
+    },
+    "/wishlists/{userId}": {
+      "schema": { "$ref": "#/entities/Wishlist" },
+      "description": "User wishlist collection"
+    },
+    "/carts/{userId}": {
+      "schema": { "$ref": "#/entities/Cart" },
+      "description": "User shopping cart collection"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Global orders and fulfillment collection"
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Product reviews and patron feedback"
+    },
+    "/cms/{docId}": {
+      "schema": { "$ref": "#/entities/CMSContent" },
+      "description": "Dynamic site content fully managed by the admin"
+    },
+    "/recent_activity/{activityId}": {
+      "schema": { "$ref": "#/entities/RecentActivity" },
+      "description": "Audit log for tracking administration events"
+    },
+    "/admin_config/{docId}": {
+      "schema": { "$ref": "#/entities/AdminConfig" },
+      "description": "Secure administrative lock parameters"
+    },
+    "/discounts/{discountId}": {
+      "schema": { "$ref": "#/entities/DiscountRule" },
+      "description": "Promotional discount rules managed by admin"
+    },
+    "/search_logs/{logId}": {
+      "schema": { "$ref": "#/entities/SearchLog" },
+      "description": "Log of user search queries for trend analysis"
+    }
+  }
+}
