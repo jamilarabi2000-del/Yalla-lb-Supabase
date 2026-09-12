@@ -23,7 +23,7 @@ import {
   supabaseOrderService, 
   supabaseCmsService 
 } from '../services';
-import { auth, db, functionsInstance, httpsCallable, FirebaseUser, IS_FIREBASE_ENABLED, signInWithPopup, GoogleAuthProvider, googleProvider, OAuthProvider, appleProvider } from '../firebase';
+import { db, functionsInstance, httpsCallable, IS_FIREBASE_ENABLED } from '../firebase';
 import { 
   dbLogger, 
   sanitizeFirestorePayload, 
@@ -119,17 +119,39 @@ interface FirestoreErrorInfo {
   };
 }
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+export interface AuthUserLike {
+  uid: string;
+  id?: string;
+  email?: string | null;
+  emailVerified: boolean;
+  displayName?: string | null;
+  photoURL?: string | null;
+  user_metadata?: Record<string, any>;
+  app_metadata?: Record<string, any>;
+  getIdToken: (forceRefresh?: boolean) => Promise<string>;
+  getIdTokenResult: (forceRefresh?: boolean) => Promise<{
+    claims: {
+      admin?: boolean;
+      seller?: boolean;
+      sellerId?: string | null;
+      email_verified?: boolean;
+      [key: string]: any;
+    };
+  }>;
+}
+
+export type FirebaseUser = AuthUserLike;
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, userId?: string | null) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errInfo = {
     error: errorMessage,
     authInfo: {
-      userId: auth.currentUser?.uid,
-      // Redact email to prevent PII leakage
-      email: auth.currentUser?.email ? '[REDACTED_PII]' : null,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
+      userId: userId || null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: false,
+      tenantId: null,
     },
     operationType,
     path,
@@ -378,19 +400,6 @@ export const INITIAL_USER: UserProfile = {
   defaultGovernorate: '',
   defaultCity: '',
   defaultAddress: ''
-};
-
-export type AuthUserLike = {
-  uid?: string;
-  id?: string;
-  email?: string | null;
-  emailVerified?: boolean;
-  displayName?: string | null;
-  photoURL?: string | null;
-  user_metadata?: Record<string, any>;
-  app_metadata?: Record<string, any>;
-  getIdToken?: (force?: boolean) => Promise<string>;
-  getIdTokenResult?: (force?: boolean) => Promise<{ claims: { admin?: boolean; seller?: boolean; sellerId?: string | null; email_verified?: boolean; [key: string]: any } }>;
 };
 
 /**
@@ -2983,19 +2992,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       showToast('Redirecting to Google sign in...', 'info');
     } catch (error: any) {
-      console.warn('[ShopContext] Supabase Google sign-in failed, checking fallback:', error);
-      if (IS_FIREBASE_ENABLED && auth) {
-        try {
-          const provider = googleProvider || new GoogleAuthProvider();
-          await executeWithRetry(() => signInWithPopup(auth, provider));
-          showToast('Successfully signed in with Google!', 'success');
-          return;
-        } catch (fbError: any) {
-          if (fbError.code === 'auth/popup-closed-by-user' || fbError.code === 'auth/cancelled-popup-request') {
-            return;
-          }
-        }
-      }
+      console.warn('[ShopContext] Supabase Google sign-in failed:', error);
       showToast('Failed to sign in with Google: ' + (error.message || 'Unknown error'), 'warning');
     }
   };
@@ -3011,19 +3008,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       showToast('Redirecting to Apple sign in...', 'info');
     } catch (error: any) {
-      console.warn('[ShopContext] Supabase Apple sign-in failed, checking fallback:', error);
-      if (IS_FIREBASE_ENABLED && auth) {
-        try {
-          const provider = appleProvider || new OAuthProvider('apple.com');
-          await executeWithRetry(() => signInWithPopup(auth, provider));
-          showToast('Successfully signed in with Apple!', 'success');
-          return;
-        } catch (fbError: any) {
-          if (fbError.code === 'auth/popup-closed-by-user' || fbError.code === 'auth/cancelled-popup-request') {
-            return;
-          }
-        }
-      }
+      console.warn('[ShopContext] Supabase Apple sign-in failed:', error);
       showToast('Failed to sign in with Apple: ' + (error.message || 'Unknown error'), 'warning');
     }
   };
@@ -3438,12 +3423,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: profileData.name || supaUser.user_metadata?.name || ''
       };
       setUser(mapSafeShopUserProfile(profileData, userAdapter, claimSellerId, cachedShipping, fallbackNames));
-
-      // Also trigger background Firebase refresh if enabled
-      if (IS_FIREBASE_ENABLED && auth?.currentUser && db) {
-        auth.currentUser.getIdToken(true).catch(() => {});
-        auth.currentUser.getIdTokenResult(true).catch(() => null);
-      }
     } catch (err) {
       console.warn("[ShopContext] refreshUserProfile notice:", err);
     }
@@ -3855,7 +3834,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Place Order - Order creation with graceful fallback for empty profiles
   const placeOrder = async (orderData: Omit<Order, 'id' | 'date' | 'trackingNumber' | 'status'>, customIdempotencyKey?: string): Promise<Order> => {
-    const activeUserId = firebaseUser?.uid || auth?.currentUser?.uid || undefined;
+    const activeUserId = firebaseUser?.uid || undefined;
     const idempotencyKey = (customIdempotencyKey || generateIdempotencyKey()).trim();
 
     if (cart.length > MAX_ORDER_LINE_ITEMS) {
