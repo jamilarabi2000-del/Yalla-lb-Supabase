@@ -11,16 +11,10 @@ const PORT = 3000;
 
 app.use(express.json({ verify: (req: any, _res, buf) => { req.rawBody = buf; } }));
 
-// Security and CORS Headers Middleware
-app.use((req, res, next) => {
+// Security Headers Middleware
+app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, X-Firebase-AppCheck, X-Firebase-GMPID");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
   next();
 });
 
@@ -52,47 +46,32 @@ const getFunctionsLib = async () => {
   return functionsLibPromise;
 };
 
-const handleFunctionInvocation = async (name: string, req: express.Request, res: express.Response) => {
-  try {
+app.post("/api/functions/:name", async (req, res) => {
+  const lib = await getFunctionsLib();
+  const fnName = req.params.name;
+  const handler = lib ? lib[fnName] : null;
+  if (typeof handler === "function") {
+    return handler(req, res);
+  }
+  return res.status(404).json({
+    error: {
+      message: `Function ${fnName} not found`,
+      status: "NOT_FOUND",
+    },
+  });
+});
+
+app.post("/:projectId/:region/:name", async (req, res, next) => {
+  const { projectId, region, name } = req.params;
+  if (
+    (projectId === "yalla-lb-2026" || projectId.includes("yalla")) &&
+    region === "europe-west1"
+  ) {
     const lib = await getFunctionsLib();
     const handler = lib ? lib[name] : null;
     if (typeof handler === "function") {
-      return await handler(req, res);
+      return handler(req, res);
     }
-    return res.status(404).json({
-      error: {
-        message: `Function ${name} not found`,
-        status: "NOT_FOUND",
-      },
-    });
-  } catch (err: any) {
-    console.error(`[Server Gateway] Error executing function ${name}:`, err);
-    if (!res.headersSent) {
-      return res.status(500).json({
-        error: {
-          message: err?.message || "Internal server error executing function",
-          status: "INTERNAL",
-        },
-      });
-    }
-  }
-};
-
-app.all("/api/functions/:name", async (req, res) => {
-  await handleFunctionInvocation(req.params.name, req, res);
-});
-
-app.all("/api/functions/:region/:name", async (req, res) => {
-  await handleFunctionInvocation(req.params.name, req, res);
-});
-
-app.all("/:projectId/:region/:name", async (req, res, next) => {
-  const { projectId, region, name } = req.params;
-  if (
-    (projectId === "yalla-lb-2026" || projectId.includes("yalla") || projectId.startsWith("ais-")) &&
-    (region === "europe-west1" || region === "us-central1")
-  ) {
-    return await handleFunctionInvocation(name, req, res);
   }
   next();
 });
