@@ -267,6 +267,8 @@ interface ShopContextType {
   authStatus: 'loading' | 'unauthenticated' | 'authenticated_non_admin' | 'authenticated_admin';
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, phone?: string) => Promise<void>;
+  sendEmailOtp?: (email: string) => Promise<void>;
+  verifyEmailOtp?: (email: string, token: string, type?: 'email' | 'signup' | 'magiclink' | 'recovery') => Promise<void>;
   sendEmailSignInLink: (email: string) => Promise<void>;
   completeEmailLinkSignIn: (email?: string, url?: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -2669,7 +2671,31 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isMounted = true;
     console.log("[ShopContext] Initializing Supabase Auth listener...");
 
-    const handleAuthUser = async (supaUser: SupabaseUser | null) => {
+    const deriveNames = (displayName?: string | null, email?: string | null) => {
+      if (displayName && displayName.trim()) {
+        const parts = displayName.trim().split(/\s+/);
+        return {
+          firstName: parts[0],
+          lastName: parts.slice(1).join(' ') || '',
+          name: displayName.trim()
+        };
+      }
+      if (email && email.includes('@')) {
+        const raw = email.split('@')[0].replace(/[0-9]+/g, ' ').trim();
+        const parts = raw.split(/[\._\-\s]+/).filter(Boolean);
+        if (parts.length >= 2) {
+          const f = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+          const l = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase();
+          return { firstName: f, lastName: l, name: `${f} ${l}` };
+        } else if (parts.length === 1 && parts[0].length > 0) {
+          const f = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+          return { firstName: f, lastName: '', name: f };
+        }
+      }
+      return { firstName: '', lastName: '', name: '' };
+    };
+
+    const handleAuthUser = (supaUser: SupabaseUser | null) => {
       if (!isMounted) return;
       if (!supaUser) {
         setFirebaseUser(null);
@@ -2704,130 +2730,114 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // 1. Authoritatively resolve custom claims and profile from Supabase database
-      let profileRole: 'admin' | 'seller' | 'customer' = 'customer';
-      let profileSellerId: string | null = null;
-      let profileData: Record<string, any> = {};
+      // 1. Initial immediate user adapter setup to unblock UI while deferring DB queries
+      const initialUserAdapter = createAuthUserAdapter(supaUser, 'customer', null, {});
+      setFirebaseUser(initialUserAdapter);
+      setIsEmailVerified(Boolean(supaUser.email_confirmed_at));
 
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', supaUser.id)
-          .maybeSingle();
+      // 2. Defer database query using setTimeout to avoid potential deadlock in onAuthStateChange
+      setTimeout(async () => {
+        if (!isMounted) return;
 
-        if (profile && !error) {
-          profileData = profile;
-          if (profile.role === 'admin') {
-            profileRole = 'admin';
-          } else if (profile.role === 'seller') {
-            profileRole = 'seller';
-          }
-          if (profile.seller_id || profile.sellerId) {
-            profileSellerId = profile.seller_id || profile.sellerId;
-          }
-        }
-      } catch (profileErr) {
-        console.warn("[ShopContext] Error loading Supabase user profile from database:", profileErr);
-      }
+        let profileRole: 'admin' | 'seller' | 'customer' = 'customer';
+        let profileSellerId: string | null = null;
+        let profileData: Record<string, any> = {};
 
-      if (!isMounted) return;
-
-      const isAdmin = profileRole === 'admin';
-      const isSeller = profileRole === 'seller';
-      const isEmailConfirmed = Boolean(supaUser.email_confirmed_at);
-
-      setIsAdminUser(isAdmin);
-      setIsSellerUser(isSeller);
-      setSellerId(profileSellerId);
-      setIsEmailVerified(isEmailConfirmed);
-
-      const userAdapter = createAuthUserAdapter(supaUser, profileRole, profileSellerId, profileData);
-      setFirebaseUser(userAdapter);
-
-      // Force refresh of claims via getIdTokenResult to guarantee token integrity and test compliance
-      try {
-        await userAdapter.getIdToken(true).catch(() => {});
-        const tokenResult = await userAdapter.getIdTokenResult(true).catch(() => null);
-        if (tokenResult?.claims) {
-          setIsAdminUser(tokenResult.claims.admin === true);
-          setIsSellerUser(tokenResult.claims.seller === true);
-          setSellerId(typeof tokenResult.claims.sellerId === 'string' ? tokenResult.claims.sellerId : null);
-        }
-      } catch (tokenErr) {
-        console.warn("[ShopContext] Error verifying custom claims token result:", tokenErr);
-      }
-
-      setIsLoadingAuth(false);
-
-      // Check if local cache has shipping defaults
-      let cachedShipping: Partial<UserProfile> = {};
-      try {
-        const rawCache = localStorage.getItem('yallalb_saved_checkout_data');
-        if (rawCache) {
-          cachedShipping = JSON.parse(rawCache);
-        }
-      } catch {}
-
-      const deriveNames = (displayName?: string | null, email?: string | null) => {
-        if (displayName && displayName.trim()) {
-          const parts = displayName.trim().split(/\s+/);
-          return {
-            firstName: parts[0],
-            lastName: parts.slice(1).join(' ') || '',
-            name: displayName.trim()
-          };
-        }
-        if (email && email.includes('@')) {
-          const raw = email.split('@')[0].replace(/[0-9]+/g, ' ').trim();
-          const parts = raw.split(/[\._\-\s]+/).filter(Boolean);
-          if (parts.length >= 2) {
-            const f = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-            const l = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase();
-            return { firstName: f, lastName: l, name: `${f} ${l}` };
-          } else if (parts.length === 1 && parts[0].length > 0) {
-            const f = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-            return { firstName: f, lastName: '', name: f };
-          }
-        }
-        return { firstName: '', lastName: '', name: '' };
-      };
-
-      const fallbackNames = deriveNames(userAdapter.displayName, supaUser.email);
-      const safeProfile = mapSafeShopUserProfile(
-        profileData,
-        userAdapter,
-        profileSellerId,
-        cachedShipping,
-        fallbackNames
-      );
-      setUser(safeProfile);
-
-      // Non-blocking sync with Firestore cart/wishlist if Firebase is also enabled
-      if (IS_FIREBASE_ENABLED && db) {
-        const userKey = supaUser.id;
         try {
-          const wishlistRef = doc(db, 'wishlists', userKey);
-          const wishlistSnap = await safeGetDoc(wishlistRef);
-          if (wishlistSnap.exists()) {
-            const wData = wishlistSnap.data();
-            if (wData.productIds && Array.isArray(wData.productIds)) {
-              setWishlist(wData.productIds);
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', supaUser.id)
+            .maybeSingle();
+
+          if (profile && !error) {
+            profileData = profile;
+            if (profile.role === 'admin') {
+              profileRole = 'admin';
+            } else if (profile.role === 'seller') {
+              profileRole = 'seller';
             }
+            if (profile.seller_id || profile.sellerId) {
+              profileSellerId = profile.seller_id || profile.sellerId;
+            }
+          }
+        } catch (profileErr) {
+          console.warn("[ShopContext] Error loading Supabase user profile from database:", profileErr);
+        }
+
+        if (!isMounted) return;
+
+        const isAdmin = profileRole === 'admin';
+        const isSeller = profileRole === 'seller';
+        const isEmailConfirmed = Boolean(supaUser.email_confirmed_at);
+
+        setIsAdminUser(isAdmin);
+        setIsSellerUser(isSeller);
+        setSellerId(profileSellerId);
+        setIsEmailVerified(isEmailConfirmed);
+
+        const authoritativeUserAdapter = createAuthUserAdapter(supaUser, profileRole, profileSellerId, profileData);
+        setFirebaseUser(authoritativeUserAdapter);
+
+        // Force refresh of claims via getIdTokenResult to guarantee token integrity and test compliance
+        try {
+          await authoritativeUserAdapter.getIdToken(true).catch(() => {});
+          const tokenResult = await authoritativeUserAdapter.getIdTokenResult(true).catch(() => null);
+          if (tokenResult?.claims) {
+            setIsAdminUser(tokenResult.claims.admin === true);
+            setIsSellerUser(tokenResult.claims.seller === true);
+            setSellerId(typeof tokenResult.claims.sellerId === 'string' ? tokenResult.claims.sellerId : null);
+          }
+        } catch (tokenErr) {
+          console.warn("[ShopContext] Error verifying custom claims token result:", tokenErr);
+        }
+
+        // Check if local cache has shipping defaults
+        let cachedShipping: Partial<UserProfile> = {};
+        try {
+          const rawCache = localStorage.getItem('yallalb_saved_checkout_data');
+          if (rawCache) {
+            cachedShipping = JSON.parse(rawCache);
           }
         } catch {}
 
-        try {
-          const cartRef = doc(db, 'carts', userKey);
-          const cartSnap = await safeGetDoc(cartRef);
-          if (cartSnap.exists()) {
-            const cData = cartSnap.data();
-            if (cData.items && Array.isArray(cData.items)) {
-              setCart(cData.items);
+        const fallbackNames = deriveNames(authoritativeUserAdapter.displayName, supaUser.email);
+        const safeProfile = mapSafeShopUserProfile(
+          profileData,
+          authoritativeUserAdapter,
+          profileSellerId,
+          cachedShipping,
+          fallbackNames
+        );
+        setUser(safeProfile);
+        setIsLoadingAuth(false);
+
+        // Non-blocking sync with Firestore cart/wishlist if Firebase is also enabled
+        if (IS_FIREBASE_ENABLED && db) {
+          const userKey = supaUser.id;
+          try {
+            const wishlistRef = doc(db, 'wishlists', userKey);
+            const wishlistSnap = await safeGetDoc(wishlistRef);
+            if (wishlistSnap.exists()) {
+              const wData = wishlistSnap.data();
+              if (wData.productIds && Array.isArray(wData.productIds)) {
+                setWishlist(wData.productIds);
+              }
             }
-          }
-        } catch {}
-      }
+          } catch {}
+
+          try {
+            const cartRef = doc(db, 'carts', userKey);
+            const cartSnap = await safeGetDoc(cartRef);
+            if (cartSnap.exists()) {
+              const cData = cartSnap.data();
+              if (cData.items && Array.isArray(cData.items)) {
+                setCart(cData.items);
+              }
+            }
+          } catch {}
+        }
+      }, 0);
     };
 
     // 1. Initial Session Restoration
@@ -2842,9 +2852,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 2. Auth State Change Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log(`[ShopContext] Supabase Auth event: ${event}`, session?.user?.id ?? "None (Guest)");
-      await handleAuthUser(session?.user ?? null);
+      handleAuthUser(session?.user ?? null);
     });
 
     return () => {
@@ -3002,6 +3012,71 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const sendEmailOtp = async (email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      const msg = language === 'ar' ? 'الرجاء إدخال بريد إلكتروني صالح' : 'Please enter a valid email address.';
+      showToast(msg, 'warning');
+      throw new Error(msg);
+    }
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: cleanEmail,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?emailSignIn=true` : undefined,
+        },
+      });
+      if (error) throw error;
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('emailForSignIn', cleanEmail);
+      }
+
+      const successMsg = language === 'ar'
+        ? `تم إرسال رمز التحقق إلى ${cleanEmail}! يرجى مراجعة بريدك الإلكتروني.`
+        : `Verification code sent to ${cleanEmail}! Please check your email inbox.`;
+      showToast(successMsg, 'success');
+    } catch (err: any) {
+      console.error("[ShopContext] sendEmailOtp error:", err);
+      let msg = err.message || 'Failed to send OTP code';
+      showToast(msg, 'warning');
+      throw err;
+    }
+  };
+
+  const verifyEmailOtp = async (email: string, token: string, type: 'email' | 'signup' | 'magiclink' | 'recovery' = 'email') => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanToken = token.trim();
+    if (!cleanEmail || !cleanToken) {
+      const msg = language === 'ar' ? 'يرجى إدخال البريد الإلكتروني ورمز التحقق' : 'Please enter email and verification code.';
+      showToast(msg, 'warning');
+      throw new Error(msg);
+    }
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanToken,
+        type: type as any,
+      });
+
+      if (error) throw error;
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('emailForSignIn');
+      }
+
+      showToast(language === 'ar' ? 'تم التحقق بنجاح!' : 'Verification successful!', 'success');
+    } catch (err: any) {
+      console.error("[ShopContext] verifyEmailOtp error:", err);
+      let msg = err.message || 'Invalid or expired verification code.';
+      showToast(msg, 'warning');
+      throw err;
+    }
+  };
+
   const signUpWithEmail = async (email: string, pass: string, phone?: string) => {
     // Check phone uniqueness before creating the auth record if phone is provided
     const targetPhone = phone || (() => {
@@ -3064,7 +3139,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw supaErr;
       }
 
-      // Safe profile sync to database if triggered or needed
+      // Safe profile sync to database if triggered or needed (DB trigger handles row creation)
       if (supaAuthData?.user) {
         try {
           await supabase.from('profiles').update({
@@ -3136,7 +3211,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (error) throw error;
 
-      window.localStorage.setItem('emailForSignIn', cleanEmail);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('emailForSignIn', cleanEmail);
+      }
 
       if (IS_FIREBASE_ENABLED && auth) {
         sendSignInLinkToEmail(auth, cleanEmail, {
@@ -3157,29 +3234,37 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const completeEmailLinkSignIn = async (emailInput?: string, urlInput?: string) => {
-    const currentUrl = urlInput || window.location.href;
-    let email = emailInput || window.localStorage.getItem('emailForSignIn');
+  const completeEmailLinkSignIn = async (emailInput?: string, urlOrToken?: string) => {
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+    let email = emailInput || (typeof window !== 'undefined' ? window.localStorage.getItem('emailForSignIn') || '' : '');
 
     try {
-      // Supabase automatically parses URL fragments and session tokens via detectSessionInUrl: true
+      // 1. If 6-digit OTP code was provided
+      if (urlOrToken && urlOrToken.trim().length === 6 && !urlOrToken.startsWith('http') && email) {
+        await verifyEmailOtp(email, urlOrToken, 'email');
+        return;
+      }
+
+      // 2. Supabase automatically parses URL fragments and session tokens via detectSessionInUrl: true
       const { data, error } = await supabase.auth.getSession();
       if (!error && data.session?.user) {
-        window.localStorage.removeItem('emailForSignIn');
-        const url = new URL(currentUrl);
-        url.searchParams.delete('apiKey');
-        url.searchParams.delete('oobCode');
-        url.searchParams.delete('mode');
-        url.searchParams.delete('lang');
-        url.searchParams.delete('emailSignIn');
-        window.history.replaceState({}, document.title, url.pathname || '/');
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('emailForSignIn');
+          const url = new URL(urlOrToken || currentUrl);
+          url.searchParams.delete('apiKey');
+          url.searchParams.delete('oobCode');
+          url.searchParams.delete('mode');
+          url.searchParams.delete('lang');
+          url.searchParams.delete('emailSignIn');
+          window.history.replaceState({}, document.title, url.pathname || '/');
+        }
         showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح عبر الرابط!' : 'Successfully signed in via email link!', 'success');
         return;
       }
 
       // Check Firebase fallback if present
-      if (IS_FIREBASE_ENABLED && auth && isSignInWithEmailLink(auth, currentUrl)) {
-        if (!email) {
+      if (IS_FIREBASE_ENABLED && auth && isSignInWithEmailLink(auth, urlOrToken || currentUrl)) {
+        if (!email && typeof window !== 'undefined') {
           email = window.prompt(
             language === 'ar'
               ? 'يرجى تأكيد بريدك الإلكتروني لإتمام تسجيل الدخول:'
@@ -3187,8 +3272,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ) || '';
         }
         if (email) {
-          await signInWithEmailLink(auth, email.trim().toLowerCase(), currentUrl);
-          window.localStorage.removeItem('emailForSignIn');
+          await signInWithEmailLink(auth, email.trim().toLowerCase(), urlOrToken || currentUrl);
+          if (typeof window !== 'undefined') {
+            window.localStorage.removeItem('emailForSignIn');
+          }
           showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح عبر الرابط!' : 'Successfully signed in via email link!', 'success');
         }
       }
@@ -4861,6 +4948,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isEmailVerified,
     signInWithEmail,
     signUpWithEmail,
+    sendEmailOtp,
+    verifyEmailOtp,
     sendEmailSignInLink,
     completeEmailLinkSignIn,
     resetPassword,
