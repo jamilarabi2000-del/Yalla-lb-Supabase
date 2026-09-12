@@ -17,7 +17,7 @@ import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { auth, db, functionsInstance, httpsCallable, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, onIdTokenChanged, FirebaseUser, IS_FIREBASE_ENABLED, signInWithPopup, GoogleAuthProvider, googleProvider, OAuthProvider, appleProvider, sendPasswordResetEmail, sendEmailVerification, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from '../firebase';
+import { auth, db, functionsInstance, httpsCallable, FirebaseUser, IS_FIREBASE_ENABLED, signInWithPopup, GoogleAuthProvider, googleProvider, OAuthProvider, appleProvider } from '../firebase';
 import { 
   dbLogger, 
   sanitizeFirestorePayload, 
@@ -269,6 +269,7 @@ interface ShopContextType {
   signUpWithEmail: (email: string, pass: string, phone?: string) => Promise<void>;
   sendEmailOtp?: (email: string) => Promise<void>;
   verifyEmailOtp?: (email: string, token: string, type?: 'email' | 'signup' | 'magiclink' | 'recovery') => Promise<void>;
+  resendEmailVerification?: (email?: string) => Promise<void>;
   sendEmailSignInLink: (email: string) => Promise<void>;
   completeEmailLinkSignIn: (email?: string, url?: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -2988,10 +2989,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (error) throw error;
 
-      if (IS_FIREBASE_ENABLED && auth) {
-        await sendPasswordResetEmail(auth, cleanEmail).catch(() => {});
-      }
-
       const successMsg = language === 'ar'
         ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
         : 'If an account exists for this email address, a password reset link has been sent.';
@@ -3077,6 +3074,35 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resendEmailVerification = async (email?: string) => {
+    const targetEmail = (email || firebaseUser?.email || user.email || '').trim().toLowerCase();
+    if (!targetEmail) {
+      const msg = language === 'ar' ? 'الرجاء إدخال البريد الإلكتروني' : 'Please provide an email address.';
+      showToast(msg, 'warning');
+      return;
+    }
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: targetEmail,
+        options: {
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?verified=true` : undefined,
+        }
+      });
+      if (error) throw error;
+      showToast(
+        language === 'ar'
+          ? 'تم إرسال بريد التحقق بنجاح! يرجى مراجعة صندوق الوارد.'
+          : 'Verification email sent successfully! Please check your inbox.',
+        'success'
+      );
+    } catch (err: any) {
+      console.error("[ShopContext] resendEmailVerification error:", err);
+      showToast(err.message || 'Failed to resend verification email.', 'warning');
+      throw err;
+    }
+  };
+
   const signUpWithEmail = async (email: string, pass: string, phone?: string) => {
     // Check phone uniqueness before creating the auth record if phone is provided
     const targetPhone = phone || (() => {
@@ -3158,17 +3184,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Sync Firebase Auth in background if enabled for dual-stack transition
-      if (IS_FIREBASE_ENABLED && auth) {
-        createUserWithEmailAndPassword(auth, cleanEmail, pass)
-          .then((userCredential) => {
-            if (userCredential?.user) {
-              sendEmailVerification(userCredential.user).catch(() => {});
-            }
-          })
-          .catch(() => {});
-      }
-
       if (supaAuthData.user && !supaAuthData.session) {
         showToast(
           language === 'ar'
@@ -3215,13 +3230,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.localStorage.setItem('emailForSignIn', cleanEmail);
       }
 
-      if (IS_FIREBASE_ENABLED && auth) {
-        sendSignInLinkToEmail(auth, cleanEmail, {
-          url: `${window.location.origin}/account?emailSignIn=true`,
-          handleCodeInApp: true,
-        }).catch(() => {});
-      }
-
       const successMsg = language === 'ar'
         ? `تم إرسال رابط الدخول الآمن إلى ${cleanEmail}! تحقق من صندوق بريدك الإلكتروني.`
         : `Secure sign-in link sent to ${cleanEmail}! Please check your email inbox.`;
@@ -3261,24 +3269,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح عبر الرابط!' : 'Successfully signed in via email link!', 'success');
         return;
       }
-
-      // Check Firebase fallback if present
-      if (IS_FIREBASE_ENABLED && auth && isSignInWithEmailLink(auth, urlOrToken || currentUrl)) {
-        if (!email && typeof window !== 'undefined') {
-          email = window.prompt(
-            language === 'ar'
-              ? 'يرجى تأكيد بريدك الإلكتروني لإتمام تسجيل الدخول:'
-              : 'Please enter your email to complete sign-in:'
-          ) || '';
-        }
-        if (email) {
-          await signInWithEmailLink(auth, email.trim().toLowerCase(), urlOrToken || currentUrl);
-          if (typeof window !== 'undefined') {
-            window.localStorage.removeItem('emailForSignIn');
-          }
-          showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح عبر الرابط!' : 'Successfully signed in via email link!', 'success');
-        }
-      }
     } catch (error: any) {
       console.error("[ShopContext] completeEmailLinkSignIn error:", error);
       let msg = error.message || 'Sign in link is invalid or has expired.';
@@ -3299,13 +3289,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         throw error;
-      }
-
-      // Background Firebase Auth sign-in if enabled
-      if (IS_FIREBASE_ENABLED && auth) {
-        signInWithEmailAndPassword(auth, cleanEmail, pass)
-          .then(cred => cred?.user?.getIdToken(true))
-          .catch(() => {});
       }
 
       showToast('Successfully signed in!', 'success');
@@ -3333,9 +3316,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOutUser = async () => {
     try {
       await supabase.auth.signOut();
-      if (IS_FIREBASE_ENABLED && auth) {
-        await signOut(auth).catch(() => {});
-      }
       setFirebaseUser(null);
       setUser(INITIAL_USER);
       setIsAdminUser(false);
@@ -4950,6 +4930,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUpWithEmail,
     sendEmailOtp,
     verifyEmailOtp,
+    resendEmailVerification,
     sendEmailSignInLink,
     completeEmailLinkSignIn,
     resetPassword,

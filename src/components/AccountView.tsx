@@ -6,7 +6,6 @@ import { OrderHistory } from './OrderHistory';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { SellerDashboard } from './SellerDashboard';
-import { sendEmailVerification } from '../firebase';
 import { validatePassword } from '../lib/passwordPolicy';
 import { OTPModal } from './OTPModal';
 import { PhoneAuthModal } from './PhoneAuthModal';
@@ -53,7 +52,8 @@ export const AccountView: React.FC = () => {
     signInWithEmail,
     signUpWithEmail,
     sendEmailSignInLink,
-    resetPassword
+    resetPassword,
+    resendEmailVerification
   } = useShop();
 
   const [activeAccountTab, setActiveAccountTab] = useState<'orders' | 'wishlist' | 'profile'>('orders');
@@ -123,15 +123,10 @@ export const AccountView: React.FC = () => {
     if (!firebaseUser) return;
     setIsSendingVerification(true);
     try {
-      await sendEmailVerification(firebaseUser);
-      showToast(
-        language === 'ar'
-          ? 'تم إرسال بريد التحقق بنجاح! يرجى مراجعة صندوق الوارد.'
-          : 'Verification email sent successfully! Please check your inbox.',
-        'success'
-      );
+      if (resendEmailVerification) {
+        await resendEmailVerification(firebaseUser.email || undefined);
+      }
     } catch (err: any) {
-      showToast(err.message || 'Failed to send verification email.', 'warning');
     } finally {
       setIsSendingVerification(false);
     }
@@ -531,17 +526,10 @@ export const AccountView: React.FC = () => {
                   type="button"
                   onClick={async () => {
                     const targetEmail = firebaseUser?.email || user?.email;
-                    if (targetEmail && firebaseUser) {
+                    if (targetEmail && resendEmailVerification) {
                       try {
-                        await sendEmailVerification(firebaseUser);
-                        showToast(
-                          language === 'ar'
-                            ? 'تم إرسال رابط التفعيل! يرجى التحقق من بريدك الإلكتروني.'
-                            : 'Verification link sent! Please check your inbox.',
-                          'success'
-                        );
+                        await resendEmailVerification(targetEmail);
                       } catch (err: any) {
-                        showToast(`Failed to send verification: ${err.message}`, 'warning');
                       }
                     }
                   }}
