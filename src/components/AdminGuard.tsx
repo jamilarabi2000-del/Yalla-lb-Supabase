@@ -1,20 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { Lock, AlertCircle, Loader2, KeyRound, ShieldAlert, X, Mail, CheckCircle2, RefreshCw, ArrowRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import {
-  auth,
   functionsInstance,
   httpsCallable,
 } from '../firebase';
-import {
-  signInWithEmailAndPassword,
-  sendEmailVerification,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-} from 'firebase/auth';
 import {
   isMfaSessionValid,
   setAdminMfaSession,
@@ -31,7 +22,7 @@ type AuthMode = 'login' | 'email_link_sent' | 'verify_email_notice';
 const EMAIL_LINK_KEY = 'yallalb_admin_email_for_signin';
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const { authStatus, firebaseUser } = useShop();
+  const { authStatus, firebaseUser, signOutUser } = useShop();
   const [mode, setMode] = useState<AuthMode>('login');
   const [loginMethod, setLoginMethod] = useState<'password' | 'email_link'>('password');
   const [email, setEmail] = useState('');
@@ -43,7 +34,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const [emailVerifSent, setEmailVerifSent] = useState(false);
   const [isSendingVerifEmail, setIsSendingVerifEmail] = useState(false);
 
-  // High-Risk Step-Up Modal State (Firebase Native Re-Authentication)
+  // High-Risk Step-Up Modal State (Re-Authentication)
   const [showStepUpModal, setShowStepUpModal] = useState(false);
   const [stepUpPassword, setStepUpPassword] = useState('');
   const [stepUpError, setStepUpError] = useState<string | null>(null);
@@ -52,53 +43,32 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   const [isMfaVerified, setIsMfaVerified] = useState<boolean>(() => isMfaSessionValid(firebaseUser?.uid));
 
-  // Handle Firebase Native Email Link Sign-In Completion on mount
+  // Handle Email Link Sign-In Completion on mount
   useEffect(() => {
     const handleEmailLinkCompletion = async () => {
       try {
-        if (isSignInWithEmailLink(auth, window.location.href)) {
-          setIsSubmitting(true);
-          let savedEmail = window.localStorage.getItem(EMAIL_LINK_KEY);
-          if (!savedEmail && auth.currentUser?.email) {
-            savedEmail = auth.currentUser.email;
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) {
+          const user = data.session.user;
+          // Check admin profile role
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          const isUserAdmin = profile?.role === 'admin';
+
+          if (!isUserAdmin) {
+            setLoginError('This account does not have administrator privileges.');
+            await supabase.auth.signOut();
+            setIsSubmitting(false);
+            return;
           }
-          if (!savedEmail) {
-            savedEmail = window.prompt('Please provide your administrator email for confirmation:');
-          }
 
-          if (savedEmail) {
-            const userCredential = await signInWithEmailLink(auth, savedEmail, window.location.href);
-            window.localStorage.removeItem(EMAIL_LINK_KEY);
-
-            // Clean up URL query string
-            window.history.replaceState({}, document.title, window.location.pathname);
-
-            // Check admin claim & record step-up
-            const idTokenResult = await userCredential.user.getIdTokenResult(true);
-            const isUserAdmin = Boolean(idTokenResult.claims && (idTokenResult.claims as any).admin === true);
-
-            if (!isUserAdmin) {
-              setLoginError('This account does not have administrator privileges.');
-              await auth.signOut();
-              setIsSubmitting(false);
-              return;
-            }
-
-            // Record server-authoritative step-up
-            try {
-              const recordStepUpFn = httpsCallable<void, { success: boolean }>(
-                functionsInstance,
-                'recordAdminStepUp'
-              );
-              await recordStepUpFn();
-            } catch (err) {
-              console.warn('[AdminGuard] Step-up record notice:', err);
-            }
-
-            setAdminMfaSession(userCredential.user.uid);
-            setIsMfaVerified(true);
-            setMode('login');
-          }
+          setAdminMfaSession(user.id);
+          setIsMfaVerified(true);
+          setMode('login');
         }
       } catch (err: any) {
         console.error('[AdminGuard Email Link Error]:', err);
@@ -111,7 +81,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     handleEmailLinkCompletion();
   }, []);
 
-  // Sync session state when firebaseUser changes
+  // Sync session state when user changes
   useEffect(() => {
     if (firebaseUser?.uid) {
       setIsMfaVerified(isMfaSessionValid(firebaseUser.uid));
@@ -137,7 +107,8 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       setStepUpError('Please enter your administrator password to confirm.');
       return;
     }
-    if (!auth.currentUser || !auth.currentUser.email) {
+    const currentEmail = firebaseUser?.email;
+    if (!firebaseUser || !currentEmail) {
       setStepUpError('No active administrator session.');
       return;
     }
@@ -145,18 +116,26 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setIsStepUpVerifying(true);
     setStepUpError(null);
     try {
-      // Re-authenticate natively with Firebase
-      const credential = EmailAuthProvider.credential(auth.currentUser.email, stepUpPassword);
-      await reauthenticateWithCredential(auth.currentUser, credential);
+      // Re-authenticate natively with Supabase Password Sign-in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: currentEmail,
+        password: stepUpPassword,
+      });
 
-      // Record authoritative step-up on server
-      const recordStepUpFn = httpsCallable<void, { success: boolean }>(
-        functionsInstance,
-        'recordAdminStepUp'
-      );
-      await recordStepUpFn();
+      if (error) throw error;
 
-      setAdminMfaSession(auth.currentUser.uid);
+      // Record authoritative step-up on server if available
+      try {
+        const recordStepUpFn = httpsCallable<void, { success: boolean }>(
+          functionsInstance,
+          'recordAdminStepUp'
+        );
+        await recordStepUpFn();
+      } catch (err) {
+        console.warn('[AdminGuard] Step-up record notice:', err);
+      }
+
+      setAdminMfaSession(firebaseUser.uid);
       setIsMfaVerified(true);
       setShowStepUpModal(false);
 
@@ -166,7 +145,11 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       }
     } catch (err: any) {
       console.warn('Step-up verification failed:', err?.message || err);
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      if (
+        err.message?.toLowerCase().includes('invalid login credentials') ||
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/invalid-credential'
+      ) {
         setStepUpError('Incorrect administrator password.');
       } else {
         setStepUpError(err?.message || 'Step-up verification failed.');
@@ -176,7 +159,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     }
   };
 
-  // Primary Sign In Handler (Email/Password OR Firebase Native Email Link)
+  // Primary Sign In Handler (Email/Password OR Supabase Email Link / OTP)
   const handlePrimarySignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
@@ -188,37 +171,51 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
     try {
       if (loginMethod === 'email_link') {
-        // Firebase Native Email Sign-In Link
-        const actionCodeSettings = {
-          url: `${window.location.origin}${window.location.pathname}?adminAuth=emailLink`,
-          handleCodeInApp: true,
-        };
-        await sendSignInLinkToEmail(auth, email.trim(), actionCodeSettings);
+        // Supabase Native Email Sign-In Link / OTP
+        const { error } = await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: {
+            emailRedirectTo: `${window.location.origin}${window.location.pathname}?adminAuth=emailLink`,
+          },
+        });
+        if (error) throw error;
         window.localStorage.setItem(EMAIL_LINK_KEY, email.trim());
         setMode('email_link_sent');
       } else {
-        // Firebase Native Email & Password Sign-In
+        // Supabase Email & Password Sign-In
         if (!password) {
           setLoginError('Please enter your administrator password.');
           setIsSubmitting(false);
           return;
         }
 
-        const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
-        // Step 1: Check admin custom claims
-        const idTokenResult = await userCredential.user.getIdTokenResult(true);
-        const isUserAdmin = Boolean(idTokenResult.claims && (idTokenResult.claims as any).admin === true);
+        if (error) throw error;
+        if (!data.user) throw new Error('No user returned from sign in.');
+
+        // Step 1: Check admin profile role
+        const { data: profile, error: profError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        const isUserAdmin = profile?.role === 'admin';
 
         if (!isUserAdmin) {
           setLoginError('This account does not have administrator privileges.');
-          await auth.signOut();
+          await supabase.auth.signOut();
           setIsSubmitting(false);
           return;
         }
 
-        // Step 2: Ensure administrator email is verified
-        if (!userCredential.user.emailVerified) {
+        // Step 2: Ensure administrator email is confirmed
+        const isEmailVerified = Boolean(data.user.email_confirmed_at || data.user.confirmed_at);
+        if (!isEmailVerified) {
           setMode('verify_email_notice');
           setIsSubmitting(false);
           return;
@@ -235,12 +232,13 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           console.warn('[AdminGuard] Step-up record notice:', err);
         }
 
-        setAdminMfaSession(userCredential.user.uid);
+        setAdminMfaSession(data.user.id);
         setIsMfaVerified(true);
       }
     } catch (err: any) {
       console.error('[Admin Sign-In Error]:', err);
       if (
+        err.message?.toLowerCase().includes('invalid login credentials') ||
         err.code === 'auth/invalid-credential' ||
         err.code === 'auth/user-not-found' ||
         err.code === 'auth/wrong-password'
@@ -257,13 +255,20 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   };
 
   const handleSendVerificationEmail = async () => {
-    if (!auth.currentUser) return;
+    if (!firebaseUser?.email) return;
     setIsSendingVerifEmail(true);
     try {
-      await sendEmailVerification(auth.currentUser);
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: firebaseUser.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/admin?verified=true`,
+        }
+      });
+      if (error) throw error;
       setEmailVerifSent(true);
     } catch (err: any) {
-      console.error('Failed to send verification email via Firebase:', err);
+      console.error('Failed to send verification email via Supabase:', err);
     } finally {
       setIsSendingVerifEmail(false);
     }
@@ -342,12 +347,12 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           <div className="space-y-2">
             <h1 className="text-xl font-bold text-slate-900">Email Verification Required</h1>
             <p className="text-xs text-slate-600 leading-relaxed">
-              To protect administrative access, your administrator email address must be verified via Firebase Authentication.
+              To protect administrative access, your administrator email address must be verified.
             </p>
           </div>
 
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-3">
-            <p className="font-mono text-slate-800 font-semibold">{auth.currentUser?.email}</p>
+            <p className="font-mono text-slate-800 font-semibold">{firebaseUser?.email}</p>
             {emailVerifSent ? (
               <div className="flex items-center justify-center gap-1.5 text-emerald-700 font-medium pt-1">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -361,7 +366,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                 className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSendingVerifEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                <span>Send Firebase Verification Email</span>
+                <span>Send Verification Email</span>
               </button>
             )}
           </div>
@@ -370,9 +375,10 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             <button
               type="button"
               onClick={async () => {
-                if (auth.currentUser) {
-                  await auth.currentUser.reload();
-                  if (auth.currentUser.emailVerified) {
+                const { data } = await supabase.auth.getUser();
+                if (data.user) {
+                  const isEmailVerified = Boolean(data.user.email_confirmed_at || data.user.confirmed_at);
+                  if (isEmailVerified) {
                     try {
                       const recordStepUpFn = httpsCallable<void, { success: boolean }>(
                         functionsInstance,
@@ -382,7 +388,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                     } catch (err) {
                       console.warn('[AdminGuard] Step-up record notice:', err);
                     }
-                    setAdminMfaSession(auth.currentUser.uid);
+                    setAdminMfaSession(data.user.id);
                     setIsMfaVerified(true);
                     setMode('login');
                   } else {
@@ -398,8 +404,8 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
             <button
               type="button"
-              onClick={() => {
-                auth.signOut();
+              onClick={async () => {
+                await signOutUser();
                 setMode('login');
               }}
               className="w-full py-2 px-4 text-xs font-semibold text-slate-500 hover:text-slate-700"
@@ -537,10 +543,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               type="button"
               onClick={async (e) => {
                 e.stopPropagation();
-                if (auth.currentUser) {
-                  await auth.currentUser.getIdToken(true);
-                  window.location.reload();
-                }
+                window.location.reload();
               }}
               className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all cursor-pointer"
             >
@@ -548,8 +551,8 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             </button>
             <button
               type="button"
-              onClick={() => {
-                auth.signOut();
+              onClick={async () => {
+                await signOutUser();
                 window.location.reload();
               }}
               className="w-full py-3 px-4 bg-white border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700 rounded-xl font-bold transition-all cursor-pointer"
@@ -592,7 +595,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                 className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSendingVerifEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                <span>Send Firebase Verification Email</span>
+                <span>Send Verification Email</span>
               </button>
             )}
           </div>
@@ -601,9 +604,10 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             <button
               type="button"
               onClick={async () => {
-                if (auth.currentUser) {
-                  await auth.currentUser.reload();
-                  if (auth.currentUser.emailVerified) {
+                const { data } = await supabase.auth.getUser();
+                if (data.user) {
+                  const isEmailVerified = Boolean(data.user.email_confirmed_at || data.user.confirmed_at);
+                  if (isEmailVerified) {
                     try {
                       const recordStepUpFn = httpsCallable<void, { success: boolean }>(
                         functionsInstance,
@@ -613,7 +617,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                     } catch (err) {
                       console.warn('[AdminGuard] Step-up record notice:', err);
                     }
-                    setAdminMfaSession(auth.currentUser.uid);
+                    setAdminMfaSession(data.user.id);
                     setIsMfaVerified(true);
                   } else {
                     setLoginError('Email is still unverified.');
@@ -628,9 +632,9 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 clearAdminMfaSession(firebaseUser?.uid);
-                auth.signOut();
+                await signOutUser();
               }}
               className="w-full py-2 px-4 text-xs font-semibold text-slate-500 hover:text-slate-700"
             >
@@ -675,7 +679,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              This high-risk action requires step-up authentication. Please enter your administrator password for <span className="font-mono font-semibold text-slate-800">{auth.currentUser?.email}</span>.
+              This high-risk action requires step-up authentication. Please enter your administrator password for <span className="font-mono font-semibold text-slate-800">{firebaseUser?.email}</span>.
             </p>
 
             <form autoComplete="off" onSubmit={handleStepUpSubmit} className="space-y-4">

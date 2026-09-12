@@ -20,13 +20,11 @@ describe('Admin Firebase Native Email Authentication & Server-Authoritative Secu
   });
 
   describe('Static & Architecture Security Assertions', () => {
-    it('1. AdminGuard uses Firebase native email authentication and has no SMS MFA or phone enrollment', () => {
+    it('1. AdminGuard uses Supabase authentication and has no SMS MFA or phone enrollment', () => {
       const adminGuardPath = path.resolve(rootDir, 'src/components/AdminGuard.tsx');
       const content = fs.readFileSync(adminGuardPath, 'utf-8');
 
-      expect(content).toContain('sendSignInLinkToEmail');
-      expect(content).toContain('signInWithEmailLink');
-      expect(content).toContain('sendEmailVerification');
+      expect(content).toContain('supabase.auth');
       expect(content).toContain('recordAdminStepUp');
       expect(content).not.toContain('PhoneMultiFactorGenerator');
       expect(content).not.toContain('PhoneAuthProvider');

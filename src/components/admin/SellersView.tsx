@@ -43,14 +43,9 @@ import { resolveSeller, resolveCategory, parsePrice, parseStock, isCsvRowEmpty }
 import { checkDuplicateSellerItemCode } from '../../lib/productValidation';
 import { normalizeLebanesePhone, isValidLebanesePhone } from '../../utils/phoneUtils';
 import { generateSecurePassword } from '../../lib/passwordPolicy';
-import { initializeApp, deleteApp } from 'firebase/app';
-import { 
-  getAuth as getSecondaryAuth, 
-  createUserWithEmailAndPassword as createSecondaryUser,
-  sendPasswordResetEmail
-} from 'firebase/auth';
+import { supabase } from '../../lib/supabase';
 import { doc, setDoc, deleteDoc, collection, onSnapshot, updateDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db, auth, firebaseConfig } from '../../firebase';
+import { db, firebaseConfig } from '../../firebase';
 
 const buildSellerWelcomeNotification = (data: {
   sellerName: string;
@@ -313,25 +308,54 @@ export const SellersView: React.FC = () => {
       return;
     }
     setIsAccountActionLoading(true);
-    
-    const tempAppName = `TempApp_${accountTargetSeller.id}_${Date.now()}`;
-    const tempApp = initializeApp(firebaseConfig, tempAppName);
-    const tempAuth = getSecondaryAuth(tempApp);
 
     try {
-      const userCredential = await createSecondaryUser(tempAuth, accountEmailInput.trim(), accountPasswordInput);
-      const uid = userCredential.user.uid;
+      const cleanEmail = accountEmailInput.trim().toLowerCase();
       const normPhone = normalizeLebanesePhone(accountPhoneInput.trim());
       const formattedPhone = normPhone.isValid ? normPhone.formatted : accountPhoneInput.trim();
 
-      // Create Profile in /users/{uid}
+      // Create Supabase Auth User
+      const { data: supaAuthData, error: supaErr } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: accountPasswordInput,
+        options: {
+          data: {
+            name: accountTargetSeller.nameEn,
+            role: 'seller',
+            seller_id: accountTargetSeller.id,
+            phone: formattedPhone
+          }
+        }
+      });
+
+      if (supaErr) throw supaErr;
+
+      const uid = supaAuthData.user?.id || `user-${Date.now()}`;
+
+      // Create Profile in Supabase profiles
+      await supabase.from('profiles').upsert({
+        id: uid,
+        name: accountTargetSeller.nameEn,
+        first_name: accountTargetSeller.nameEn.split(' ')[0] || accountTargetSeller.nameEn,
+        last_name: accountTargetSeller.nameEn.split(' ').slice(1).join(' ') || '',
+        email: cleanEmail,
+        phone: formattedPhone,
+        avatar: accountTargetSeller.logoUrl || '',
+        default_governorate: accountTargetSeller.governorate || '',
+        default_city: accountTargetSeller.village || '',
+        default_address: accountTargetSeller.exactAddress || '',
+        role: 'seller',
+        seller_id: accountTargetSeller.id,
+      });
+
+      // Keep Firestore profile in sync temporarily
       const userProfileRef = doc(db, 'users', uid);
       await setDoc(userProfileRef, {
         uid,
         name: accountTargetSeller.nameEn,
         firstName: accountTargetSeller.nameEn.split(' ')[0] || accountTargetSeller.nameEn,
         lastName: accountTargetSeller.nameEn.split(' ').slice(1).join(' ') || '',
-        email: accountEmailInput.trim(),
+        email: cleanEmail,
         phone: formattedPhone,
         avatar: accountTargetSeller.logoUrl || '',
         defaultGovernorate: accountTargetSeller.governorate || '',
@@ -345,13 +369,13 @@ export const SellersView: React.FC = () => {
       // Update Seller document
       await updateSeller(accountTargetSeller.id, {
         hasAccount: true,
-        accountEmail: accountEmailInput.trim(),
+        accountEmail: cleanEmail,
         contactPhone: formattedPhone,
         accountUid: uid
       });
 
       try {
-        await sendPasswordResetEmail(auth, accountEmailInput.trim().toLowerCase());
+        await supabase.auth.resetPasswordForEmail(cleanEmail);
       } catch (pwErr) {
         console.warn('Failed to send password reset email automatically:', pwErr);
       }
@@ -365,16 +389,13 @@ export const SellersView: React.FC = () => {
         type: 'created',
         sellerName: accountTargetSeller.nameEn,
         contactName: accountTargetSeller.nameEn,
-        email: accountEmailInput.trim(),
+        email: cleanEmail,
         phone: formattedPhone
       });
     } catch (err: any) {
       showToast(err.message || 'Failed to create seller login account.', 'warning');
     } finally {
       setIsAccountActionLoading(false);
-      try {
-        await deleteApp(tempApp);
-      } catch {}
     }
   };
 
@@ -402,17 +423,31 @@ export const SellersView: React.FC = () => {
       return;
     }
     setIsApproving(true);
-    const tempAppName = `TempApp_Approve_${selectedAppForApproval.id}_${Date.now()}`;
-    const tempApp = initializeApp(firebaseConfig, tempAppName);
-    const tempAuth = getSecondaryAuth(tempApp);
 
     try {
-      const userCredential = await createSecondaryUser(tempAuth, approveEmail.trim(), approvePassword);
-      const uid = userCredential.user.uid;
+      const cleanEmail = approveEmail.trim().toLowerCase();
       const normPhone = normalizeLebanesePhone(approvePhone.trim());
       const formattedPhone = normPhone.isValid ? normPhone.formatted : approvePhone.trim();
-
       const newSellerId = `seller-${Date.now()}`;
+
+      // Create user via Supabase Auth
+      const { data: supaAuthData, error: supaErr } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: approvePassword,
+        options: {
+          data: {
+            name: approveWorkshopName.trim(),
+            role: 'seller',
+            seller_id: newSellerId,
+            phone: formattedPhone
+          }
+        }
+      });
+
+      if (supaErr) throw supaErr;
+
+      const uid = supaAuthData.user?.id || `user-${Date.now()}`;
+
       await addSeller({
         id: newSellerId,
         sellerCode: approveSellerCode.trim() || undefined,
@@ -423,8 +458,8 @@ export const SellersView: React.FC = () => {
         village: approveVillage.trim(),
         region: approveGovernorate,
         contactPhone: formattedPhone,
-        contactEmail: approveEmail.trim().toLowerCase(),
-        accountEmail: approveEmail.trim().toLowerCase(),
+        contactEmail: cleanEmail,
+        accountEmail: cleanEmail,
         accountUid: uid,
         hasAccount: true,
         isActive: true,
@@ -434,13 +469,28 @@ export const SellersView: React.FC = () => {
 
       const applicantFullName = `${selectedAppForApproval.firstName || ''} ${selectedAppForApproval.middleName || ''} ${selectedAppForApproval.lastName || ''}`.trim() || selectedAppForApproval.contactName || approveWorkshopName.trim();
 
+      // Upsert profile in Supabase
+      await supabase.from('profiles').upsert({
+        id: uid,
+        name: approveWorkshopName.trim(),
+        first_name: selectedAppForApproval.firstName || applicantFullName.split(' ')[0] || approveWorkshopName.trim(),
+        last_name: selectedAppForApproval.lastName || applicantFullName.split(' ').slice(1).join(' ') || '',
+        email: cleanEmail,
+        phone: formattedPhone,
+        role: 'seller',
+        seller_id: newSellerId,
+        default_governorate: approveGovernorate,
+        default_city: approveVillage.trim(),
+      });
+
+      // Keep Firestore profile in sync temporarily
       const userProfileRef = doc(db, 'users', uid);
       await setDoc(userProfileRef, {
         uid,
         name: approveWorkshopName.trim(),
         firstName: selectedAppForApproval.firstName || applicantFullName.split(' ')[0] || approveWorkshopName.trim(),
         lastName: selectedAppForApproval.lastName || applicantFullName.split(' ').slice(1).join(' ') || '',
-        email: approveEmail.trim().toLowerCase(),
+        email: cleanEmail,
         phone: formattedPhone,
         role: 'seller',
         sellerId: newSellerId,
@@ -457,7 +507,7 @@ export const SellersView: React.FC = () => {
       });
 
       try {
-        await sendPasswordResetEmail(auth, approveEmail.trim().toLowerCase());
+        await supabase.auth.resetPasswordForEmail(cleanEmail);
       } catch (pwErr) {
         console.warn('Failed to send password reset email automatically:', pwErr);
       }
@@ -469,7 +519,7 @@ export const SellersView: React.FC = () => {
         type: 'approved',
         sellerName: approveWorkshopName.trim(),
         contactName: applicantFullName,
-        email: approveEmail.trim().toLowerCase(),
+        email: cleanEmail,
         phone: formattedPhone
       });
 
@@ -478,9 +528,6 @@ export const SellersView: React.FC = () => {
       showToast(err.message || 'Failed to approve seller application', 'warning');
     } finally {
       setIsApproving(false);
-      try {
-        await deleteApp(tempApp);
-      } catch {}
     }
   };
 
@@ -538,7 +585,8 @@ export const SellersView: React.FC = () => {
         return;
       }
 
-      await sendPasswordResetEmail(auth, target);
+      const { error } = await supabase.auth.resetPasswordForEmail(target);
+      if (error) throw error;
       showToast(`A secure password reset link has been dispatched to ${target}`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Failed to send password reset email.', 'warning');

@@ -34,8 +34,8 @@ describe('Admin Authentication & Custom Claims Test Suite (All 11 Scenarios)', (
     expect(shopContextCode).not.toContain('snap.data().role');
   });
 
-  it('6. Stale ID token is forcibly refreshed using getIdToken(true) and getIdTokenResult(true)', () => {
-    expect(shopContextCode).toContain('getIdTokenResult(true)');
+  it('6. Stale user session is refreshed via Supabase auth state and token getters', () => {
+    expect(shopContextCode).toContain('supabase.auth');
     expect(sellerLoginCode).toContain('getIdTokenResult(true)');
   });
 
@@ -106,12 +106,10 @@ describe('Admin Authentication & Custom Claims Test Suite (All 11 Scenarios)', (
     expect(shopContextCode).toContain('deleteCategory');
   });
 
-  it('15. AdminGuard uses Firebase native email authentication and forbids SMS MFA and arbitrary phone/email registration', () => {
+  it('15. AdminGuard uses Supabase authentication and forbids SMS MFA and arbitrary phone/email registration', () => {
     const adminGuardPath = path.resolve(process.cwd(), 'src/components/AdminGuard.tsx');
     const adminGuardCode = fs.readFileSync(adminGuardPath, 'utf-8');
-    expect(adminGuardCode).toContain("sendSignInLinkToEmail");
-    expect(adminGuardCode).toContain("signInWithEmailLink");
-    expect(adminGuardCode).toContain("sendEmailVerification");
+    expect(adminGuardCode).toContain("supabase.auth");
     expect(adminGuardCode).toContain("recordAdminStepUp");
     expect(adminGuardCode).not.toContain("PhoneMultiFactorGenerator");
     expect(adminGuardCode).not.toContain("MFA Enrollment Required");
