@@ -17,6 +17,12 @@ import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 import { supabase } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { 
+  supabaseCatalogService, 
+  supabaseUserDataService, 
+  supabaseOrderService, 
+  supabaseCmsService 
+} from '../services';
 import { auth, db, functionsInstance, httpsCallable, FirebaseUser, IS_FIREBASE_ENABLED, signInWithPopup, GoogleAuthProvider, googleProvider, OAuthProvider, appleProvider } from '../firebase';
 import { 
   dbLogger, 
@@ -1300,6 +1306,53 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('yallalb_regions', JSON.stringify(regions));
     } catch {}
   }, [regions]);
+
+  // Supabase Initial Catalog, Categories, Sellers, and CMS Hydration
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateFromSupabase = async () => {
+      try {
+        const [supabaseCategories, supabaseRegions, supabaseSellers, supabaseProds, supabaseBlocks, supabaseContent] = await Promise.all([
+          supabaseCatalogService.fetchCategories(),
+          supabaseCatalogService.fetchRegions(),
+          supabaseCatalogService.fetchSellers(),
+          supabaseCatalogService.fetchProducts({ isAdmin: isAdminUser, isSeller: isSellerUser, sellerId }),
+          supabaseCmsService.getPublicCmsBlocks(),
+          supabaseCmsService.fetchSiteContent(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (supabaseCategories && supabaseCategories.length > 0) {
+          setCategories(supabaseCategories);
+        }
+        if (supabaseRegions && supabaseRegions.length > 0) {
+          setRegions(supabaseRegions);
+        }
+        if (supabaseSellers && supabaseSellers.length > 0) {
+          setSellers(supabaseSellers);
+        }
+        if (supabaseProds && supabaseProds.length > 0) {
+          setProducts(supabaseProds.map(ensureSellerItemCode));
+        }
+        if (supabaseBlocks && supabaseBlocks.length > 0) {
+          setSiteContent(prev => ({
+            ...prev,
+            customBlocks: supabaseBlocks,
+          }));
+        }
+      } catch (err) {
+        console.warn('[ShopContext] Supabase hydration notice:', err);
+      }
+    };
+
+    hydrateFromSupabase();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdminUser, isSellerUser, sellerId]);
 
   // Real-time Categories Sync from Firestore Database
   useEffect(() => {
@@ -3865,12 +3918,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     try {
-      const placeOrderFn = httpsCallable<any, any>(functionsInstance, 'placeOrder');
-
       const rawShipping = orderData.shipping || {};
       const chosenSpeed = (orderData.shipping?.deliverySpeed || 'standard') as 'standard' | 'express_beirut' | 'diaspora_air' | 'diaspora_global';
 
-      const payload = {
+      const checkoutPayload = {
         items: (orderData.items || cart).map(it => ({
           productId: it.product.id,
           quantity: Math.max(1, Math.floor(it.quantity || 1)),
@@ -3887,13 +3938,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           deliverySpeed: chosenSpeed
         },
         paymentMethod: orderData.paymentMethod || 'cod_usd',
-        ...(appliedCouponCode ? { couponCode: appliedCouponCode } : {}),
+        couponCode: appliedCouponCode || undefined,
         deliverySpeed: chosenSpeed,
         idempotencyKey: idempotencyKey,
       };
 
-      const resp = await placeOrderFn(payload);
-      const serverResult = resp.data;
+      // 1. Try Supabase Authoritative RPC Checkout
+      const supabaseRpcResult = await supabaseOrderService.checkoutCreateOrder(checkoutPayload);
+      let serverResult: any = null;
+
+      if (supabaseRpcResult && supabaseRpcResult.orderId) {
+        serverResult = supabaseRpcResult;
+      } else {
+        const placeOrderFn = httpsCallable<any, any>(functionsInstance, 'placeOrder');
+        const resp = await placeOrderFn(checkoutPayload);
+        serverResult = resp.data;
+      }
 
       const serverOrderId = serverResult?.orderId || orderId;
       const serverTrackingNumber = serverResult?.trackingNumber || trackingNumberStr;
