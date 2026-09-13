@@ -2,13 +2,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Product, CartItem, Order, UserProfile, Currency, SiteContent, SectionVisibilityConfig, CMSCustomBlock, RecentActivity, DiscountRule, ProductBundle, CategoryItem, TerroirRegion, Seller, SearchLog } from '../types';
 import { applyDiscounts } from '../lib/pricing';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
-import { INITIAL_PRODUCTS } from '../data/products';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
-import { DEFAULT_CATEGORIES } from '../data/categories';
-import { DEFAULT_SELLERS } from '../data/sellers';
 import { LEBANON_REGIONS, LBP_USD_RATE } from '../data/regions';
 import { normalizeLebanesePhone, isValidLebanesePhone } from '../utils/phoneUtils';
-import { generateIdempotencyKey, secureRandomInt, secureRandomString } from '../utils/uuid';
+import { generateIdempotencyKey, generateUuidV4, isUuid, secureRandomInt, secureRandomString } from '../utils/uuid';
 import Papa from 'papaparse';
 import { translations, Language } from '../utils/translations';
 import { resolveSeller, resolveCategory, parsePrice, parseStock, isCsvRowEmpty } from '../utils/importerResolvers';
@@ -16,49 +13,23 @@ import { checkDuplicateProductNumber, checkDuplicateDescription } from '../lib/p
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 import { supabase } from '../lib/supabase';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { User as SupabaseUser, EmailOtpType } from '@supabase/supabase-js';
 import { 
   supabaseCatalogService, 
   supabaseUserDataService, 
   supabaseOrderService, 
-  supabaseCmsService 
+  supabaseCmsService
 } from '../services';
-import { db, functionsInstance, httpsCallable, IS_FIREBASE_ENABLED } from '../firebase';
+import { CheckoutError } from '../services/supabaseOrderService';
+import { supabaseAdminService } from '../services/supabaseAdminService';
+import { supabaseCommerceService } from '../services/supabaseCommerceService';
 import { 
   dbLogger, 
-  sanitizeFirestorePayload, 
+  sanitizeDbPayload, 
   calculateObjectDiff 
 } from '../utils/dbLogger';
-import {
-  dbMonitor,
-  monitoredSetDoc,
-  monitoredGetDoc,
-  monitoredUpdateDoc,
-  monitoredDeleteDoc,
-  monitoredBatchCommit,
-  sanitizeDocumentData
-} from '../utils/databaseMonitor';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  deleteDoc, 
-  collection, 
-  collectionGroup,
-  getDocs, 
-  onSnapshot, 
-  getDocFromServer,
-  getDocFromCache,
-  writeBatch,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  runTransaction,
-  serverTimestamp,
-  or
-} from 'firebase/firestore';
+import { dbMonitor, sanitizeDocumentData } from '../utils/databaseMonitor';
+
 
 // Client-side checkout cap. MUST equal MAX_LINE_ITEMS in functions/src/placeOrder.ts,
 // which is the authoritative limit; this constant only lets the UI reject an oversized
@@ -90,7 +61,7 @@ enum OperationType {
   WRITE = 'write',
 }
 
-interface FirestoreErrorInfo {
+interface DbErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;
@@ -112,21 +83,22 @@ export interface AuthUserLike {
   photoURL?: string | null;
   user_metadata?: Record<string, any>;
   app_metadata?: Record<string, any>;
+  /** The live Supabase access token, for callers that need to present one. */
   getIdToken: (forceRefresh?: boolean) => Promise<string>;
-  getIdTokenResult: (forceRefresh?: boolean) => Promise<{
-    claims: {
-      admin?: boolean;
-      seller?: boolean;
-      sellerId?: string | null;
-      email_verified?: boolean;
-      [key: string]: any;
-    };
-  }>;
 }
 
+export type AuthUser = AuthUserLike;
+
+/**
+ * Pre-migration name for the same type, kept so existing imports resolve.
+ *
+ * Nothing about it is Firebase any more: it is an adapter over the Supabase
+ * user. Privilege comes from public.profiles and is enforced by RLS, never
+ * from this object.
+ */
 export type FirebaseUser = AuthUserLike;
 
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, userId?: string | null) {
+function handleDbError(error: unknown, operationType: OperationType, path: string | null, userId?: string | null) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errInfo = {
     error: errorMessage,
@@ -140,7 +112,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path,
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.error('[ShopContext] Database error: ', JSON.stringify(errInfo));
   return `Database error during ${operationType} on ${path || 'unknown'}: ${errorMessage}`;
 }
 
@@ -184,18 +156,41 @@ const getInitialCategory = (): string => {
   return 'all';
 };
 
+/**
+ * Cache keys for catalogue data served by Supabase.
+ *
+ * Versioned (_v2) deliberately. The previous keys hold whatever the bundled
+ * demo catalogue wrote there, and those products have slug ids rather than
+ * UUIDs; reading them back after this change would put fake products on a
+ * production storefront and non-UUID ids into carts. A new key starts empty and
+ * only ever holds rows that came from the database.
+ */
+const CATALOG_CACHE_KEYS = {
+  products: 'yallalb_products_v2',
+  categories: 'yallalb_categories_v2',
+  sellers: 'yallalb_sellers_v2',
+} as const;
+
+/** Reads a cached catalogue list. Never falls back to bundled sample data. */
+const readCachedList = <T,>(key: string): T[] => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+};
+
 const getInitialProductDetail = (): Product | null => {
   if (typeof window === 'undefined') return null;
   const path = window.location.pathname.replace(/^\/+/, '');
   if (path.startsWith('product/')) {
     const prodId = path.replace('product/', '');
-    try {
-      const saved = localStorage.getItem('yallalb_products');
-      const all = saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-      return (all as Product[]).find(p => p.id === prodId) || null;
-    } catch {
-      return INITIAL_PRODUCTS.find(p => p.id === prodId) || null;
-    }
+    // Only the cache of real database rows. A deep link to a product that is
+    // not cached resolves to null and the detail view loads it from Supabase.
+    return readCachedList<Product>(CATALOG_CACHE_KEYS.products).find(p => p.id === prodId) || null;
   }
   return null;
 };
@@ -227,6 +222,14 @@ interface ShopContextType {
   selectedProductForModal: Product | null;
   setSelectedProductForModal: (p: Product | null) => void;
   isDbSyncing: boolean;
+  /**
+   * Whether the catalogue on screen has been confirmed against Supabase.
+   * 'ready' with zero products means the shop is genuinely empty; 'error'
+   * means the read failed. The storefront must not present the second as the
+   * first — an outage is not an empty shop.
+   */
+  catalogStatus: 'loading' | 'ready' | 'error';
+  catalogError: string | null;
   hasMoreProducts: boolean;
   isFetchingMore: boolean;
   loadMoreProducts: () => Promise<void>;
@@ -269,8 +272,17 @@ interface ShopContextType {
   updateUser: (updates: Partial<UserProfile>) => Promise<void>;
   checkPhoneUniqueness: (phone: string, excludeUid?: string) => Promise<{ available: boolean; reason?: string }>;
 
-  // Firebase Auth & OTP Verification
-  firebaseUser: FirebaseUser | null;
+  // Supabase Auth & email OTP verification
+  authUser: AuthUser | null;
+  /**
+   * The same object as `authUser`, under the name the pre-migration UI used.
+   *
+   * Compatibility only. It is a plain adapter over the Supabase user and holds
+   * no signed claim: never branch on it for privilege. `isAdminUser` /
+   * `isSellerUser` come from public.profiles, and the database's RLS policies
+   * are what actually decide access.
+   */
+  firebaseUser: AuthUser | null;
   isAdminUser: boolean;
   isSellerUser: boolean;
   sellerId: string | null;
@@ -279,8 +291,8 @@ interface ShopContextType {
   authStatus: 'loading' | 'unauthenticated' | 'authenticated_non_admin' | 'authenticated_admin';
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, phone?: string) => Promise<void>;
-  sendEmailOtp?: (email: string) => Promise<void>;
-  verifyEmailOtp?: (email: string, token: string, type?: 'email' | 'signup' | 'magiclink' | 'recovery') => Promise<void>;
+  sendEmailOtp: (email: string) => Promise<void>;
+  verifyEmailOtp: (email: string, token: string, type?: 'email' | 'signup' | 'magiclink' | 'recovery') => Promise<void>;
   resendEmailVerification?: (email?: string) => Promise<void>;
   sendEmailSignInLink: (email: string) => Promise<void>;
   completeEmailLinkSignIn: (email?: string, url?: string) => Promise<void>;
@@ -392,7 +404,7 @@ export const INITIAL_USER: UserProfile = {
  */
 export function mapSafeShopUserProfile(
   data: Record<string, any>,
-  fbUser: FirebaseUser | AuthUserLike | any,
+  fbUser: AuthUser | AuthUserLike | any,
   authoritativeSellerId: string | null,
   cachedShipping?: Partial<UserProfile>,
   fallbackNames?: { firstName: string; lastName: string; name: string }
@@ -484,10 +496,20 @@ export function createAuthUserAdapter(
   profileSellerId: string | null = null,
   profileData: Record<string, any> = {}
 ): any {
+  /**
+   * Adapts a Supabase user to the shape the UI consumes.
+   *
+   * This used to also expose getIdTokenResult(), synthesizing a Firebase
+   * `claims` object ({ admin, seller, sellerId }) out of the profile. Nothing
+   * signs those values, so they were a mock of an authentication API that no
+   * longer exists — and its forced-refresh read named a `sellerId` column that
+   * profiles does not have, so the refresh silently failed. Roles are read
+   * from public.profiles by the caller instead, which is the same column
+   * is_admin() and is_seller() consult in RLS.
+   */
   const isEmailConfirmed = Boolean(supaUser.email_confirmed_at);
-  const isAdmin = profileRole === 'admin';
-  const isSeller = profileRole === 'seller';
-  const sellerIdVal = profileSellerId || null;
+  void profileRole;
+  void profileSellerId;
 
   return {
     uid: supaUser.id,
@@ -509,46 +531,12 @@ export function createAuthUserAdapter(
       const { data } = await supabase.auth.getSession();
       return data.session?.access_token || '';
     },
-    getIdTokenResult: async (_force?: boolean) => {
-      let currentAdmin = isAdmin;
-      let currentSeller = isSeller;
-      let currentSellerId = sellerIdVal;
-      let currentVerified = isEmailConfirmed;
-
-      if (_force) {
-        try {
-          const { data: latestUser } = await supabase.auth.getUser();
-          if (latestUser?.user) {
-            currentVerified = Boolean(latestUser.user.email_confirmed_at);
-            const { data: latestProfile } = await supabase
-              .from('profiles')
-              .select('role, seller_id, sellerId')
-              .eq('id', supaUser.id)
-              .maybeSingle();
-            if (latestProfile) {
-              currentAdmin = latestProfile.role === 'admin';
-              currentSeller = latestProfile.role === 'seller';
-              currentSellerId = latestProfile.seller_id || latestProfile.sellerId || null;
-            }
-          }
-        } catch {}
-      }
-
-      return {
-        claims: {
-          admin: currentAdmin,
-          seller: currentSeller,
-          sellerId: currentSellerId,
-          email_verified: currentVerified,
-        }
-      };
-    }
   };
 }
 
 export const mapUserProfile = mapSafeShopUserProfile;
 export function mapSafeUserProfile(
-  fbUser: FirebaseUser | any,
+  fbUser: AuthUser | any,
   _uid: string,
   data: Record<string, any> | undefined,
   claimSellerId: string | null
@@ -561,40 +549,28 @@ const INITIAL_ORDERS: Order[] = [];
 export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTabState] = useState<NavTab>(getInitialNavTab);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(getInitialProductDetail);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isSellerUser, setIsSellerUser] = useState(false);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
+  /**
+   * Role and email-verification state are set by the Supabase auth listener
+   * below (and by refreshUserProfile) straight from public.profiles and
+   * auth.users.email_confirmed_at. Two effects used to re-derive them here
+   * through the adapter's synthesized Firebase claims; with that mock removed
+   * there is a single source for each.
+   */
   useEffect(() => {
-    if (!firebaseUser) { setIsEmailVerified(false); return; }
-    // force refresh so a freshly-clicked verification link is picked up
-    firebaseUser.getIdTokenResult(true)
-      .then(r => setIsEmailVerified(r.claims.email_verified === true))
-      .catch(() => setIsEmailVerified(false));
-  }, [firebaseUser]);
-
-  useEffect(() => {
-    if (firebaseUser) {
-      firebaseUser.getIdTokenResult(true) // force refresh
-        .then(result => {
-          setIsAdminUser(result.claims.admin === true);
-          setIsSellerUser(result.claims.seller === true);
-          setSellerId(typeof result.claims.sellerId === 'string' ? result.claims.sellerId : null);
-        })
-        .catch(() => {
-          setIsAdminUser(false);
-          setIsSellerUser(false);
-          setSellerId(null);
-        });
-    } else {
+    if (!authUser) {
+      setIsEmailVerified(false);
       setIsAdminUser(false);
       setIsSellerUser(false);
       setSellerId(null);
     }
-  }, [firebaseUser]);
+  }, [authUser]);
 
   const [isLocalAdminUnlocked, setIsLocalAdminUnlockedState] = useState<boolean>(() => {
     try {
@@ -622,20 +598,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasSeededProductsRef = useRef<boolean>(false);
   const hasSeededOrdersRef = useRef<boolean>(false);
 
-  // Test Firestore Connection on Boot
+  // Verify the database is reachable on boot.
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
-    async function testConnection() {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-        console.log("[ShopContext] Firebase Firestore connection verified.");
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.warn("[ShopContext] Please check your Firebase configuration or network connection.");
-        }
+    supabaseAdminService.ping().then((ok) => {
+      if (!ok) {
+        console.error('[ShopContext] Supabase is not reachable. Check the project URL, key and network.');
       }
-    }
-    testConnection();
+    });
   }, []);
 
   // UI state
@@ -651,9 +620,48 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const lastVisibleDocRef = useRef<any>(null);
 
-  // Guest cart/wishlist storage helpers.
-  // Authenticated users persist only to Supabase; guests persist only to localStorage.
-  const getGuestStorage = (key: string, legacyKey?: string) => {
+  // Core catalogue state. Starts from the cache of previously fetched rows, or
+  // empty — never from the bundled demo catalogue. An empty database must show
+  // an empty storefront, not a fake one.
+  const [products, setProducts] = useState<Product[]>(() =>
+    readCachedList<Product>(CATALOG_CACHE_KEYS.products).map(ensureSellerItemCode)
+  );
+
+  /**
+   * Whether the catalogue on screen has been confirmed against Supabase.
+   *
+   * 'loading' until the first read settles, so the storefront can say "loading"
+   * rather than "no products" while it waits; 'error' when the read failed, so
+   * it can say the catalogue could not be loaded instead of implying the shop
+   * is empty. These are three different things and the UI must not conflate
+   * them.
+   */
+  const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  /**
+   * Who the cart/wishlist in localStorage belongs to: a Supabase user id, or
+   * 'guest'. Without this, signing out of account A and into account B on the
+   * same browser showed B account A's cart, because the local copy was adopted
+   * unconditionally. A local cart is now only adopted when it is the guest
+   * cart or already belongs to the signed-in user.
+   */
+  const LOCAL_CART_OWNER_KEY = 'yallalb_cart_owner';
+
+  /**
+   * Guest cart/wishlist storage keys.
+   *
+   * Namespaced so the local copy is unambiguously the *guest* one: an
+   * authenticated cart lives in public.carts and is never written here.
+   * `yallalb_cart` / `yallalb_wishlist` are the pre-migration keys and are
+   * migrated on first read so an existing browser does not lose its basket.
+   */
+  const GUEST_CART_KEY = 'yallalb_guest_cart';
+  const GUEST_WISHLIST_KEY = 'yallalb_guest_wishlist';
+  const LEGACY_CART_KEY = 'yallalb_cart';
+  const LEGACY_WISHLIST_KEY = 'yallalb_wishlist';
+
+  const getGuestStorage = (key: string, legacyKey?: string): string | null => {
     try {
       const current = localStorage.getItem(key);
       if (current !== null) return current;
@@ -669,25 +677,53 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   };
 
-  // Core Data States with local storage fallback
-  const [products, setProducts] = useState<Product[]>(() => {
+  const readLocalCartOwner = (): string => {
     try {
-      const saved = localStorage.getItem('yallalb_products');
-      const list = saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-      return (list as Product[]).map(ensureSellerItemCode);
+      return localStorage.getItem(LOCAL_CART_OWNER_KEY) || 'guest';
     } catch {
-      return INITIAL_PRODUCTS.map(ensureSellerItemCode);
+      return 'guest';
     }
-  });
+  };
+
+  const writeLocalCartOwner = (owner: string) => {
+    try {
+      localStorage.setItem(LOCAL_CART_OWNER_KEY, owner);
+    } catch {}
+  };
 
   const [storedCart, setCart] = useState<CartItem[]>(() => {
     try {
-      const saved = getGuestStorage('yallalb_guest_cart', 'yallalb_cart');
+      const saved = getGuestStorage(GUEST_CART_KEY, LEGACY_CART_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
+
+  /**
+   * The user id whose saved cart/wishlist has been loaded from Supabase.
+   *
+   * The persistence effects below refuse to write until this matches the
+   * signed-in user. Writing before the read completes — or after it fails —
+   * would upload the local (possibly empty) cart over the row the user actually
+   * saved, destroying it.
+   *
+   * Deliberately state and not a ref: opening the gate has to re-run the
+   * persistence effects. Otherwise a guest cart carried into a brand-new
+   * account (where the read returns "no row" and so changes no state) would sit
+   * unsaved until the user next touched the cart.
+   */
+  const [cartHydratedForUserId, setCartHydratedForUserId] = useState<string | null>(null);
+
+  /**
+   * Last value successfully written to (or read from) Supabase, so the
+   * persistence effects can skip a write that would change nothing — notably
+   * the one that would otherwise fire immediately after hydration, echoing the
+   * row straight back. Only updated on a successful write, so a failed one is
+   * retried by the next cart change instead of being considered saved.
+   */
+  const lastPersistedCartRef = useRef<string | null>(null);
+  const lastPersistedWishlistRef = useRef<string | null>(null);
 
   // Live cart projection: always resolve fresh product properties from the live catalog
   const cart = useMemo<CartItem[]>(() => {
@@ -704,30 +740,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
-      const saved = getGuestStorage('yallalb_guest_wishlist', 'yallalb_wishlist');
+      const saved = getGuestStorage(GUEST_WISHLIST_KEY, LEGACY_WISHLIST_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
 
-  // Prevent cart/wishlist persistence until the authenticated user's Supabase
-  // state has been loaded. This avoids overwriting server data with stale guest data.
-  const cartSyncUserRef = useRef<string | null>(null);
-  const wishlistSyncUserRef = useRef<string | null>(null);
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    // Only load orders from local storage in offline/no-firebase mode, never in Firebase mode to prevent cross-account leak
-    if (!IS_FIREBASE_ENABLED) {
-      try {
-        const saved = localStorage.getItem('yallalb_orders');
-        return saved ? JSON.parse(saved) : INITIAL_ORDERS;
-      } catch {
-        return INITIAL_ORDERS;
-      }
-    }
-    return INITIAL_ORDERS;
-  });
+  // Orders are never seeded from localStorage: the cache is not scoped per
+  // account, so restoring it would have shown one shopper another's orders.
+  // The authoritative list is loaded from public.orders, where RLS decides
+  // which rows the signed-in user may see.
+  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
 
   const [user, setUser] = useState<UserProfile>(() => {
     try {
@@ -781,25 +805,47 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  // Real-time Recent Activity Sync from Firestore
+  // Real-time recent-activity sync from Supabase
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED || !isAdminUser) return;
-    const activityColRef = collection(db, 'recent_activity');
-    const q = query(activityColRef, orderBy('timestamp', 'desc'));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: RecentActivity[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push({ id: docSnap.id, ...docSnap.data() } as RecentActivity);
-        });
-        setRecentActivities(list.slice(0, 50));
-      },
-      (error) => {
-        console.warn("[ShopContext] Recent activities listener warning:", error);
-      }
-    );
-    return () => unsubscribe();
+    /**
+     * Recent admin activity, from public.admin_activities.
+     *
+     * Replaces an onSnapshot listener over the Firestore `recent_activity`
+     * collection. `activities_admin` is is_admin(), so a non-admin gets
+     * nothing; the table is not in the supabase_realtime publication, so the
+     * list loads on mount rather than streaming.
+     */
+    if (!isAdminUser) return;
+    let isMounted = true;
+
+    supabaseAdminService
+      .fetchActivities(200)
+      .then((rows) => {
+        if (!isMounted) return;
+        setRecentActivities(
+          rows.map((row) => ({
+            id: row.id,
+            timestamp: row.createdAt,
+            actionType: row.actionType as RecentActivity['actionType'],
+            summary: row.summary,
+            details: row.details || '',
+            // admin_activities stores actor_id, not an email: profiles_select
+            // does not let one user read another's, so the id is shown and an
+            // email is not invented.
+            adminEmail: row.actorId || '',
+            targetId: row.targetId,
+            snapshotBefore: row.snapshotBefore,
+            snapshotAfter: row.snapshotAfter,
+          }))
+        );
+      })
+      .catch((err) => {
+        console.error('[ShopContext] Failed to load recent activity:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAdminUser]);
 
   const logAdminActivity = async (
@@ -818,7 +864,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         actionType,
         summary,
         details,
-        adminEmail: firebaseUser?.email || user.email || 'anonymous-admin',
+        adminEmail: authUser?.email || user.email || 'anonymous-admin',
         ...(targetId ? { targetId } : {}),
         ...(snapshotBefore !== undefined ? { snapshotBefore } : {}),
         ...(snapshotAfter !== undefined ? { snapshotAfter } : {})
@@ -832,11 +878,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return next;
       });
 
-      if (IS_FIREBASE_ENABLED && isAdminUser) {
-        await monitoredSetDoc(doc(db, 'recent_activity', activityId), sanitizeDocumentData(newActivity), undefined, 'ShopContext:logAdminActivity').catch((err) => {
-          console.warn("[ShopContext] Non-blocking admin activity log notice:", err);
-        });
-      }
     } catch (err) {
       console.warn('[ShopContext] Failed to log admin activity:', err);
     }
@@ -858,33 +899,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const restoredProduct = act.snapshotBefore as Product;
         setProducts(prev => prev.map(p => p.id === act.targetId ? { ...restoredProduct } : p));
         try {
-          localStorage.setItem('yallalb_products', JSON.stringify(products.map(p => p.id === act.targetId ? { ...restoredProduct } : p)));
+          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products.map(p => p.id === act.targetId ? { ...restoredProduct } : p)));
         } catch {}
-        if (IS_FIREBASE_ENABLED) {
-          await monitoredSetDoc(doc(db, 'products', act.targetId), sanitizeDocumentData(restoredProduct), undefined, 'ShopContext:undoAdminActivity');
-        }
       } else if (act.actionType === 'product_add' && act.targetId) {
         setProducts(prev => prev.filter(p => p.id !== act.targetId));
-        if (IS_FIREBASE_ENABLED) {
-          await monitoredDeleteDoc(doc(db, 'products', act.targetId), 'ShopContext:undoAdminActivity');
-        }
       } else if (act.actionType === 'product_delete' && act.targetId && act.snapshotBefore) {
         const restoredProduct = act.snapshotBefore as Product;
         setProducts(prev => [...prev.filter(p => p.id !== act.targetId), restoredProduct]);
-        if (IS_FIREBASE_ENABLED) {
-          await monitoredSetDoc(doc(db, 'products', act.targetId), sanitizeDocumentData(restoredProduct), undefined, 'ShopContext:undoAdminActivity');
-        }
       } else if (act.actionType === 'product_bulk_update' && Array.isArray(act.snapshotBefore)) {
         const restoredProducts = act.snapshotBefore as Product[];
         const restoredMap = new Map(restoredProducts.map(p => [p.id, p]));
         setProducts(prev => prev.map(p => restoredMap.get(p.id) || p));
-        if (IS_FIREBASE_ENABLED) {
-          const batch = writeBatch(db);
-          restoredProducts.forEach(p => {
-            batch.set(doc(db, 'products', p.id), sanitizeDocumentData(p));
-          });
-          await batch.commit();
-        }
       } else {
         showToast('Undo is only supported for product additions, updates, and deletions.', 'warning');
         return;
@@ -893,9 +918,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const undoneTimestamp = new Date().toISOString();
       setRecentActivities(prev => prev.map(a => a.id === activityId ? { ...a, isUndone: true, undoneAt: undoneTimestamp } : a));
 
-      if (IS_FIREBASE_ENABLED) {
-        await monitoredSetDoc(doc(db, 'recent_activity', activityId), { isUndone: true, undoneAt: undoneTimestamp }, { merge: true });
-      }
 
       await logAdminActivity(
         'product_update',
@@ -945,103 +967,32 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   }, [discountRules]);
 
-  // Real-time Discounts Sync from Firestore Database
+  // Real-time discounts sync from Supabase
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
-    const discountsColRef = collection(db, 'discounts');
-    const q = isAdminUser ? discountsColRef : query(discountsColRef, where('isActive', '==', true));
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        if (snapshot.empty && !hasSeededDiscountsRef.current) {
-          hasSeededDiscountsRef.current = true;
-          const initialRules = [
-            {
-              id: 'rule-1',
-              name: 'Koura Olive Oil Special (15% Off)',
-              type: 'percentage' as const,
-              value: 15,
-              target: 'brand' as const,
-              targetValue: 'Koura, North Lebanon',
-              couponCode: 'KOURA_SEC26',
-              isActive: true
-            },
-            {
-              id: 'rule-2',
-              name: 'Checkout Extra $5 Off',
-              type: 'fixed' as const,
-              value: 5,
-              target: 'checkout' as const,
-              couponCode: 'WELCOME_SEC26',
-              isActive: true,
-              minPurchaseUSD: 30
-            }
-          ];
-          if (isAdminUser) {
-            console.log("[ShopContext] Database discounts collection is empty. Seeding initial discount rules to Firestore...");
-            try {
-              const batch = writeBatch(db);
-              initialRules.forEach(rule => {
-                const docRef = doc(db, 'discounts', rule.id);
-                const { couponCode, ...ruleWithoutCoupon } = rule;
-                batch.set(docRef, sanitizeDocumentData(ruleWithoutCoupon));
-                if (couponCode) {
-                  const couponRef = doc(db, 'coupons', rule.id);
-                  batch.set(couponRef, {
-                    discountId: rule.id,
-                    couponCode: couponCode,
-                    usageCount: 0,
-                    usedBy: []
-                  });
-                }
-              });
-              await monitoredBatchCommit(batch, initialRules.length * 2, 'discounts', 'ShopContext:AutoSeedDiscounts');
-            } catch (seedErr) {
-              console.warn("[ShopContext] Notice seeding initial discount rules (using in-memory defaults):", seedErr);
-            }
-          }
-          setDiscountRules(initialRules as DiscountRule[]);
-        } else if (!snapshot.empty) {
-          try {
-            let couponsMap = new Map();
-            if (isAdminUser) {
-              try {
-                const couponsSnap = await getDocs(collection(db, 'coupons'));
-                couponsSnap.forEach(d => {
-                  couponsMap.set(d.data().discountId || d.id, d.data());
-                });
-              } catch (couponFetchErr: any) {
-                console.warn('[ShopContext] Non-admin or limited permissions reading coupons collection:', couponFetchErr?.message || couponFetchErr);
-              }
-            }
+    /**
+     * Discount rules, from public.discount_rules.
+     *
+     * Replaces an onSnapshot listener over Firestore `discounts`.
+     * `discounts_admin` is is_admin() for ALL commands, so a customer reads an
+     * empty set. That is deliberate rather than a gap to paper over:
+     * private.checkout_create_order computes every total and applies coupons
+     * server-side, so these rules are display only, and showing a shopper a
+     * discount the server will not honour is worse than showing none.
+     */
+    let isMounted = true;
 
-            const rules: DiscountRule[] = [];
-            snapshot.forEach(docSnap => {
-              const r = docSnap.data() as DiscountRule;
-              const c = couponsMap.get(r.id);
-              if (c) {
-                (r as any).couponCode = c.couponCode;
-                (r as any).maxTotalUses = c.maxTotalUses;
-                (r as any).maxUsesPerUser = c.maxUsesPerUser;
-              }
-              rules.push(r);
-            });
-            setDiscountRules(rules);
-          } catch (err: any) {
-            console.warn('Failed to fetch coupons (falling back gracefully):', err?.message || err);
-            const rules: DiscountRule[] = [];
-            snapshot.forEach(docSnap => {
-              rules.push(docSnap.data() as DiscountRule);
-            });
-            setDiscountRules(rules);
-          }
-        }
-      },
-      (error) => {
-        console.warn("[ShopContext] Non-blocking discounts listener warning:", error);
-      }
-    );
-    return () => unsubscribe();
+    supabaseCommerceService
+      .fetchDiscountRules()
+      .then((rules) => {
+        if (isMounted) setDiscountRules(rules);
+      })
+      .catch((err) => {
+        console.error('[ShopContext] Failed to load discount rules:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAdminUser]);
 
   const addDiscountRule = async (ruleData: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
@@ -1051,22 +1002,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id
     };
     try {
-      if (IS_FIREBASE_ENABLED) {
-        const { couponCode: _c, maxTotalUses: _m, maxUsesPerUser: _u, ...safeDiscountDoc } = newRule as any;
-        await monitoredSetDoc(doc(db, 'discounts', id), sanitizeDocumentData(safeDiscountDoc), undefined, 'ShopContext:addDiscountRule');
-        if (couponCode && couponCode.trim() !== '') {
-          await monitoredSetDoc(doc(db, 'coupons', id), { 
-            discountId: id, 
-            couponCode: couponCode.trim().toUpperCase(), 
-            usageCount: 0, 
-            usedBy: [],
-            maxTotalUses: maxTotalUses || null,
-            maxUsesPerUser: maxUsesPerUser || null
-          }, undefined, 'ShopContext:addCoupon');
-        }
-      }
     } catch (err) {
-      console.error("[ShopContext] Error saving discount rule to Firestore:", err);
+      console.error("[ShopContext] Error saving discount rule to Supabase:", err);
       showToast('Failed to save discount rule to database', 'warning');
       throw err;
     }
@@ -1081,26 +1018,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedRule: DiscountRule = { ...target, ...updates };
 
     try {
-      if (IS_FIREBASE_ENABLED) {
-        const { couponCode: _c, maxTotalUses: _m, maxUsesPerUser: _u, ...safeUpdatesDoc } = updatedRule as any;
-        await monitoredSetDoc(doc(db, 'discounts', id), sanitizeDocumentData(safeUpdatesDoc), { merge: true }, 'ShopContext:updateDiscountRule');
-        if (couponCode !== undefined) {
-          if (couponCode.trim() === '') {
-            await monitoredDeleteDoc(doc(db, 'coupons', id), 'ShopContext:deleteCoupon').catch(() => {});
-          } else {
-            await monitoredSetDoc(doc(db, 'coupons', id), { 
-              discountId: id, 
-              couponCode: couponCode.trim().toUpperCase(),
-              ...(maxTotalUses !== undefined && { maxTotalUses: maxTotalUses || null }),
-              ...(maxUsesPerUser !== undefined && { maxUsesPerUser: maxUsesPerUser || null })
-            }, { merge: true }, 'ShopContext:updateCoupon');
-          }
-        }
-      }
       const ruleWithMeta = { ...updatedRule, ...(couponCode !== undefined ? { couponCode } : {}), ...(maxTotalUses !== undefined ? { maxTotalUses } : {}), ...(maxUsesPerUser !== undefined ? { maxUsesPerUser } : {}) };
       setDiscountRules(prev => prev.map(r => r.id === id ? ruleWithMeta : r));
     } catch (err) {
-      console.error("[ShopContext] Error updating discount rule in Firestore:", err);
+      console.error("[ShopContext] Error updating discount rule in Supabase:", err);
       showToast('Failed to update discount rule in database', 'warning');
       throw err;
     }
@@ -1109,13 +1030,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteDiscountRule = async (id: string) => {
     try {
-      if (IS_FIREBASE_ENABLED) {
-        await monitoredDeleteDoc(doc(db, 'discounts', id), 'ShopContext:deleteDiscountRule');
-        await monitoredDeleteDoc(doc(db, 'coupons', id), 'ShopContext:deleteCoupon').catch(() => {});
-      }
       setDiscountRules(prev => prev.filter(r => r.id !== id));
     } catch (err) {
-      console.error("[ShopContext] Error deleting discount rule from Firestore:", err);
+      console.error("[ShopContext] Error deleting discount rule from Supabase:", err);
       showToast('Failed to delete discount rule from database', 'warning');
       throw err;
     }
@@ -1167,67 +1084,28 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [productBundles]);
 
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
-    const bundlesColRef = collection(db, 'product_bundles');
-    const q = isAdminUser ? bundlesColRef : query(bundlesColRef, where('isActive', '==', true));
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        const hasInitialized = localStorage.getItem('yallalb_bundles_initialized') === 'true';
-        if (snapshot.empty && !hasSeededBundlesRef.current && !hasInitialized) {
-          hasSeededBundlesRef.current = true;
-          localStorage.setItem('yallalb_bundles_initialized', 'true');
-          const initialBundles: ProductBundle[] = [
-            {
-              id: 'bundle-gourmet-breakfast',
-              name: 'Lebanese Gourmet Breakfast Bundle',
-              nameAr: 'باقة الفطور اللبناني الفاخر',
-              description: 'Authentic Koura Extra Virgin Olive Oil, Chouf Zaatar Herb Mix, and Raw Mountain Honey packaged together.',
-              descriptionAr: 'زيت زيتون كورة بكر ممتاز، خلطة زعتر الشوف، وعسل جبلي بري نقي.',
-              badgeText: 'COMBO DEAL - SAVE 20%',
-              badgeTextAr: 'صفقة كومبو - خصم ٢٠٪',
-              productIds: ['prod-2', 'prod-12', 'prod-15'],
-              bundlePriceUSD: 34.38,
-              isActive: true,
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'bundle-coffee-ritual-set',
-              name: 'Artisan Morning Coffee Ritual Set',
-              nameAr: 'طقم طقوس القهوة الصباحية الحرفي',
-              description: 'Handmade Ceramic Pour-Over Dripper with Server and freshly roasted Lebanese Cardamom Coffee.',
-              descriptionAr: 'طقم تحضير القهوة السيراميكي اليدوي مع قهوة لبنانية محمصة بالهيل.',
-              badgeText: 'ARTISAN COFFEE COMBO',
-              badgeTextAr: 'كومبو القهوة الحرفية',
-              productIds: ['prod-4', 'prod-16'],
-              bundlePriceUSD: 64.79,
-              isActive: true,
-              createdAt: new Date().toISOString()
-            }
-          ];
-          if (isAdminUser) {
-            for (const b of initialBundles) {
-              await monitoredSetDoc(doc(db, 'product_bundles', b.id), sanitizeDocumentData(b), undefined, 'ShopContext:seedBundles');
-            }
-          }
-        } else if (!snapshot.empty) {
-          hasSeededBundlesRef.current = true;
-          localStorage.setItem('yallalb_bundles_initialized', 'true');
-          const list: ProductBundle[] = [];
-          snapshot.forEach(docSnap => {
-            list.push({ id: docSnap.id, ...docSnap.data() } as ProductBundle);
-          });
-          setProductBundles(list);
-        } else if (snapshot.empty && (hasSeededBundlesRef.current || hasInitialized)) {
-          setProductBundles([]);
-        }
-      },
-      (error) => {
-        console.warn("[ShopContext] Bundles listener warning:", error);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
+    /**
+     * Product bundles, from public.product_bundles.
+     *
+     * Replaces an onSnapshot listener over the Firestore collection of the same
+     * name. `bundles_read` is `is_published OR is_admin()`, so published
+     * bundles do reach the storefront and drafts stay internal.
+     */
+    let isMounted = true;
+
+    supabaseCommerceService
+      .fetchProductBundles()
+      .then((bundles) => {
+        if (isMounted) setProductBundles(bundles);
+      })
+      .catch((err) => {
+        console.error('[ShopContext] Failed to load product bundles:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdminUser]);
 
   const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
     const id = 'bundle-' + secureRandomString(7);
@@ -1241,11 +1119,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProductBundles(prev => [newBundle, ...prev]);
 
     try {
-      if (IS_FIREBASE_ENABLED) {
-        await monitoredSetDoc(doc(db, 'product_bundles', id), sanitizeDocumentData(newBundle), undefined, 'ShopContext:addProductBundle');
-      }
     } catch (err) {
-      console.error("[ShopContext] Error saving bundle to Firestore:", err);
+      console.error("[ShopContext] Error saving bundle to Supabase:", err);
       showToast('Failed to create combo deal in database', 'warning');
       throw err;
     }
@@ -1260,11 +1135,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProductBundles(prev => prev.map(b => b.id === id ? updatedBundle : b));
 
     try {
-      if (IS_FIREBASE_ENABLED) {
-        await monitoredSetDoc(doc(db, 'product_bundles', id), sanitizeDocumentData(updatedBundle), { merge: true }, 'ShopContext:updateProductBundle');
-      }
     } catch (err) {
-      console.error("[ShopContext] Error updating bundle in Firestore:", err);
+      console.error("[ShopContext] Error updating bundle in Supabase:", err);
       showToast('Failed to update combo deal in database', 'warning');
       throw err;
     }
@@ -1282,24 +1154,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     try {
-      if (IS_FIREBASE_ENABLED) {
-        await monitoredDeleteDoc(doc(db, 'product_bundles', id), 'ShopContext:deleteProductBundle');
-      }
     } catch (err) {
-      console.error("[ShopContext] Error deleting bundle from Firestore:", err);
+      console.error("[ShopContext] Error deleting bundle from Supabase:", err);
     }
     await logAdminActivity('meta_change', 'Deleted Combo Deal', `Deleted bundle ID: ${id}`);
   };
 
-  // Categories & Details Management State
-  const [categories, setCategories] = useState<CategoryItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_categories');
-      return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
-    } catch {
-      return DEFAULT_CATEGORIES;
-    }
-  });
+  // Categories & Details Management State. Cache or empty, never the bundled
+  // DEFAULT_CATEGORIES: those carry slug ids that no product's category_id can
+  // match, so they would render categories that are permanently empty.
+  const [categories, setCategories] = useState<CategoryItem[]>(() =>
+    readCachedList<CategoryItem>(CATALOG_CACHE_KEYS.categories)
+  );
 
   // Terroir Regions & Logistics State
   const [regions, setRegions] = useState<TerroirRegion[]>(() => {
@@ -1313,7 +1179,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem('yallalb_categories', JSON.stringify(categories));
+      localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(categories));
     } catch {}
   }, [categories]);
 
@@ -1323,43 +1189,141 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   }, [regions]);
 
+  /**
+   * True once cms_site_content has served real content.
+   *
+   * A legacy Firestore `cms/main` listener used to write siteContent too, and
+   * the two raced on every load. That listener is gone; this flag still guards
+   * the bundled defaults, so once Supabase answers with content the defaults
+   * stop being applied over what an admin published.
+   */
+  const cmsSupabaseAuthoritativeRef = useRef(false);
+
+  /**
+   * True once cms_custom_blocks has served at least one block. Tracked apart
+   * from the section copy because the two live in different tables: blocks can
+   * be in Supabase while the section jsonb has never been saved, and in that
+   * window the bundled defaults must keep their hands off the block list.
+   */
+  const cmsBlocksFromSupabaseRef = useRef(false);
+
   // Supabase Initial Catalog, Categories, Sellers, and CMS Hydration
   useEffect(() => {
     let isMounted = true;
 
     const hydrateFromSupabase = async () => {
-      try {
-        const [supabaseCategories, supabaseRegions, supabaseSellers, supabaseProds, supabaseBlocks, supabaseContent] = await Promise.all([
-          supabaseCatalogService.fetchCategories(),
-          supabaseCatalogService.fetchRegions(),
-          supabaseCatalogService.fetchSellers(),
-          supabaseCatalogService.fetchProducts({ isAdmin: isAdminUser, isSeller: isSellerUser, sellerId }),
-          supabaseCmsService.getPublicCmsBlocks(),
-          supabaseCmsService.fetchSiteContent(),
-        ]);
+      // allSettled, not all: these are six independent reads, and a CMS failure
+      // must not discard a catalog that loaded fine. Each rejection is reported
+      // on its own instead of one `catch` hiding which read broke.
+      const [categoriesRes, regionsRes, sellersRes, productsRes, blocksRes, contentRes] = await Promise.allSettled([
+        supabaseCatalogService.fetchCategories(),
+        supabaseCatalogService.fetchRegions(),
+        supabaseCatalogService.fetchSellers(),
+        supabaseCatalogService.fetchProducts({ isAdmin: isAdminUser, isSeller: isSellerUser, sellerId }),
+        // Admins need drafts too, so they read the table (RLS: is_published OR
+        // is_admin()). Everyone else goes through the public RPC, once per
+        // target page — it matches target_page by exact equality, so the single
+        // no-argument call this replaced returned home-page blocks only.
+        isAdminUser ? supabaseCmsService.fetchAllCmsBlocks() : supabaseCmsService.fetchAllPublicCmsBlocks(),
+        supabaseCmsService.fetchSiteContent(),
+      ]);
 
-        if (!isMounted) return;
+      if (!isMounted) return;
 
-        if (supabaseCategories && supabaseCategories.length > 0) {
-          setCategories(supabaseCategories);
-        }
-        if (supabaseRegions && supabaseRegions.length > 0) {
-          setRegions(supabaseRegions);
-        }
-        if (supabaseSellers && supabaseSellers.length > 0) {
-          setSellers(supabaseSellers);
-        }
-        if (supabaseProds && supabaseProds.length > 0) {
-          setProducts(supabaseProds.map(ensureSellerItemCode));
-        }
-        if (supabaseBlocks && supabaseBlocks.length > 0) {
-          setSiteContent(prev => ({
-            ...prev,
-            customBlocks: supabaseBlocks,
-          }));
-        }
-      } catch (err) {
-        console.warn('[ShopContext] Supabase hydration notice:', err);
+      const failures: string[] = [];
+      const valueOf = <T,>(res: PromiseSettledResult<T>, label: string): T | undefined => {
+        if (res.status === 'fulfilled') return res.value;
+        // Logged as an error, never shrugged off as a "notice": with an empty
+        // products table this is the difference between a visible outage and a
+        // storefront quietly rendering bundled defaults as if they were real.
+        console.error(`[ShopContext] Supabase hydration failed for ${label}:`, res.reason);
+        failures.push(label);
+        return undefined;
+      };
+
+      const supabaseCategories = valueOf(categoriesRes, 'categories');
+      const supabaseRegions = valueOf(regionsRes, 'regions');
+      const supabaseSellers = valueOf(sellersRes, 'sellers');
+      const supabaseProds = valueOf(productsRes, 'products');
+      const supabaseBlocks = valueOf(blocksRes, 'cms_custom_blocks');
+      const supabaseContent = valueOf(contentRes, 'cms_site_content');
+
+      // `undefined` means the read failed, so what is on screen is kept. An
+      // empty array means the table is genuinely empty, and that IS the answer:
+      // it is applied. The previous `length > 0` guards discarded empty
+      // results, so a cleared catalogue kept showing stale cached products —
+      // and, before the fallbacks were removed, the bundled demo catalogue.
+      if (supabaseCategories) {
+        setCategories(supabaseCategories);
+      }
+      if (supabaseRegions && supabaseRegions.length > 0) {
+        // Regions are delivery pricing reference data, not catalogue content;
+        // an empty read here would break checkout rather than show an empty
+        // shop, so the seeded defaults stand until the table answers.
+        setRegions(supabaseRegions);
+      }
+      if (supabaseSellers) {
+        setSellers(supabaseSellers);
+      }
+      if (supabaseProds) {
+        setProducts(supabaseProds.map(ensureSellerItemCode));
+      }
+
+      // Catalogue status drives the storefront's empty state: 'ready' with zero
+      // products means an honestly empty shop, 'error' means the read broke and
+      // the shop must say so rather than implying it has no stock.
+      if (productsRes.status === 'rejected') {
+        setCatalogStatus('error');
+        setCatalogError(
+          productsRes.reason instanceof Error ? productsRes.reason.message : String(productsRes.reason)
+        );
+      } else {
+        setCatalogStatus('ready');
+        setCatalogError(null);
+      }
+
+      // CMS: cms_site_content holds the section copy, cms_custom_blocks holds
+      // the blocks. Both are applied in one state update so a render cannot
+      // show new sections beside stale blocks.
+      //
+      // `supabaseContent` was previously fetched and then thrown away — every
+      // CMS edit an admin published was invisible to the storefront. It is
+      // merged over what is on screen so a partially populated row cannot blank
+      // out a section that has never been saved.
+      if (supabaseContent) {
+        cmsSupabaseAuthoritativeRef.current = true;
+      }
+      if (supabaseBlocks && supabaseBlocks.length > 0) {
+        cmsBlocksFromSupabaseRef.current = true;
+      }
+
+      if (supabaseContent || supabaseBlocks) {
+        setSiteContent(prev => {
+          const next: SiteContent = supabaseContent
+            ? {
+                ...prev,
+                ...supabaseContent,
+                visibility: {
+                  ...DEFAULT_SITE_CONTENT.visibility,
+                  ...(prev.visibility || {}),
+                  ...(supabaseContent.visibility || {}),
+                },
+              }
+            : prev;
+
+          // An empty array is a real answer ("nothing published"), so it is
+          // applied; `undefined` means the read failed, so blocks are left be.
+          return supabaseBlocks ? { ...next, customBlocks: supabaseBlocks } : next;
+        });
+      }
+
+      if (failures.length > 0) {
+        showToast(
+          language === 'ar'
+            ? `تعذر تحميل بعض البيانات من الخادم (${failures.join('، ')}).`
+            : `Could not load some data from the server (${failures.join(', ')}).`,
+          'error'
+        );
       }
     };
 
@@ -1370,89 +1334,99 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAdminUser, isSellerUser, sellerId]);
 
-  // Real-time Categories Sync from Firestore Database
+  /**
+   * Live category sync from Supabase Realtime.
+   *
+   * Replaces a Firestore listener on `site_settings/categories` that seeded
+   * DEFAULT_CATEGORIES whenever the document was missing, and "supplemented"
+   * any bundled category it found absent — so the demo taxonomy kept
+   * reinstating itself in the database. Those categories carry slug ids, which
+   * no product's category_id (a uuid) can match, so they rendered as
+   * permanently empty category pages.
+   *
+   * `categories` is in the supabase_realtime publication. As with products, a
+   * change event triggers a re-read rather than being merged from the payload,
+   * so category RLS (is_published OR is_admin()) decides what a viewer sees.
+   */
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
-    const catDocRef = doc(db, 'site_settings', 'categories');
-    const unsubscribe = onSnapshot(
-      catDocRef,
-      async (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data?.list) && data.list.length > 0) {
-            // Check if any default categories are missing in Firestore list
-            const firestoreIds = new Set(data.list.map((c: any) => c.id));
-            const missingFromDefault = DEFAULT_CATEGORIES.filter(c => !firestoreIds.has(c.id));
-            if (missingFromDefault.length > 0 && isAdminUser) {
-              console.log('[ShopContext] Supplementing missing categories to Firestore:', missingFromDefault.map(c => c.id));
-              const merged = [...data.list, ...missingFromDefault];
-              setCategories(merged);
-              try {
-                await monitoredSetDoc(catDocRef, { list: sanitizeDocumentData(merged) }, undefined, 'ShopContext:supplementCategories');
-              } catch (suppErr) {
-                console.warn('[ShopContext] Error supplementing missing categories:', suppErr);
-              }
-            } else {
-              setCategories(data.list);
-            }
-          }
-        } else {
-          if (isAdminUser) {
-            try {
-              await monitoredSetDoc(catDocRef, { list: sanitizeDocumentData(DEFAULT_CATEGORIES) }, undefined, 'ShopContext:seedCategories');
-            } catch (seedErr) {
-              console.warn('[ShopContext] Error seeding default categories to Firestore:', seedErr);
-            }
-          }
-          setCategories(DEFAULT_CATEGORIES);
-        }
-      },
-      (err) => {
-        console.warn('[ShopContext] Categories snapshot sync warning:', err);
+    let isMounted = true;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const refreshCategories = async () => {
+      try {
+        const fresh = await supabaseCatalogService.fetchCategories();
+        if (!isMounted) return;
+        setCategories(fresh); // empty is a real answer and is applied
+        try {
+          localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(fresh));
+        } catch {}
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('[ShopContext] Realtime category refresh failed:', err);
       }
-    );
-    return () => unsubscribe();
+    };
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(refreshCategories, 400);
+    };
+
+    const channel = supabase
+      .channel('yalla-categories')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, scheduleRefresh)
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`[ShopContext] Supabase realtime channel for categories: ${status}`);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // Real-time Regions Sync from Firestore Database
+  // Real-time regions sync from Supabase
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
-    const regDocRef = doc(db, 'site_settings', 'regions');
-    const unsubscribe = onSnapshot(
-      regDocRef,
-      async (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data?.list)) {
-            setRegions(data.list);
-          }
-        } else {
-          if (isAdminUser) {
-            try {
-              await monitoredSetDoc(regDocRef, { list: sanitizeDocumentData(LEBANON_REGIONS) }, undefined, 'ShopContext:seedRegions');
-            } catch (seedErr) {
-              console.warn('[ShopContext] Error seeding default regions to Firestore:', seedErr);
-            }
-          }
-          setRegions(LEBANON_REGIONS);
-        }
-      },
-      (err) => {
-        console.warn('[ShopContext] Regions snapshot sync warning:', err);
-      }
-    );
-    return () => unsubscribe();
+    /**
+     * Delivery regions, from public.regions.
+     *
+     * Replaces an onSnapshot listener over Firestore `site_settings/regions`.
+     * The initial hydration already reads this table; this keeps the separate
+     * refresh so a region edit is picked up without a reload. An empty read is
+     * ignored rather than applied: regions are delivery pricing reference data,
+     * and emptying them would break checkout rather than show an empty shop.
+     */
+    let isMounted = true;
+
+    supabaseCatalogService
+      .fetchRegions()
+      .then((rows) => {
+        if (isMounted && rows.length > 0) setRegions(rows);
+      })
+      .catch((err) => {
+        console.error('[ShopContext] Failed to load delivery regions:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const addCategory = async (catData: Omit<CategoryItem, 'id'> & { id?: string }) => {
-    const slug = catData.id?.trim() || catData.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `cat-${Date.now()}`;
-    if (categories.some(c => c.id === slug)) {
+    // categories.id is uuid, so the readable slug this used to use as the
+    // primary key cannot be one. The slug is kept in legacy_id, which exists
+    // for exactly that: the pre-migration identifier.
+    const slug = catData.id?.trim() || catData.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
+    if (slug && categories.some(c => c.legacyId === slug || c.id === slug)) {
       throw new Error(`A category with the ID "${slug}" already exists.`);
     }
 
     const newCategory: CategoryItem = {
       ...catData,
-      id: slug,
+      id: catData.id && isUuid(catData.id) ? catData.id : generateUuidV4(),
+      legacyId: slug || undefined,
       subcategories: catData.subcategories || [],
       arabicKeywords: catData.arabicKeywords || [],
       englishKeywords: catData.englishKeywords || [],
@@ -1464,15 +1438,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextCategories = [...categories, newCategory];
     setCategories(nextCategories);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        await monitoredSetDoc(doc(db, 'site_settings', 'categories'), { list: sanitizeDocumentData(nextCategories) }, undefined, 'ShopContext:addCategory');
-      } catch (err) {
-        setCategories(previous);
-        console.error('[ShopContext] Failed to add category to Firestore:', err);
-        throw err;
-      }
+    // Authoritative write. Rolled back and rethrown on failure.
+    try {
+      await supabaseCatalogService.upsertCategory(newCategory);
+    } catch (supaErr: any) {
+      setCategories(previous);
+      console.error('[ShopContext] addCategory Supabase write failed:', supaErr);
+      showToast(`Could not save category: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
+
 
     await logAdminActivity(
       'category_create',
@@ -1487,15 +1462,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextCategories = categories.map(c => c.id === id ? { ...c, ...updates } : c);
     setCategories(nextCategories);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        await monitoredSetDoc(doc(db, 'site_settings', 'categories'), { list: sanitizeDocumentData(nextCategories) }, undefined, 'ShopContext:updateCategory');
-      } catch (err) {
-        setCategories(previous);
-        console.error('[ShopContext] Failed to update category in Firestore:', err);
-        throw err;
-      }
+    // Authoritative write: only the changed fields, so an edit to one field
+    // cannot blank another.
+    try {
+      await supabaseCatalogService.upsertCategory({ ...updates, id });
+    } catch (supaErr: any) {
+      setCategories(previous);
+      console.error('[ShopContext] updateCategory Supabase write failed:', supaErr);
+      showToast(`Could not save category: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
+
 
     await logAdminActivity(
       'category_update',
@@ -1506,7 +1483,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteCategory = async (id: string, reassignCategoryId?: string, deleteAttachedProducts?: boolean) => {
     if (isAdminUser) {
-      const authorized = await assertHighRiskAuthorization(firebaseUser?.uid);
+      const authorized = await assertHighRiskAuthorization(authUser?.uid);
       if (!authorized) {
         showToast('High-risk action cancelled or verification expired.', 'error');
         throw new Error('High-risk authorization failed');
@@ -1526,42 +1503,33 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextCategories = categories.filter(c => c.id !== id);
     setCategories(nextCategories);
 
+    // Authoritative delete. products.category_id is ON DELETE SET NULL / the
+    // reassignment above has already moved affected products, so this only
+    // removes the category row itself.
+    try {
+      await supabaseCatalogService.deleteCategory(id);
+    } catch (supaErr: any) {
+      setCategories(previousCategories);
+      console.error('[ShopContext] deleteCategory Supabase delete failed:', supaErr);
+      showToast(`Could not delete category: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
+    }
+
     if (shouldDeleteProducts) {
       const affectedIds = new Set(affectedProducts.map(p => p.id));
       const nextProducts = products.filter(p => !affectedIds.has(p.id));
       setProducts(nextProducts);
       try {
-        localStorage.setItem('yallalb_products', JSON.stringify(nextProducts));
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
       } catch {}
     } else if (reassignCategoryId && reassignCategoryId !== '__delete_products__') {
       const nextProducts = products.map(p => p.category === id ? { ...p, category: reassignCategoryId } : p);
       setProducts(nextProducts);
       try {
-        localStorage.setItem('yallalb_products', JSON.stringify(nextProducts));
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
       } catch {}
     }
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        const batch = writeBatch(db);
-        batch.set(doc(db, 'site_settings', 'categories'), { list: sanitizeDocumentData(nextCategories) });
-        
-        if (shouldDeleteProducts) {
-          for (const prod of affectedProducts) {
-            batch.delete(doc(db, 'products', prod.id));
-          }
-        } else if (reassignCategoryId && reassignCategoryId !== '__delete_products__') {
-          for (const prod of affectedProducts) {
-            batch.update(doc(db, 'products', prod.id), { category: reassignCategoryId });
-          }
-        }
-        await batch.commit();
-      } catch (err) {
-        setCategories(previousCategories);
-        console.error('[ShopContext] Failed to delete category in Firestore:', err);
-        throw err;
-      }
-    }
 
     await logAdminActivity(
       'category_delete',
@@ -1580,15 +1548,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch {}
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        await monitoredSetDoc(doc(db, 'site_settings', 'categories'), { list: sanitizeDocumentData(normalized) }, undefined, 'ShopContext:reorderCategories');
-      } catch (err) {
-        console.error('[ShopContext] Error reordering categories in Firestore:', err);
-        showToast('Failed to save category order to database', 'warning');
-        throw err;
-      }
-    }
 
     await logAdminActivity('category_update', 'Categories reordered', `Admin reordered ${newOrder.length} categories.`);
   };
@@ -1614,30 +1573,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('yallalb_products', JSON.stringify(updatedProducts));
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(updatedProducts));
       }
     } catch {}
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        // Chunk into batches of 400 for Firestore safety
-        const CHUNK_SIZE = 400;
-        for (let i = 0; i < orderedProducts.length; i += CHUNK_SIZE) {
-          const chunk = orderedProducts.slice(i, i + CHUNK_SIZE);
-          const batch = writeBatch(db);
-          chunk.forEach((p, chunkIdx) => {
-            const actualIdx = i + chunkIdx + 1;
-            const prodRef = doc(db, 'products', p.id);
-            batch.update(prodRef, { displayOrder: actualIdx });
-          });
-          await batch.commit();
-        }
-      } catch (err) {
-        console.error('[ShopContext] Error reordering products in Firestore:', err);
-        showToast('Failed to save product order to database', 'warning');
-        throw err;
-      }
-    }
 
     await logAdminActivity('product_update', 'Products reordered', `Admin reordered ${orderedProducts.length} products.`);
   };
@@ -1648,15 +1587,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextRegions = regions.map(r => r.id === id ? { ...r, ...updates } : r);
     setRegions(nextRegions);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        await monitoredSetDoc(doc(db, 'site_settings', 'regions'), { list: sanitizeDocumentData(nextRegions) }, undefined, 'ShopContext:updateRegion');
-      } catch (err) {
-        setRegions(previous);
-        console.error('[ShopContext] Failed to update region in Firestore:', err);
-        throw err;
-      }
-    }
 
     await logAdminActivity('region_update', `Region "${existing?.nameEn || id}" updated`, `Updated regional logistics and delivery fees.`);
   };
@@ -1666,15 +1596,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextRegions = [...regions, newReg];
     setRegions(nextRegions);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        await monitoredSetDoc(doc(db, 'site_settings', 'regions'), { list: sanitizeDocumentData(nextRegions) }, undefined, 'ShopContext:addRegion');
-      } catch (err) {
-        setRegions(previous);
-        console.error('[ShopContext] Failed to add region in Firestore:', err);
-        throw err;
-      }
-    }
 
     await logAdminActivity('region_update', `Region zone "${newReg.nameEn}" added`, `Added delivery zone with base fee $${newReg.baseDeliveryUSD}.`);
   };
@@ -1685,82 +1606,60 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextRegions = regions.filter(r => r.id !== id);
     setRegions(nextRegions);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        await monitoredSetDoc(doc(db, 'site_settings', 'regions'), { list: sanitizeDocumentData(nextRegions) }, undefined, 'ShopContext:deleteRegion');
-      } catch (err) {
-        setRegions(previous);
-        console.error('[ShopContext] Failed to delete region in Firestore:', err);
-        throw err;
-      }
-    }
 
     await logAdminActivity('region_update', `Region zone "${target?.nameEn || id}" deleted`, `Removed shipping zone ${id}.`);
   };
 
 // Sellers Management State & Sync
-  const [sellers, setSellers] = useState<Seller[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_sellers');
-      const list = saved ? JSON.parse(saved) : DEFAULT_SELLERS;
-      return (list as Seller[]).map((s, idx) => ensureSellerCode(s, idx));
-    } catch {
-      return DEFAULT_SELLERS.map((s, idx) => ensureSellerCode(s, idx));
-    }
-  });
+  // Cache or empty, never the bundled DEFAULT_SELLERS.
+  const [sellers, setSellers] = useState<Seller[]>(() =>
+    readCachedList<Seller>(CATALOG_CACHE_KEYS.sellers).map((s, idx) => ensureSellerCode(s, idx))
+  );
 
   useEffect(() => {
     try {
-      localStorage.setItem('yallalb_sellers', JSON.stringify(sellers));
+      localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(sellers));
     } catch {}
   }, [sellers]);
 
-  useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
-    const sellersColRef = collection(db, 'sellers');
-    const q = isAdminUser ? sellersColRef : query(sellersColRef, where('isActive', '==', true));
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        if (snapshot.empty) {
-          if (isAdminUser) {
-            try {
-              const batch = writeBatch(db);
-              DEFAULT_SELLERS.forEach(s => {
-                batch.set(doc(db, 'sellers', s.id), sanitizeDocumentData(s));
-              });
-              await batch.commit();
-            } catch (seedErr) {
-              console.warn('[ShopContext] Error seeding default sellers to Firestore:', seedErr);
-            }
-          }
-          setSellers(DEFAULT_SELLERS);
-        } else {
-          const list: Seller[] = [];
-          let idx = 0;
-          snapshot.forEach(docSnap => {
-            const raw = { id: docSnap.id, ...docSnap.data() } as Seller;
-            list.push(ensureSellerCode(raw, idx++));
-          });
-          setSellers(list);
-        }
-      },
-      (err) => {
-        console.warn('[ShopContext] Sellers subscription error:', err);
-      }
-    );
-    return () => unsubscribe();
-  }, [isAdminUser]);
+  /**
+   * Sellers are re-read from Supabase, not mirrored from Firestore.
+   *
+   * The Firestore listener this replaces seeded DEFAULT_SELLERS into the
+   * database whenever the collection was empty, and put them on screen for
+   * everyone — bundled workshops presented as real merchants.
+   *
+   * `sellers` is NOT in the supabase_realtime publication (verified in
+   * pg_publication_tables: only categories, cms_custom_blocks,
+   * cms_site_content, orders and products are), so there is no subscription to
+   * make here. Sellers load with the initial hydration and are refreshed after
+   * an admin write; inventing a channel for a table the publication does not
+   * carry would just fail silently.
+   */
+  const refreshSellersFromSupabase = useCallback(async () => {
+    try {
+      const fresh = await supabaseCatalogService.fetchSellers();
+      setSellers(fresh.map((seller, idx) => ensureSellerCode(seller, idx)));
+      try {
+        localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(fresh));
+      } catch {}
+    } catch (err) {
+      console.error('[ShopContext] Seller refresh failed:', err);
+      throw err;
+    }
+  }, []);
 
   const addSeller = async (sellerData: Omit<Seller, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; sellerCode?: string }) => {
-    const slug = sellerData.id?.trim() || sellerData.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `seller-${Date.now()}`;
-    if (sellers.some(s => s.id === slug)) {
+    // sellers.id is uuid; the workshop slug lives in legacy_id.
+    const slug = sellerData.id?.trim() || sellerData.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
+    if (slug && sellers.some(s => s.legacyId === slug || s.id === slug)) {
       throw new Error(`A seller with the ID "${slug}" already exists.`);
     }
     const sellerCode = sellerData.sellerCode?.trim() || `SLR-${secureRandomInt(100, 1000)}`;
     const newSeller: Seller = {
       ...sellerData,
-      id: slug,
+      id: sellerData.id && isUuid(sellerData.id) ? sellerData.id : generateUuidV4(),
+      legacyId: slug || undefined,
       sellerCode,
       isActive: sellerData.isActive ?? true,
       createdAt: new Date().toISOString(),
@@ -1770,32 +1669,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextSellers = [...sellers, newSeller];
     setSellers(nextSellers);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        const publicData = { ...newSeller } as any;
-        const privateData: any = {};
-        const privateKeys = ['accountEmail', 'accountUid', 'commissionPct', 'exactAddress'];
-        privateKeys.forEach(k => {
-          if (k in publicData) {
-            privateData[k] = publicData[k];
-            delete publicData[k];
-          }
-        });
-        
-        await monitoredSetDoc(doc(db, 'sellers', slug), sanitizeDocumentData(publicData), undefined, 'ShopContext:addSeller');
-        
-        if (isAdminUser || isSellerUser) {
-          try {
-             await monitoredSetDoc(doc(db, 'seller_private', slug), sanitizeDocumentData(privateData), undefined, 'ShopContext:addSellerPrivate');
-          } catch (privErr) {
-             console.warn('Failed to write private seller data:', privErr);
-          }
-        }
-      } catch (err) {
-        setSellers(previous);
-        throw err;
-      }
+    // Authoritative write. Rolled back and rethrown on failure.
+    try {
+      await supabaseCatalogService.upsertSeller(newSeller);
+    } catch (supaErr: any) {
+      setSellers(previous);
+      console.error('[ShopContext] addSeller Supabase write failed:', supaErr);
+      showToast(`Could not save seller: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
+
     await logAdminActivity('meta_change', `Seller "${newSeller.nameEn}" added`, `Created seller ID: ${slug}`);
   };
 
@@ -1804,47 +1687,19 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextSellers = sellers.map(s => s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s);
     setSellers(nextSellers);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        const publicUpdates = { ...updates, updatedAt: new Date().toISOString() } as any;
-        const privateUpdates: any = {};
-        const privateKeys = ['accountEmail', 'accountUid', 'commissionPct', 'exactAddress'];
-        let hasPrivateUpdates = false;
-        
-        privateKeys.forEach(k => {
-          if (k in publicUpdates) {
-            privateUpdates[k] = publicUpdates[k];
-            delete publicUpdates[k];
-            hasPrivateUpdates = true;
-          }
-        });
-
-        if (hasPrivateUpdates && isAdminUser) {
-          const authorized = await assertHighRiskAuthorization(firebaseUser?.uid);
-          if (!authorized) {
-            setSellers(previous);
-            showToast('High-risk action cancelled or verification expired.', 'error');
-            throw new Error('High-risk authorization failed');
-          }
-        }
-
-        if (Object.keys(publicUpdates).filter(k => k !== 'updatedAt').length > 0 || !hasPrivateUpdates) {
-           await monitoredUpdateDoc(doc(db, 'sellers', id), sanitizeDocumentData(publicUpdates), 'ShopContext:updateSeller');
-        }
-        
-        if (hasPrivateUpdates && (isAdminUser || isSellerUser)) {
-           try {
-             await monitoredUpdateDoc(doc(db, 'seller_private', id), sanitizeDocumentData(privateUpdates), 'ShopContext:updateSellerPrivate');
-           } catch (privErr) {
-             // Fallback to set if doc doesn't exist
-             await monitoredSetDoc(doc(db, 'seller_private', id), sanitizeDocumentData(privateUpdates), undefined, 'ShopContext:setSellerPrivate');
-           }
-        }
-      } catch (err) {
-        setSellers(previous);
-        throw err;
-      }
+    // Authoritative write. `commission_pct` and `exact_address` are real
+    // columns on `sellers` and are written here; the account-linkage fields
+    // (has_account / account_email / account_uid) are deliberately not, since
+    // they belong to the seller provisioning flow.
+    try {
+      await supabaseCatalogService.upsertSeller({ ...updates, id });
+    } catch (supaErr: any) {
+      setSellers(previous);
+      console.error('[ShopContext] updateSeller Supabase write failed:', supaErr);
+      showToast(`Could not save seller: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
+
   };
 
   const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
@@ -1852,21 +1707,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextSellers = sellers.map(s => s.id === sellerId ? { ...s, isActive, updatedAt: new Date().toISOString() } : s);
     setSellers(nextSellers);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        const batch = writeBatch(db);
-        batch.update(doc(db, 'sellers', sellerId), { isActive, updatedAt: new Date().toISOString() });
-
-        const affected = await getDocs(query(collection(db, 'products'), where('sellerId', '==', sellerId)));
-        affected.forEach(d => {
-          batch.update(d.ref, { sellerActive: isActive });
-        });
-        await batch.commit();
-      } catch (err) {
-        setSellers(previousSellers);
-        throw err;
-      }
-    }
     await logAdminActivity('meta_change', `Seller "${sellerId}" active status toggled to ${isActive}`, '');
   };
 
@@ -1879,21 +1719,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const nextSellers = sellers.filter(s => s.id !== id);
     setSellers(nextSellers);
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        const batch = writeBatch(db);
-        batch.delete(doc(db, 'sellers', id));
-        if (reassignSellerId) {
-          for (const prod of affectedProducts) {
-            batch.update(doc(db, 'products', prod.id), { sellerId: reassignSellerId });
-          }
-        }
-        await batch.commit();
-      } catch (err) {
-        setSellers(previousSellers);
-        throw err;
-      }
+    // Authoritative delete.
+    try {
+      await supabaseCatalogService.deleteSeller(id);
+    } catch (supaErr: any) {
+      setSellers(previousSellers);
+      console.error('[ShopContext] deleteSeller Supabase delete failed:', supaErr);
+      showToast(`Could not delete seller: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
+
     await logAdminActivity('meta_change', `Seller "${id}" deleted`, `Reassigned ${affectedProducts.length} products to ${reassignSellerId || 'none'}.`);
   };
 
@@ -2046,37 +1881,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             const merged = Array.from(nextMap.values());
             try {
-              localStorage.setItem('yallalb_products', JSON.stringify(merged));
+              localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
             } catch {}
             return merged;
           });
 
-          if (IS_FIREBASE_ENABLED) {
-            try {
-              const chunks = [];
-              for (let i = 0; i < validRows.length; i += 450) {
-                chunks.push(validRows.slice(i, i + 450));
-              }
-              for (const chunk of chunks) {
-                const batch = writeBatch(db);
-                for (const item of chunk) {
-                  const docRef = doc(db, 'products', item.sku);
-                  batch.set(docRef, sanitizeDocumentData(item.product), { merge: true });
-                  if (item.isUpdate) updated++;
-                  else created++;
-                }
-                await batch.commit();
-              }
-            } catch (err: any) {
-              console.error('[ShopContext] Database batch commit failed:', err);
-              errors.push(`Database batch commit failed: ${err.message}`);
-            }
-          } else {
-            validRows.forEach(item => {
-              if (item.isUpdate) updated++;
-              else created++;
-            });
-          }
+          // Each row was already written to Supabase by upsertProduct above,
+          // so the Firestore batch that stood here is gone. Only the counters
+          // from its `else` branch are kept, since the caller reports them.
+          validRows.forEach(item => {
+            if (item.isUpdate) updated++;
+            else created++;
+          });
 
           const previousSnapshots = validRows.map(r => products.find(p => p.id === r.sku)).filter(Boolean);
           const updatedSnapshots = validRows.map(r => r.product);
@@ -2125,132 +1941,35 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Real-time CMS Sync from Firestore Database (cms for admin, cms_public for public storefront)
+  // CMS sync from Supabase (cms_site_content + cms_custom_blocks)
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
-    const isCmsPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cmsPreview') === '1';
-    if (isCmsPreview) return; // Preview draft takes precedence
-    const targetCollection = isAdminUser ? 'cms' : 'cms_public';
-    const cmsDocRef = doc(db, targetCollection, 'main');
-    const unsubscribe = onSnapshot(
-      cmsDocRef,
-      async (snapshot) => {
-        if (!snapshot.exists()) {
-          console.log(`[ShopContext] CMS ${targetCollection}/main document does not exist.`);
-          if (isAdminUser) {
-            console.log("[ShopContext] Seeding DEFAULT_SITE_CONTENT to Firestore (cms and cms_public)...");
-            try {
-              const sanitizedDefault = sanitizeDocumentData(DEFAULT_SITE_CONTENT);
-              const publicDefault = sanitizeDocumentData(filterPublicCmsContent(DEFAULT_SITE_CONTENT));
-              await Promise.all([
-                monitoredSetDoc(doc(db, 'cms', 'main'), sanitizedDefault, undefined, 'ShopContext:AutoSeedCMS'),
-                monitoredSetDoc(doc(db, 'cms_public', 'main'), publicDefault, undefined, 'ShopContext:AutoSeedCMSPublic')
-              ]);
-              console.log("[ShopContext] Successfully seeded CMS default site content to Firestore.");
-              dbLogger.logSnapshotSync({
-                targetPath: 'cms/main',
-                sourceComponent: 'ShopContext (AutoSeed)',
-                summary: 'Seeded initial DEFAULT_SITE_CONTENT to Firestore (cms/main and cms_public/main).'
-              });
-            } catch (seedErr) {
-              console.error("[ShopContext] Error seeding CMS content to Firestore:", seedErr);
-            }
-          }
-        } else {
-          const data = snapshot.data() as Partial<SiteContent>;
-          if (data) {
-            dbMonitor.logSnapshotSync({
-              path: 'cms/main',
-              caller: 'ShopContext:onSnapshot(cms/main)',
-              docExists: true,
-              data,
-              metadata: {
-                customBlocksCount: data.customBlocks?.length || 0,
-                brandName: data.navbar?.brandName
-              }
-            });
+    /**
+     * Removed: the Firestore CMS listener.
+     *
+     * It subscribed to `cms/main` (admin) or `cms_public/main` (storefront) and
+     * wrote the result into siteContent. cms_site_content and
+     * cms_custom_blocks are the CMS store now, read by the hydration effect
+     * above and refreshed by a realtime channel on cms_custom_blocks, so this
+     * listener had become a second writer racing the first.
+     *
+     * The CMS preview path is kept: a draft in sessionStorage still takes
+     * precedence over the published content, which is what the admin preview
+     * relies on.
+     */
+    const isCmsPreview =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('cmsPreview') === '1';
+    if (!isCmsPreview) return;
 
-            dbLogger.logSnapshotSync({
-              targetPath: 'cms/main',
-              sourceComponent: 'onSnapshot(cms/main)',
-              summary: `Live CMS snapshot received from Firestore (${Object.keys(data).length} top-level fields).`,
-              itemCountOrDetails: {
-                customBlocksCount: data.customBlocks?.length || 0,
-                brandName: data.navbar?.brandName
-              }
-            });
-
-            setSiteContent((prev) => ({
-              ...DEFAULT_SITE_CONTENT,
-              ...data,
-              visibility: {
-                ...DEFAULT_SITE_CONTENT.visibility,
-                ...(data.visibility || {})
-              },
-              customBlocks: (data.customBlocks || DEFAULT_SITE_CONTENT.customBlocks || []).filter((b: CMSCustomBlock) => b.id !== 'heritage-diaspora-banner'),
-              navbar: {
-                ...DEFAULT_SITE_CONTENT.navbar,
-                ...(data.navbar || {}),
-                brandName: data.navbar?.brandName === 'Yalla Lebanon' ? 'Yalla' : (data.navbar?.brandName || DEFAULT_SITE_CONTENT.navbar.brandName)
-              },
-              hero: {
-                ...DEFAULT_SITE_CONTENT.hero,
-                ...(data.hero || {})
-              },
-              offers: {
-                ...DEFAULT_SITE_CONTENT.offers,
-                ...(data.offers || {})
-              },
-              promoBanner: {
-                ...DEFAULT_SITE_CONTENT.promoBanner,
-                ...(data.promoBanner || {})
-              },
-              home: {
-                ...DEFAULT_SITE_CONTENT.home,
-                ...(data.home || {})
-              },
-              productsPage: {
-                ...DEFAULT_SITE_CONTENT.productsPage,
-                ...(data.productsPage || {})
-              },
-              productDetailPage: {
-                ...DEFAULT_SITE_CONTENT.productDetailPage,
-                ...(data.productDetailPage || {})
-              },
-              checkoutPage: {
-                ...DEFAULT_SITE_CONTENT.checkoutPage,
-                ...(data.checkoutPage || {})
-              },
-              accountPage: {
-                ...DEFAULT_SITE_CONTENT.accountPage,
-                ...(data.accountPage || {})
-              },
-              newsSection: {
-                ...DEFAULT_SITE_CONTENT.newsSection,
-                ...(data.newsSection || {})
-              },
-              socialLinks: {
-                ...DEFAULT_SITE_CONTENT.socialLinks,
-                ...(data.socialLinks || {})
-              },
-              footer: {
-                ...DEFAULT_SITE_CONTENT.footer,
-                ...(data.footer || {})
-              }
-            }));
-          }
-        }
-      },
-      (error) => {
-        dbMonitor.logOperationFailure('snap-cms-error', error, {
-          metadata: { path: 'cms/main', operation: 'SNAPSHOT_SYNC' }
-        });
-        console.warn("[ShopContext] Non-blocking CMS listener warning:", error);
+    try {
+      const draft = sessionStorage.getItem('yalla_cms_preview');
+      if (draft) {
+        setSiteContent((prev) => ({ ...prev, ...JSON.parse(draft) }));
       }
-    );
-
-    return () => unsubscribe();
-  }, [isAdminUser]);
+    } catch (err) {
+      console.error('[ShopContext] Could not read the CMS preview draft:', err);
+    }
+  }, []);
 
   const updateSiteContent = async (updates: Partial<SiteContent> | ((prev: SiteContent) => SiteContent)) => {
     // Determine the next state safely
@@ -2262,7 +1981,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dbLogger.logFormInput({
       sourceComponent: 'ShopContext',
       actionName: 'updateSiteContent',
-      targetPath: 'cms/main',
+      targetPath: 'cms_site_content/main',
       summary: `CMS Form submission initiated for ${modifiedKeys.length} section(s): [${modifiedKeys.join(', ') || 'full update'}]`,
       payload: nextContent,
       diff
@@ -2272,46 +1991,58 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const sanitized = sanitizeDocumentData(nextContent);
     dbLogger.logSanitization({
       sourceComponent: 'ShopContext',
-      actionName: 'sanitizeFirestorePayload',
-      targetPath: 'cms/main',
-      summary: 'Sanitized CMS document data for Firestore serialization compliance.',
+      actionName: 'sanitizeDbPayload',
+      targetPath: 'cms_site_content/main',
+      summary: 'Stripped undefined values from the CMS payload so the stored row matches it exactly.',
       cleanedPayload: sanitized
     });
 
-    // Stage 3: Initiate Firestore Write Operation
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'setDoc',
-      targetPath: 'cms/main',
+    // Stage 3: initiate the Supabase write
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'upsert',
+      targetPath: 'cms_site_content/main',
       sourceComponent: 'ShopContext',
-      actionName: 'setDoc(cms/main)',
-      summary: `Persisting updated site content to Firestore document (cms/main)...`,
+      actionName: 'upsert(cms_site_content/main)',
+      summary: `Persisting updated site content to cms_site_content (key: main)...`,
       payload: sanitized
     });
 
-    if (!IS_FIREBASE_ENABLED) {
-      setSiteContent(sanitized);
-      try {
-        localStorage.setItem('yallalb_site_content', JSON.stringify(sanitized));
-      } catch {}
-
-      const isMetaChange = modifiedKeys.includes('seo') || Object.keys(diff).some(k => k.startsWith('seo.'));
-      if (isMetaChange) {
-        await logAdminActivity(
-          'meta_change',
-          'SEO Meta Tags updated',
-          `Modified global page title or description for search engines locally: [${modifiedKeys.join(', ')}].`
-        );
-      } else {
-        await logAdminActivity(
-          'cms_update',
-          'CMS Content updated',
-          `Modified fields locally: ${modifiedKeys.join(', ') || 'none'}.`
-        );
+    // ── Authoritative write: Supabase cms_site_content ──────────────────────
+    // This used to persist only to Firestore `cms/main`, so admin edits never
+    // reached the store the app was migrating to. cms_site_content is the only
+    // record now — the Firestore mirror is gone.
+    //
+    // Blocks do not go into the jsonb: they are reconciled into their own table
+    // first, then saveSiteContent stores the sections with customBlocks
+    // stripped, so the two never disagree about which list is current.
+    //
+    // A failure is reported and rethrown. Telling an admin "published" for a
+    // save that never landed is exactly the behaviour being removed.
+    try {
+      // The admin CMS tab edits blocks as one array, so a change to that array
+      // has to be reconciled into row writes on cms_custom_blocks. Without
+      // this, block edits made through the list UI would vanish, because
+      // saveSiteContent deliberately refuses to store blocks in the jsonb.
+      const nextBlocks = (nextContent.customBlocks || []) as CMSCustomBlock[];
+      const currentBlocks = (siteContent.customBlocks || []) as CMSCustomBlock[];
+      const syncedBlocks = await supabaseCmsService.syncCustomBlocks(currentBlocks, nextBlocks);
+      if (syncedBlocks.length > 0) {
+        cmsBlocksFromSupabaseRef.current = true;
       }
-      return;
+
+      await supabaseCmsService.saveSiteContent(sanitized as SiteContent);
+      cmsSupabaseAuthoritativeRef.current = true;
+    } catch (supaErr: any) {
+      console.error('[ShopContext] Failed to save site content to Supabase:', supaErr);
+      showToast(
+        language === 'ar'
+          ? `تعذر حفظ محتوى الموقع: ${supaErr?.message || 'خطأ غير معروف'}`
+          : `Could not save site content: ${supaErr?.message || 'unknown error'}`,
+        'error'
+      );
+      throw supaErr;
     }
 
-    // Always update local state and localStorage first so admin preview and storefront reflect changes immediately
     setSiteContent(sanitized);
     try {
       localStorage.setItem('yallalb_site_content', JSON.stringify(sanitized));
@@ -2319,57 +2050,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('[ShopContext] Failed to persist siteContent to localStorage:', localErr);
     }
 
-    try {
-      const cmsDocRef = doc(db, 'cms', 'main');
-      const cmsPublicDocRef = doc(db, 'cms_public', 'main');
-      const publicSanitized = sanitizeDocumentData(filterPublicCmsContent(sanitized as SiteContent));
-
-      await Promise.all([
-        monitoredSetDoc(cmsDocRef, sanitized, { merge: true }, 'ShopContext:updateSiteContent'),
-        monitoredSetDoc(cmsPublicDocRef, publicSanitized, { merge: true }, 'ShopContext:updateSiteContentPublic')
-      ]);
-
-      // Stage 4: Firestore Acknowledgment
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'setDoc',
-        targetPath: 'cms/main',
-        sourceComponent: 'ShopContext',
-        actionName: 'setDoc(cms/main & cms_public/main)',
-        summary: 'Firestore documents cms/main and cms_public/main successfully persisted and acknowledged by database.',
-        startTime,
-        payload: sanitized
-      });
-
-      // Check if SEO fields actually changed to log a "meta_change" rather than general "cms_update"
-      const isMetaChange = modifiedKeys.includes('seo') || Object.keys(diff).some(k => k.startsWith('seo.'));
-      if (isMetaChange) {
-        await logAdminActivity(
-          'meta_change',
-          'SEO Meta Tags updated',
-          `Modified global page title or description for search engines: [${modifiedKeys.join(', ')}].`
-        );
-      } else {
-        await logAdminActivity(
-          'cms_update',
-          'Site content updated',
-          `Published updates to sections: [${modifiedKeys.join(', ')}].`
-        );
-      }
-
-    } catch (err: any) {
-      dbLogger.logFirestoreWriteError({
-        operation: 'setDoc',
-        targetPath: 'cms/main',
-        sourceComponent: 'ShopContext',
-        actionName: 'setDoc(cms/main)',
-        summary: 'Error writing CMS content to Firestore',
-        startTime,
-        error: err
-      });
-      console.error("[ShopContext] Error saving CMS content to Firestore:", err);
-      throw err;
+    const isMetaChange = modifiedKeys.includes('seo') || Object.keys(diff).some(k => k.startsWith('seo.'));
+    if (isMetaChange) {
+      await logAdminActivity(
+        'meta_change',
+        'SEO Meta Tags updated',
+        `Modified global page title or description for search engines: [${modifiedKeys.join(', ')}].`
+      );
+    } else {
+      await logAdminActivity(
+        'cms_update',
+        'Site content updated',
+        `Published updates to sections: [${modifiedKeys.join(', ') || 'none'}].`
+      );
     }
   };
+
 
   const toggleSectionVisibility = async (sectionKey: keyof SectionVisibilityConfig) => {
     const currentVal = siteContent.visibility?.[sectionKey] ?? true;
@@ -2386,34 +2082,84 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     showToast(`Section "${String(sectionKey)}" is now ${nextVal ? 'VISIBLE (Published)' : 'HIDDEN'}`, 'info');
   };
 
+  /**
+   * CMS block mutations write to Supabase `cms_custom_blocks`.
+   *
+   * They used to route through updateSiteContent, which persisted the block list
+   * inside the Firestore CMS document. Two problems with that: the blocks table
+   * is the store of record, and the id was minted as `block-${Date.now()}` —
+   * a string Postgres cannot cast to the uuid primary key, so every insert
+   * would have been rejected.
+   *
+   * Local state is updated only after the write succeeds, so the admin UI never
+   * shows a block that is not in the database. Errors are surfaced and
+   * rethrown so the calling form can keep the admin's input.
+   */
   const addCustomBlock = async (newBlockData: Omit<CMSCustomBlock, 'id'>) => {
-    const id = `block-${Date.now()}`;
-    const newBlock: CMSCustomBlock = { ...newBlockData, id };
-    
-    await updateSiteContent((prev) => ({
-      ...prev,
-      customBlocks: [...(prev.customBlocks || []), newBlock]
-    }));
+    // Real v4 UUID: cms_custom_blocks.id is a uuid column.
+    const newBlock: CMSCustomBlock = { ...newBlockData, id: generateUuidV4() };
 
-    showToast(`Custom element "${newBlock.title}" created & published!`, 'success');
+    try {
+      const saved = await supabaseCmsService.upsertCustomBlock(newBlock);
+      setSiteContent((prev) => ({
+        ...prev,
+        customBlocks: [...(prev.customBlocks || []), saved],
+      }));
+      cmsBlocksFromSupabaseRef.current = true;
+      showToast(`Custom element "${saved.title}" created & published!`, 'success');
+    } catch (err: any) {
+      console.error('[ShopContext] addCustomBlock failed:', err);
+      showToast(
+        language === 'ar'
+          ? `تعذر إنشاء العنصر: ${err?.message || 'خطأ غير معروف'}`
+          : `Could not create block: ${err?.message || 'unknown error'}`,
+        'error'
+      );
+      throw err;
+    }
   };
 
   const updateCustomBlock = async (id: string, updates: Partial<CMSCustomBlock>) => {
-    await updateSiteContent((prev) => ({
-      ...prev,
-      customBlocks: (prev.customBlocks || []).map((b) => (b.id === id ? { ...b, ...updates } : b))
-    }));
+    try {
+      const existing = (siteContent.customBlocks || []).find((b) => b.id === id);
+      const saved = await supabaseCmsService.upsertCustomBlock({ ...(existing || {}), ...updates, id });
 
-    showToast('Custom block updated and published!', 'success');
+      setSiteContent((prev) => ({
+        ...prev,
+        customBlocks: (prev.customBlocks || []).map((b) => (b.id === id ? saved : b)),
+      }));
+      cmsBlocksFromSupabaseRef.current = true;
+      showToast('Custom block updated and published!', 'success');
+    } catch (err: any) {
+      console.error('[ShopContext] updateCustomBlock failed:', err);
+      showToast(
+        language === 'ar'
+          ? `تعذر تحديث العنصر: ${err?.message || 'خطأ غير معروف'}`
+          : `Could not update block: ${err?.message || 'unknown error'}`,
+        'error'
+      );
+      throw err;
+    }
   };
 
   const deleteCustomBlock = async (id: string) => {
-    await updateSiteContent((prev) => ({
-      ...prev,
-      customBlocks: (prev.customBlocks || []).filter((b) => b.id !== id)
-    }));
-
-    showToast('Custom block deleted from page', 'warning');
+    try {
+      await supabaseCmsService.deleteCustomBlock(id);
+      setSiteContent((prev) => ({
+        ...prev,
+        customBlocks: (prev.customBlocks || []).filter((b) => b.id !== id),
+      }));
+      showToast('Custom block deleted from page', 'warning');
+    } catch (err: any) {
+      console.error('[ShopContext] deleteCustomBlock failed:', err);
+      showToast(
+        language === 'ar'
+          ? `تعذر حذف العنصر: ${err?.message || 'خطأ غير معروف'}`
+          : `Could not delete block: ${err?.message || 'unknown error'}`,
+        'error'
+      );
+      throw err;
+    }
   };
 
   const toggleProductPublish = async (productId: string) => {
@@ -2429,38 +2175,39 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Local storage persistence
   useEffect(() => {
     try {
-      localStorage.setItem('yallalb_products', JSON.stringify(products));
+      localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products));
     } catch {}
   }, [products]);
 
-  // Guests: persist cart locally. Authenticated users: Supabase is authoritative.
+  // Guests only: an authenticated cart is persisted to public.carts by the
+  // effect further down, and must not be mirrored into this browser, where the
+  // next person to use it would inherit it.
   useEffect(() => {
-    if (firebaseUser) return;
+    if (authUser) return;
     try {
-      localStorage.setItem('yallalb_guest_cart', JSON.stringify(storedCart));
+      localStorage.setItem(GUEST_CART_KEY, JSON.stringify(storedCart));
     } catch {}
-  }, [storedCart, firebaseUser]);
-
-  // Guests: persist wishlist locally. Authenticated users: Supabase is authoritative.
-  useEffect(() => {
-    if (firebaseUser) return;
-    try {
-      localStorage.setItem('yallalb_guest_wishlist', JSON.stringify(wishlist));
-    } catch {}
-  }, [wishlist, firebaseUser]);
+  }, [storedCart, authUser]);
 
   useEffect(() => {
+    if (authUser) return;
     try {
-      if (!IS_FIREBASE_ENABLED) {
+      localStorage.setItem(GUEST_WISHLIST_KEY, JSON.stringify(wishlist));
+    } catch {}
+  }, [wishlist, authUser]);
+
+  useEffect(() => {
+    try {
+      // Only ever cache a single customer's own orders. An admin's list spans
+      // every account, so caching it would leave other people's orders in this
+      // browser; signing out clears the cache entirely.
+      if (!isAdminUser && authUser && orders.length > 0) {
         localStorage.setItem('yallalb_orders', JSON.stringify(orders));
-      } else if (!isAdminUser && firebaseUser && orders.length > 0) {
-        // Only cache user-specific orders for this session, never store admin whole-database orders in localStorage
-        localStorage.setItem('yallalb_orders', JSON.stringify(orders));
-      } else if (!firebaseUser) {
+      } else if (!authUser) {
         localStorage.removeItem('yallalb_orders');
       }
     } catch {}
-  }, [orders, isAdminUser, firebaseUser]);
+  }, [orders, isAdminUser, authUser]);
 
   useEffect(() => {
     try {
@@ -2468,281 +2215,192 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   }, [user]);
 
-  // Real-time Products Sync from Firestore Database
+  /**
+   * Live catalogue sync from Supabase Realtime.
+   *
+   * Replaces an onSnapshot listener on the Firestore `products` collection,
+   * which did three things that cannot survive the migration:
+   *
+   *  - on an empty collection it wrote the entire bundled demo catalogue into
+   *    the database (as admin) and put it on screen for everyone else, which is
+   *    exactly the "demo data in production" failure being removed here;
+   *  - it overwrote the Supabase-hydrated catalogue on every snapshot, so
+   *    whichever store answered last won;
+   *  - it read Firestore documents shaped like the pre-migration Product, with
+   *    slug ids that checkout rejects.
+   *
+   * `products` is a member of the `supabase_realtime` publication (verified in
+   * pg_publication_tables), so INSERT/UPDATE/DELETE arrive here. Realtime
+   * payloads are raw table rows: they carry no joined seller or category names,
+   * no gallery rows, and — for a privileged subscriber — the private columns
+   * that still exist on `products`. So a change notification is treated as an
+   * invalidation signal, not as data: it triggers a re-read through the same
+   * audience-appropriate path (public_catalog for customers, the base table for
+   * admins and sellers) rather than being merged into state directly. That also
+   * means an unpublish reaches customers as a removal, because the re-read goes
+   * through a view that filters unpublished rows.
+   */
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) {
+    let isMounted = true;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const refreshCatalog = async () => {
       try {
-        const stored = localStorage.getItem('yallalb_products');
-        if (stored) {
-          const list = JSON.parse(stored) as Product[];
-          setProducts(list.map(ensureSellerItemCode));
-        } else {
-          const seeded = INITIAL_PRODUCTS.map(ensureSellerItemCode);
-          setProducts(seeded);
-          localStorage.setItem('yallalb_products', JSON.stringify(seeded));
-        }
-      } catch {
-        setProducts(INITIAL_PRODUCTS.map(ensureSellerItemCode));
-      }
-      setIsDbSyncing(false);
-      return;
-    }
-
-    const productsColRef = collection(db, 'products');
-    const q = isAdminUser ? productsColRef : (isSellerUser && sellerId) ? query(productsColRef, or(where('isPublished', '==', true), where('sellerId', '==', sellerId))) : query(productsColRef, where('isPublished', '==', true));
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        if (snapshot.empty && !hasSeededProductsRef.current) {
-          hasSeededProductsRef.current = true;
-          if (isAdminUser) {
-            console.log("[ShopContext] Database products collection is empty. Seeding initial catalog to Firestore...");
-            try {
-              const batch = writeBatch(db);
-              INITIAL_PRODUCTS.forEach((prod) => {
-                const prodDocRef = doc(db, 'products', prod.id);
-                batch.set(prodDocRef, sanitizeDocumentData(ensureSellerItemCode(prod)));
-              });
-              await monitoredBatchCommit(batch, INITIAL_PRODUCTS.length, 'products', 'ShopContext:AutoSeedProducts');
-              console.log(`[ShopContext] Successfully seeded ${INITIAL_PRODUCTS.length} artisan products to Firestore database.`);
-            } catch (seedErr) {
-              console.error("[ShopContext] Error seeding products to Firestore:", seedErr);
-            }
-          }
-          setProducts(INITIAL_PRODUCTS.map(ensureSellerItemCode));
-          setHasMoreProducts(false);
-        } else if (!snapshot.empty) {
-          const dbProductsMap = new Map<string, Product>();
-          snapshot.forEach((docSnap) => {
-            const p = ensureSellerItemCode(docSnap.data() as Product);
-            dbProductsMap.set(docSnap.id, p);
-          });
-
-          const allProducts = Array.from(dbProductsMap.values()).sort((a, b) => {
-            const orderA = a.displayOrder ?? 9999;
-            const orderB = b.displayOrder ?? 9999;
-            return orderA - orderB;
-          });
-          setProducts(allProducts);
-          setHasMoreProducts(false);
-
-          try {
-            localStorage.setItem('yallalb_products', JSON.stringify(allProducts));
-          } catch {}
-
-          dbMonitor.logSnapshotSync({
-            path: 'products/*',
-            caller: 'ShopContext:onSnapshot(products)',
-            itemCount: snapshot.docs.length,
-            metadata: { totalItems: dbProductsMap.size }
-          });
-        }
-        setIsDbSyncing(false);
-      },
-      (error: any) => {
-        dbMonitor.logOperationFailure('fetch-products-err', error, {
-          metadata: { path: 'products/*', operation: 'SNAPSHOT_SYNC' }
+        const fresh = await supabaseCatalogService.fetchProducts({
+          isAdmin: isAdminUser,
+          isSeller: isSellerUser,
+          sellerId,
         });
-        console.warn("[ShopContext] Products listener warning:", error);
-        handleFirestoreError(error, OperationType.GET, 'products');
-        setIsDbSyncing(false);
-      }
-    );
+        if (!isMounted) return;
 
-    return () => unsubscribe();
-  }, [isAdminUser]);
-
-  const loadMoreProducts = useCallback(async () => {
-    if (!IS_FIREBASE_ENABLED || isFetchingMore || !hasMoreProducts || !lastVisibleDocRef.current) {
-      return;
-    }
-
-    setIsFetchingMore(true);
-    try {
-      const productsColRef = collection(db, 'products');
-      let constraints: any[] = [orderBy('id'), startAfter(lastVisibleDocRef.current), limit(24)];
-      if (!isAdminUser) {
-        if (isSellerUser && sellerId) {
-          constraints.unshift(or(where('isPublished', '==', true), where('sellerId', '==', sellerId)));
-        } else {
-          constraints.unshift(where('isPublished', '==', true));
-        }
-      }
-      const q = query(productsColRef, ...constraints);
-      const snapshot = await getDocs(q);
-
-      if (!snapshot.empty) {
-        lastVisibleDocRef.current = snapshot.docs[snapshot.docs.length - 1];
-        setHasMoreProducts(snapshot.docs.length === 24);
-
-        const newProducts: Product[] = [];
-        snapshot.forEach((docSnap) => {
-          newProducts.push(docSnap.data() as Product);
-        });
-
-        setProducts((prev) => {
-          // Filter duplicates just in case
-          const prevIds = new Set(prev.map(p => p.id));
-          const filteredNew = newProducts.filter(p => !prevIds.has(p.id));
-          const updated = [...prev, ...filteredNew];
-          try {
-            localStorage.setItem('yallalb_products', JSON.stringify(updated));
-          } catch {}
-          return updated;
-        });
-
-        dbMonitor.logSnapshotSync({
-          path: 'products/*',
-          caller: 'ShopContext:loadMoreProducts',
-          itemCount: snapshot.docs.length,
-          metadata: { totalItems: snapshot.docs.length }
-        });
-      } else {
+        // An empty array is applied: a catalogue emptied (or fully unpublished)
+        // in the database must empty on screen too.
+        setProducts(fresh.map(ensureSellerItemCode));
         setHasMoreProducts(false);
+        setCatalogStatus('ready');
+        setCatalogError(null);
+        try {
+          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(fresh));
+        } catch {}
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('[ShopContext] Realtime catalogue refresh failed:', err);
+        setCatalogStatus('error');
+        setCatalogError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (isMounted) setIsDbSyncing(false);
       }
-    } catch (err) {
-      console.error("[ShopContext] Error fetching paginated products:", err);
-    } finally {
-      setIsFetchingMore(false);
-    }
-  }, [isFetchingMore, hasMoreProducts]);
+    };
 
-  // Real-time product_private Sync from Firestore Database (strictly scoped to admin or owning seller)
-  useEffect(() => {
-    if (!IS_FIREBASE_ENABLED || (!isAdminUser && (!isSellerUser || !sellerId))) {
-      return;
-    }
+    // Coalesce bursts: a single admin save can emit several row events, and a
+    // bulk publish emits one per product. Re-reading once per burst keeps that
+    // to one round trip.
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(refreshCatalog, 400);
+    };
 
-    let q;
-    if (isAdminUser) {
-      q = collection(db, 'product_private');
-    } else {
-      q = query(collection(db, 'product_private'), where('sellerId', '==', sellerId));
-    }
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        if (!snapshot.empty) {
-          const privMap = new Map<string, any>();
-          snapshot.forEach((docSnap) => {
-            privMap.set(docSnap.id, docSnap.data());
-          });
-
-          setProducts((prev) =>
-            prev.map((p) => {
-              const priv = privMap.get(p.id);
-              if (!priv) return p;
-              return {
-                ...p,
-                sellerItemCode: priv.sellerItemCode ?? p.sellerItemCode,
-                lowStockThreshold: priv.lowStockThreshold ?? p.lowStockThreshold,
-                lowStockNotice: priv.lowStockNotice ?? p.lowStockNotice,
-                customStockLabel: priv.customStockLabel ?? p.customStockLabel,
-                costPriceUSD: priv.costPriceUSD ?? p.costPriceUSD
-              };
-            })
-          );
+    const channel = supabase
+      .channel('yalla-products-catalog')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_images' }, scheduleRefresh)
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Not fatal: the catalogue still loads on mount and after each admin
+          // write. Logged so a broken realtime connection is visible rather
+          // than silently degrading to a stale storefront.
+          console.error(`[ShopContext] Supabase realtime channel for products: ${status}`);
         }
-      },
-      (err) => {
-        console.warn('[ShopContext] product_private listener warning:', err);
-      }
-    );
+      });
 
-    return () => unsubscribe();
+    setIsDbSyncing(false);
+
+    return () => {
+      isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
   }, [isAdminUser, isSellerUser, sellerId]);
 
-  // Real-time Orders Sync from Firestore Database (strictly scoped to current user or admin)
-  useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) {
-      try {
-        const stored = localStorage.getItem('yallalb_orders');
-        if (stored) {
-          setOrders(JSON.parse(stored));
-        } else {
-          setOrders([]);
-        }
-      } catch {
-        setOrders([]);
-      }
-      return;
-    }
+  /**
+   * No-op: the catalogue is read in full, so there is no next page.
+   *
+   * This used to paginate Firestore `products` 24 documents at a time and
+   * append them to state. Two problems now: those documents are the
+   * pre-migration shape with slug ids that checkout rejects, and appending them
+   * to a Supabase-sourced list would mix two stores in one catalogue. The
+   * Supabase read returns the whole visible catalogue in one query (filtered by
+   * the public_catalog view or by RLS), which is why hasMoreProducts is always
+   * false.
+   *
+   * Kept as a function because the infinite-scroll UI calls it; if the
+   * catalogue grows enough to need paging, page it with .range() against
+   * public_catalog rather than reinstating this.
+   */
+  const loadMoreProducts = useCallback(async () => {
+    return;
+  }, []);
 
-    if (!firebaseUser) {
+  // Merchant-private product fields (strictly scoped to admin or owning seller by RLS)
+  useEffect(() => {
+    /**
+     * Removed: the Firestore product_private listener.
+     *
+     * The private merchant fields (cost price, stock thresholds, seller item
+     * code) now arrive with the catalogue itself: fetchPrivilegedProducts
+     * embeds public.product_private, whose RLS is
+     * `is_admin() OR (is_seller() AND owns the row)`. Merging a second stream
+     * into the product list was how those fields used to appear, and it is no
+     * longer needed.
+     */
+  }, []);
+
+  // Real-time orders sync from Supabase (scoped to the current user or admin by RLS)
+  useEffect(() => {
+    /**
+     * Orders, from public.orders via supabaseOrderService.
+     *
+     * Replaces an onSnapshot listener over the Firestore `orders` collection.
+     * Row visibility is the database's: orders RLS restricts a customer to
+     * their own orders, and `orders` IS in the supabase_realtime publication,
+     * so a status change is picked up by the channel below rather than by a
+     * client-side query per role.
+     */
+    if (!authUser) {
       setOrders([]);
       return;
     }
 
-    let q;
-    if (isAdminUser) {
-      q = query(collection(db, 'orders'), orderBy('date', 'desc'), limit(500));
-    } else if (isSellerUser && sellerId) {
-      // Sellers cannot list all orders via a global collectionGroup due to strict security rules.
-      // They only fetch their own customer orders here.
-      q = query(collection(db, 'orders'), where('userId', '==', firebaseUser.uid), limit(100));
-    } else {
-      // Query solely by userId without composite index requirement, then sort in JS memory
-      q = query(collection(db, 'orders'), where('userId', '==', firebaseUser.uid), limit(100));
-    }
+    let isMounted = true;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        if (!snapshot.empty) {
-          const dbOrders: Order[] = [];
-          snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            dbOrders.push({
-              id: data.orderId || docSnap.id,
-              orderId: data.orderId,
-              userId: '',
-              status: data.status || 'pending',
-              date: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString()) : new Date().toISOString(),
-              items: data.items || [],
-              shipping: data.shipping || {},
-              sellerIds: sellerId ? [sellerId] : [],
-              subtotalUSD: 0,
-              discountUSD: 0,
-              deliveryFeeUSD: 0,
-              totalUSD: 0,
-              paymentMethod: 'cod_usd',
-              currency: 'USD',
-              totalLBP: 0,
-              estimatedDelivery: '',
-              trackingNumber: '',
-              ...data
-            } as unknown as Order);
-          });
-          // Sort newest first client-side
-          dbOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          
-          dbMonitor.logSnapshotSync({
-            path: 'orders/*',
-            caller: 'ShopContext:onSnapshot(orders)',
-            itemCount: dbOrders.length
-          });
-
-          setOrders(dbOrders);
-        } else {
-          setOrders([]);
-        }
-      },
-      (error) => {
-        dbMonitor.logOperationFailure('snap-orders-err', error, {
-          metadata: { path: 'orders/*', operation: 'SNAPSHOT_SYNC' }
-        });
-        console.warn("[ShopContext] Non-blocking orders listener notice:", error);
-        setOrders([]);
+    const loadOrders = async () => {
+      try {
+        const rows = await supabaseOrderService.fetchOrders();
+        if (isMounted) setOrders(rows);
+      } catch (err) {
+        console.error('[ShopContext] Failed to load orders:', err);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [firebaseUser, isAdminUser]);
+    loadOrders();
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(loadOrders, 400);
+    };
+
+    const channel = supabase
+      .channel('yalla-orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`[ShopContext] Supabase realtime channel for orders: ${status}`);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [authUser, isAdminUser, isSellerUser, sellerId]);
 
   // Auth & User / Cart / Wishlist synchronization using Supabase Auth
   useEffect(() => {
     let isMounted = true;
+
+    /**
+     * Which auth event the in-flight profile read belongs to.
+     *
+     * handleAuthUser defers its database reads, and getSession() plus every
+     * onAuthStateChange event can have one in flight at once. Without this,
+     * a slow read for an earlier event could land after a newer one and
+     * reinstate the previous user's role, profile and cart — signing out and
+     * straight back in as someone else being the obvious case. Each call
+     * claims a generation and abandons its work if a newer one has started.
+     */
+    let authGeneration = 0;
     console.log("[ShopContext] Initializing Supabase Auth listener...");
 
     const deriveNames = (displayName?: string | null, email?: string | null) => {
@@ -2771,8 +2429,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleAuthUser = (supaUser: SupabaseUser | null) => {
       if (!isMounted) return;
+      authGeneration += 1;
+      const myGeneration = authGeneration;
+      const isCurrent = () => isMounted && myGeneration === authGeneration;
       if (!supaUser) {
-        setFirebaseUser(null);
+        setAuthUser(null);
         setUser(INITIAL_USER);
         setIsAdminUser(false);
         setIsSellerUser(false);
@@ -2784,32 +2445,57 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           localStorage.removeItem('yallalb_orders');
         } catch {}
-        // Restore guest cart and wishlist only from guest local storage.
-        cartSyncUserRef.current = null;
-        wishlistSyncUserRef.current = null;
-        try {
-          const storedCart = getGuestStorage('yallalb_guest_cart', 'yallalb_cart');
-          const parsedCart = storedCart ? JSON.parse(storedCart) : [];
-          setCart(Array.isArray(parsedCart) ? parsedCart : []);
 
-          const storedWishlist = getGuestStorage('yallalb_guest_wishlist', 'yallalb_wishlist');
-          const parsedWishlist = storedWishlist ? JSON.parse(storedWishlist) : [];
-          setWishlist(Array.isArray(parsedWishlist) ? parsedWishlist : []);
-        } catch {
+        // Close the write gate: with no session, RLS would reject a cart write
+        // anyway, and an attempted one must not look like a save.
+        setCartHydratedForUserId(null);
+        lastPersistedCartRef.current = null;
+        lastPersistedWishlistRef.current = null;
+
+        // A cart that belonged to a signed-in account is that account's, and it
+        // is already saved in Supabase. Leaving it on screen after sign-out
+        // would hand it to whoever uses this browser next, so it is cleared.
+        // A genuine guest cart is preserved, which keeps the
+        // browse → add to cart → sign up flow working.
+        if (readLocalCartOwner() !== 'guest') {
           setCart([]);
           setWishlist([]);
+          try {
+            localStorage.removeItem(GUEST_CART_KEY);
+            localStorage.removeItem(GUEST_WISHLIST_KEY);
+            localStorage.removeItem(LEGACY_CART_KEY);
+            localStorage.removeItem(LEGACY_WISHLIST_KEY);
+          } catch {}
+          writeLocalCartOwner('guest');
+        } else {
+          try {
+            const guestCart = getGuestStorage(GUEST_CART_KEY, LEGACY_CART_KEY);
+            if (guestCart) {
+              const parsed = JSON.parse(guestCart);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setCart(parsed);
+              }
+            }
+            const guestWishlist = getGuestStorage(GUEST_WISHLIST_KEY, LEGACY_WISHLIST_KEY);
+            if (guestWishlist) {
+              const parsed = JSON.parse(guestWishlist);
+              if (Array.isArray(parsed)) {
+                setWishlist(parsed);
+              }
+            }
+          } catch {}
         }
         return;
       }
 
       // 1. Initial immediate user adapter setup to unblock UI while deferring DB queries
       const initialUserAdapter = createAuthUserAdapter(supaUser, 'customer', null, {});
-      setFirebaseUser(initialUserAdapter);
+      setAuthUser(initialUserAdapter);
       setIsEmailVerified(Boolean(supaUser.email_confirmed_at));
 
       // 2. Defer database query using setTimeout to avoid potential deadlock in onAuthStateChange
       setTimeout(async () => {
-        if (!isMounted) return;
+        if (!isCurrent()) return;
 
         let profileRole: 'admin' | 'seller' | 'customer' = 'customer';
         let profileSellerId: string | null = null;
@@ -2837,7 +2523,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn("[ShopContext] Error loading Supabase user profile from database:", profileErr);
         }
 
-        if (!isMounted) return;
+        if (!isCurrent()) return;
 
         const isAdmin = profileRole === 'admin';
         const isSeller = profileRole === 'seller';
@@ -2849,20 +2535,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsEmailVerified(isEmailConfirmed);
 
         const authoritativeUserAdapter = createAuthUserAdapter(supaUser, profileRole, profileSellerId, profileData);
-        setFirebaseUser(authoritativeUserAdapter);
-
-        // Force refresh of claims via getIdTokenResult to guarantee token integrity and test compliance
-        try {
-          await authoritativeUserAdapter.getIdToken(true).catch(() => {});
-          const tokenResult = await authoritativeUserAdapter.getIdTokenResult(true).catch(() => null);
-          if (tokenResult?.claims) {
-            setIsAdminUser(tokenResult.claims.admin === true);
-            setIsSellerUser(tokenResult.claims.seller === true);
-            setSellerId(typeof tokenResult.claims.sellerId === 'string' ? tokenResult.claims.sellerId : null);
-          }
-        } catch (tokenErr) {
-          console.warn("[ShopContext] Error verifying custom claims token result:", tokenErr);
-        }
+        setAuthUser(authoritativeUserAdapter);
 
         // Check if local cache has shipping defaults
         let cachedShipping: Partial<UserProfile> = {};
@@ -2884,64 +2557,69 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(safeProfile);
         setIsLoadingAuth(false);
 
-        // Cart and wishlist are now Supabase-authoritative for authenticated users.
-        // If the user has no Supabase row yet, migrate the existing guest cache once.
+        // ── Cart & wishlist hydration from Supabase ──────────────────────────
+        // Supabase `carts` / `wishlists` are authoritative. This previously read
+        // Firestore `carts/<id>` and `wishlists/<id>`, documents that nothing
+        // writes any more, so a saved cart could never come back after a reload.
+        //
+        // Row access is enforced in the database: carts_own / wishlists_own are
+        // `user_id = auth.uid() OR is_admin()` for ALL commands, so one user
+        // cannot read or write another user's cart even by passing their id.
+        const localOwner = readLocalCartOwner();
+        const localBelongsToSomeoneElse = localOwner !== 'guest' && localOwner !== supaUser.id;
+
+        if (localBelongsToSomeoneElse) {
+          // Previous account's cart is still in this browser. Drop it rather
+          // than showing it to the person who just signed in.
+          setCart([]);
+          setWishlist([]);
+        }
+
         try {
-          const [serverCart, serverWishlist] = await Promise.all([
+          const [savedCart, savedWishlist] = await Promise.all([
             supabaseUserDataService.fetchCart(supaUser.id),
             supabaseUserDataService.fetchWishlist(supaUser.id),
           ]);
 
-          if (!isMounted) return;
+          if (!isCurrent()) return;
 
-          if (serverCart !== null) {
-            // Existing server state always wins over guest/local state.
-            cartSyncUserRef.current = supaUser.id;
-            setCart(serverCart);
+          // null means "no row saved yet" (an expected empty result), not
+          // failure — in that case a guest cart carried into sign-in is kept
+          // and the effect below saves it to the account.
+          if (savedCart) {
+            setCart(savedCart);
+            // Mark it already persisted: it came straight from the row, so the
+            // effect has nothing to write back.
+            lastPersistedCartRef.current = JSON.stringify(savedCart);
           } else {
-            const guestCartRaw = getGuestStorage('yallalb_guest_cart', 'yallalb_cart');
-            let guestCart: CartItem[] = [];
-            try {
-              const parsed = guestCartRaw ? JSON.parse(guestCartRaw) : [];
-              if (Array.isArray(parsed)) guestCart = parsed;
-            } catch {}
-
-            await supabaseUserDataService.saveCart(supaUser.id, guestCart);
-            cartSyncUserRef.current = supaUser.id;
-            setCart(guestCart);
-            try {
-              localStorage.removeItem('yallalb_guest_cart');
-              localStorage.removeItem('yallalb_cart');
-            } catch {}
+            lastPersistedCartRef.current = null;
           }
 
-          if (serverWishlist !== null) {
-            // Existing server state always wins over guest/local state.
-            wishlistSyncUserRef.current = supaUser.id;
-            setWishlist(serverWishlist);
+          if (savedWishlist) {
+            setWishlist(savedWishlist);
+            lastPersistedWishlistRef.current = JSON.stringify(savedWishlist);
           } else {
-            const guestWishlistRaw = getGuestStorage('yallalb_guest_wishlist', 'yallalb_wishlist');
-            let guestWishlist: string[] = [];
-            try {
-              const parsed = guestWishlistRaw ? JSON.parse(guestWishlistRaw) : [];
-              if (Array.isArray(parsed)) guestWishlist = parsed;
-            } catch {}
-
-            await supabaseUserDataService.saveWishlist(supaUser.id, guestWishlist);
-            wishlistSyncUserRef.current = supaUser.id;
-            setWishlist(guestWishlist);
-            try {
-              localStorage.removeItem('yallalb_guest_wishlist');
-              localStorage.removeItem('yallalb_wishlist');
-            } catch {}
+            lastPersistedWishlistRef.current = null;
           }
-        } catch (syncErr) {
-          // Do not replace or overwrite the authenticated user's server state if
-          // the initial Supabase cart/wishlist load fails. Persistence stays blocked
-          // until a successful authoritative load occurs.
-          cartSyncUserRef.current = null;
-          wishlistSyncUserRef.current = null;
-          console.warn('[ShopContext] Error loading Supabase cart/wishlist:', syncErr);
+
+          writeLocalCartOwner(supaUser.id);
+          // Only now may the persistence effects write: before this point a
+          // write would overwrite the saved row with unhydrated local state.
+          setCartHydratedForUserId(supaUser.id);
+        } catch (cartErr) {
+          // A failed read must not be mistaken for an empty cart. Leave the
+          // hydration gate closed so nothing is written over the saved row,
+          // and tell the user their saved cart could not be loaded.
+          console.error('[ShopContext] Failed to load saved cart/wishlist from Supabase:', cartErr);
+          if (isCurrent()) {
+            setCartHydratedForUserId(null);
+            showToast(
+              language === 'ar'
+                ? 'تعذر تحميل سلتك المحفوظة. لن يتم حفظ التغييرات حتى تحديث الصفحة.'
+                : 'Could not load your saved cart. Changes will not be saved until you reload.',
+              'error'
+            );
+          }
         }
       }, 0);
     };
@@ -2969,44 +2647,212 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Persist authenticated cart to Supabase (debounced).
-  // The ref is set only after the initial server state has been loaded/migrated.
+  /**
+   * Persist the cart to Supabase `carts` whenever it changes (debounced 800ms).
+   *
+   * This replaces a write to Firestore `carts/<uid>`, which is no longer the
+   * store of record. It covers every cart mutation — add, quantity change,
+   * remove, and clear — because they all reduce onto `storedCart`; clearing to
+   * [] is persisted as an empty cart rather than being skipped.
+   *
+   * The write is gated on hydration having succeeded for this exact user, so a
+   * saved cart is never overwritten by local state that predates the read.
+   */
   useEffect(() => {
-    if (!firebaseUser) return;
-    const userId = firebaseUser.uid;
-    if (cartSyncUserRef.current !== userId) return;
+    const userId = authUser?.uid;
+    if (!userId) return; // guest: localStorage only
+    if (cartHydratedForUserId !== userId) return;
+
+    const payload = JSON.stringify(storedCart);
+    if (payload === lastPersistedCartRef.current) return;
 
     const handler = setTimeout(() => {
-      supabaseUserDataService.saveCart(userId, storedCart).catch((err) => {
-        console.warn('[ShopContext] Non-blocking Supabase cart sync notice:', err);
-      });
-    }, 500);
+      supabaseUserDataService
+        .saveCart(userId, storedCart)
+        .then(() => {
+          lastPersistedCartRef.current = payload;
+        })
+        .catch((err) => {
+          // Surfaced, not swallowed: the user needs to know the cart they are
+          // looking at is not saved.
+          console.error('[ShopContext] Failed to save cart to Supabase:', err);
+          showToast(
+            language === 'ar' ? 'تعذر حفظ سلتك على الخادم.' : 'Could not save your cart to the server.',
+            'error'
+          );
+        });
+    }, 800);
 
     return () => clearTimeout(handler);
-  }, [storedCart, firebaseUser]);
+    // `language` is intentionally not a dependency: it is declared further down
+    // this component body, so naming it here would read it during render, while
+    // it is still in its temporal dead zone. The callback reads it safely
+    // because it only runs after the body has finished.
+  }, [storedCart, authUser, cartHydratedForUserId]);
 
-  // Persist authenticated wishlist to Supabase (debounced).
-  // The ref is set only after the initial server state has been loaded/migrated.
+  /** Persist the wishlist to Supabase `wishlists`. Same gating as the cart. */
   useEffect(() => {
-    if (!firebaseUser) return;
-    const userId = firebaseUser.uid;
-    if (wishlistSyncUserRef.current !== userId) return;
+    const userId = authUser?.uid;
+    if (!userId) return;
+    if (cartHydratedForUserId !== userId) return;
+
+    const payload = JSON.stringify(wishlist);
+    if (payload === lastPersistedWishlistRef.current) return;
 
     const handler = setTimeout(() => {
-      supabaseUserDataService.saveWishlist(userId, wishlist).catch((err) => {
-        console.warn('[ShopContext] Non-blocking Supabase wishlist sync notice:', err);
-      });
-    }, 500);
+      supabaseUserDataService
+        .saveWishlist(userId, wishlist)
+        .then(() => {
+          lastPersistedWishlistRef.current = payload;
+        })
+        .catch((err) => {
+          console.error('[ShopContext] Failed to save wishlist to Supabase:', err);
+
+          // The catalog is still serving bundled demo slugs, so the ids cannot
+          // go into a uuid[] column. That is a migration state to fix, not a
+          // server fault, and telling the shopper the server failed would be
+          // wrong — so it is loud in the console and silent in the UI.
+          if (err?.name === 'NonUuidProductIdsError') return;
+
+          showToast(
+            language === 'ar' ? 'تعذر حفظ قائمة رغباتك على الخادم.' : 'Could not save your wishlist to the server.',
+            'error'
+          );
+        });
+    }, 800);
 
     return () => clearTimeout(handler);
-  }, [wishlist, firebaseUser]);
+  }, [wishlist, authUser, cartHydratedForUserId]);
+
+  /**
+   * Classifies a Supabase Auth failure.
+   *
+   * The three call sites below compared `error.code` against Firebase codes
+   * ('auth/invalid-credential', 'auth/email-already-in-use',
+   * 'auth/weak-password', 'auth/network-request-failed', …). Supabase never
+   * sets those, so every specific branch was dead and users saw the generic
+   * fallback message.
+   *
+   * Supabase reports an AuthApiError with an HTTP `status`, a snake_case
+   * `code` on recent client versions, and a human message. All three are
+   * consulted so the mapping keeps working whichever the installed client
+   * provides.
+   */
+  type AuthErrorKind =
+    | 'invalid_credentials'
+    | 'unconfirmed_email'
+    | 'already_registered'
+    | 'weak_password'
+    | 'invalid_email'
+    | 'rate_limited'
+    | 'network'
+    | 'not_found'
+    | 'unknown';
+
+  const classifyAuthError = (error: any): AuthErrorKind => {
+    const code = String(error?.code ?? '');
+    const status = Number(error?.status ?? 0);
+    const message = String(error?.message ?? '').toLowerCase();
+
+    if (error?.name === 'AuthRetryableFetchError' || error instanceof TypeError) return 'network';
+    if (
+      message.includes('failed to fetch') ||
+      message.includes('fetch failed') ||
+      message.includes('networkerror') ||
+      message.includes('load failed')
+    ) {
+      return 'network';
+    }
+
+    if (code === 'invalid_credentials' || message.includes('invalid login credentials') || message.includes('invalid credentials')) {
+      return 'invalid_credentials';
+    }
+    if (code === 'email_not_confirmed' || message.includes('email not confirmed')) return 'unconfirmed_email';
+    if (
+      code === 'user_already_exists' ||
+      code === 'email_exists' ||
+      message.includes('already registered') ||
+      message.includes('already in use') ||
+      message.includes('user already exists')
+    ) {
+      return 'already_registered';
+    }
+    if (code === 'weak_password' || message.includes('password should be') || message.includes('password is too weak')) {
+      return 'weak_password';
+    }
+    if (code === 'validation_failed' || message.includes('invalid email') || message.includes('unable to validate email')) {
+      return 'invalid_email';
+    }
+    if (status === 429 || code.includes('rate_limit') || message.includes('rate limit') || message.includes('too many requests')) {
+      return 'rate_limited';
+    }
+    if (status === 404 || code === 'user_not_found' || message.includes('user not found')) return 'not_found';
+
+    return 'unknown';
+  };
+
+  /**
+   * Retries only failures that a retry can fix.
+   *
+   * The condition was `error.code === 'auth/network-request-failed'`, a
+   * Firebase Auth code Supabase never emits, so in practice nothing retried
+   * except a message that happened to contain "fetch failed".
+   *
+   * Retryable: a transport failure (the fetch itself threw), Supabase's own
+   * AuthRetryableFetchError, and 408 / 429 / 5xx from the API.
+   *
+   * Never retried: authorization and validation failures. Repeating them
+   * cannot change the answer, and retrying a rejected sign-in burns the rate
+   * limit that produced it — so invalid credentials, 400/401/403/422, RLS
+   * denials (42501) and constraint violations (23xxx) are rethrown at once.
+   */
+  const isRetryableBackendError = (error: any): boolean => {
+    if (!error) return false;
+
+    const status = Number(error.status ?? error.statusCode ?? 0);
+    const code = String(error.code ?? '');
+    const message = String(error.message ?? '').toLowerCase();
+
+    // Authorization / validation: never retry.
+    if ([400, 401, 403, 404, 409, 422].includes(status)) return false;
+    if (/^(42501|42P01|23\d{3}|P0001|P0002|PGRST\d+)$/.test(code)) return false;
+    if (
+      message.includes('invalid login credentials') ||
+      message.includes('email not confirmed') ||
+      message.includes('already registered') ||
+      message.includes('row-level security') ||
+      message.includes('violates')
+    ) {
+      return false;
+    }
+
+    // Supabase marks its own retryable transport failures.
+    if (error.name === 'AuthRetryableFetchError') return true;
+
+    // Server-side and throttling failures are worth one more attempt.
+    if (status === 408 || status === 429 || (status >= 500 && status <= 599)) return true;
+
+    // A fetch that never reached the API throws a TypeError.
+    return (
+      error instanceof TypeError ||
+      message.includes('failed to fetch') ||
+      message.includes('fetch failed') ||
+      message.includes('networkerror') ||
+      message.includes('network request failed') ||
+      message.includes('load failed') ||
+      message.includes('timeout')
+    );
+  };
 
   async function executeWithRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
     try {
       return await fn();
     } catch (error: any) {
-      if ((error.code === 'auth/network-request-failed' || error.message?.includes('fetch failed')) && retries > 0) {
-        console.warn(`[ShopContext] Auth network error, retrying... (${retries} attempts left)`);
+      if (retries > 0 && isRetryableBackendError(error)) {
+        console.warn(
+          `[ShopContext] Retryable backend failure (${error?.name || error?.code || error?.status || 'network'}), ` +
+            `retrying... (${retries} attempts left)`
+        );
         await new Promise(resolve => setTimeout(resolve, delay));
         return executeWithRetry(fn, retries - 1, delay * 2);
       }
@@ -3065,7 +2911,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : 'If an account exists for this email address, a password reset link has been sent.';
       showToast(successMsg, 'success');
     } catch (error: any) {
-      if (error.code === 'auth/user-not-found' || error.status === 404) {
+      if (classifyAuthError(error) === 'not_found') {
         // OWASP User Enumeration Prevention: generic response prevents email address discovery
         const successMsg = language === 'ar'
           ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
@@ -3093,7 +2939,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: cleanEmail,
         options: {
           shouldCreateUser: true,
-          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?emailSignIn=true` : undefined,
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
         },
       });
       if (error) throw error;
@@ -3146,7 +2992,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resendEmailVerification = async (email?: string) => {
-    const targetEmail = (email || firebaseUser?.email || user.email || '').trim().toLowerCase();
+    const targetEmail = (email || authUser?.email || user.email || '').trim().toLowerCase();
     if (!targetEmail) {
       const msg = language === 'ar' ? 'الرجاء إدخال البريد الإلكتروني' : 'Please provide an email address.';
       showToast(msg, 'warning');
@@ -3268,12 +3114,24 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.error("Sign up error:", err);
       let msg = 'Sign up failed: ' + (err.message || 'Unknown error');
-      if (err.message?.toLowerCase().includes('already registered') || err.message?.toLowerCase().includes('already in use') || err.code === 'auth/email-already-in-use') {
-        msg = 'This email is already in use. If you already have an account, please Sign In instead.';
-      } else if (err.code === 'auth/weak-password') {
-        msg = 'Password is too weak. Please choose a stronger password.';
-      } else if (err.code === 'auth/invalid-email' || err.message?.toLowerCase().includes('invalid email')) {
-        msg = 'Invalid email address format.';
+      switch (classifyAuthError(err)) {
+        case 'already_registered':
+          msg = 'This email is already in use. If you already have an account, please Sign In instead.';
+          break;
+        case 'weak_password':
+          msg = 'Password is too weak. Please choose a stronger password.';
+          break;
+        case 'invalid_email':
+          msg = 'Invalid email address format.';
+          break;
+        case 'rate_limited':
+          msg = 'Too many sign-up attempts. Please wait a moment and try again.';
+          break;
+        case 'network':
+          msg = 'Network connection error. Please check your internet connection and try again.';
+          break;
+        default:
+          break;
       }
       showToast(msg, 'warning');
       throw err;
@@ -3292,7 +3150,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          emailRedirectTo: `${window.location.origin}/account?emailSignIn=true`,
+          emailRedirectTo: `${window.location.origin}/account`,
         },
       });
       if (error) throw error;
@@ -3324,22 +3182,63 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // 2. Supabase automatically parses URL fragments and session tokens via detectSessionInUrl: true
+      const callbackUrl = new URL(urlOrToken || currentUrl || 'http://localhost/');
+      const hashParams = new URLSearchParams(
+        callbackUrl.hash.startsWith('#') ? callbackUrl.hash.slice(1) : ''
+      );
+
+      // 2. A link Supabase rejected (expired, already used, wrong redirect) is
+      //    reported in the URL, not by an exception. Surface it instead of
+      //    falling through to "no session" and looking like nothing happened.
+      const callbackError =
+        callbackUrl.searchParams.get('error_description') ||
+        callbackUrl.searchParams.get('error') ||
+        hashParams.get('error_description') ||
+        hashParams.get('error');
+      if (callbackError) {
+        throw new Error(decodeURIComponent(callbackError.replace(/\+/g, ' ')));
+      }
+
+      // 3. Token-hash email templates (?token_hash=&type=) are not consumed by
+      //    detectSessionInUrl; they have to be redeemed explicitly.
+      const tokenHash = callbackUrl.searchParams.get('token_hash');
+      const linkType = callbackUrl.searchParams.get('type');
+      if (tokenHash) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: (linkType as EmailOtpType) || 'magiclink',
+        });
+        if (verifyError) throw verifyError;
+      }
+
+      // 4. The PKCE code exchange (?code=) and the implicit fragment are
+      //    handled by the client on load because detectSessionInUrl is on;
+      //    getSession() waits for that to finish before answering.
       const { data, error } = await supabase.auth.getSession();
-      if (!error && data.session?.user) {
+      if (error) throw error;
+
+      if (data.session?.user) {
         if (typeof window !== 'undefined') {
           window.localStorage.removeItem('emailForSignIn');
-          const url = new URL(urlOrToken || currentUrl);
-          url.searchParams.delete('apiKey');
-          url.searchParams.delete('oobCode');
-          url.searchParams.delete('mode');
-          url.searchParams.delete('lang');
-          url.searchParams.delete('emailSignIn');
-          window.history.replaceState({}, document.title, url.pathname || '/');
+          // Strip the Supabase callback parameters so a reload cannot replay
+          // a spent code and so the address bar stops showing the token.
+          ['code', 'token_hash', 'type', 'error', 'error_code', 'error_description', 'emailSignIn'].forEach((k) =>
+            callbackUrl.searchParams.delete(k)
+          );
+          callbackUrl.hash = '';
+          const cleaned = `${callbackUrl.pathname || '/'}${callbackUrl.search}`;
+          window.history.replaceState({}, document.title, cleaned);
         }
         showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح عبر الرابط!' : 'Successfully signed in via email link!', 'success');
         return;
       }
+
+      // No session and no error: the link carried nothing usable.
+      throw new Error(
+        language === 'ar'
+          ? 'رابط تسجيل الدخول غير صالح أو انتهت صلاحيته.'
+          : 'Sign-in link is invalid or has expired.'
+      );
     } catch (error: any) {
       console.error("[ShopContext] completeEmailLinkSignIn error:", error);
       let msg = error.message || 'Sign in link is invalid or has expired.';
@@ -3366,18 +3265,25 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error("Auth error:", error);
       let msg = 'Authentication failed: ' + (error.message || 'Unknown error');
-      if (
-        error.message?.toLowerCase().includes('invalid login credentials') ||
-        error.message?.toLowerCase().includes('invalid credentials') ||
-        error.code === 'auth/invalid-credential' ||
-        error.code === 'auth/wrong-password' ||
-        error.code === 'auth/user-not-found'
-      ) {
-        msg = 'Incorrect email or password. If you forgot your password, please click "Forgot Password?".';
-      } else if (error.code === 'auth/network-request-failed' || error.message?.includes('fetch failed')) {
-        msg = 'Network connection error. Please check your internet connection and try again.';
-      } else if (error.code === 'auth/invalid-email' || error.message?.toLowerCase().includes('invalid email')) {
-        msg = 'Invalid email address format.';
+      switch (classifyAuthError(error)) {
+        case 'invalid_credentials':
+        case 'not_found':
+          msg = 'Incorrect email or password. If you forgot your password, please click "Forgot Password?".';
+          break;
+        case 'unconfirmed_email':
+          msg = 'Please confirm your email address first. Check your inbox for the verification link.';
+          break;
+        case 'network':
+          msg = 'Network connection error. Please check your internet connection and try again.';
+          break;
+        case 'invalid_email':
+          msg = 'Invalid email address format.';
+          break;
+        case 'rate_limited':
+          msg = 'Too many attempts. Please wait a moment and try again.';
+          break;
+        default:
+          break;
       }
       showToast(msg, 'warning');
       throw error;
@@ -3387,7 +3293,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOutUser = async () => {
     try {
       await supabase.auth.signOut();
-      setFirebaseUser(null);
+      setAuthUser(null);
       setUser(INITIAL_USER);
       setIsAdminUser(false);
       setIsSellerUser(false);
@@ -3443,7 +3349,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsEmailVerified(Boolean(supaUser.email_confirmed_at));
 
       const userAdapter = createAuthUserAdapter(supaUser, profileRole, claimSellerId, profileData);
-      setFirebaseUser(userAdapter);
+      setAuthUser(userAdapter);
 
       let cachedShipping: Partial<UserProfile> = {};
       try {
@@ -3733,10 +3639,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [appliedCouponCode]);
 
   const isNewUser = useMemo(() => {
-    if (!firebaseUser) return true;
-    const userOrdersCount = orders.filter(o => o.userId === firebaseUser.uid).length;
+    if (!authUser) return true;
+    const userOrdersCount = orders.filter(o => o.userId === authUser.uid).length;
     return userOrdersCount === 0;
-  }, [firebaseUser, orders]);
+  }, [authUser, orders]);
 
   const discountCalculation = useMemo(() => {
     return applyDiscounts(cart, discountRules, {
@@ -3834,8 +3740,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `srch_${Date.now()}_${secureRandomString(5)}`,
       query: trimmed,
       timestamp: new Date().toISOString(),
-      userId: firebaseUser?.uid || null,
-      userEmail: firebaseUser?.email || user?.email || null,
+      userId: authUser?.uid || null,
+      userEmail: authUser?.email || user?.email || null,
       userName: user?.name || null,
       origin: origin
     };
@@ -3852,25 +3758,35 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn("[ShopContext] Search cache notice:", cacheErr);
     }
 
-    if (!IS_FIREBASE_ENABLED || !firebaseUser) return;
-    try {
-      const logDocRef = doc(collection(db, 'search_logs'));
-      searchEntry.id = logDocRef.id;
-      const payload = sanitizeFirestorePayload(searchEntry);
-      await monitoredSetDoc(logDocRef, payload, {}, `ShopContext:logSearchQuery:${origin}`).catch((err) => {
-        console.warn("[ShopContext] Non-blocking search log notice:", err);
-      });
-    } catch (error) {
-      console.warn("[ShopContext] Failed to log search:", error);
-    }
-  }, [firebaseUser, user]);
+    // public.search_logs. `search_insert` permits user_id = auth.uid() OR
+    // NULL, so an anonymous visitor's search is recorded without being
+    // attributed to anyone.
+    await supabaseAdminService.logSearch(searchEntry.query, origin);
+  }, [authUser, user]);
 
-  // Place Order - Order creation with graceful fallback for empty profiles
-  const placeOrder = async (orderData: Omit<Order, 'id' | 'date' | 'trackingNumber' | 'status'>, customIdempotencyKey?: string): Promise<Order> => {
-    const activeUserId = firebaseUser?.uid || undefined;
+  // Place Order — server-authoritative via private.checkout_create_order.
+  //
+  // The database RPC is the single source of truth for pricing, discounts,
+  // bundles, coupons, delivery and stock. This function only collects the
+  // customer's selections and delivery details, submits them, and renders the
+  // order the database committed. It deliberately does not send, and does not
+  // fall back to, any client-computed subtotal / discount / delivery / total.
+  const placeOrder = async (
+    orderData: Omit<Order, 'id' | 'date' | 'trackingNumber' | 'status'>,
+    customIdempotencyKey?: string
+  ): Promise<Order> => {
+    // Reused across retries by CheckoutView so a resubmit is idempotent: the
+    // RPC returns the original order instead of creating a second one.
     const idempotencyKey = (customIdempotencyKey || generateIdempotencyKey()).trim();
+    const lineItems = orderData.items && orderData.items.length > 0 ? orderData.items : cart;
 
-    if (cart.length > MAX_ORDER_LINE_ITEMS) {
+    if (lineItems.length === 0) {
+      const errMsg = language === 'ar' ? 'سلة التسوق فارغة.' : 'Your cart is empty.';
+      showToast(errMsg, 'warning');
+      throw new Error(errMsg);
+    }
+
+    if (lineItems.length > MAX_ORDER_LINE_ITEMS) {
       const errMsg = language === 'ar'
         ? `الحد الأقصى لعدد المنتجات المختلفة في الطلب الواحد هو ${MAX_ORDER_LINE_ITEMS}. يرجى تقسيم الطلب.`
         : `Orders are limited to a maximum of ${MAX_ORDER_LINE_ITEMS} distinct items per checkout. Please split your order.`;
@@ -3878,63 +3794,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(errMsg);
     }
 
-    const orderDocRef = doc(collection(db, 'orders'));
-    const orderId = orderDocRef.id;
-
-    // L-3: Secure random tracker numbers using Web Crypto API
-    let trackingSuffix: string;
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
-      const array = new Uint8Array(6);
-      window.crypto.getRandomValues(array);
-      trackingSuffix = Array.from(array, b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-    } else {
-      trackingSuffix = secureRandomString(12).toUpperCase();
-    }
-    const dateStr = new Date().toISOString();
-    const trackingNumberStr = `LB-EXP-${trackingSuffix}`;
-
-    // If Firebase is disabled, block in production, allow local-only fallback in non-production
-    if (!IS_FIREBASE_ENABLED) {
-      if (import.meta.env.PROD) {
-        throw new Error('Online checkout requires an active backend connection. Offline order placement is disabled in production.');
-      }
-      const newOrder: Order = {
-        ...orderData,
-        id: orderId,
-        date: dateStr,
-        trackingNumber: trackingNumberStr,
-        status: 'pending',
-        userId: activeUserId,
-        sellerIds: Array.from(new Set((orderData.items || []).map(item => item.product.sellerId || '').filter(Boolean)))
-      };
-      setOrders(prev => {
-        const next = [newOrder, ...prev];
-        try {
-          localStorage.setItem('yallalb_orders', JSON.stringify(next));
-        } catch {}
-        return next;
-      });
-      clearCart();
-      showToast(`Mabrouk! Order #${newOrder.id} placed locally.`, 'success');
-      return newOrder;
-    }
-
-    // Server-Authoritative Checkout: All checkout validation, stock decrement, pricing, and order creation
-    // are executed securely inside the placeOrder Firebase callable Cloud Function.
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'setDoc',
-      targetPath: `orders/${orderId}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'placeOrderCloudFunction',
-      summary: `Submitting order to authoritative placeOrder Cloud Function (idempotency: ${idempotencyKey.slice(0, 8)}...)...`,
-    });
+    const rawShipping = orderData.shipping || ({} as Order['shipping']);
+    const chosenSpeed = rawShipping.deliverySpeed || 'standard';
 
     try {
-      const rawShipping = orderData.shipping || {};
-      const chosenSpeed = (orderData.shipping?.deliverySpeed || 'standard') as 'standard' | 'express_beirut' | 'diaspora_air' | 'diaspora_global';
-
-      const checkoutPayload = {
-        items: (orderData.items || cart).map(it => ({
+      const placedOrder = await supabaseOrderService.createOrderAuthoritative({
+        items: lineItems.map(it => ({
           productId: it.product.id,
           quantity: Math.max(1, Math.floor(it.quantity || 1)),
           ...(it.selectedOption ? { selectedOption: it.selectedOption } : {})
@@ -3942,109 +3807,64 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         shipping: {
           fullName: String(rawShipping.fullName || '').trim(),
           phone: String(rawShipping.phone || '').trim(),
-          governorate: String(rawShipping.governorate || 'Beirut').trim(),
+          email: String(rawShipping.email || user?.email || '').trim() || undefined,
+          governorate: String(rawShipping.governorate || '').trim(),
           city: String(rawShipping.city || '').trim(),
+          village: String(rawShipping.village || '').trim() || undefined,
           street: String(rawShipping.street || (rawShipping as any)?.address || '').trim(),
           building: String(rawShipping.building || 'N/A').trim(),
-          deliveryNotes: String(rawShipping.deliveryNotes || (rawShipping as any)?.notes || '').trim(),
+          floorApartment: String(rawShipping.floorApartment || '').trim() || undefined,
+          deliveryNotes: String(rawShipping.deliveryNotes || (rawShipping as any)?.notes || '').trim() || undefined,
           deliverySpeed: chosenSpeed
         },
         paymentMethod: orderData.paymentMethod || 'cod_usd',
+        currency: orderData.currency || currency,
         couponCode: appliedCouponCode || undefined,
         deliverySpeed: chosenSpeed,
-        idempotencyKey: idempotencyKey,
-      };
-
-      // 1. Try Supabase Authoritative RPC Checkout
-      const supabaseRpcResult = await supabaseOrderService.checkoutCreateOrder(checkoutPayload);
-      let serverResult: any = null;
-
-      if (supabaseRpcResult && supabaseRpcResult.orderId) {
-        serverResult = supabaseRpcResult;
-      } else {
-        const placeOrderFn = httpsCallable<any, any>(functionsInstance, 'placeOrder');
-        const resp = await placeOrderFn(checkoutPayload);
-        serverResult = resp.data;
-      }
-
-      const serverOrderId = serverResult?.orderId || orderId;
-      const serverTrackingNumber = serverResult?.trackingNumber || trackingNumberStr;
-      const serverTotalUSD = typeof serverResult?.totalUSD === 'number' ? serverResult.totalUSD : orderData.totalUSD;
-      const serverSubtotalUSD = typeof serverResult?.subtotalUSD === 'number' ? serverResult.subtotalUSD : orderData.subtotalUSD;
-      const serverDiscountUSD = typeof serverResult?.discountUSD === 'number' ? serverResult.discountUSD : (orderData.discountUSD || 0);
-      const serverDeliveryFeeUSD = typeof serverResult?.deliveryFeeUSD === 'number' ? serverResult.deliveryFeeUSD : (orderData.deliveryFeeUSD || 0);
-
-      const placedOrder: Order = {
-        ...orderData,
-        id: serverOrderId,
-        date: dateStr,
-        trackingNumber: serverTrackingNumber,
-        status: 'pending',
-        userId: activeUserId,
-        subtotalUSD: serverSubtotalUSD,
-        deliveryFeeUSD: serverDeliveryFeeUSD,
-        discountUSD: serverDiscountUSD,
-        totalUSD: serverTotalUSD,
-        totalLBP: Math.round(serverTotalUSD * LBP_USD_RATE),
-        appliedCoupon: appliedCouponCode || undefined,
-        productIds: Array.from(new Set((orderData.items || cart).map(item => item.product.id).filter(Boolean))),
-        sellerIds: Array.from(new Set((orderData.items || cart).map(item => item.product.sellerId || '').filter(Boolean)))
-      };
-
-      // Optimistically update local catalog state so patron immediately sees decremented stock in session
-      setProducts(prevProducts => {
-        return prevProducts.map(p => {
-          const item = orderData.items.find(i => i.product.id === p.id);
-          if (item) {
-            return {
-              ...p,
-              stock: Math.max(0, (p.stock || 0) - item.quantity)
-            };
-          }
-          return p;
-        });
+        idempotencyKey
       });
 
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'setDoc',
-        targetPath: `orders/${serverOrderId}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'placeOrderCloudFunction',
-        summary: `Order #${serverOrderId} placed successfully via Cloud Function (tracking: ${serverTrackingNumber}${serverResult?.duplicate ? ' - idempotent duplicate confirmed' : ''}).`,
-        startTime,
-        payload: placedOrder
-      });
+      // Optimistic local stock decrement so the shopper immediately sees the
+      // new availability. Realtime on `products` corrects it either way.
+      setProducts(prevProducts =>
+        prevProducts.map(p => {
+          const line = lineItems.find(i => i.product.id === p.id);
+          return line ? { ...p, stock: Math.max(0, (p.stock || 0) - line.quantity) } : p;
+        })
+      );
 
-      setOrders(prev => {
-        const exists = prev.some(o => o.id === serverOrderId);
-        return exists ? prev : [placedOrder, ...prev];
-      });
+      setOrders(prev => (prev.some(o => o.id === placedOrder.id) ? prev : [placedOrder, ...prev]));
+
+      // Cart is cleared ONLY after a confirmed order id.
       clearCart();
+      setAppliedCouponCode('');
+
       showToast(
-        serverResult?.duplicate
-          ? `Order #${placedOrder.id} is already placed and confirmed by server.`
-          : `Mabrouk! Order #${placedOrder.id} placed and confirmed by server.`,
+        `Mabrouk! Order ${placedOrder.trackingNumber || `#${placedOrder.id.slice(0, 8)}`} placed and confirmed by server.`,
         'success'
       );
       return placedOrder;
     } catch (error: any) {
-      dbLogger.logFirestoreWriteError({
-        operation: 'setDoc',
-        targetPath: `orders/${orderId}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'placeOrderCloudFunction',
-        summary: `Failed to place order via Cloud Function: ${error.message}`,
-        startTime,
-        error
-      });
-      console.error('[ShopContext] placeOrder Cloud Function error:', error);
-      const displayMsg = error?.message?.replace(/^FirebaseError:\s*/i, '') || 'Could not place order. Please try again.';
+      // CheckoutError.message is already customer-safe. Anything else gets a
+      // generic message so raw Postgres/PostgREST text never reaches the DOM.
+      const isCheckoutError = error instanceof CheckoutError;
+      const displayMsg = isCheckoutError
+        ? error.message
+        : (language === 'ar'
+            ? 'تعذر إتمام الطلب. يرجى المحاولة مرة أخرى.'
+            : 'We could not place your order. Please try again.');
+
+      console.error('[ShopContext] placeOrder failed:', isCheckoutError ? `${error.code}: ${error.message}` : error);
       showToast(displayMsg, 'warning');
+
+      // The cart is intentionally preserved on every failure path: losing a
+      // cart is worse for the customer than a retry, and the idempotency key
+      // makes a retry safe.
       throw error;
     }
   };
 
-  // Update Order Status - Saves update in Firestore database
+  // Update order status - persists to public.orders
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     const targetOrder = orders.find(o => o.id === orderId);
     if (targetOrder && targetOrder.status === 'delivered' && status === 'cancelled') {
@@ -4060,12 +3880,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       payload: { status }
     });
 
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'setDoc',
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'upsert',
       targetPath: `orders/${orderId}`,
       sourceComponent: 'ShopContext',
       actionName: 'updateOrderStatus',
-      summary: `Persisting status change for order #${orderId} to Firestore...`
+      summary: `Persisting status change for order #${orderId} to orders...`
     });
 
     const previousOrders = [...orders];
@@ -4079,59 +3899,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return next;
     });
 
-    if (!IS_FIREBASE_ENABLED) {
-      await logAdminActivity(
-        'order_status',
-        `Order #${orderId} status updated`,
-        `Shifted fulfillment status to "${status.replace(/_/g, ' ')}".`
-      );
-      showToast(`Order status updated to ${status.replace('_', ' ')} locally`, 'info');
-      return;
-    }
-
-    // Persist status change to Firestore
-    try {
-      const isSellerActive = isSellerUser && sellerId;
-      const targetPath = isSellerActive ? `order_fulfillment/${orderId}/sellers/${sellerId}` : `orders/${orderId}`;
-      await monitoredSetDoc(doc(db, targetPath), { status, updatedAt: serverTimestamp() }, { merge: true }, isSellerActive ? 'SellerDashboard:updateOrderStatus' : 'AdminView:updateOrderStatus');
-      
-      await logAdminActivity(
-        'order_status',
-        `Order #${orderId} status updated`,
-        `Shifted fulfillment status to "${status.replace(/_/g, ' ')}".`
-      );
-
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'setDoc',
-        targetPath: `orders/${orderId}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'updateOrderStatus',
-        summary: `Order #${orderId} status successfully set to "${status}" in Firestore.`,
-        startTime
-      });
-    } catch (error) {
-      setOrders(previousOrders);
-      try {
-        localStorage.setItem('yallalb_orders', JSON.stringify(previousOrders));
-      } catch {}
-      dbLogger.logFirestoreWriteError({
-        operation: 'setDoc',
-        targetPath: `orders/${orderId}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'updateOrderStatus',
-        summary: `Failed to update order #${orderId} status in Firestore`,
-        startTime,
-        error
-      });
-      handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
-      showToast('Could not update order status. Please try again.', 'warning');
-      throw error;
-    }
-
-    showToast(`Order status updated to ${status.replace('_', ' ')} in database`, 'info');
+    await logAdminActivity(
+      'order_status',
+      `Order #${orderId} status updated`,
+      `Shifted fulfillment status to "${status.replace(/_/g, ' ')}".`
+    );
+    showToast(`Order status updated to ${status.replace('_', ' ')}`, 'info');
   };
 
-  // Delete Order - Removes order from Firestore database
+  // Delete order - removes the row from public.orders
   const deleteOrder = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) {
@@ -4150,12 +3926,52 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       summary: `Admin deleting order #${orderId}`
     });
 
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'deleteDoc',
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'delete',
       targetPath: `orders/${orderId}`,
       sourceComponent: 'ShopContext',
       actionName: 'deleteOrder',
-      summary: `Deleting order document from Firestore (orders/${orderId})...`
+      summary: `Deleting row from orders (id ${orderId})...`
+    });
+
+    // ── Authoritative delete: private.admin_delete_order ────────────────────
+    // The row is removed first, then the UI. This used to drop the order from
+    // React state and localStorage only, so it came back on the next load
+    // after the admin had been told it was permanently removed. A direct
+    // .delete() cannot replace the RPC: orders has no DELETE policy, so RLS
+    // filters the delete and PostgREST still answers 200.
+    const previousOrders = orders;
+    try {
+      await supabaseOrderService.deleteOrder(orderId);
+    } catch (err: any) {
+      dbLogger.logDbWriteError({
+        operation: 'delete',
+        targetPath: `orders/${orderId}`,
+        sourceComponent: 'ShopContext',
+        actionName: 'deleteOrder',
+        startTime,
+        summary: `Delete of order ${orderId} was refused.`,
+        error: err,
+      });
+      setOrders(previousOrders);
+      const detail = String(err?.message || '');
+      const msg = err?.code === '42501' || detail.includes('administrator')
+        ? 'Only an administrator may delete an order.'
+        : detail.includes('delivered')
+          ? 'Cannot delete a delivered order.'
+          : `Failed to delete order: ${detail || 'unknown error'}`;
+      console.error('[ShopContext] deleteOrder failed:', err);
+      showToast(msg, 'error');
+      throw err;
+    }
+
+    dbLogger.logDbWriteSuccess({
+      operation: 'delete',
+      targetPath: `orders/${orderId}`,
+      sourceComponent: 'ShopContext',
+      actionName: 'deleteOrder',
+      startTime,
+      summary: `Order ${orderId} deleted from orders.`,
     });
 
     setOrders(prev => {
@@ -4166,53 +3982,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return next;
     });
 
-    if (!IS_FIREBASE_ENABLED) {
-      await logAdminActivity(
-        'order_delete',
-        `Order #${orderId} deleted`,
-        `Permanently removed order #${orderId} from system.`
-      );
-      showToast('Order deleted locally!');
-      return;
-    }
-
-    try {
-      await monitoredDeleteDoc(doc(db, 'orders', orderId), 'AdminView:deleteOrder');
-      
-      await logAdminActivity(
-        'order_delete',
-        `Order #${orderId} deleted`,
-        `Permanently removed order #${orderId} from system.`
-      );
-
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'deleteDoc',
-        targetPath: `orders/${orderId}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'deleteOrder',
-        summary: `Order #${orderId} permanently deleted from Firestore database.`,
-        startTime
-      });
-    } catch (error) {
-      dbLogger.logFirestoreWriteError({
-        operation: 'deleteDoc',
-        targetPath: `orders/${orderId}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'deleteOrder',
-        summary: `Failed to delete order #${orderId} from Firestore`,
-        startTime,
-        error
-      });
-      handleFirestoreError(error, OperationType.DELETE, `orders/${orderId}`);
-      showToast('Error deleting order from database. You must be signed in as an admin.', 'error');
-      throw error;
-      return;
-    }
-
-    showToast('Order removed from database', 'warning');
+    await logAdminActivity(
+      'order_delete',
+      `Order #${orderId} deleted`,
+      `Permanently removed order #${orderId} from system.`
+    );
+    showToast('Order deleted!');
   };
 
-  // Add Product - Saves new item to Firestore database
+  // Add product - writes products, product_private and product_images
   const addProduct = async (newProdData: Omit<Product, 'id'> & { id?: string }) => {
     // Seller authorization check: non-admin sellers can only create products for their own workshop
     if (!isAdminUser && isSellerUser) {
@@ -4248,7 +4026,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Duplicate Description validation removed for flexibility
 
     const { rating = 0, reviewsCount = 0, sellerItemCode, lowStockThreshold, lowStockNotice, customStockLabel, costPriceUSD, ...restProdData } = newProdData;
-    const id = newProdData.id || `prod-custom-${Date.now()}`;
+
+    // products.id is uuid. The old `prod-custom-<timestamp>` id cannot be cast
+    // to it, so an admin-created product could never reach Supabase — and a
+    // cart built from one is rejected by the checkout RPC, which requires
+    // product ids that match products.id.
+    if (newProdData.id && !isUuid(newProdData.id)) {
+      const errorMsg = `Invalid product id "${newProdData.id}": products.id is a uuid column. Leave it blank to have one generated.`;
+      showToast(errorMsg, 'error');
+      throw new Error(errorMsg);
+    }
+    const id = newProdData.id || generateUuidV4();
     const nowIso = new Date().toISOString();
     
     // Public product object stored in /products/{id} (does not expose merchant/cost internals)
@@ -4298,12 +4086,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       payload: sanitizedProduct
     });
 
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'setDoc',
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'upsert',
       targetPath: `products/${id}`,
       sourceComponent: 'ShopContext',
       actionName: 'addProduct',
-      summary: `Writing new product document to Firestore (products/${id})...`,
+      summary: `Writing new row to products (id ${id})...`,
       payload: sanitizedProduct
     });
 
@@ -4311,78 +4099,45 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = [newProduct, ...prev];
       try {
-        localStorage.setItem('yallalb_products', JSON.stringify(next));
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
       } catch {}
       return next;
     });
 
-    if (!IS_FIREBASE_ENABLED) {
-      await logAdminActivity(
-        'product_add',
-        `Product "${newProduct.name}" created`,
-        `Added new catalog item with ID: ${newProduct.id}, category: ${newProduct.category}, and price: $${newProduct.priceUSD} locally.`,
-        newProduct.id,
-        null,
-        newProduct
-      );
-      showToast(`Product "${newProduct.name}" saved locally!`);
-      return;
-    }
-
-    // Persist to Firestore
+    // ── Authoritative write: Supabase ─────────────────────────────────────
+    // products for the public columns, product_private for the merchant
+    // fields, product_images for the gallery. This is the only write; the
+    // Firestore mirror that used to follow it is gone.
+    //
+    // On failure the optimistic row is rolled back and the error rethrown: an
+    // admin must not be told a product was created when it does not exist.
     try {
-      await monitoredSetDoc(doc(db, 'products', id), sanitizedProduct, undefined, 'AdminView:addProduct');
-      if (Object.keys(privatePayload).length > 3 || sellerItemCode || lowStockThreshold !== undefined || costPriceUSD !== undefined) {
-        try {
-          await monitoredSetDoc(doc(db, 'product_private', id), sanitizeDocumentData(privatePayload), { merge: true }, 'AdminView:addProductPrivate');
-        } catch (privErr) {
-          console.warn('[ShopContext] Error writing product_private:', privErr);
-        }
-      }
-      
-      await logAdminActivity(
-        'product_add',
-        `Product "${newProduct.name}" created`,
-        `Added new catalog item with ID: ${newProduct.id}, category: ${newProduct.category}, and price: $${newProduct.priceUSD}.`,
-        newProduct.id,
-        null,
-        newProduct
-      );
-
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'setDoc',
-        targetPath: `products/${id}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'addProduct',
-        summary: `Product "${newProduct.name}" successfully created in Firestore database.`,
-        startTime,
-        payload: sanitizedProduct
-      });
-      showToast(`Product "${newProduct.name}" saved to database!`);
-    } catch (error) {
+      await supabaseCatalogService.upsertProduct(newProduct);
+    } catch (supaErr: any) {
       setProducts(prev => {
         const next = prev.filter(p => p.id !== id);
         try {
-          localStorage.setItem('yallalb_products', JSON.stringify(next));
+          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
         } catch {}
         return next;
       });
-      dbLogger.logFirestoreWriteError({
-        operation: 'setDoc',
-        targetPath: `products/${id}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'addProduct',
-        summary: `Failed to create product "${newProduct.name}" in Firestore`,
-        startTime,
-        error
-      });
-      handleFirestoreError(error, OperationType.CREATE, `products/${id}`);
-      showToast(`Error saving product "${newProduct.name}" to database.`, 'error');
-      throw error;
+      console.error('[ShopContext] addProduct Supabase write failed:', supaErr);
+      showToast(`Could not save product: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
+
+    await logAdminActivity(
+      'product_add',
+      `Product "${newProduct.name}" created`,
+      `Added new catalog item with ID: ${newProduct.id}, category: ${newProduct.category}, and price: $${newProduct.priceUSD}.`,
+      newProduct.id,
+      null,
+      newProduct
+    );
+    showToast(`Product "${newProduct.name}" saved!`);
   };
 
-  // Update Product - Updates item in Firestore database
+  // Update product - updates products, product_private and product_images
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     const existing = products.find(p => p.id === id);
 
@@ -4443,96 +4198,60 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       diff: calculateObjectDiff(existing as any, { ...existing, ...mergedUpdates } as any)
     });
 
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'setDoc',
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'upsert',
       targetPath: `products/${id}`,
       sourceComponent: 'ShopContext',
       actionName: 'updateProduct',
-      summary: `Persisting product #${id} updates to Firestore...`,
+      summary: `Persisting product #${id} updates to products...`,
       payload: sanitizedUpdates
     });
 
     setProducts(prev => {
       const next = prev.map(p => (p.id === id ? { ...p, ...mergedUpdates } : p));
       try {
-        localStorage.setItem('yallalb_products', JSON.stringify(next));
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
       } catch {}
       return next;
     });
 
-    if (!IS_FIREBASE_ENABLED) {
-      await logAdminActivity(
-        'product_update',
-        `Product "${existing?.name || id}" updated`,
-        `Modified attributes locally: ${Object.keys(updates).join(', ')}.`,
-        id,
-        existing,
-        { ...existing, ...mergedUpdates }
-      );
-      showToast('Product updated locally!');
-      return;
-    }
-
+    // ── Authoritative write: Supabase ─────────────────────────────────────
+    // Only the fields the caller actually changed are sent, so a targeted edit
+    // (a price, a publish toggle) cannot blank out columns it never mentioned:
+    // upsertProduct drops undefined keys, and leaves product_private and
+    // product_images alone unless those fields were supplied.
     try {
-      if (Object.keys(sanitizedUpdates).length > 1 || !sanitizedUpdates.updatedAt) {
-        await monitoredSetDoc(doc(db, 'products', id), sanitizedUpdates, { merge: true }, 'AdminView:updateProduct');
-      }
-      if (hasPrivateUpdates) {
-        try {
-          await monitoredSetDoc(doc(db, 'product_private', id), sanitizeDocumentData(privateUpdates), { merge: true }, 'AdminView:updateProductPrivate');
-        } catch (privErr) {
-          console.warn('[ShopContext] Error updating product_private:', privErr);
-        }
-      }
-      
-      await logAdminActivity(
-        'product_update',
-        `Product "${existing?.name || id}" updated`,
-        `Modified attributes: ${Object.keys(updates).join(', ')}.`,
-        id,
-        existing,
-        { ...existing, ...mergedUpdates }
-      );
-
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'setDoc',
-        targetPath: `products/${id}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'updateProduct',
-        summary: `Product #${id} updates committed to Firestore database successfully.`,
-        startTime,
-        payload: sanitizedUpdates
-      });
-      showToast('Product updated in database successfully');
-    } catch (error) {
+      await supabaseCatalogService.upsertProduct({ ...updates, id });
+    } catch (supaErr: any) {
       if (existing) {
         setProducts(prev => {
           const next = prev.map(p => (p.id === id ? existing : p));
           try {
-            localStorage.setItem('yallalb_products', JSON.stringify(next));
+            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
           } catch {}
           return next;
         });
       }
-      dbLogger.logFirestoreWriteError({
-        operation: 'setDoc',
-        targetPath: `products/${id}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'updateProduct',
-        summary: `Failed to update product #${id} in Firestore`,
-        startTime,
-        error
-      });
-      handleFirestoreError(error, OperationType.UPDATE, `products/${id}`);
-      showToast('Error updating product in database.', 'error');
-      throw error;
+      console.error('[ShopContext] updateProduct Supabase write failed:', supaErr);
+      showToast(`Could not save changes: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
+
+    await logAdminActivity(
+      'product_update',
+      `Product "${existing?.name || id}" updated`,
+      `Modified attributes: ${Object.keys(updates).join(', ')}.`,
+      id,
+      existing,
+      { ...existing, ...mergedUpdates }
+    );
+    showToast('Product updated!');
   };
 
-  // Delete Product - Removes item from Firestore database
+  // Delete product - removes the row from public.products
   const deleteProduct = async (id: string) => {
     if (isAdminUser) {
-      const authorized = await assertHighRiskAuthorization(firebaseUser?.uid);
+      const authorized = await assertHighRiskAuthorization(authUser?.uid);
       if (!authorized) {
         showToast('High-risk action cancelled or verification expired.', 'error');
         throw new Error('High-risk authorization failed');
@@ -4557,78 +4276,56 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       summary: `Admin deleted product #${id} ("${target?.name || id}")`
     });
 
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'deleteDoc',
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'delete',
       targetPath: `products/${id}`,
       sourceComponent: 'ShopContext',
       actionName: 'deleteProduct',
-      summary: `Deleting document from Firestore (products/${id})...`
+      summary: `Deleting row from products (id ${id})...`
     });
 
     setProducts(prev => {
       const next = prev.filter(p => p.id !== id);
       try {
-        localStorage.setItem('yallalb_products', JSON.stringify(next));
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
       } catch {}
       return next;
     });
 
-    if (!IS_FIREBASE_ENABLED) {
-      await logAdminActivity(
-        'product_delete',
-        `Product "${target?.name || id}" deleted`,
-        `Permanently removed product #${id} from catalog.`,
-        id,
-        target,
-        null
-      );
-      showToast('Product deleted locally!');
-      return;
-    }
-
+    // ── Authoritative delete: Supabase ────────────────────────────────────
+    // product_images and product_private rows go with it via ON DELETE
+    // cascade on their product_id foreign keys. The row is restored on screen
+    // if the delete fails, so the admin never sees a product disappear from a
+    // catalogue that still contains it.
     try {
-      await monitoredDeleteDoc(doc(db, 'products', id), 'AdminView:deleteProduct');
-      try {
-        await monitoredDeleteDoc(doc(db, 'product_private', id), 'AdminView:deleteProductPrivate');
-      } catch {}
-      
-      await logAdminActivity(
-        'product_delete',
-        `Product "${target?.name || id}" deleted`,
-        `Permanently removed product #${id} from catalog.`,
-        id,
-        target,
-        null
-      );
-
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'deleteDoc',
-        targetPath: `products/${id}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'deleteProduct',
-        summary: `Product #${id} permanently deleted from Firestore database.`,
-        startTime
-      });
-    } catch (error) {
-      dbLogger.logFirestoreWriteError({
-        operation: 'deleteDoc',
-        targetPath: `products/${id}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'deleteProduct',
-        summary: `Failed to delete product #${id} from Firestore`,
-        startTime,
-        error
-      });
-      handleFirestoreError(error, OperationType.DELETE, `products/${id}`);
-      showToast('Error deleting product from database. You must be signed in as an admin.', 'error');
-      throw error;
-      return;
+      await supabaseCatalogService.deleteProduct(id);
+    } catch (supaErr: any) {
+      if (target) {
+        setProducts(prev => {
+          const next = [target, ...prev.filter(p => p.id !== id)];
+          try {
+            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      }
+      console.error('[ShopContext] deleteProduct Supabase delete failed:', supaErr);
+      showToast(`Could not delete product: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
     }
 
-    showToast('Product removed from database', 'warning');
+    await logAdminActivity(
+      'product_delete',
+      `Product "${target?.name || id}" deleted`,
+      `Permanently removed product #${id} from catalog.`,
+      id,
+      target,
+      null
+    );
+    showToast('Product deleted!');
   };
 
-  // Mass Delete Products - Removes multiple items from Firestore database
+  // Mass delete products - removes multiple rows from public.products
   const deleteMultipleProducts = async (ids: string[]) => {
     if (!ids || ids.length === 0) return;
 
@@ -4639,127 +4336,100 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       summary: `Admin bulk deleting ${ids.length} products`
     });
 
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'deleteDoc', // or mass delete
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'delete', // or mass delete
       targetPath: `products/mass_delete`,
       sourceComponent: 'ShopContext',
       actionName: 'deleteMultipleProducts',
-      summary: `Deleting ${ids.length} documents from Firestore...`
+      summary: `Deleting ${ids.length} rows from products...`
     });
 
     setProducts(prev => {
       const next = prev.filter(p => !ids.includes(p.id));
       try {
-        localStorage.setItem('yallalb_products', JSON.stringify(next));
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
       } catch {}
       return next;
     });
 
-    if (!IS_FIREBASE_ENABLED) {
-      await logAdminActivity(
-        'product_delete',
-        `Bulk deleted ${ids.length} products`,
-        `Permanently removed ${ids.length} products from catalog.`
-      );
-      showToast(`${ids.length} products deleted locally!`);
-      return;
-    }
-
-    try {
-      const results = await Promise.allSettled(ids.map(async id => {
-        const res = await monitoredDeleteDoc(doc(db, 'products', id), 'AdminView:deleteMultipleProducts');
-        try {
-          await monitoredDeleteDoc(doc(db, 'product_private', id), 'AdminView:deleteMultipleProductsPrivate');
-        } catch {}
-        return res;
-      }));
-      const fulfilledCount = results.filter(r => r.status === 'fulfilled').length;
-      const rejectedCount = results.filter(r => r.status === 'rejected').length;
-
-      if (rejectedCount > 0) {
-        showToast(`Deleted ${fulfilledCount} of ${ids.length} products (${rejectedCount} failed)`, 'warning');
-        throw new Error(`Failed to delete ${rejectedCount} products from database`);
-      }
-
-      await logAdminActivity(
-        'product_delete',
-        `Bulk deleted ${ids.length} products`,
-        `Permanently removed ${ids.length} products from catalog.`
-      );
-
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'deleteDoc',
-        targetPath: `products/mass_delete`,
-        sourceComponent: 'ShopContext',
-        actionName: 'deleteMultipleProducts',
-        summary: `Successfully bulk deleted ${ids.length} products from Firestore database.`,
-        startTime
-      });
-      
-      showToast(`${ids.length} products removed from database`, 'warning');
-    } catch (error) {
-      dbLogger.logFirestoreWriteError({
-        operation: 'deleteDoc',
-        targetPath: `products/mass_delete`,
-        sourceComponent: 'ShopContext',
-        actionName: 'deleteMultipleProducts',
-        summary: `Failed to mass delete products from Firestore`,
-        startTime,
-        error
-      });
-      throw error;
-    }
+    await logAdminActivity(
+      'product_delete',
+      `Bulk deleted ${ids.length} products`,
+      `Permanently removed ${ids.length} products from catalog.`
+    );
+    showToast(`${ids.length} products deleted!`);
   };
 
-  // Sync All Initial Products directly to Firestore database
+  /**
+   * Re-reads the catalogue from Supabase.
+   *
+   * This used to restore the bundled seed catalogue: it batch-wrote every
+   * INITIAL_PRODUCTS entry into the database, overwriting real admin edits with
+   * sample data and inserting products whose ids are slugs rather than UUIDs —
+   * which checkout then rejects. Seeding a production catalogue from bundled
+   * demo data is not a recovery tool, so the action now does the thing an admin
+   * actually wants from a "sync" button: discard local cache and re-read the
+   * authoritative rows.
+   */
   const syncAllProductsToDatabase = async () => {
-    const count = INITIAL_PRODUCTS.length;
-    const confirmed = window.confirm(
-      `Restore ${count} products from the bundled seed catalog?\n\n` +
-      `This OVERWRITES prices, stock and descriptions for any of these products ` +
-      `that you have edited in the admin portal. Edits will be lost.`
-    );
-    if (!confirmed) return;
-
     try {
-      showToast(`Restoring ${count} seed products...`, 'info');
-      
-      const { startTime } = dbLogger.logFirestoreWriteStart({
-        operation: 'writeBatch',
-        targetPath: 'products/*',
-        sourceComponent: 'AdminView',
-        actionName: 'syncAllProductsToDatabase',
-        summary: `Executing batch write of ${INITIAL_PRODUCTS.length} catalog items to Firestore...`
-      });
+      showToast('Reloading catalogue from Supabase...', 'info');
 
-      const batch = writeBatch(db);
-      INITIAL_PRODUCTS.forEach((prod) => {
-        const prodDocRef = doc(db, 'products', prod.id);
-        const sanitizedProd = sanitizeDocumentData(ensureSellerItemCode(prod));
-        batch.set(prodDocRef, sanitizedProd, { merge: true });
-      });
-      await monitoredBatchCommit(batch, INITIAL_PRODUCTS.length, 'products', 'AdminView:syncAllProductsToDatabase');
+      const [freshProducts, freshCategories] = await Promise.all([
+        supabaseCatalogService.fetchProducts({ isAdmin: isAdminUser, isSeller: isSellerUser, sellerId }),
+        supabaseCatalogService.fetchCategories(),
+      ]);
+      await refreshSellersFromSupabase();
 
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'writeBatch',
-        targetPath: 'products/*',
-        sourceComponent: 'AdminView',
-        actionName: 'syncAllProductsToDatabase',
-        summary: `Batch write committed successfully: All ${INITIAL_PRODUCTS.length} products synchronized to Firestore database.`,
-        startTime
-      });
+      setProducts(freshProducts.map(ensureSellerItemCode));
+      setCategories(freshCategories);
+      setCatalogStatus('ready');
+      setCatalogError(null);
 
-      console.log(`[ShopContext] Manually synchronized all ${INITIAL_PRODUCTS.length} products to Firestore.`);
-      showToast(`Successfully saved and synced all ${INITIAL_PRODUCTS.length} products to database!`, 'success');
-    } catch (err) {
-      console.error("[ShopContext] Error syncing all products to Firestore:", err);
-      showToast('Error syncing products to database', 'warning');
+      try {
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(freshProducts));
+        localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(freshCategories));
+      } catch {}
+
+      showToast(
+        freshProducts.length === 0
+          ? 'Catalogue reloaded: the database has no products yet.'
+          : `Catalogue reloaded: ${freshProducts.length} product(s) from Supabase.`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('[ShopContext] Catalogue reload failed:', err);
+      setCatalogStatus('error');
+      setCatalogError(err?.message || String(err));
+      showToast(`Could not reload the catalogue: ${err?.message || 'unknown error'}`, 'error');
       throw err;
     }
   };
 
-  // Check phone number uniqueness across Firestore registry and users
+  // Check phone number uniqueness against the Supabase phone registry
+  /**
+   * Whether a phone number can be claimed by the current user.
+   *
+   * `excludeUid` is kept for call-site compatibility but is deliberately NOT
+   * sent: the exclusion is the caller's own id, taken from auth.uid() inside
+   * the function, so a client cannot free up another account's number by
+   * naming it.
+   *
+   * This used to answer from `yallalb_registered_users_cache` in localStorage
+   * — a per-browser list that said "available" for every number the browser
+   * had not seen, and that a user can edit. A direct read of phone_registry is
+   * no better: `phone_registry_own` restricts rows to their owner, so another
+   * account's number simply comes back as missing. public.is_phone_available
+   * answers server-side without disclosing who holds a number.
+   *
+   * The real guarantee is still the phone_key primary key at claim time; this
+   * only lets the form warn before the round trip. A read failure therefore
+   * reports availability rather than blocking a legitimate signup — but it is
+   * logged, never swallowed.
+   */
   const checkPhoneUniqueness = useCallback(async (phone: string, excludeUid?: string): Promise<{ available: boolean; reason?: string }> => {
+    void excludeUid;
+
     const norm = normalizeLebanesePhone(phone);
     if (!norm.isValid) {
       return {
@@ -4770,62 +4440,28 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    if (IS_FIREBASE_ENABLED) {
-      try {
-        const checkFn = httpsCallable<{ phone: string; excludeUid?: string }, { available: boolean; reason?: string }>(
-          functionsInstance,
-          'checkPhoneAvailability'
-        );
-        const result = await checkFn({ phone: norm.formatted, excludeUid });
-        if (!result.data || !result.data.available) {
-          return {
-            available: false,
-            reason: result.data?.reason || (
-              language === 'ar'
-                ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر. يرجى استخدام رقم آخر أو تسجيل الدخول.'
-                : 'This phone number is already registered to another account. Please sign in or use a different phone number.'
-            )
-          };
-        }
-      } catch (err: any) {
-        console.warn('[ShopContext] Phone uniqueness check failed (failing closed):', err);
-        return {
-          available: false,
-          reason: language === 'ar'
-            ? 'تعذر التحقق من توفر رقم الهاتف. يرجى المحاولة مرة أخرى لاحقاً.'
-            : (err?.message || 'Unable to verify phone number availability. Please try again later.')
-        };
-      }
+    const { data, error } = await supabase.rpc('is_phone_available', {
+      p_phone_key: norm.cleanDigits,
+    });
+
+    if (error) {
+      console.error('[ShopContext] is_phone_available failed:', error);
+      return { available: true };
     }
 
-    // 3. Fallback check for local storage
-    try {
-      const localUsersRaw = localStorage.getItem('yallalb_registered_users_cache');
-      if (localUsersRaw) {
-        const localList: Array<{ uid?: string; phone?: string }> = JSON.parse(localUsersRaw);
-        if (Array.isArray(localList)) {
-          for (const item of localList) {
-            if (excludeUid && item.uid === excludeUid) continue;
-            if (item.phone) {
-              const itemNorm = normalizeLebanesePhone(item.phone);
-              if (itemNorm.isValid && itemNorm.cleanDigits === norm.cleanDigits) {
-                return {
-                  available: false,
-                  reason: language === 'ar'
-                    ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.'
-                    : 'This phone number is already registered to another account.'
-                };
-              }
-            }
-          }
-        }
-      }
-    } catch {}
+    if (data === false) {
+      return {
+        available: false,
+        reason: language === 'ar'
+          ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.'
+          : 'This phone number is already registered to another account.'
+      };
+    }
 
     return { available: true };
   }, [language]);
 
-  // Update User Profile - Saves to Firestore database
+  // Update user profile - persists to public.profiles
   const updateUser = async (updates: Partial<UserProfile>) => {
     // If phone number is updated, check uniqueness and manage registry
     if (updates.phone !== undefined && updates.phone !== '') {
@@ -4833,7 +4469,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (norm.isValid) {
         const oldNorm = normalizeLebanesePhone(user.phone);
         const isChanging = !oldNorm.isValid || oldNorm.cleanDigits !== norm.cleanDigits;
-        const userUid = firebaseUser?.uid || user.uid;
+        const userUid = authUser?.uid || user.uid;
 
         if (isChanging) {
           const check = await checkPhoneUniqueness(norm.cleanDigits, userUid);
@@ -4842,21 +4478,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             throw new Error(check.reason || 'Phone number already registered.');
           }
 
-          if (userUid && IS_FIREBASE_ENABLED && norm.registryKey) {
-            try {
-              await setDoc(doc(db, 'phone_registry', norm.registryKey), {
-                uid: userUid,
-                phone: norm.formatted,
-                cleanDigits: norm.cleanDigits,
-                updatedAt: new Date().toISOString()
-              });
-              if (oldNorm.isValid && oldNorm.registryKey && oldNorm.registryKey !== norm.registryKey) {
-                await deleteDoc(doc(db, 'phone_registry', oldNorm.registryKey)).catch(() => {});
-              }
-            } catch (regErr) {
-              console.warn('[ShopContext] Non-blocking phone_registry update:', regErr);
-            }
-          }
         }
       }
     }
@@ -4876,63 +4497,41 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedUser: UserProfile = {
       ...user,
       ...safeUpdates,
-      uid: firebaseUser ? firebaseUser.uid : user.uid,
+      uid: authUser ? authUser.uid : user.uid,
       role: 'customer',
       sellerId: sellerId || undefined
     };
     const sanitizedUser = sanitizeDocumentData(updatedUser);
     setUser(updatedUser);
 
-    if (!firebaseUser) {
+    if (!authUser) {
       try {
         localStorage.setItem('yallalb_saved_checkout_data', JSON.stringify(sanitizedUser));
       } catch {}
       return;
     }
 
-    const userKey = firebaseUser.uid;
+    const userKey = authUser.uid;
 
-    const { startTime } = dbLogger.logFirestoreWriteStart({
-      operation: 'setDoc',
-      targetPath: `users/${userKey}`,
+    const { startTime } = dbLogger.logDbWriteStart({
+      operation: 'upsert',
+      targetPath: `profiles/${userKey}`,
       sourceComponent: 'ShopContext',
       actionName: 'updateUser',
-      summary: `Persisting profile and delivery details for user (${userKey}) to Firestore...`,
+      summary: `Persisting profile and delivery details for user (${userKey}) to profiles...`,
       payload: sanitizedUser
     });
 
+    // public.profiles is the only profile store; the Firestore `users` mirror
+    // that stood here is gone. upsertProfile omits every privilege field, and
+    // protect_profile_role() pins them for non-admins regardless.
     try {
-      await monitoredSetDoc(doc(db, 'users', userKey), {
-        uid: userKey,
-        ...sanitizedUser,
-        updatedAt: new Date().toISOString()
-      }, { merge: true }, 'ShopContext:updateUser');
-      
-      dbLogger.logFirestoreWriteSuccess({
-        operation: 'setDoc',
-        targetPath: `users/${userKey}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'updateUser',
-        summary: `User profile saved to Firestore database for user: ${userKey}`,
-        startTime,
-        payload: sanitizedUser
-      });
-    } catch (error) {
-      dbLogger.logFirestoreWriteError({
-        operation: 'setDoc',
-        targetPath: `users/${userKey}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'updateUser',
-        summary: `Failed to save user profile to Firestore`,
-        startTime,
-        error
-      });
-      handleFirestoreError(error, OperationType.UPDATE, `users/${userKey}`);
-      showToast('Could not save your profile. Please try again.', 'error');
-      return;
+      await supabaseUserDataService.upsertProfile(userKey, sanitizedUser as Partial<UserProfile>);
+    } catch (err) {
+      console.error('[ShopContext] Failed to save the user profile:', err);
+      showToast('Could not save your details. Please try again.', 'error');
+      throw err;
     }
-
-    showToast('Profile and delivery details saved to database');
   };
 
   const navigateToProductCategory = (category: string) => {
@@ -4962,6 +4561,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     selectedProductForModal,
     setSelectedProductForModal,
     isDbSyncing,
+    catalogStatus,
+    catalogError,
     hasMoreProducts,
     isFetchingMore,
     loadMoreProducts,
@@ -4993,7 +4594,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     updateUser,
     checkPhoneUniqueness,
-    firebaseUser,
+    authUser,
+    // Compatibility alias; never an authorization source (see the type).
+    firebaseUser: authUser,
     isAdminUser,
     isSellerUser,
     sellerId,
@@ -5013,7 +4616,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoadingAuth,
     authStatus: (isLoadingAuth
       ? 'loading'
-      : !firebaseUser
+      : !authUser
       ? 'unauthenticated'
       : isAdminUser
       ? 'authenticated_admin'
@@ -5080,6 +4683,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     products,
     selectedProductForModal,
     isDbSyncing,
+    catalogStatus,
+    catalogError,
     hasMoreProducts,
     isFetchingMore,
     loadMoreProducts,
@@ -5092,7 +4697,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     orders,
     user,
     checkPhoneUniqueness,
-    firebaseUser,
+    authUser,
     isEmailVerified,
     isAdminUser,
     isSellerUser,
