@@ -1165,16 +1165,23 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
 
   const [user, setUser] = useState<UserProfile>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_user');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-      return INITIAL_USER;
-    } catch {
-      return INITIAL_USER;
+  try {
+    const saved = localStorage.getItem('yallalb_user');
+
+    if (saved) {
+      const parsed = JSON.parse(saved);
+
+      return {
+        ...INITIAL_USER,
+        ...parsed
+      };
     }
-  });
+
+    return INITIAL_USER;
+  } catch {
+    return INITIAL_USER;
+  }
+});
 
   // Site Content CMS state
   const [siteContent, setSiteContent] = useState<SiteContent>(() => {
@@ -1207,14 +1214,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isCustomBlockModalOpen, setIsCustomBlockModalOpen] = useState<boolean>(false);
   const [customBlockToEdit, setCustomBlockToEdit] = useState<CMSCustomBlock | null>(null);
 
-   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_recent_activities');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+   const [recentActivities, setRecentActivities] =
+  useState<RecentActivity[]>([]);
 
   // Real-time recent-activity sync from Supabase
   useEffect(() => {
@@ -1260,40 +1261,89 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isAdminUser]);
 
   const logAdminActivity = async (
-    actionType: RecentActivity['actionType'],
-    summary: string,
-    details: string,
-    targetId?: string,
-    snapshotBefore?: any,
-    snapshotAfter?: any
-  ) => {
-    try {
-      const activityId = `act-${Date.now()}`;
-      const newActivity: RecentActivity = {
-        id: activityId,
-        timestamp: new Date().toISOString(),
-        actionType,
+  actionType: RecentActivity['actionType'],
+  summary: string,
+  details: string,
+  targetId?: string,
+  snapshotBefore?: any,
+  snapshotAfter?: any
+) => {
+  try {
+    if (!isAdminUser || !authUser?.id) {
+      console.warn(
+        '[ShopContext] Admin activity rejected: current user is not an authenticated admin.'
+      );
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    if (profile?.role !== 'admin') {
+      console.warn(
+        '[ShopContext] Admin activity rejected: user is not an admin.'
+      );
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('admin_activities')
+      .insert({
+        actor_id: authUser.id,
+        action_type: actionType,
         summary,
         details,
-        adminEmail: authUser?.email || user.email || 'anonymous-admin',
-        ...(targetId ? { targetId } : {}),
-        ...(snapshotBefore !== undefined ? { snapshotBefore } : {}),
-        ...(snapshotAfter !== undefined ? { snapshotAfter } : {})
-      };
-      
-      setRecentActivities(prev => {
-        const next = [newActivity, ...prev].slice(0, 50);
-        try {
-          localStorage.setItem('yallalb_recent_activities', JSON.stringify(next));
-        } catch {}
-        return next;
-      });
+        target_id: targetId ?? null,
+        snapshot_before:
+          snapshotBefore !== undefined
+            ? snapshotBefore
+            : null,
+        snapshot_after:
+          snapshotAfter !== undefined
+            ? snapshotAfter
+            : null
+      })
+      .select('*')
+      .single();
 
-    } catch (err) {
-      console.warn('[ShopContext] Failed to log admin activity:', err);
+    if (error) {
+      throw error;
     }
-  };
 
+    if (data) {
+      const newActivity: RecentActivity = {
+        id: data.id,
+        timestamp: data.created_at,
+        actionType:
+          data.action_type as RecentActivity['actionType'],
+        summary: data.summary,
+        details: data.details || '',
+        adminEmail: data.actor_id || '',
+        targetId: data.target_id || undefined,
+        snapshotBefore: data.snapshot_before,
+        snapshotAfter: data.snapshot_after
+      };
+
+      setRecentActivities(prev =>
+        [newActivity, ...prev].slice(0, 200)
+      );
+    }
+  } catch (err) {
+    console.warn(
+      '[ShopContext] Failed to log admin activity:',
+      err
+    );
+  }
+};
+
+    
   const undoAdminActivity = async (activityId: string) => {
     const act = recentActivities.find(a => a.id === activityId);
     if (!act) {
@@ -1306,270 +1356,833 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      if (act.actionType === 'product_update' && act.targetId && act.snapshotBefore) {
+      if (
+        act.actionType === 'product_update' &&
+        act.targetId &&
+        act.snapshotBefore
+      ) {
         const restoredProduct = act.snapshotBefore as Product;
-        setProducts(prev => prev.map(p => p.id === act.targetId ? { ...restoredProduct } : p));
-        try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products.map(p => p.id === act.targetId ? { ...restoredProduct } : p)));
-        } catch {}
-      } else if (act.actionType === 'product_add' && act.targetId) {
-        setProducts(prev => prev.filter(p => p.id !== act.targetId));
-      } else if (act.actionType === 'product_delete' && act.targetId && act.snapshotBefore) {
-        const restoredProduct = act.snapshotBefore as Product;
-        setProducts(prev => [...prev.filter(p => p.id !== act.targetId), restoredProduct]);
-      } else if (act.actionType === 'product_bulk_update' && Array.isArray(act.snapshotBefore)) {
-        const restoredProducts = act.snapshotBefore as Product[];
-        const restoredMap = new Map(restoredProducts.map(p => [p.id, p]));
-        setProducts(prev => prev.map(p => restoredMap.get(p.id) || p));
+
+        const { error } = await supabase
+          .from('products')
+          .update({
+            name: restoredProduct.name,
+            arabic_name: restoredProduct.arabicName ?? null,
+            artisan: restoredProduct.artisan,
+            seller_id: restoredProduct.sellerId ?? null,
+            origin: restoredProduct.origin,
+            category_id: restoredProduct.category
+              ? restoredProduct.category
+              : null,
+            price_usd: restoredProduct.priceUSD,
+            original_price_usd:
+              restoredProduct.originalPriceUSD ?? null,
+            discount_percentage:
+              restoredProduct.discountPercentage ?? null,
+            rating: restoredProduct.rating,
+            reviews_count: restoredProduct.reviewsCount,
+            image: restoredProduct.image,
+            video_url: restoredProduct.videoUrl ?? null,
+            description: restoredProduct.description,
+            craft_story: restoredProduct.craftStory,
+            stock: restoredProduct.stock,
+            is_new_arrival:
+              restoredProduct.isNewArrival ?? false,
+            is_featured:
+              restoredProduct.isFeatured ?? false,
+            is_bestseller:
+              restoredProduct.isBestseller ?? false,
+            is_published:
+              restoredProduct.isPublished ?? true,
+            display_order:
+              restoredProduct.displayOrder ?? 0,
+            seller_item_code:
+              restoredProduct.sellerItemCode ?? null,
+            low_stock_threshold:
+              restoredProduct.lowStockThreshold ?? null,
+            low_stock_notice:
+              restoredProduct.lowStockNotice ?? null,
+            custom_stock_label:
+              restoredProduct.customStockLabel ?? null,
+            cost_price_usd:
+              restoredProduct.costPriceUSD ?? null,
+            tags: restoredProduct.tags ?? [],
+            keywords:
+              restoredProduct.keywords ?? [],
+            arabic_keywords:
+              restoredProduct.arabicKeywords ?? [],
+            seo_title:
+              restoredProduct.seoTitle ?? null,
+            seo_arabic_title:
+              restoredProduct.seoArabicTitle ?? null,
+            seo_description:
+              restoredProduct.seoDescription ?? null,
+            seo_arabic_description:
+              restoredProduct.seoArabicDescription ?? null,
+            weight_or_volume:
+              restoredProduct.weightOrVolume ?? null
+          })
+          .eq('id', act.targetId);
+
+        if (error) {
+          throw error;
+        }
+
+        setProducts(prev =>
+          prev.map(p =>
+            p.id === act.targetId
+              ? { ...restoredProduct }
+              : p
+          )
+        );
+      } else if (
+        act.actionType === 'product_add' &&
+        act.targetId
+      ) {
+        const { error } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', act.targetId);
+
+        if (error) {
+          throw error;
+        }
+
+        setProducts(prev =>
+          prev.filter(p => p.id !== act.targetId)
+        );
+      } else if (
+        act.actionType === 'product_delete' &&
+        act.targetId &&
+        act.snapshotBefore
+      ) {
+        const restoredProduct =
+          act.snapshotBefore as Product;
+
+        const { error } = await supabase
+          .from('products')
+          .insert({
+            id: restoredProduct.id,
+            name: restoredProduct.name,
+            arabic_name:
+              restoredProduct.arabicName ?? null,
+            artisan: restoredProduct.artisan,
+            seller_id:
+              restoredProduct.sellerId ?? null,
+            origin: restoredProduct.origin,
+            category_id:
+              restoredProduct.category || null,
+            price_usd: restoredProduct.priceUSD,
+            original_price_usd:
+              restoredProduct.originalPriceUSD ?? null,
+            discount_percentage:
+              restoredProduct.discountPercentage ?? null,
+            rating: restoredProduct.rating,
+            reviews_count:
+              restoredProduct.reviewsCount,
+            image: restoredProduct.image,
+            video_url:
+              restoredProduct.videoUrl ?? null,
+            description:
+              restoredProduct.description,
+            craft_story:
+              restoredProduct.craftStory,
+            stock: restoredProduct.stock,
+            is_new_arrival:
+              restoredProduct.isNewArrival ?? false,
+            is_featured:
+              restoredProduct.isFeatured ?? false,
+            is_bestseller:
+              restoredProduct.isBestseller ?? false,
+            is_published:
+              restoredProduct.isPublished ?? true,
+            display_order:
+              restoredProduct.displayOrder ?? 0,
+            seller_item_code:
+              restoredProduct.sellerItemCode ?? null,
+            low_stock_threshold:
+              restoredProduct.lowStockThreshold ?? null,
+            low_stock_notice:
+              restoredProduct.lowStockNotice ?? null,
+            custom_stock_label:
+              restoredProduct.customStockLabel ?? null,
+            cost_price_usd:
+              restoredProduct.costPriceUSD ?? null,
+            tags:
+              restoredProduct.tags ?? [],
+            keywords:
+              restoredProduct.keywords ?? [],
+            arabic_keywords:
+              restoredProduct.arabicKeywords ?? [],
+            seo_title:
+              restoredProduct.seoTitle ?? null,
+            seo_arabic_title:
+              restoredProduct.seoArabicTitle ?? null,
+            seo_description:
+              restoredProduct.seoDescription ?? null,
+            seo_arabic_description:
+              restoredProduct.seoArabicDescription ?? null,
+            weight_or_volume:
+              restoredProduct.weightOrVolume ?? null
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        setProducts(prev => [
+          ...prev.filter(p => p.id !== act.targetId),
+          restoredProduct
+        ]);
+      } else if (
+        act.actionType === 'product_bulk_update' &&
+        Array.isArray(act.snapshotBefore)
+      ) {
+        const restoredProducts =
+          act.snapshotBefore as Product[];
+
+        for (const restoredProduct of restoredProducts) {
+          const { error } = await supabase
+            .from('products')
+            .update({
+              name: restoredProduct.name,
+              arabic_name:
+                restoredProduct.arabicName ?? null,
+              artisan:
+                restoredProduct.artisan,
+              seller_id:
+                restoredProduct.sellerId ?? null,
+              origin:
+                restoredProduct.origin,
+              price_usd:
+                restoredProduct.priceUSD,
+              original_price_usd:
+                restoredProduct.originalPriceUSD ?? null,
+              discount_percentage:
+                restoredProduct.discountPercentage ?? null,
+              rating:
+                restoredProduct.rating,
+              reviews_count:
+                restoredProduct.reviewsCount,
+              image:
+                restoredProduct.image,
+              video_url:
+                restoredProduct.videoUrl ?? null,
+              description:
+                restoredProduct.description,
+              craft_story:
+                restoredProduct.craftStory,
+              stock:
+                restoredProduct.stock,
+              is_new_arrival:
+                restoredProduct.isNewArrival ?? false,
+              is_featured:
+                restoredProduct.isFeatured ?? false,
+              is_bestseller:
+                restoredProduct.isBestseller ?? false,
+              is_published:
+                restoredProduct.isPublished ?? true,
+              display_order:
+                restoredProduct.displayOrder ?? 0,
+              seller_item_code:
+                restoredProduct.sellerItemCode ?? null,
+              low_stock_threshold:
+                restoredProduct.lowStockThreshold ?? null,
+              low_stock_notice:
+                restoredProduct.lowStockNotice ?? null,
+              custom_stock_label:
+                restoredProduct.customStockLabel ?? null,
+              tags:
+                restoredProduct.tags ?? [],
+              keywords:
+                restoredProduct.keywords ?? [],
+              arabic_keywords:
+                restoredProduct.arabicKeywords ?? []
+            })
+            .eq('id', restoredProduct.id);
+
+          if (error) {
+            throw error;
+          }
+        }
+
+        const restoredMap = new Map(
+          restoredProducts.map(p => [p.id, p])
+        );
+
+        setProducts(prev =>
+          prev.map(
+            p => restoredMap.get(p.id) || p
+          )
+        );
       } else {
-        showToast('Undo is only supported for product additions, updates, and deletions.', 'warning');
+        showToast(
+          'Undo is only supported for product additions, updates, and deletions.',
+          'warning'
+        );
         return;
       }
 
-      const undoneTimestamp = new Date().toISOString();
-      setRecentActivities(prev => prev.map(a => a.id === activityId ? { ...a, isUndone: true, undoneAt: undoneTimestamp } : a));
+      const undoneTimestamp =
+        new Date().toISOString();
+
+ setRecentActivities(prev =>
+  prev.map(a =>
+    a.id === activityId
+      ? {
+          ...a,
+          isUndone: true,
+          undoneAt: undoneTimestamp
+        }
+      : a
+  )
+);
+
+await logAdminActivity(
+  'product_update',
+  `Undid: ${act.summary}`,
+  `Reverted changes from activity logged at ${new Date(
+    act.timestamp
+  ).toLocaleTimeString()}`,
+  act.targetId
+);
+
+showToast(
+  `Successfully undone: "${act.summary}"! Changes recovered.`,
+  'success'
+);
+
+const [discountRules, setDiscountRules] =
+  useState<DiscountRule[]>([]);
 
 
-      await logAdminActivity(
-        'product_update',
-        `Undid: ${act.summary}`,
-        `Reverted changes from activity logged at ${new Date(act.timestamp).toLocaleTimeString()}`
+    
+  // Load discount rules from Supabase
+useEffect(() => {
+  /**
+   * Discount rules come from public.discount_rules.
+   *
+   * The database/RLS controls which users may access the rules.
+   * Client-side discount rules are display data only.
+   *
+   * The checkout RPC remains authoritative for:
+   * - discount eligibility
+   * - coupon validation
+   * - discount calculation
+   * - final order totals
+   */
+  let isMounted = true;
+
+  supabaseCommerceService
+    .fetchDiscountRules()
+    .then((rules) => {
+      if (isMounted) setDiscountRules(rules);
+    })
+    .catch((err) => {
+      console.error(
+        '[ShopContext] Failed to load discount rules:',
+        err
       );
-
-      showToast(`Successfully undone: "${act.summary}"! Changes recovered.`, 'success');
-    } catch (err) {
-      console.error('[ShopContext] Error undoing admin activity:', err);
-      showToast('Failed to undo changes. Please check connection and try again.', 'error');
-    }
-  };
-
-  const hasSeededDiscountsRef = useRef(false);
-
-  const [discountRules, setDiscountRules] = useState<DiscountRule[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_discount_rules');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'rule-1',
-        name: 'Koura Olive Oil Special (15% Off)',
-        type: 'percentage',
-        value: 15,
-        target: 'brand',
-        targetValue: 'Koura, North Lebanon',
-        isActive: true
-      },
-      {
-        id: 'rule-2',
-        name: 'Checkout Extra $5 Off',
-        type: 'fixed',
-        value: 5,
-        target: 'checkout',
-        isActive: true,
-        minPurchaseUSD: 30
-      }
-    ];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('yallalb_discount_rules', JSON.stringify(discountRules));
-    } catch {}
-  }, [discountRules]);
-
-  // Real-time discounts sync from Supabase
-  useEffect(() => {
-    /**
-     * Discount rules, from public.discount_rules.
-     *
-     * Replaces an onSnapshot listener over Firestore `discounts`.
-     * `discounts_admin` is is_admin() for ALL commands, so a customer reads an
-     * empty set. That is deliberate rather than a gap to paper over:
-     * private.checkout_create_order computes every total and applies coupons
-     * server-side, so these rules are display only, and showing a shopper a
-     * discount the server will not honour is worse than showing none.
-     */
-    let isMounted = true;
-
-    supabaseCommerceService
-      .fetchDiscountRules()
-      .then((rules) => {
-        if (isMounted) setDiscountRules(rules);
-      })
-      .catch((err) => {
-        console.error('[ShopContext] Failed to load discount rules:', err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAdminUser]);
-
-  const addDiscountRule = async (ruleData: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const id = 'rule-' + secureRandomString(7);
-    const newRule: DiscountRule = {
-      ...ruleData,
-      id
-    };
-    try {
-    } catch (err) {
-      console.error("[ShopContext] Error saving discount rule to Supabase:", err);
-      showToast('Failed to save discount rule to database', 'warning');
-      throw err;
-    }
-    const ruleWithMeta = { ...newRule, couponCode, maxTotalUses, maxUsesPerUser };
-    setDiscountRules(prev => [ruleWithMeta, ...prev]);
-    await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${newRule.name}`);
-  };
-
-  const updateDiscountRule = async (id: string, updates: Partial<DiscountRule>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const target = discountRules.find(r => r.id === id);
-    if (!target) return;
-    const updatedRule: DiscountRule = { ...target, ...updates };
-
-    try {
-      const ruleWithMeta = { ...updatedRule, ...(couponCode !== undefined ? { couponCode } : {}), ...(maxTotalUses !== undefined ? { maxTotalUses } : {}), ...(maxUsesPerUser !== undefined ? { maxUsesPerUser } : {}) };
-      setDiscountRules(prev => prev.map(r => r.id === id ? ruleWithMeta : r));
-    } catch (err) {
-      console.error("[ShopContext] Error updating discount rule in Supabase:", err);
-      showToast('Failed to update discount rule in database', 'warning');
-      throw err;
-    }
-    await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
-  };
-
-  const deleteDiscountRule = async (id: string) => {
-    try {
-      setDiscountRules(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
-      console.error("[ShopContext] Error deleting discount rule from Supabase:", err);
-      showToast('Failed to delete discount rule from database', 'warning');
-      throw err;
-    }
-    await logAdminActivity('meta_change', 'Deleted Discount Rule', `Deleted discount ID: ${id}`);
-  };
-
-  // Product Bundles & Combo Deals State
-  const [productBundles, setProductBundles] = useState<ProductBundle[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_product_bundles');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'bundle-gourmet-breakfast',
-        name: 'Lebanese Gourmet Breakfast Bundle',
-        nameAr: 'باقة الفطور اللبناني الفاخر',
-        description: 'Authentic Koura Extra Virgin Olive Oil, Chouf Zaatar Herb Mix, and Raw Mountain Honey packaged together.',
-        descriptionAr: 'زيت زيتون كورة بكر ممتاز، خلطة زعتر الشوف، وعسل جبلي بري نقي.',
-        badgeText: 'COMBO DEAL - SAVE 20%',
-        badgeTextAr: 'صفقة كومبو - خصم ٢٠٪',
-        productIds: ['prod-2', 'prod-12', 'prod-15'],
-        bundlePriceUSD: 34.38,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'bundle-coffee-ritual-set',
-        name: 'Artisan Morning Coffee Ritual Set',
-        nameAr: 'طقم طقوس القهوة الصباحية الحرفي',
-        description: 'Handmade Ceramic Pour-Over Dripper with Server and freshly roasted Lebanese Cardamom Coffee.',
-        descriptionAr: 'طقم تحضير القهوة السيراميكي اليدوي مع قهوة لبنانية محمصة بالهيل.',
-        badgeText: 'ARTISAN COFFEE COMBO',
-        badgeTextAr: 'كومبو القهوة الحرفية',
-        productIds: ['prod-4', 'prod-16'],
-        bundlePriceUSD: 64.79,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      }
-    ];
-  });
-
-  const hasSeededBundlesRef = useRef(false);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('yallalb_product_bundles', JSON.stringify(productBundles));
-    } catch {}
-  }, [productBundles]);
-
-  useEffect(() => {
-    /**
-     * Product bundles, from public.product_bundles.
-     *
-     * Replaces an onSnapshot listener over the Firestore collection of the same
-     * name. `bundles_read` is `is_published OR is_admin()`, so published
-     * bundles do reach the storefront and drafts stay internal.
-     */
-    let isMounted = true;
-
-    supabaseCommerceService
-      .fetchProductBundles()
-      .then((bundles) => {
-        if (isMounted) setProductBundles(bundles);
-      })
-      .catch((err) => {
-        console.error('[ShopContext] Failed to load product bundles:', err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAdminUser]);
-
-  const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const id = 'bundle-' + secureRandomString(7);
-    const newBundle: ProductBundle = {
-      ...bundleData,
-      id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem('yallalb_bundles_initialized', 'true');
-    setProductBundles(prev => [newBundle, ...prev]);
-
-    try {
-    } catch (err) {
-      console.error("[ShopContext] Error saving bundle to Supabase:", err);
-      showToast('Failed to create combo deal in database', 'warning');
-      throw err;
-    }
-    await logAdminActivity('meta_change', 'Created Combo Deal', `Created bundle: ${newBundle.name}`);
-  };
-
-  const updateProductBundle = async (id: string, updates: Partial<ProductBundle>) => {
-    const target = productBundles.find(b => b.id === id);
-    if (!target) return;
-    const updatedBundle: ProductBundle = { ...target, ...updates, updatedAt: new Date().toISOString() };
-
-    setProductBundles(prev => prev.map(b => b.id === id ? updatedBundle : b));
-
-    try {
-    } catch (err) {
-      console.error("[ShopContext] Error updating bundle in Supabase:", err);
-      showToast('Failed to update combo deal in database', 'warning');
-      throw err;
-    }
-    await logAdminActivity('meta_change', 'Updated Combo Deal', `Updated bundle ID: ${id}`);
-  };
-
-  const deleteProductBundle = async (id: string) => {
-    setProductBundles(prev => {
-      const next = prev.filter(b => b.id !== id);
-      try {
-        localStorage.setItem('yallalb_product_bundles', JSON.stringify(next));
-        localStorage.setItem('yallalb_bundles_initialized', 'true');
-      } catch {}
-      return next;
     });
 
-    try {
-    } catch (err) {
-      console.error("[ShopContext] Error deleting bundle from Supabase:", err);
-    }
-    await logAdminActivity('meta_change', 'Deleted Combo Deal', `Deleted bundle ID: ${id}`);
+  return () => {
+    isMounted = false;
   };
+}, [isAdminUser]);
+
+    
+  const addDiscountRule = async (
+  ruleData: Omit<DiscountRule, 'id'>,
+  couponCode?: string,
+  maxTotalUses?: number,
+  maxUsesPerUser?: number
+) => {
+  try {
+    const { data, error } = await supabase
+      .from('discount_rules')
+      .insert({
+        name: ruleData.name,
+        type: ruleData.type,
+        value: ruleData.value,
+        target: ruleData.target,
+        target_value: ruleData.targetValue ?? null,
+        is_active: ruleData.isActive ?? true,
+        min_purchase_usd:
+          ruleData.minPurchaseUSD ?? null,
+        coupon_code: couponCode ?? null,
+        max_total_uses: maxTotalUses ?? null,
+        max_uses_per_user: maxUsesPerUser ?? null
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error(
+        'Supabase did not return the created discount rule.'
+      );
+    }
+
+    const createdRule: DiscountRule = {
+      ...ruleData,
+      id: data.id,
+      couponCode: data.coupon_code ?? undefined,
+      maxTotalUses:
+        data.max_total_uses ?? undefined,
+      maxUsesPerUser:
+        data.max_uses_per_user ?? undefined
+    };
+
+    setDiscountRules(prev => [
+      createdRule,
+      ...prev
+    ]);
+
+    await logAdminActivity(
+      'meta_change',
+      'Created Discount Rule',
+      `Created discount: ${createdRule.name}`,
+      createdRule.id
+    );
+  } catch (err) {
+    console.error(
+      '[ShopContext] Error saving discount rule to Supabase:',
+      err
+    );
+
+    showToast(
+      'Failed to save discount rule to database',
+      'warning'
+    );
+
+    throw err;
+  }
+};
+
+    
+  const updateDiscountRule = async (
+  id: string,
+  updates: Partial<DiscountRule>,
+  couponCode?: string,
+  maxTotalUses?: number,
+  maxUsesPerUser?: number
+) => {
+  const target = discountRules.find(r => r.id === id);
+
+  if (!target) {
+    showToast('Discount rule not found.', 'warning');
+    return;
+  }
+
+  try {
+    const updatePayload: Record<string, any> = {};
+
+    if (updates.name !== undefined) {
+      updatePayload.name = updates.name;
+    }
+
+    if (updates.type !== undefined) {
+      updatePayload.type = updates.type;
+    }
+
+    if (updates.value !== undefined) {
+      updatePayload.value = updates.value;
+    }
+
+    if (updates.target !== undefined) {
+      updatePayload.target = updates.target;
+    }
+
+    if (updates.targetValue !== undefined) {
+      updatePayload.target_value =
+        updates.targetValue ?? null;
+    }
+
+    if (updates.isActive !== undefined) {
+      updatePayload.is_active =
+        updates.isActive;
+    }
+
+    if (updates.minPurchaseUSD !== undefined) {
+      updatePayload.min_purchase_usd =
+        updates.minPurchaseUSD ?? null;
+    }
+
+    if (couponCode !== undefined) {
+      updatePayload.coupon_code =
+        couponCode || null;
+    }
+
+    if (maxTotalUses !== undefined) {
+      updatePayload.max_total_uses =
+        maxTotalUses ?? null;
+    }
+
+    if (maxUsesPerUser !== undefined) {
+      updatePayload.max_uses_per_user =
+        maxUsesPerUser ?? null;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('discount_rules')
+      .update(updatePayload)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error(
+        'Supabase did not return the updated discount rule.'
+      );
+    }
+
+    const updatedRule: DiscountRule = {
+      ...target,
+      ...updates,
+      id: data.id,
+      couponCode:
+        data.coupon_code ?? undefined,
+      maxTotalUses:
+        data.max_total_uses ?? undefined,
+      maxUsesPerUser:
+        data.max_uses_per_user ?? undefined
+    };
+
+    setDiscountRules(prev =>
+      prev.map(rule =>
+        rule.id === id
+          ? updatedRule
+          : rule
+      )
+    );
+
+    await logAdminActivity(
+      'meta_change',
+      'Updated Discount Rule',
+      `Updated discount ID: ${id}`,
+      id
+    );
+  } catch (err) {
+    console.error(
+      '[ShopContext] Error updating discount rule in Supabase:',
+      err
+    );
+
+    showToast(
+      'Failed to update discount rule in database',
+      'warning'
+    );
+
+    throw err;
+  }
+};
+
+    
+  const deleteDiscountRule = async (id: string) => {
+  try {
+    const { error } = await supabase
+      .from('discount_rules')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw error;
+    }
+
+    setDiscountRules(prev =>
+      prev.filter(rule => rule.id !== id)
+    );
+
+    await logAdminActivity(
+      'meta_change',
+      'Deleted Discount Rule',
+      `Deleted discount ID: ${id}`,
+      id
+    );
+  } catch (err) {
+    console.error(
+      '[ShopContext] Error deleting discount rule from Supabase:',
+      err
+    );
+
+    showToast(
+      'Failed to delete discount rule from database',
+      'warning'
+    );
+
+    throw err;
+  }
+};
+
+    
+  // Product Bundles & Combo Deals State
+const [productBundles, setProductBundles] =
+  useState<ProductBundle[]>([]);
+
+    
+  // Load product bundles from Supabase
+useEffect(() => {
+  /**
+   * Product bundles come from public.product_bundles.
+   *
+   * Supabase/RLS controls which bundles the current user may read.
+   * Published bundles are available to shoppers; unpublished bundles
+   * remain available only to authorized admin users.
+   *
+   * The database is the authoritative source.
+   * No localStorage fallback or automatic demo-bundle seeding is used.
+   */
+  let isMounted = true;
+
+  supabaseCommerceService
+    .fetchProductBundles()
+    .then((bundles) => {
+      if (isMounted) {
+        setProductBundles(bundles);
+      }
+    })
+    .catch((err) => {
+      console.error(
+        '[ShopContext] Failed to load product bundles:',
+        err
+      );
+    });
+
+  return () => {
+    isMounted = false;
+  };
+}, [isAdminUser]);
+
+    
+  const addProductBundle = async (
+  bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>
+) => {
+  try {
+    const { data, error } = await supabase
+      .from('product_bundles')
+      .insert({
+        name: bundleData.name,
+        name_ar: bundleData.nameAr,
+        description: bundleData.description,
+        description_ar: bundleData.descriptionAr,
+        badge_text: bundleData.badgeText,
+        badge_text_ar: bundleData.badgeTextAr,
+        product_ids: bundleData.productIds,
+        bundle_price_usd: bundleData.bundlePriceUSD,
+        is_active: bundleData.isActive
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error(
+        'Supabase did not return the created product bundle.'
+      );
+    }
+
+    const newBundle: ProductBundle = {
+      ...bundleData,
+      id: data.id,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at ?? data.created_at
+    };
+
+    setProductBundles(prev => [
+      newBundle,
+      ...prev
+    ]);
+
+    await logAdminActivity(
+      'meta_change',
+      'Created Combo Deal',
+      `Created bundle: ${newBundle.name}`,
+      newBundle.id
+    );
+  } catch (err) {
+    console.error(
+      '[ShopContext] Error saving bundle to Supabase:',
+      err
+    );
+
+    showToast(
+      'Failed to create combo deal in database',
+      'warning'
+    );
+
+    throw err;
+  }
+};
+
+    
+  const updateProductBundle = async (
+  id: string,
+  updates: Partial<ProductBundle>
+) => {
+  const target = productBundles.find(bundle => bundle.id === id);
+
+  if (!target) {
+    showToast('Product bundle not found.', 'warning');
+    return;
+  }
+
+  try {
+    const updatePayload: Record<string, any> = {};
+
+    if (updates.name !== undefined) {
+      updatePayload.name = updates.name;
+    }
+
+    if (updates.nameAr !== undefined) {
+      updatePayload.name_ar = updates.nameAr;
+    }
+
+    if (updates.description !== undefined) {
+      updatePayload.description = updates.description;
+    }
+
+    if (updates.descriptionAr !== undefined) {
+      updatePayload.description_ar = updates.descriptionAr;
+    }
+
+    if (updates.badgeText !== undefined) {
+      updatePayload.badge_text = updates.badgeText;
+    }
+
+    if (updates.badgeTextAr !== undefined) {
+      updatePayload.badge_text_ar = updates.badgeTextAr;
+    }
+
+    if (updates.productIds !== undefined) {
+      updatePayload.product_ids = updates.productIds;
+    }
+
+    if (updates.bundlePriceUSD !== undefined) {
+      updatePayload.bundle_price_usd = updates.bundlePriceUSD;
+    }
+
+    if (updates.isActive !== undefined) {
+      updatePayload.is_active = updates.isActive;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('product_bundles')
+      .update(updatePayload)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error(
+        'Supabase did not return the updated product bundle.'
+      );
+    }
+
+    const updatedBundle: ProductBundle = {
+      ...target,
+      ...updates,
+      id: data.id,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at ?? data.created_at
+    };
+
+    setProductBundles(prev =>
+      prev.map(bundle =>
+        bundle.id === id
+          ? updatedBundle
+          : bundle
+      )
+    );
+
+    await logAdminActivity(
+      'meta_change',
+      'Updated Combo Deal',
+      `Updated bundle: ${updatedBundle.name}`,
+      id
+    );
+  } catch (err) {
+    console.error(
+      '[ShopContext] Error updating bundle in Supabase:',
+      err
+    );
+
+    showToast(
+      'Failed to update combo deal in database',
+      'warning'
+    );
+
+    throw err;
+  }
+};
+
+
+  const deleteProductBundle = async (id: string) => {
+  const target = productBundles.find(
+    bundle => bundle.id === id
+  );
+
+  if (!target) {
+    showToast('Product bundle not found.', 'warning');
+    return;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('product_bundles')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw error;
+    }
+
+    setProductBundles(prev =>
+      prev.filter(bundle => bundle.id !== id)
+    );
+
+    await logAdminActivity(
+      'meta_change',
+      'Deleted Combo Deal',
+      `Deleted bundle: ${target.name}`,
+      id
+    );
+  } catch (err) {
+    console.error(
+      '[ShopContext] Error deleting bundle from Supabase:',
+      err
+    );
+
+    showToast(
+      'Failed to delete combo deal from database',
+      'warning'
+    );
+
+    throw err;
+  }
+};
+    
 
   // Categories & Details Management State. Cache or empty, never the bundled
   // DEFAULT_CATEGORIES: those carry slug ids that no product's category_id can
@@ -1579,153 +2192,212 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   // Terroir Regions & Logistics State
-  const [regions, setRegions] = useState<TerroirRegion[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_regions');
-      return saved ? JSON.parse(saved) : LEBANON_REGIONS;
-    } catch {
-      return LEBANON_REGIONS;
-    }
+  const [regions, setRegions] = useState<TerroirRegion[]>(() =>
+  readCachedList<TerroirRegion>(CATALOG_CACHE_KEYS.regions)
+);
+
+  
+  /**
+ * True once Supabase has successfully loaded CMS site content.
+ *
+ * Supabase is the authoritative source for CMS content. This flag prevents
+ * bundled/default content from overwriting content already loaded from the
+ * database.
+ */
+const cmsSupabaseAuthoritativeRef = useRef(false);
+
+/**
+ * True once Supabase has successfully loaded CMS custom blocks.
+ *
+ * CMS site content and custom blocks are stored separately, so they are
+ * tracked independently. This prevents bundled/default blocks from
+ * overwriting blocks loaded from Supabase.
+ */
+const cmsBlocksFromSupabaseRef = useRef(false);
+
+// Supabase Catalog, Categories, Sellers, Products, and CMS Hydration
+useEffect(() => {
+  let isMounted = true;
+
+  const hydrateFromSupabase = async () => {
+    // These reads are independent. A failure in one area should not prevent
+    // the remaining catalog or CMS data from loading.
+    const [
+      categoriesRes,
+      regionsRes,
+      sellersRes,
+      productsRes,
+      blocksRes,
+      contentRes
+    ] = await Promise.allSettled([
+      supabaseCatalogService.fetchCategories(),
+
+      supabaseCatalogService.fetchRegions(),
+
+      supabaseCatalogService.fetchSellers(),
+
+      supabaseCatalogService.fetchProducts({
+        isAdmin: isAdminUser,
+        isSeller: isSellerUser,
+        sellerId
+      }),
+
+      // Admins can load published and draft blocks.
+      // Public users receive only blocks allowed by the public CMS service.
+      isAdminUser
+        ? supabaseCmsService.fetchAllCmsBlocks()
+        : supabaseCmsService.fetchAllPublicCmsBlocks(),
+
+      supabaseCmsService.fetchSiteContent()
+    ]);
+
+    // The individual result handlers continue below.
+    // Do not add Firebase listeners or localStorage fallbacks here.
+  };
+
+  void hydrateFromSupabase();
+
+  return () => {
+    isMounted = false;
+  };
+}, [isAdminUser, isSellerUser, sellerId]);
+
+
+    
+    if (!isMounted) return;
+
+const failures: string[] = [];
+
+const valueOf = <T,>(
+  res: PromiseSettledResult<T>,
+  label: string
+): T | undefined => {
+  if (res.status === 'fulfilled') {
+    return res.value;
+  }
+
+  console.error(
+    `[ShopContext] Supabase hydration failed for ${label}:`,
+    res.reason
+  );
+
+  failures.push(label);
+
+  return undefined;
+};
+
+    
+    const supabaseCategories = valueOf(
+  categoriesRes,
+  'categories'
+);
+
+const supabaseRegions = valueOf(
+  regionsRes,
+  'regions'
+);
+
+const supabaseSellers = valueOf(
+  sellersRes,
+  'sellers'
+);
+
+const supabaseProds = valueOf(
+  productsRes,
+  'products'
+);
+
+const supabaseBlocks = valueOf(
+  blocksRes,
+  'cms_custom_blocks'
+);
+
+const supabaseContent = valueOf(
+  contentRes,
+  'cms_site_content'
+);
+
+// `undefined` means the Supabase read failed, so keep the current UI state.
+// A fulfilled empty array is valid and authoritative: it means the
+// corresponding table currently contains no records.
+if (supabaseCategories !== undefined) {
+  setCategories(supabaseCategories);
+}
+
+if (supabaseRegions !== undefined) {
+  setRegions(supabaseRegions);
+}
+
+if (supabaseSellers !== undefined) {
+  setSellers(supabaseSellers);
+}
+
+if (supabaseProds !== undefined) {
+  setProducts(
+    supabaseProds.map(ensureSellerItemCode)
+  );
+}
+    
+    // Catalogue status reflects the actual Supabase products read.
+// A successful empty result is a valid empty catalogue.
+// A failed read is an error and must not be presented as "no products".
+if (productsRes.status === 'rejected') {
+  setCatalogStatus('error');
+  setCatalogError(
+    productsRes.reason instanceof Error
+      ? productsRes.reason.message
+      : String(productsRes.reason)
+  );
+} else {
+  setCatalogStatus('ready');
+  setCatalogError(null);
+}
+
+// CMS: cms_site_content and cms_custom_blocks are separate Supabase
+// sources, but both are authoritative once their respective reads succeed.
+//
+// `undefined` means the read failed.
+// An empty result is valid and authoritative.
+
+if (supabaseContent !== undefined) {
+  cmsSupabaseAuthoritativeRef.current = true;
+}
+
+if (supabaseBlocks !== undefined) {
+  cmsBlocksFromSupabaseRef.current = true;
+}
+
+if (
+  supabaseContent !== undefined ||
+  supabaseBlocks !== undefined
+) {
+  setSiteContent(prev => {
+    const next: SiteContent = supabaseContent
+      ? {
+          ...prev,
+          ...supabaseContent,
+          visibility: {
+            ...DEFAULT_SITE_CONTENT.visibility,
+            ...(prev.visibility || {}),
+            ...(supabaseContent.visibility || {}),
+          },
+        }
+      : prev;
+
+    return next;
   });
+}
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(categories));
-    } catch {}
-  }, [categories]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('yallalb_regions', JSON.stringify(regions));
-    } catch {}
-  }, [regions]);
-
-  /**
-   * True once cms_site_content has served real content.
-   *
-   * A legacy Firestore `cms/main` listener used to write siteContent too, and
-   * the two raced on every load. That listener is gone; this flag still guards
-   * the bundled defaults, so once Supabase answers with content the defaults
-   * stop being applied over what an admin published.
-   */
-  const cmsSupabaseAuthoritativeRef = useRef(false);
-
-  /**
-   * True once cms_custom_blocks has served at least one block. Tracked apart
-   * from the section copy because the two live in different tables: blocks can
-   * be in Supabase while the section jsonb has never been saved, and in that
-   * window the bundled defaults must keep their hands off the block list.
-   */
-  const cmsBlocksFromSupabaseRef = useRef(false);
-
-  // Supabase Initial Catalog, Categories, Sellers, and CMS Hydration
-  useEffect(() => {
-    let isMounted = true;
-
-    const hydrateFromSupabase = async () => {
-      // allSettled, not all: these are six independent reads, and a CMS failure
-      // must not discard a catalog that loaded fine. Each rejection is reported
-      // on its own instead of one `catch` hiding which read broke.
-      const [categoriesRes, regionsRes, sellersRes, productsRes, blocksRes, contentRes] = await Promise.allSettled([
-        supabaseCatalogService.fetchCategories(),
-        supabaseCatalogService.fetchRegions(),
-        supabaseCatalogService.fetchSellers(),
-        supabaseCatalogService.fetchProducts({ isAdmin: isAdminUser, isSeller: isSellerUser, sellerId }),
-        // Admins need drafts too, so they read the table (RLS: is_published OR
-        // is_admin()). Everyone else goes through the public RPC, once per
-        // target page — it matches target_page by exact equality, so the single
-        // no-argument call this replaced returned home-page blocks only.
-        isAdminUser ? supabaseCmsService.fetchAllCmsBlocks() : supabaseCmsService.fetchAllPublicCmsBlocks(),
-        supabaseCmsService.fetchSiteContent(),
-      ]);
-
-      if (!isMounted) return;
-
-      const failures: string[] = [];
-      const valueOf = <T,>(res: PromiseSettledResult<T>, label: string): T | undefined => {
-        if (res.status === 'fulfilled') return res.value;
-        // Logged as an error, never shrugged off as a "notice": with an empty
-        // products table this is the difference between a visible outage and a
-        // storefront quietly rendering bundled defaults as if they were real.
-        console.error(`[ShopContext] Supabase hydration failed for ${label}:`, res.reason);
-        failures.push(label);
-        return undefined;
-      };
-
-      const supabaseCategories = valueOf(categoriesRes, 'categories');
-      const supabaseRegions = valueOf(regionsRes, 'regions');
-      const supabaseSellers = valueOf(sellersRes, 'sellers');
-      const supabaseProds = valueOf(productsRes, 'products');
-      const supabaseBlocks = valueOf(blocksRes, 'cms_custom_blocks');
-      const supabaseContent = valueOf(contentRes, 'cms_site_content');
-
-      // `undefined` means the read failed, so what is on screen is kept. An
-      // empty array means the table is genuinely empty, and that IS the answer:
-      // it is applied. The previous `length > 0` guards discarded empty
-      // results, so a cleared catalogue kept showing stale cached products —
-      // and, before the fallbacks were removed, the bundled demo catalogue.
-      if (supabaseCategories) {
-        setCategories(supabaseCategories);
-      }
-      if (supabaseRegions && supabaseRegions.length > 0) {
-        // Regions are delivery pricing reference data, not catalogue content;
-        // an empty read here would break checkout rather than show an empty
-        // shop, so the seeded defaults stand until the table answers.
-        setRegions(supabaseRegions);
-      }
-      if (supabaseSellers) {
-        setSellers(supabaseSellers);
-      }
-      if (supabaseProds) {
-        setProducts(supabaseProds.map(ensureSellerItemCode));
-      }
-
-      // Catalogue status drives the storefront's empty state: 'ready' with zero
-      // products means an honestly empty shop, 'error' means the read broke and
-      // the shop must say so rather than implying it has no stock.
-      if (productsRes.status === 'rejected') {
-        setCatalogStatus('error');
-        setCatalogError(
-          productsRes.reason instanceof Error ? productsRes.reason.message : String(productsRes.reason)
-        );
-      } else {
-        setCatalogStatus('ready');
-        setCatalogError(null);
-      }
-
-      // CMS: cms_site_content holds the section copy, cms_custom_blocks holds
-      // the blocks. Both are applied in one state update so a render cannot
-      // show new sections beside stale blocks.
-      //
-      // `supabaseContent` was previously fetched and then thrown away — every
-      // CMS edit an admin published was invisible to the storefront. It is
-      // merged over what is on screen so a partially populated row cannot blank
-      // out a section that has never been saved.
-      if (supabaseContent) {
-        cmsSupabaseAuthoritativeRef.current = true;
-      }
-      if (supabaseBlocks && supabaseBlocks.length > 0) {
-        cmsBlocksFromSupabaseRef.current = true;
-      }
-
-      if (supabaseContent || supabaseBlocks) {
-        setSiteContent(prev => {
-          const next: SiteContent = supabaseContent
-            ? {
-                ...prev,
-                ...supabaseContent,
-                visibility: {
-                  ...DEFAULT_SITE_CONTENT.visibility,
-                  ...(prev.visibility || {}),
-                  ...(supabaseContent.visibility || {}),
-                },
-              }
-            : prev;
-
-          // An empty array is a real answer ("nothing published"), so it is
-          // applied; `undefined` means the read failed, so blocks are left be.
-          return supabaseBlocks ? { ...next, customBlocks: supabaseBlocks } : next;
-        });
+    
+          // Apply CMS custom blocks whenever the Supabase read succeeded.
+      // An empty array is a valid result and means there are currently no
+      // published/available blocks. `undefined` means the read failed, so
+      // the existing blocks are preserved.
+      if (supabaseBlocks !== undefined) {
+        setSiteContent(prev => ({
+          ...prev,
+          customBlocks: supabaseBlocks,
+        }));
       }
 
       if (failures.length > 0) {
@@ -1738,1025 +2410,2650 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    hydrateFromSupabase();
+    void hydrateFromSupabase();
 
     return () => {
       isMounted = false;
     };
   }, [isAdminUser, isSellerUser, sellerId]);
-
+    
   /**
-   * Live category sync from Supabase Realtime.
-   *
-   * Replaces a Firestore listener on `site_settings/categories` that seeded
-   * DEFAULT_CATEGORIES whenever the document was missing, and "supplemented"
-   * any bundled category it found absent — so the demo taxonomy kept
-   * reinstating itself in the database. Those categories carry slug ids, which
-   * no product's category_id (a uuid) can match, so they rendered as
-   * permanently empty category pages.
-   *
-   * `categories` is in the supabase_realtime publication. As with products, a
-   * change event triggers a re-read rather than being merged from the payload,
-   * so category RLS (is_published OR is_admin()) decides what a viewer sees.
-   */
-  useEffect(() => {
-    let isMounted = true;
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+ * Refresh categories from Supabase.
+ *
+ * Supabase is the authoritative source for categories.
+ * An empty array is a valid result and must be applied.
+ * A failed request leaves the current category state unchanged.
+ *
+ * Realtime events trigger a fresh read so Supabase RLS determines exactly
+ * which categories the current user is allowed to see.
+ */
+useEffect(() => {
+  let isMounted = true;
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const refreshCategories = async () => {
-      try {
-        const fresh = await supabaseCatalogService.fetchCategories();
-        if (!isMounted) return;
-        setCategories(fresh); // empty is a real answer and is applied
-        try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(fresh));
-        } catch {}
-      } catch (err) {
-        if (!isMounted) return;
-        console.error('[ShopContext] Realtime category refresh failed:', err);
+  const refreshCategories = async () => {
+    try {
+      const fresh =
+        await supabaseCatalogService.fetchCategories();
+
+      if (!isMounted) return;
+
+      // Empty is a valid database result.
+      setCategories(fresh);
+    } catch (err) {
+      if (!isMounted) return;
+
+      console.error(
+        '[ShopContext] Supabase category refresh failed:',
+        err
+      );
+    }
+  };
+
+    
+        const scheduleRefresh = () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
       }
-    };
 
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(refreshCategories, 400);
+      refreshTimer = setTimeout(() => {
+        void refreshCategories();
+      }, 400);
     };
 
     const channel = supabase
       .channel('yalla-categories')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, scheduleRefresh)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'categories',
+        },
+        scheduleRefresh
+      )
       .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`[ShopContext] Supabase realtime channel for categories: ${status}`);
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.error(
+            `[ShopContext] Supabase realtime channel for categories: ${status}`
+          );
         }
       });
 
     return () => {
       isMounted = false;
-      if (refreshTimer) clearTimeout(refreshTimer);
-      supabase.removeChannel(channel);
+
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+
+      void supabase.removeChannel(channel);
     };
   }, []);
 
-  // Real-time regions sync from Supabase
+  // Refresh regions from Supabase when the regions table changes.
   useEffect(() => {
-    /**
-     * Delivery regions, from public.regions.
-     *
-     * Replaces an onSnapshot listener over Firestore `site_settings/regions`.
-     * The initial hydration already reads this table; this keeps the separate
-     * refresh so a region edit is picked up without a reload. An empty read is
-     * ignored rather than applied: regions are delivery pricing reference data,
-     * and emptying them would break checkout rather than show an empty shop.
-     */
     let isMounted = true;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-    supabaseCatalogService
-      .fetchRegions()
-      .then((rows) => {
-        if (isMounted && rows.length > 0) setRegions(rows);
-      })
-      .catch((err) => {
-        console.error('[ShopContext] Failed to load delivery regions:', err);
+    const refreshRegions = async () => {
+      try {
+        const rows =
+          await supabaseCatalogService.fetchRegions();
+
+        if (!isMounted) return;
+
+        // An empty array is a valid Supabase result and must be applied.
+        setRegions(rows);
+      } catch (err) {
+        if (!isMounted) return;
+
+        console.error(
+          '[ShopContext] Supabase region refresh failed:',
+          err
+        );
+      }
+    };
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = setTimeout(() => {
+        void refreshRegions();
+      }, 400);
+    };
+
+    const channel = supabase
+      .channel('yalla-regions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'regions',
+        },
+        scheduleRefresh
+      )
+      .subscribe((status) => {
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.error(
+            `[ShopContext] Supabase realtime channel for regions: ${status}`
+          );
+        }
       });
 
     return () => {
       isMounted = false;
+
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+
+      void supabase.removeChannel(channel);
     };
   }, []);
+      
+  const addCategory = async (
+  catData: Omit<CategoryItem, 'id'> & { id?: string }
+) => {
+  // categories.id is UUID. Preserve the old readable identifier in
+  // legacy_id instead of using it as the primary key.
+  const slug =
+    catData.id?.trim() ||
+    catData.nameEn
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') ||
+    '';
 
-  const addCategory = async (catData: Omit<CategoryItem, 'id'> & { id?: string }) => {
-    // categories.id is uuid, so the readable slug this used to use as the
-    // primary key cannot be one. The slug is kept in legacy_id, which exists
-    // for exactly that: the pre-migration identifier.
-    const slug = catData.id?.trim() || catData.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
-    if (slug && categories.some(c => c.legacyId === slug || c.id === slug)) {
-      throw new Error(`A category with the ID "${slug}" already exists.`);
-    }
+  if (
+    slug &&
+    categories.some(
+      category =>
+        category.legacyId === slug ||
+        category.id === slug
+    )
+  ) {
+    throw new Error(
+      `A category with the ID "${slug}" already exists.`
+    );
+  }
 
-    const newCategory: CategoryItem = {
-      ...catData,
-      id: catData.id && isUuid(catData.id) ? catData.id : generateUuidV4(),
-      legacyId: slug || undefined,
-      subcategories: catData.subcategories || [],
-      arabicKeywords: catData.arabicKeywords || [],
-      englishKeywords: catData.englishKeywords || [],
-      isPublished: catData.isPublished ?? true,
-      displayOrder: catData.displayOrder ?? (categories.length + 1)
-    };
-    
-    const previous = [...categories];
-    const nextCategories = [...categories, newCategory];
-    setCategories(nextCategories);
+  const newCategory: CategoryItem = {
+    ...catData,
+    id:
+      catData.id && isUuid(catData.id)
+        ? catData.id
+        : generateUuidV4(),
+    legacyId: slug || undefined,
+    subcategories: catData.subcategories || [],
+    arabicKeywords: catData.arabicKeywords || [],
+    englishKeywords: catData.englishKeywords || [],
+    isPublished: catData.isPublished ?? true,
+    displayOrder:
+      catData.displayOrder ?? categories.length + 1
+  };
 
-    // Authoritative write. Rolled back and rethrown on failure.
-    try {
-      await supabaseCatalogService.upsertCategory(newCategory);
-    } catch (supaErr: any) {
-      setCategories(previous);
-      console.error('[ShopContext] addCategory Supabase write failed:', supaErr);
-      showToast(`Could not save category: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
+  try {
+    // Supabase is authoritative.
+    await supabaseCatalogService.upsertCategory(
+      newCategory
+    );
 
+    // Update local state only after the database write succeeds.
+    setCategories(prev => [
+      ...prev,
+      newCategory
+    ]);
 
     await logAdminActivity(
       'category_create',
       `Category "${newCategory.nameEn}" created`,
-      `Added category "${newCategory.nameEn}" (${newCategory.nameAr}) with ID "${newCategory.id}", ${newCategory.subcategories.length} subcategories, and Arabic SEO tags.`
+      `Added category "${newCategory.nameEn}" (${newCategory.nameAr}) with ID "${newCategory.id}", ${newCategory.subcategories.length} subcategories, and Arabic SEO tags.`,
+      newCategory.id,
+      null,
+      newCategory
     );
-  };
+  } catch (err: any) {
+    console.error(
+      '[ShopContext] addCategory Supabase write failed:',
+      err
+    );
 
-  const updateCategory = async (id: string, updates: Partial<CategoryItem>) => {
-    const existing = categories.find(c => c.id === id);
-    const previous = [...categories];
-    const nextCategories = categories.map(c => c.id === id ? { ...c, ...updates } : c);
-    setCategories(nextCategories);
+    showToast(
+      `Could not save category: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
 
-    // Authoritative write: only the changed fields, so an edit to one field
-    // cannot blank another.
-    try {
-      await supabaseCatalogService.upsertCategory({ ...updates, id });
-    } catch (supaErr: any) {
-      setCategories(previous);
-      console.error('[ShopContext] updateCategory Supabase write failed:', supaErr);
-      showToast(`Could not save category: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
+    throw err;
+  }
+};
+      
+  const updateCategory = async (
+  id: string,
+  updates: Partial<CategoryItem>
+) => {
+  const existing = categories.find(
+    category => category.id === id
+  );
 
+  if (!existing) {
+    showToast('Category not found.', 'warning');
+    return;
+  }
+
+  try {
+    // Supabase is authoritative.
+    // Only the changed fields are written so untouched
+    // category fields are preserved.
+    await supabaseCatalogService.upsertCategory({
+      ...updates,
+      id
+    });
+
+    // Update local state only after Supabase succeeds.
+    setCategories(prev =>
+      prev.map(category =>
+        category.id === id
+          ? { ...category, ...updates }
+          : category
+      )
+    );
 
     await logAdminActivity(
       'category_update',
-      `Category "${existing?.nameEn || id}" updated`,
-      `Modified attributes for category: ${Object.keys(updates).join(', ')}.`
+      `Category "${existing.nameEn}" updated`,
+      `Modified attributes for category: ${Object.keys(updates).join(', ')}.`,
+      id,
+      existing,
+      { ...existing, ...updates }
     );
-  };
+  } catch (err: any) {
+    console.error(
+      '[ShopContext] updateCategory Supabase write failed:',
+      err
+    );
 
-  const deleteCategory = async (id: string, reassignCategoryId?: string, deleteAttachedProducts?: boolean) => {
-    if (isAdminUser) {
-      const authorized = await assertHighRiskAuthorization(authUser?.uid);
-      if (!authorized) {
-        showToast('High-risk action cancelled or verification expired.', 'error');
-        throw new Error('High-risk authorization failed');
+    showToast(
+      `Could not save category: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+
+const deleteCategory = async (
+  id: string,
+  reassignCategoryId?: string,
+  deleteAttachedProducts?: boolean
+) => {
+  if (isAdminUser) {
+    const authorized = await assertHighRiskAuthorization(
+      authUser?.uid
+    );
+
+    if (!authorized) {
+      showToast(
+        'High-risk action cancelled or verification expired.',
+        'error'
+      );
+      throw new Error('High-risk authorization failed');
+    }
+  }
+
+  const target = categories.find(
+    category => category.id === id
+  );
+
+  if (!target) {
+    showToast('Category not found.', 'warning');
+    return;
+  }
+
+  /*
+   * Product.category is the value exposed by the compatibility
+   * layer. Use it only to identify products belonging to this
+   * category in the current ShopContext state.
+   */
+  const affectedProducts = products.filter(
+    product => product.category === id
+  );
+
+  const shouldDeleteProducts =
+    deleteAttachedProducts === true ||
+    reassignCategoryId === '__delete_products__';
+
+  /*
+   * Do not allow an accidental category deletion when products
+   * are still attached and the caller has not explicitly chosen
+   * what to do with them.
+   */
+  if (
+    affectedProducts.length > 0 &&
+    !reassignCategoryId &&
+    !shouldDeleteProducts
+  ) {
+    throw new Error(
+      `${affectedProducts.length} product(s) are in this category. Choose an action for the attached products.`
+    );
+  }
+
+  /*
+   * A category cannot be reassigned to itself.
+   */
+  if (
+    reassignCategoryId &&
+    reassignCategoryId !== '__delete_products__' &&
+    reassignCategoryId === id
+  ) {
+    throw new Error(
+      'Products cannot be reassigned to the category being deleted.'
+    );
+  }
+
+  /*
+   * Validate the destination category before making any
+   * database changes.
+   */
+  let destinationCategory: CategoryItem | undefined;
+
+  if (
+    reassignCategoryId &&
+    reassignCategoryId !== '__delete_products__'
+  ) {
+    destinationCategory = categories.find(
+      category => category.id === reassignCategoryId
+    );
+
+    if (!destinationCategory) {
+      throw new Error(
+        'The selected reassignment category was not found.'
+      );
+    }
+  }
+
+  const previousCategories = [...categories];
+  const previousProducts = [...products];
+
+  try {
+    /*
+     * IMPORTANT:
+     * Product/category relationships are stored in Supabase.
+     * Handle attached products before deleting the category.
+     */
+    if (affectedProducts.length > 0) {
+      if (shouldDeleteProducts) {
+        for (const product of affectedProducts) {
+          await supabaseCatalogService.deleteProduct(
+            product.id
+          );
+        }
+      } else if (destinationCategory) {
+        for (const product of affectedProducts) {
+          await supabaseCatalogService.upsertProduct({
+            ...product,
+            category: destinationCategory.id
+          });
+        }
       }
     }
 
-    const target = categories.find(c => c.id === id);
-    const affectedProducts = products.filter(p => p.category === id);
+    /*
+     * Delete the category from Supabase only after the attached
+     * product action has completed successfully.
+     */
+    await supabaseCatalogService.deleteCategory(id);
 
-    const shouldDeleteProducts = deleteAttachedProducts === true || reassignCategoryId === '__delete_products__';
+    /*
+     * Update local state only after all authoritative Supabase
+     * operations have succeeded.
+     */
+    if (affectedProducts.length > 0) {
+      if (shouldDeleteProducts) {
+        const affectedIds = new Set(
+          affectedProducts.map(product => product.id)
+        );
 
-    if (affectedProducts.length > 0 && !reassignCategoryId && !shouldDeleteProducts) {
-      throw new Error(`${affectedProducts.length} product(s) are in this category. Choose an action for the attached products.`);
+        setProducts(prev =>
+          prev.filter(product => !affectedIds.has(product.id))
+        );
+      } else if (destinationCategory) {
+        setProducts(prev =>
+          prev.map(product =>
+            product.category === id
+              ? {
+                  ...product,
+                  category: destinationCategory!.id
+                }
+              : product
+          )
+        );
+      }
     }
 
-    const previousCategories = [...categories];
-    const nextCategories = categories.filter(c => c.id !== id);
-    setCategories(nextCategories);
+    setCategories(prev =>
+      prev.filter(category => category.id !== id)
+    );
 
-    // Authoritative delete. products.category_id is ON DELETE SET NULL / the
-    // reassignment above has already moved affected products, so this only
-    // removes the category row itself.
-    try {
-      await supabaseCatalogService.deleteCategory(id);
-    } catch (supaErr: any) {
-      setCategories(previousCategories);
-      console.error('[ShopContext] deleteCategory Supabase delete failed:', supaErr);
-      showToast(`Could not delete category: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
-
-    if (shouldDeleteProducts) {
-      const affectedIds = new Set(affectedProducts.map(p => p.id));
-      const nextProducts = products.filter(p => !affectedIds.has(p.id));
-      setProducts(nextProducts);
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
-      } catch {}
-    } else if (reassignCategoryId && reassignCategoryId !== '__delete_products__') {
-      const nextProducts = products.map(p => p.category === id ? { ...p, category: reassignCategoryId } : p);
-      setProducts(nextProducts);
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
-      } catch {}
-    }
-
-
+    /*
+     * Record the authoritative change for the admin activity
+     * history, including enough information to understand what
+     * happened.
+     */
     await logAdminActivity(
       'category_delete',
-      `Category "${target?.nameEn || id}" deleted`,
-      `Removed category "${target?.nameEn || id}". ${shouldDeleteProducts ? `Permanently deleted ${affectedProducts.length} attached product(s).` : reassignCategoryId ? `Reassigned associated products to "${reassignCategoryId}".` : ''}`
+      `Category "${target.nameEn}" deleted`,
+      shouldDeleteProducts
+        ? `Deleted category "${target.nameEn}" and ${affectedProducts.length} attached product(s).`
+        : destinationCategory
+          ? `Deleted category "${target.nameEn}" and reassigned ${affectedProducts.length} product(s) to "${destinationCategory.nameEn}".`
+          : `Deleted category "${target.nameEn}".`,
+      id,
+      {
+        category: target,
+        affectedProductIds: affectedProducts.map(
+          product => product.id
+        )
+      },
+      null
     );
-  };
+  } catch (err: any) {
+    /*
+     * Restore the in-memory state if any Supabase operation fails.
+     * The database remains authoritative.
+     */
+    setCategories(previousCategories);
+    setProducts(previousProducts);
 
+    console.error(
+      '[ShopContext] deleteCategory Supabase operation failed:',
+      err
+    );
+
+    showToast(
+      `Could not delete category: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+    
+    // Authoritative Supabase delete.
+// Any attached products have already been handled above.
+try {
+  await supabaseCatalogService.deleteCategory(id);
+} catch (supaErr: any) {
+  setCategories(previousCategories);
+  setProducts(previousProducts);
+
+  console.error(
+    '[ShopContext] deleteCategory Supabase delete failed:',
+    supaErr
+  );
+
+  showToast(
+    `Could not delete category: ${
+      supaErr?.message || 'unknown error'
+    }`,
+    'error'
+  );
+
+  throw supaErr;
+}
+
+// Update local product state only after the Supabase
+// category deletion has succeeded.
+if (shouldDeleteProducts) {
+  const affectedIds = new Set(
+    affectedProducts.map(product => product.id)
+  );
+
+  const nextProducts = products.filter(
+    product => !affectedIds.has(product.id)
+  );
+
+  setProducts(nextProducts);
+
+  try {
+    localStorage.setItem(
+      CATALOG_CACHE_KEYS.products,
+      JSON.stringify(nextProducts)
+    );
+  } catch {}
+} else if (
+  reassignCategoryId &&
+  reassignCategoryId !== '__delete_products__'
+) {
+  const nextProducts = products.map(product =>
+    product.category === id
+      ? {
+          ...product,
+          category: reassignCategoryId
+        }
+      : product
+  );
+
+  setProducts(nextProducts);
+
+  try {
+    localStorage.setItem(
+      CATALOG_CACHE_KEYS.products,
+      JSON.stringify(nextProducts)
+    );
+  } catch {}
+}
+
+// Remove the category from the local state.
+setCategories(prev =>
+  prev.filter(category => category.id !== id)
+);
+
+await logAdminActivity(
+  'category_delete',
+  `Category "${target?.nameEn || id}" deleted`,
+  shouldDeleteProducts
+    ? `Removed category "${target?.nameEn || id}" and permanently deleted ${affectedProducts.length} attached product(s).`
+    : reassignCategoryId &&
+        reassignCategoryId !== '__delete_products__'
+      ? `Removed category "${target?.nameEn || id}" and reassigned ${affectedProducts.length} attached product(s) to category "${reassignCategoryId}".`
+      : `Removed category "${target?.nameEn || id}".`,
+  id,
+  {
+    category: target,
+    affectedProductIds: affectedProducts.map(
+      product => product.id
+    )
+  },
+  null
+);
+    
   const reorderCategories = async (newOrder: CategoryItem[]) => {
-    const normalized = newOrder.map((cat, idx) => ({ ...cat, displayOrder: idx + 1 }));
+  const previousCategories = [...categories];
+
+  const normalized = newOrder.map((category, index) => ({
+    ...category,
+    displayOrder: index + 1
+  }));
+
+  try {
+    // Supabase is authoritative.
+    // Persist each category's new display order.
+    for (const category of normalized) {
+      await supabaseCatalogService.upsertCategory({
+        id: category.id,
+        displayOrder: category.displayOrder
+      });
+    }
+
+    // Update local state only after all Supabase writes succeed.
     setCategories(normalized);
 
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('yallalb_categories_cache', JSON.stringify(normalized));
-      }
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.categories,
+        JSON.stringify(normalized)
+      );
     } catch {}
 
+    await logAdminActivity(
+      'category_update',
+      'Categories reordered',
+      `Admin reordered ${normalized.length} categories.`,
+      undefined,
+      previousCategories,
+      normalized
+    );
+  } catch (err: any) {
+    // Restore previous state if any database write fails.
+    setCategories(previousCategories);
 
-    await logAdminActivity('category_update', 'Categories reordered', `Admin reordered ${newOrder.length} categories.`);
-  };
+    console.error(
+      '[ShopContext] reorderCategories Supabase write failed:',
+      err
+    );
 
-  const reorderProducts = async (orderedProducts: Product[]) => {
-    const orderMap = new Map<string, number>();
-    orderedProducts.forEach((p, idx) => {
-      orderMap.set(p.id, idx + 1);
-    });
+    showToast(
+      `Could not reorder categories: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
 
-    const updatedProducts = [...products].map(p => {
-      if (orderMap.has(p.id)) {
-        return { ...p, displayOrder: orderMap.get(p.id)! };
-      }
-      return p;
-    }).sort((a, b) => {
+    throw err;
+  }
+};
+
+const reorderProducts = async (
+  orderedProducts: Product[]
+) => {
+  const previousProducts = [...products];
+
+  const orderMap = new Map<string, number>();
+
+  orderedProducts.forEach((product, index) => {
+    orderMap.set(product.id, index + 1);
+  });
+
+  const updatedProducts = [...products]
+    .map(product => {
+      const newOrder = orderMap.get(product.id);
+
+      return newOrder !== undefined
+        ? {
+            ...product,
+            displayOrder: newOrder
+          }
+        : product;
+    })
+    .sort((a, b) => {
       const orderA = a.displayOrder ?? 9999;
       const orderB = b.displayOrder ?? 9999;
+
       return orderA - orderB;
     });
 
+  try {
+    // Supabase is authoritative.
+    // Persist the new display order for each affected product.
+    for (const product of orderedProducts) {
+      const displayOrder = orderMap.get(product.id);
+
+      if (displayOrder === undefined) continue;
+
+      await supabaseCatalogService.upsertProduct({
+        id: product.id,
+        displayOrder
+      });
+    }
+
+    // Update local state only after all Supabase writes succeed.
     setProducts(updatedProducts);
 
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(updatedProducts));
-      }
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.products,
+        JSON.stringify(updatedProducts)
+      );
     } catch {}
 
+    await logAdminActivity(
+      'product_update',
+      'Products reordered',
+      `Admin reordered ${orderedProducts.length} products.`,
+      undefined,
+      previousProducts,
+      updatedProducts
+    );
+  } catch (err: any) {
+    // Restore previous state if any database write fails.
+    setProducts(previousProducts);
 
-    await logAdminActivity('product_update', 'Products reordered', `Admin reordered ${orderedProducts.length} products.`);
-  };
+    console.error(
+      '[ShopContext] reorderProducts Supabase write failed:',
+      err
+    );
 
-  const updateRegion = async (id: string, updates: Partial<TerroirRegion>) => {
-    const existing = regions.find(r => r.id === id);
-    const previous = [...regions];
-    const nextRegions = regions.map(r => r.id === id ? { ...r, ...updates } : r);
-    setRegions(nextRegions);
+    showToast(
+      `Could not reorder products: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
 
+    throw err;
+  }
+};
+    
+  const updateRegion = async (
+  id: string,
+  updates: Partial<TerroirRegion>
+) => {
+  const existing = regions.find(region => region.id === id);
 
-    await logAdminActivity('region_update', `Region "${existing?.nameEn || id}" updated`, `Updated regional logistics and delivery fees.`);
-  };
+  if (!existing) {
+    showToast('Region not found.', 'warning');
+    return;
+  }
 
-  const addRegion = async (newReg: TerroirRegion) => {
-    const previous = [...regions];
-    const nextRegions = [...regions, newReg];
-    setRegions(nextRegions);
+  try {
+    await supabaseCatalogService.upsertRegion({
+      ...updates,
+      id
+    });
 
+    setRegions(prev =>
+      prev.map(region =>
+        region.id === id
+          ? { ...region, ...updates }
+          : region
+      )
+    );
 
-    await logAdminActivity('region_update', `Region zone "${newReg.nameEn}" added`, `Added delivery zone with base fee $${newReg.baseDeliveryUSD}.`);
-  };
+    await logAdminActivity(
+      'region_update',
+      `Region "${existing.nameEn}" updated`,
+      `Updated regional logistics and delivery fees.`,
+      id,
+      existing,
+      { ...existing, ...updates }
+    );
+  } catch (err: any) {
+    console.error(
+      '[ShopContext] updateRegion Supabase write failed:',
+      err
+    );
 
-  const deleteRegion = async (id: string) => {
-    const target = regions.find(r => r.id === id);
-    const previous = [...regions];
-    const nextRegions = regions.filter(r => r.id !== id);
-    setRegions(nextRegions);
+    showToast(
+      `Could not save region: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
 
+    throw err;
+  }
+};
 
-    await logAdminActivity('region_update', `Region zone "${target?.nameEn || id}" deleted`, `Removed shipping zone ${id}.`);
-  };
-
-// Sellers Management State & Sync
-  // Cache or empty, never the bundled DEFAULT_SELLERS.
-  const [sellers, setSellers] = useState<Seller[]>(() =>
-    readCachedList<Seller>(CATALOG_CACHE_KEYS.sellers).map((s, idx) => ensureSellerCode(s, idx))
+const addRegion = async (newReg: TerroirRegion) => {
+  const existing = regions.find(
+    region => region.id === newReg.id
   );
 
-  useEffect(() => {
+  if (existing) {
+    throw new Error(
+      `A region with the ID "${newReg.id}" already exists.`
+    );
+  }
+
+  try {
+    await supabaseCatalogService.upsertRegion(newReg);
+
+    setRegions(prev => [
+      ...prev,
+      newReg
+    ]);
+
+    await logAdminActivity(
+      'region_update',
+      `Region zone "${newReg.nameEn}" added`,
+      `Added delivery zone with base fee $${newReg.baseDeliveryUSD}.`,
+      newReg.id,
+      null,
+      newReg
+    );
+  } catch (err: any) {
+    console.error(
+      '[ShopContext] addRegion Supabase write failed:',
+      err
+    );
+
+    showToast(
+      `Could not save region: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+
+const deleteRegion = async (id: string) => {
+  const target = regions.find(
+    region => region.id === id
+  );
+
+  if (!target) {
+    showToast('Region not found.', 'warning');
+    return;
+  }
+
+  try {
+    await supabaseCatalogService.deleteRegion(id);
+
+    setRegions(prev =>
+      prev.filter(region => region.id !== id)
+    );
+
+    await logAdminActivity(
+      'region_update',
+      `Region zone "${target.nameEn}" deleted`,
+      `Removed shipping zone ${id}.`,
+      id,
+      target,
+      null
+    );
+  } catch (err: any) {
+    console.error(
+      '[ShopContext] deleteRegion Supabase delete failed:',
+      err
+    );
+
+    showToast(
+      `Could not delete region: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+
+
+// ============================================================
+// Sellers Management State & Sync
+// ============================================================
+
+// Cache only. Supabase remains the authoritative seller source.
+const [sellers, setSellers] = useState<Seller[]>(() =>
+  readCachedList<Seller>(
+    CATALOG_CACHE_KEYS.sellers
+  ).map((seller, index) =>
+    ensureSellerCode(seller, index)
+  )
+);
+
+useEffect(() => {
+  try {
+    localStorage.setItem(
+      CATALOG_CACHE_KEYS.sellers,
+      JSON.stringify(sellers)
+    );
+  } catch {}
+});
+
+/**
+ * Sellers are authoritative in Supabase.
+ *
+ * There is intentionally no realtime subscription here because
+ * the current Supabase realtime publication does not include
+ * the sellers table.
+ */
+const refreshSellersFromSupabase = useCallback(async () => {
+  try {
+    const fresh =
+      await supabaseCatalogService.fetchSellers();
+
+    const normalized = fresh.map(
+      (seller, index) =>
+        ensureSellerCode(seller, index)
+    );
+
+    setSellers(normalized);
+
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(sellers));
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.sellers,
+        JSON.stringify(normalized)
+      );
     } catch {}
-  }, [sellers]);
+  } catch (err) {
+    console.error(
+      '[ShopContext] Seller refresh failed:',
+      err
+    );
 
-  /**
-   * Sellers are re-read from Supabase, not mirrored from Firestore.
-   *
-   * The Firestore listener this replaces seeded DEFAULT_SELLERS into the
-   * database whenever the collection was empty, and put them on screen for
-   * everyone — bundled workshops presented as real merchants.
-   *
-   * `sellers` is NOT in the supabase_realtime publication (verified in
-   * pg_publication_tables: only categories, cms_custom_blocks,
-   * cms_site_content, orders and products are), so there is no subscription to
-   * make here. Sellers load with the initial hydration and are refreshed after
-   * an admin write; inventing a channel for a table the publication does not
-   * carry would just fail silently.
-   */
-  const refreshSellersFromSupabase = useCallback(async () => {
-    try {
-      const fresh = await supabaseCatalogService.fetchSellers();
-      setSellers(fresh.map((seller, idx) => ensureSellerCode(seller, idx)));
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(fresh));
-      } catch {}
-    } catch (err) {
-      console.error('[ShopContext] Seller refresh failed:', err);
-      throw err;
-    }
-  }, []);
+    throw err;
+  }
+}, []);
 
-  const addSeller = async (sellerData: Omit<Seller, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; sellerCode?: string }) => {
-    // sellers.id is uuid; the workshop slug lives in legacy_id.
-    const slug = sellerData.id?.trim() || sellerData.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
-    if (slug && sellers.some(s => s.legacyId === slug || s.id === slug)) {
-      throw new Error(`A seller with the ID "${slug}" already exists.`);
-    }
-    const sellerCode = sellerData.sellerCode?.trim() || `SLR-${secureRandomInt(100, 1000)}`;
-    const newSeller: Seller = {
-      ...sellerData,
-      id: sellerData.id && isUuid(sellerData.id) ? sellerData.id : generateUuidV4(),
-      legacyId: slug || undefined,
-      sellerCode,
-      isActive: sellerData.isActive ?? true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    const previous = [...sellers];
-    const nextSellers = [...sellers, newSeller];
-    setSellers(nextSellers);
+const addSeller = async (
+  sellerData: Omit<
+    Seller,
+    'id' | 'createdAt' | 'updatedAt'
+  > & {
+    id?: string;
+    sellerCode?: string;
+  }
+) => {
+  // sellers.id is UUID.
+  // The human-readable workshop slug is stored in legacyId.
+  const slug =
+    sellerData.id?.trim() ||
+    sellerData.nameEn
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') ||
+    '';
 
-    // Authoritative write. Rolled back and rethrown on failure.
+  if (
+    slug &&
+    sellers.some(
+      seller =>
+        seller.legacyId === slug ||
+        seller.id === slug
+    )
+  ) {
+    throw new Error(
+      `A seller with the ID "${slug}" already exists.`
+    );
+  }
+
+  const sellerCode =
+    sellerData.sellerCode?.trim() ||
+    `SLR-${secureRandomInt(100, 1000)}`;
+
+  const now = new Date().toISOString();
+
+  const newSeller: Seller = {
+    ...sellerData,
+    id:
+      sellerData.id && isUuid(sellerData.id)
+        ? sellerData.id
+        : generateUuidV4(),
+    legacyId: slug || undefined,
+    sellerCode,
+    isActive:
+      sellerData.isActive ?? true,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  try {
+    await supabaseCatalogService.upsertSeller(
+      newSeller
+    );
+
+    setSellers(prev => [
+      ...prev,
+      newSeller
+    ]);
+
+    await refreshSellersFromSupabase();
+
+    await logAdminActivity(
+      'seller_create',
+      `Seller "${newSeller.nameEn}" added`,
+      `Added seller "${newSeller.nameEn}" with seller code "${newSeller.sellerCode}".`,
+      newSeller.id,
+      null,
+      newSeller
+    );
+  } catch (err: any) {
+    console.error(
+      '[ShopContext] addSeller Supabase write failed:',
+      err
+    );
+
+    showToast(
+      `Could not save seller: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+      // Supabase is authoritative. The local state is updated only
+    // after the database write succeeds.
     try {
       await supabaseCatalogService.upsertSeller(newSeller);
-    } catch (supaErr: any) {
+
+      await refreshSellersFromSupabase();
+
+      await logAdminActivity(
+        'meta_change',
+        `Seller "${newSeller.nameEn}" added`,
+        `Created seller "${newSeller.nameEn}" with seller code "${newSeller.sellerCode}" and ID "${newSeller.id}".`,
+        newSeller.id,
+        null,
+        newSeller
+      );
+    } catch (err: any) {
       setSellers(previous);
-      console.error('[ShopContext] addSeller Supabase write failed:', supaErr);
-      showToast(`Could not save seller: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
 
-    await logAdminActivity('meta_change', `Seller "${newSeller.nameEn}" added`, `Created seller ID: ${slug}`);
-  };
+      console.error(
+        '[ShopContext] addSeller Supabase write failed:',
+        err
+      );
 
-  const updateSeller = async (id: string, updates: Partial<Seller>) => {
-    const previous = [...sellers];
-    const nextSellers = sellers.map(s => s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s);
-    setSellers(nextSellers);
-
-    // Authoritative write. `commission_pct` and `exact_address` are real
-    // columns on `sellers` and are written here; the account-linkage fields
-    // (has_account / account_email / account_uid) are deliberately not, since
-    // they belong to the seller provisioning flow.
-    try {
-      await supabaseCatalogService.upsertSeller({ ...updates, id });
-    } catch (supaErr: any) {
-      setSellers(previous);
-      console.error('[ShopContext] updateSeller Supabase write failed:', supaErr);
-      showToast(`Could not save seller: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
-
-  };
-
-  const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
-    const previousSellers = [...sellers];
-    const nextSellers = sellers.map(s => s.id === sellerId ? { ...s, isActive, updatedAt: new Date().toISOString() } : s);
-    setSellers(nextSellers);
-
-    await logAdminActivity('meta_change', `Seller "${sellerId}" active status toggled to ${isActive}`, '');
-  };
-
-  const deleteSeller = async (id: string, reassignSellerId?: string) => {
-    const affectedProducts = products.filter(p => p.sellerId === id);
-    if (affectedProducts.length > 0 && !reassignSellerId) {
-      throw new Error(`${affectedProducts.length} product(s) belong to this seller. Choose a seller to move them to.`);
-    }
-    const previousSellers = [...sellers];
-    const nextSellers = sellers.filter(s => s.id !== id);
-    setSellers(nextSellers);
-
-    // Authoritative delete.
-    try {
-      await supabaseCatalogService.deleteSeller(id);
-    } catch (supaErr: any) {
-      setSellers(previousSellers);
-      console.error('[ShopContext] deleteSeller Supabase delete failed:', supaErr);
-      showToast(`Could not delete seller: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
-
-    await logAdminActivity('meta_change', `Seller "${id}" deleted`, `Reassigned ${affectedProducts.length} products to ${reassignSellerId || 'none'}.`);
-  };
-
-  const bulkImportProducts = async (
-    csvText: string,
-    options?: { targetSellerId?: string; fallbackCategoryId?: string }
-  ): Promise<{ created: number; updated: number; errors: string[] }> => {
-    return new Promise((resolve, reject) => {
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: h => h.trim().toLowerCase(),
-        complete: async (results) => {
-          const rows = results.data as any[];
-          let created = 0;
-          let updated = 0;
-          const errors: string[] = [];
-          const validRows: any[] = [];
-          const seenSkusInFile = new Set<string>();
-          const seenItemCodesInFile = new Set<string>();
-          const seenDescriptionsInFile = new Map<string, string>(); // cleaned desc -> product name
-
-          rows.forEach((row, idx) => {
-            if (isCsvRowEmpty(row)) return;
-            const rowNum = idx + 2;
-            const name = (row.name_en || row.name || row.title || '').toString().trim();
-            const resolvedSeller = resolveSeller(row, sellers, options?.targetSellerId);
-            const resolvedCategory = resolveCategory(row, categories, options?.fallbackCategoryId);
-            const priceUSD = parsePrice(row.price_usd || row.price || row.unit_price);
-            const stock = parseStock(row.stock !== undefined ? row.stock : row.qty);
-
-            if (!name) {
-              errors.push(`Row ${rowNum}: name_en is required`);
-              return;
-            }
-            if (!resolvedSeller) {
-              const rawSeller = row.seller_id || row.seller || row.seller_artisan || 'empty';
-              errors.push(`Row ${rowNum}: seller "${rawSeller}" could not be matched to an active seller. Please select a Target Seller dropdown.`);
-              return;
-            }
-            if (!resolvedCategory) {
-              const rawCat = row.category || row.category_id || 'empty';
-              errors.push(`Row ${rowNum}: category "${rawCat}" not found`);
-              return;
-            }
-            if (priceUSD <= 0) {
-              errors.push(`Row ${rowNum}: price_usd must be a positive number (found ${row.price_usd || row.price})`);
-              return;
-            }
-            if (isNaN(stock) || stock < 0) {
-              errors.push(`Row ${rowNum}: stock must be a non-negative integer (found "${row.stock !== undefined ? row.stock : row.qty}")`);
-              return;
-            }
-
-            const sku = (row.sku || row.product_id || '').toString().trim() || `prod-${Date.now()}-${idx}`;
-            const isPublished = !['false', '0', 'no', 'hidden'].includes(String(row.is_published ?? row.status ?? '').toLowerCase());
-            const sellerItemCode = (row.seller_item_code || row.seller_code || row.item_code || '').toString().trim() || `SIC-${secureRandomInt(10000, 100000)}`;
-
-            // 1. Validation: Duplicate Product Number (SKU & sellerItemCode)
-            const normSku = sku.toLowerCase();
-            const normItemCode = sellerItemCode.toLowerCase();
-            const sellerKey = (resolvedSeller?.sellerId || resolvedSeller?.sellerName || '').toLowerCase().trim();
-            const sellerCodeKey = `${sellerKey}::${normItemCode}`;
-
-            if (seenSkusInFile.has(normSku)) {
-              errors.push(`Row ${rowNum} ("${name}"): Duplicate SKU / Product ID "${sku}" appears multiple times in CSV import.`);
-              return;
-            }
-            if (seenItemCodesInFile.has(sellerCodeKey)) {
-              errors.push(`Row ${rowNum} ("${name}"): Duplicate Seller Item Code "${sellerItemCode}" for seller "${resolvedSeller.sellerName}" appears multiple times in CSV import.`);
-              return;
-            }
-
-            // Check against existing products in database
-            const existingProduct = products.find(p => p.id === sku);
-            const isExistingSku = !!existingProduct;
-            const dupCodeCheck = checkDuplicateProductNumber(sellerItemCode, isExistingSku ? sku : null, products, resolvedSeller.sellerId, resolvedSeller.sellerName);
-            if (dupCodeCheck.isDuplicate) {
-              errors.push(`Row ${rowNum} ("${name}"): Seller item code "${sellerItemCode}" is already assigned to existing product "${dupCodeCheck.conflictingProduct?.name}" for seller "${resolvedSeller.sellerName}".`);
-              return;
-            }
-
-            const description = (row.description_en || row.description || 'Imported artisanal product.').toString().trim();
-            const craftStory = (row.description_ar || row.craftstory || row.arabic_description || 'حرفية أصيلة.').toString().trim();
-
-            seenSkusInFile.add(normSku);
-            seenItemCodesInFile.add(sellerCodeKey);
-
-            const mainImage = (row.image_url || row.image || 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80').toString().trim();
-            const addlImagesRaw = row.additional_images || row.images || row.gallery;
-            const additionalImages = addlImagesRaw
-              ? String(addlImagesRaw).split(/[|,]/).map((u: string) => u.trim()).filter(Boolean)
-              : undefined;
-
-            const videoUrl = (row.video_url || row.video || '').toString().trim() || undefined;
-            const addlVideosRaw = row.additional_videos || row.videos;
-            const additionalVideos = addlVideosRaw
-              ? String(addlVideosRaw).split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
-              : undefined;
-
-            const nowIso = new Date().toISOString();
-
-            validRows.push({
-              sku,
-              product: {
-                id: sku,
-                sellerItemCode,
-                name,
-                arabicName: (row.name_ar || row.arabic_name || name).toString().trim(),
-                artisan: resolvedSeller.sellerName,
-                seller: resolvedSeller.sellerName,
-                arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || '',
-                sellerId: resolvedSeller.sellerId,
-                sellerActive: true,
-                category: resolvedCategory.categoryId,
-                priceUSD,
-                originalPriceUSD: row.original_price_usd ? parsePrice(row.original_price_usd) : undefined,
-                stock: Math.floor(stock),
-                image: mainImage,
-                additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : undefined,
-                videoUrl,
-                additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : undefined,
-                videos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : (videoUrl ? [videoUrl] : undefined),
-                description,
-                craftStory,
-                tags: row.tags ? String(row.tags).split(/[|,]/).map((t: string) => t.trim()).filter(Boolean) : ['Artisanal'],
-                rating: 0,
-                reviewsCount: 0,
-                origin: (row.origin || row.origin_terroir || 'Lebanon').toString().trim(),
-                weightOrVolume: (row.weight_or_volume || row.weight || row.volume || '').toString().trim() || undefined,
-                isPublished,
-                createdAt: existingProduct?.createdAt || nowIso,
-                updatedAt: nowIso
-              },
-              isUpdate: isExistingSku
-            });
-          });
-
-          if (validRows.length === 0) {
-            resolve({ created, updated, errors });
-            return;
-          }
-
-          // 1. Immediately update in-memory products and localStorage so UI updates instantly
-          setProducts(prevProducts => {
-            const nextMap = new Map<string, Product>();
-            prevProducts.forEach(p => nextMap.set(p.id, p));
-            validRows.forEach(item => {
-              nextMap.set(item.sku, item.product);
-            });
-            const merged = Array.from(nextMap.values());
-            try {
-              localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-
-          // Each row was already written to Supabase by upsertProduct above,
-          // so the Firestore batch that stood here is gone. Only the counters
-          // from its `else` branch are kept, since the caller reports them.
-          validRows.forEach(item => {
-            if (item.isUpdate) updated++;
-            else created++;
-          });
-
-          const previousSnapshots = validRows.map(r => products.find(p => p.id === r.sku)).filter(Boolean);
-          const updatedSnapshots = validRows.map(r => r.product);
-
-          await logAdminActivity(
-            'product_bulk_update',
-            `CSV Bulk Import (${validRows.length} products)`,
-            `Created: ${created}, Updated: ${updated}, Errors: ${errors.length}`,
-            'bulk_csv_import',
-            previousSnapshots,
-            updatedSnapshots
-          );
-          resolve({ created, updated, errors });
-        },
-        error: (err: any) => {
-          reject(err);
-        }
-      });
-    });
-  };
-
-  // Local storage persistence for CMS
-  useEffect(() => {
-    try {
-      const isCmsPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cmsPreview') === '1';
-      if (isCmsPreview) return; // Draft never leaks into the storefront localStorage cache
-      localStorage.setItem('yallalb_site_content', JSON.stringify(siteContent));
-    } catch {}
-  }, [siteContent]);
-
-  // Live postMessage edits reach the preview in real time
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const isCmsPreview = new URLSearchParams(window.location.search).get('cmsPreview') === '1';
-    if (!isCmsPreview) return;
-
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'CMS_DRAFT_UPDATE' && event.data.payload) {
-        setSiteContent(event.data.payload);
-      } else if (event.data && event.data.type === 'CMS_LANG_UPDATE' && event.data.payload) {
-        setLanguage(event.data.payload);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  // CMS sync from Supabase (cms_site_content + cms_custom_blocks)
-  useEffect(() => {
-    /**
-     * Removed: the Firestore CMS listener.
-     *
-     * It subscribed to `cms/main` (admin) or `cms_public/main` (storefront) and
-     * wrote the result into siteContent. cms_site_content and
-     * cms_custom_blocks are the CMS store now, read by the hydration effect
-     * above and refreshed by a realtime channel on cms_custom_blocks, so this
-     * listener had become a second writer racing the first.
-     *
-     * The CMS preview path is kept: a draft in sessionStorage still takes
-     * precedence over the published content, which is what the admin preview
-     * relies on.
-     */
-    const isCmsPreview =
-      typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('cmsPreview') === '1';
-    if (!isCmsPreview) return;
-
-    try {
-      const draft = sessionStorage.getItem('yalla_cms_preview');
-      if (draft) {
-        setSiteContent((prev) => ({ ...prev, ...JSON.parse(draft) }));
-      }
-    } catch (err) {
-      console.error('[ShopContext] Could not read the CMS preview draft:', err);
-    }
-  }, []);
-
-  const updateSiteContent = async (updates: Partial<SiteContent> | ((prev: SiteContent) => SiteContent)) => {
-    // Determine the next state safely
-    const nextContent = typeof updates === 'function' ? updates(siteContent) : { ...siteContent, ...updates };
-    
-    // Stage 1: Form Input Logged with calculated diff
-    const diff = calculateObjectDiff(siteContent as any, nextContent as any);
-    const modifiedKeys = Object.keys(diff);
-    dbLogger.logFormInput({
-      sourceComponent: 'ShopContext',
-      actionName: 'updateSiteContent',
-      targetPath: 'cms_site_content/main',
-      summary: `CMS Form submission initiated for ${modifiedKeys.length} section(s): [${modifiedKeys.join(', ') || 'full update'}]`,
-      payload: nextContent,
-      diff
-    });
-
-    // Stage 2: Sanitize Payload (strips undefined values recursively)
-    const sanitized = sanitizeDocumentData(nextContent);
-    dbLogger.logSanitization({
-      sourceComponent: 'ShopContext',
-      actionName: 'sanitizeDbPayload',
-      targetPath: 'cms_site_content/main',
-      summary: 'Stripped undefined values from the CMS payload so the stored row matches it exactly.',
-      cleanedPayload: sanitized
-    });
-
-    // Stage 3: initiate the Supabase write
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'upsert',
-      targetPath: 'cms_site_content/main',
-      sourceComponent: 'ShopContext',
-      actionName: 'upsert(cms_site_content/main)',
-      summary: `Persisting updated site content to cms_site_content (key: main)...`,
-      payload: sanitized
-    });
-
-    // ── Authoritative write: Supabase cms_site_content ──────────────────────
-    // This used to persist only to Firestore `cms/main`, so admin edits never
-    // reached the store the app was migrating to. cms_site_content is the only
-    // record now — the Firestore mirror is gone.
-    //
-    // Blocks do not go into the jsonb: they are reconciled into their own table
-    // first, then saveSiteContent stores the sections with customBlocks
-    // stripped, so the two never disagree about which list is current.
-    //
-    // A failure is reported and rethrown. Telling an admin "published" for a
-    // save that never landed is exactly the behaviour being removed.
-    try {
-      // The admin CMS tab edits blocks as one array, so a change to that array
-      // has to be reconciled into row writes on cms_custom_blocks. Without
-      // this, block edits made through the list UI would vanish, because
-      // saveSiteContent deliberately refuses to store blocks in the jsonb.
-      const nextBlocks = (nextContent.customBlocks || []) as CMSCustomBlock[];
-      const currentBlocks = (siteContent.customBlocks || []) as CMSCustomBlock[];
-      const syncedBlocks = await supabaseCmsService.syncCustomBlocks(currentBlocks, nextBlocks);
-      if (syncedBlocks.length > 0) {
-        cmsBlocksFromSupabaseRef.current = true;
-      }
-
-      await supabaseCmsService.saveSiteContent(sanitized as SiteContent);
-      cmsSupabaseAuthoritativeRef.current = true;
-    } catch (supaErr: any) {
-      console.error('[ShopContext] Failed to save site content to Supabase:', supaErr);
       showToast(
-        language === 'ar'
-          ? `تعذر حفظ محتوى الموقع: ${supaErr?.message || 'خطأ غير معروف'}`
-          : `Could not save site content: ${supaErr?.message || 'unknown error'}`,
+        `Could not save seller: ${
+          err?.message || 'unknown error'
+        }`,
         'error'
       );
-      throw supaErr;
+
+      throw err;
+    }
+  };
+
+  const updateSeller = async (
+    id: string,
+    updates: Partial<Seller>
+  ) => {
+    const existing = sellers.find(
+      seller => seller.id === id
+    );
+
+    if (!existing) {
+      showToast('Seller not found.', 'warning');
+      return;
     }
 
-    setSiteContent(sanitized);
+    const updatedSeller: Seller = {
+      ...existing,
+      ...updates,
+      id,
+      updatedAt: new Date().toISOString()
+    };
+
     try {
-      localStorage.setItem('yallalb_site_content', JSON.stringify(sanitized));
-    } catch (localErr) {
-      console.warn('[ShopContext] Failed to persist siteContent to localStorage:', localErr);
+      // Only the changed fields are written to Supabase.
+      // This prevents an edit to one field from clearing
+      // unrelated seller information.
+      await supabaseCatalogService.upsertSeller({
+        ...updates,
+        id,
+        updatedAt: updatedSeller.updatedAt
+      });
+
+      // Refresh from Supabase so the UI reflects the actual
+      // database representation rather than assuming the write.
+      await refreshSellersFromSupabase();
+
+      await logAdminActivity(
+        'meta_change',
+        `Seller "${existing.nameEn}" updated`,
+        `Updated seller attributes: ${Object.keys(updates).join(', ')}.`,
+        id,
+        existing,
+        updatedSeller
+      );
+    } catch (err: any) {
+      console.error(
+        '[ShopContext] updateSeller Supabase write failed:',
+        err
+      );
+
+      showToast(
+        `Could not save seller: ${
+          err?.message || 'unknown error'
+        }`,
+        'error'
+      );
+
+      throw err;
+    }
+  };
+      
+  const toggleSellerActive = async (
+  sellerId: string,
+  isActive: boolean
+) => {
+  const existing = sellers.find(
+    seller => seller.id === sellerId
+  );
+
+  if (!existing) {
+    showToast('Seller not found.', 'warning');
+    return;
+  }
+
+  const updatedSeller: Seller = {
+    ...existing,
+    isActive,
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    // Supabase is authoritative.
+    await supabaseCatalogService.upsertSeller({
+      id: sellerId,
+      isActive,
+      updatedAt: updatedSeller.updatedAt
+    });
+
+    // Refresh from Supabase so local state reflects the
+    // actual database representation.
+    await refreshSellersFromSupabase();
+
+    await logAdminActivity(
+      'meta_change',
+      `Seller "${existing.nameEn}" active status changed to ${isActive}`,
+      isActive
+        ? `Seller "${existing.nameEn}" was activated.`
+        : `Seller "${existing.nameEn}" was deactivated.`,
+      sellerId,
+      existing,
+      updatedSeller
+    );
+  } catch (err: any) {
+    console.error(
+      '[ShopContext] toggleSellerActive Supabase write failed:',
+      err
+    );
+
+    showToast(
+      `Could not update seller status: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+
+const deleteSeller = async (
+  id: string,
+  reassignSellerId?: string
+) => {
+  const target = sellers.find(
+    seller => seller.id === id
+  );
+
+  if (!target) {
+    showToast('Seller not found.', 'warning');
+    return;
+  }
+
+  if (
+    reassignSellerId &&
+    reassignSellerId === id
+  ) {
+    throw new Error(
+      'Products cannot be reassigned to the seller being deleted.'
+    );
+  }
+
+  const affectedProducts = products.filter(
+    product => product.sellerId === id
+  );
+
+  /*
+   * Do not allow deletion while products are still attached
+   * unless a destination seller has explicitly been selected.
+   */
+  if (
+    affectedProducts.length > 0 &&
+    !reassignSellerId
+  ) {
+    throw new Error(
+      `${affectedProducts.length} product(s) belong to this seller. Choose a seller to move them to.`
+    );
+  }
+
+  let destinationSeller: Seller | undefined;
+
+  if (reassignSellerId) {
+    destinationSeller = sellers.find(
+      seller => seller.id === reassignSellerId
+    );
+
+    if (!destinationSeller) {
+      throw new Error(
+        'The selected reassignment seller was not found.'
+      );
     }
 
-    const isMetaChange = modifiedKeys.includes('seo') || Object.keys(diff).some(k => k.startsWith('seo.'));
+    if (!destinationSeller.isActive) {
+      throw new Error(
+        'Products cannot be reassigned to an inactive seller.'
+      );
+    }
+  }
+
+  const previousSellers = [...sellers];
+  const previousProducts = [...products];
+
+  try {
+    /*
+     * Reassign the products in Supabase before deleting
+     * the seller. This prevents the seller deletion from
+     * leaving the products pointing to a non-existent seller.
+     */
+    if (
+      destinationSeller &&
+      affectedProducts.length > 0
+    ) {
+      for (const product of affectedProducts) {
+        await supabaseCatalogService.upsertProduct({
+          id: product.id,
+          sellerId: destinationSeller.id
+        });
+      }
+    }
+
+    /*
+     * Delete the seller only after all affected products
+     * have been successfully reassigned.
+     */
+    await supabaseCatalogService.deleteSeller(id);
+
+    /*
+     * Update local product state after Supabase succeeds.
+     */
+    if (
+      destinationSeller &&
+      affectedProducts.length > 0
+    ) {
+      const affectedIds = new Set(
+        affectedProducts.map(product => product.id)
+      );
+
+      setProducts(prev =>
+        prev.map(product =>
+          affectedIds.has(product.id)
+            ? {
+                ...product,
+                sellerId: destinationSeller!.id,
+                seller: destinationSeller!.nameEn,
+                arabicSeller:
+                  destinationSeller!.nameAr
+              }
+            : product
+        )
+      );
+    }
+
+    /*
+     * Remove the seller locally only after the database
+     * deletion succeeds.
+     */
+    setSellers(prev =>
+      prev.filter(seller => seller.id !== id)
+    );
+
+    /*
+     * Refresh sellers from Supabase so the local seller
+     * cache exactly matches the authoritative database.
+     */
+    await refreshSellersFromSupabase();
+
+    await logAdminActivity(
+      'meta_change',
+      `Seller "${target.nameEn}" deleted`,
+      destinationSeller
+        ? `Deleted seller "${target.nameEn}" and reassigned ${affectedProducts.length} product(s) to "${destinationSeller.nameEn}".`
+        : `Deleted seller "${target.nameEn}".`,
+      id,
+      {
+        seller: target,
+        affectedProductIds: affectedProducts.map(
+          product => product.id
+        )
+      },
+      null
+    );
+  } catch (err: any) {
+    /*
+     * Restore local state if any Supabase operation fails.
+     */
+    setSellers(previousSellers);
+    setProducts(previousProducts);
+
+    console.error(
+      '[ShopContext] deleteSeller Supabase operation failed:',
+      err
+    );
+
+    showToast(
+      `Could not delete seller: ${
+        err?.message || 'unknown error'
+      }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+      
+// 1. Validate duplicate Product Number (SKU & Seller Item Code)
+const normSku = sku.toLowerCase().trim();
+const normItemCode = sellerItemCode.toLowerCase().trim();
+
+const sellerKey = (
+  resolvedSeller?.sellerId ||
+  resolvedSeller?.sellerName ||
+  ''
+)
+  .toLowerCase()
+  .trim();
+
+const sellerCodeKey = `${sellerKey}::${normItemCode}`;
+
+// Prevent duplicate SKU inside the same CSV file.
+if (seenSkusInFile.has(normSku)) {
+  errors.push(
+    `Row ${rowNum} ("${name}"): Duplicate SKU / Product ID "${sku}" appears multiple times in CSV import.`
+  );
+  return;
+}
+
+// Prevent duplicate Seller Item Code for the same seller
+// inside the same CSV file.
+if (seenItemCodesInFile.has(sellerCodeKey)) {
+  errors.push(
+    `Row ${rowNum} ("${name}"): Duplicate Seller Item Code "${sellerItemCode}" for seller "${resolvedSeller.sellerName}" appears multiple times in CSV import.`
+  );
+  return;
+}
+
+/*
+ * Check the current in-memory catalog first.
+ *
+ * Supabase is authoritative, but the products state was already
+ * hydrated from Supabase before the import. We therefore use it
+ * to determine whether this CSV row is an INSERT or UPDATE.
+ */
+const existingProduct = products.find(
+  product => product.id === sku
+);
+
+const isExistingSku = Boolean(existingProduct);
+
+/*
+ * Seller Item Code must be unique per seller.
+ *
+ * The helper checks the current catalog while allowing the same
+ * product to retain its own Seller Item Code during an update.
+ */
+const dupCodeCheck = checkDuplicateProductNumber(
+  sellerItemCode,
+  isExistingSku ? sku : null,
+  products,
+  resolvedSeller.sellerId,
+  resolvedSeller.sellerName
+);
+
+if (dupCodeCheck.isDuplicate) {
+  errors.push(
+    `Row ${rowNum} ("${name}"): Seller Item Code "${sellerItemCode}" is already assigned to existing product "${dupCodeCheck.conflictingProduct?.name}" for seller "${resolvedSeller.sellerName}".`
+  );
+  return;
+}
+
+const description = (
+  row.description_en ||
+  row.description ||
+  'Imported artisanal product.'
+)
+  .toString()
+  .trim();
+
+const craftStory = (
+  row.description_ar ||
+  row.craftstory ||
+  row.arabic_description ||
+  'حرفية أصيلة.'
+)
+  .toString()
+  .trim();
+
+seenSkusInFile.add(normSku);
+seenItemCodesInFile.add(sellerCodeKey);
+
+const mainImage = (
+  row.image_url ||
+  row.image ||
+  ''
+)
+  .toString()
+  .trim();
+
+const addlImagesRaw =
+  row.additional_images ||
+  row.images ||
+  row.gallery;
+
+const additionalImages = addlImagesRaw
+  ? String(addlImagesRaw)
+      .split(/[|,]/)
+      .map((url: string) => url.trim())
+      .filter(Boolean)
+  : undefined;
+
+const videoUrl =
+  (
+    row.video_url ||
+    row.video ||
+    ''
+  )
+    .toString()
+    .trim() || undefined;
+
+const addlVideosRaw =
+  row.additional_videos ||
+  row.videos;
+
+const additionalVideos = addlVideosRaw
+  ? String(addlVideosRaw)
+      .split(/[|,]/)
+      .map((video: string) => video.trim())
+      .filter(Boolean)
+  : undefined;
+
+const nowIso = new Date().toISOString();
+
+const importedProduct: Product = {
+  /*
+   * Existing SKU keeps its existing UUID.
+   * New products use the CSV SKU as the compatibility ID
+   * expected by the current import workflow.
+   */
+  id: sku,
+
+  sellerItemCode,
+
+  name,
+
+  arabicName: (
+    row.name_ar ||
+    row.arabic_name ||
+    name
+  )
+    .toString()
+    .trim(),
+
+  artisan: resolvedSeller.sellerName,
+
+  seller: resolvedSeller.sellerName,
+
+  arabicSeller:
+    resolvedSeller.arabicSeller ||
+    row.arabic_seller ||
+    '',
+
+  sellerId: resolvedSeller.sellerId,
+
+  sellerActive: true,
+
+  /*
+   * Product.category is the compatibility-layer value.
+   * The Supabase catalog service must map this to
+   * products.category_id.
+   */
+  category: resolvedCategory.categoryId,
+
+  priceUSD,
+
+  originalPriceUSD:
+    row.original_price_usd !== undefined &&
+    row.original_price_usd !== ''
+      ? parsePrice(row.original_price_usd)
+      : undefined,
+
+  stock: Math.floor(stock),
+
+  image: mainImage,
+
+  additionalImages:
+    additionalImages &&
+    additionalImages.length > 0
+      ? additionalImages
+      : undefined,
+
+  videoUrl,
+
+  additionalVideos:
+    additionalVideos &&
+    additionalVideos.length > 0
+      ? additionalVideos
+      : undefined,
+
+  videos:
+    additionalVideos &&
+    additionalVideos.length > 0
+      ? additionalVideos
+      : videoUrl
+        ? [videoUrl]
+        : undefined,
+
+  description,
+
+  craftStory,
+
+  tags: row.tags
+    ? String(row.tags)
+        .split(/[|,]/)
+        .map((tag: string) => tag.trim())
+        .filter(Boolean)
+    : ['Artisanal'],
+
+  /*
+   * Do not overwrite existing rating/review information
+   * during a CSV catalog import.
+   */
+  rating: existingProduct?.rating ?? 0,
+
+  reviewsCount:
+    existingProduct?.reviewsCount ?? 0,
+
+  origin: (
+    row.origin ||
+    row.origin_terroir ||
+    'Lebanon'
+  )
+    .toString()
+    .trim(),
+
+  weightOrVolume: (
+    row.weight_or_volume ||
+    row.weight ||
+    row.volume ||
+    ''
+  )
+    .toString()
+    .trim() || undefined,
+
+  isPublished,
+
+  /*
+   * Preserve original creation date on updates.
+   */
+  createdAt:
+    existingProduct?.createdAt ||
+    nowIso,
+
+  updatedAt: nowIso
+};
+
+validRows.push({
+  sku,
+  product: importedProduct,
+  isUpdate: isExistingSku
+});
+});
+
+if (validRows.length === 0) {
+  resolve({
+    created,
+    updated,
+    errors
+  });
+  return;
+}
+
+/*
+ * ============================================================
+ * SUPABASE AUTHORITATIVE WRITE
+ * ============================================================
+ *
+ * Do NOT write the imported products directly to localStorage
+ * before Supabase succeeds.
+ *
+ * Each product is written through the Supabase catalog service.
+ */
+const successfullyWritten: typeof validRows = [];
+
+for (const item of validRows) {
+  try {
+    await supabaseCatalogService.upsertProduct(
+      item.product
+    );
+
+    successfullyWritten.push(item);
+  } catch (err: any) {
+    errors.push(
+      `Product "${item.product.name}" (${item.sku}) could not be saved: ${
+        err?.message || 'unknown Supabase error'
+      }`
+    );
+
+    console.error(
+      '[ShopContext] CSV product import failed:',
+      {
+        sku: item.sku,
+        error: err
+      }
+    );
+  }
+}
+
+/*
+ * If every database write failed, do not modify the local
+ * catalog.
+ */
+if (successfullyWritten.length === 0) {
+  resolve({
+    created: 0,
+    updated: 0,
+    errors
+  });
+  return;
+}
+
+/*
+ * Update counters only for products that were actually
+ * persisted to Supabase.
+ */
+successfullyWritten.forEach(item => {
+  if (item.isUpdate) {
+    updated++;
+  } else {
+    created++;
+  }
+});
+
+/*
+ * Update React state from the successfully persisted products.
+ */
+setProducts(prevProducts => {
+  const nextMap = new Map<string, Product>();
+
+  prevProducts.forEach(product => {
+    nextMap.set(product.id, product);
+  });
+
+  successfullyWritten.forEach(item => {
+    nextMap.set(
+      item.product.id,
+      item.product
+    );
+  });
+
+  const merged = Array.from(
+    nextMap.values()
+  );
+
+  /*
+   * LocalStorage is only a cache.
+   * Supabase remains the source of truth.
+   */
+  try {
+    localStorage.setItem(
+      CATALOG_CACHE_KEYS.products,
+      JSON.stringify(merged)
+    );
+  } catch {}
+
+  return merged;
+});
+
+/*
+ * Build activity snapshots only from products that were
+ * actually written successfully.
+ */
+const previousSnapshots = successfullyWritten
+  .map(item =>
+    products.find(
+      product => product.id === item.sku
+    )
+  )
+  .filter(
+    (product): product is Product =>
+      Boolean(product)
+  );
+
+const updatedSnapshots =
+  successfullyWritten.map(
+    item => item.product
+  );
+
+await logAdminActivity(
+  'product_bulk_update',
+  `CSV Bulk Import (${successfullyWritten.length} products)`,
+  `Created: ${created}, Updated: ${updated}, Errors: ${errors.length}`,
+  'bulk_csv_import',
+  previousSnapshots,
+  updatedSnapshots
+);
+
+resolve({
+  created,
+  updated,
+  errors
+});
+      
+  // ============================================================
+// CMS: Local cache + Preview + Supabase-authoritative writes
+// ============================================================
+
+/*
+ * LocalStorage is a cache only.
+ *
+ * Supabase (`cms_site_content` + `cms_custom_blocks`) is the
+ * authoritative CMS source. CMS preview drafts are deliberately
+ * kept separate from the published/local cache.
+ */
+useEffect(() => {
+  try {
+    const isCmsPreview =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get(
+        'cmsPreview'
+      ) === '1';
+
+    if (isCmsPreview) return;
+
+    localStorage.setItem(
+      'yallalb_site_content',
+      JSON.stringify(siteContent)
+    );
+  } catch (err) {
+    console.warn(
+      '[ShopContext] Failed to persist CMS cache:',
+      err
+    );
+  }
+}, [siteContent]);
+
+/*
+ * Live CMS preview updates.
+ *
+ * The preview window can receive draft content without changing
+ * the published Supabase content.
+ */
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+
+  const isCmsPreview =
+    new URLSearchParams(window.location.search).get(
+      'cmsPreview'
+    ) === '1';
+
+  if (!isCmsPreview) return;
+
+  const handleMessage = (event: MessageEvent) => {
+    if (
+      event.data?.type === 'CMS_DRAFT_UPDATE' &&
+      event.data?.payload
+    ) {
+      setSiteContent(prev => ({
+        ...prev,
+        ...event.data.payload
+      }));
+    } else if (
+      event.data?.type === 'CMS_LANG_UPDATE' &&
+      event.data?.payload
+    ) {
+      setLanguage(event.data.payload);
+    }
+  };
+
+  window.addEventListener(
+    'message',
+    handleMessage
+  );
+
+  return () => {
+    window.removeEventListener(
+      'message',
+      handleMessage
+    );
+  };
+}, []);
+
+/*
+ * CMS preview draft hydration.
+ *
+ * Preview drafts are temporary and must never overwrite the
+ * authoritative published CMS data.
+ */
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+
+  const isCmsPreview =
+    new URLSearchParams(window.location.search).get(
+      'cmsPreview'
+    ) === '1';
+
+  if (!isCmsPreview) return;
+
+  try {
+    const draft =
+      sessionStorage.getItem(
+        'yalla_cms_preview'
+      );
+
+    if (!draft) return;
+
+    const parsedDraft = JSON.parse(draft);
+
+    setSiteContent(prev => ({
+      ...prev,
+      ...parsedDraft
+    }));
+  } catch (err) {
+    console.error(
+      '[ShopContext] Could not read CMS preview draft:',
+      err
+    );
+  }
+}, []);
+
+/*
+ * CMS realtime synchronization.
+ *
+ * cms_custom_blocks is synchronized through Supabase realtime.
+ * cms_site_content is refreshed through the existing hydration
+ * and CMS service logic.
+ */
+useEffect(() => {
+  let isMounted = true;
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const refreshCmsBlocks = async () => {
+    try {
+      const blocks =
+        isAdminUser
+          ? await supabaseCmsService.fetchAllCmsBlocks()
+          : await supabaseCmsService.fetchAllPublicCmsBlocks();
+
+      if (!isMounted) return;
+
+      cmsBlocksFromSupabaseRef.current = true;
+
+      setSiteContent(prev => ({
+        ...prev,
+        customBlocks: blocks
+      }));
+    } catch (err) {
+      if (!isMounted) return;
+
+      console.error(
+        '[ShopContext] CMS block realtime refresh failed:',
+        err
+      );
+    }
+  };
+
+  const scheduleRefresh = () => {
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+    }
+
+    refreshTimer = setTimeout(() => {
+      void refreshCmsBlocks();
+    }, 400);
+  };
+
+  const channel = supabase
+    .channel('yalla-cms-custom-blocks')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'cms_custom_blocks'
+      },
+      scheduleRefresh
+    )
+    .subscribe(status => {
+      if (
+        status === 'CHANNEL_ERROR' ||
+        status === 'TIMED_OUT'
+      ) {
+        console.error(
+          `[ShopContext] Supabase CMS realtime channel: ${status}`
+        );
+      }
+    });
+
+  return () => {
+    isMounted = false;
+
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+    }
+
+    void supabase.removeChannel(channel);
+  };
+}, [isAdminUser]);
+
+const updateSiteContent = async (
+  updates:
+    | Partial<SiteContent>
+    | ((prev: SiteContent) => SiteContent)
+) => {
+  /*
+   * Calculate the next complete CMS state without modifying
+   * React state yet.
+   */
+  const nextContent =
+    typeof updates === 'function'
+      ? updates(siteContent)
+      : {
+          ...siteContent,
+          ...updates
+        };
+
+  /*
+   * Calculate the changed CMS fields for the admin activity/
+   * diagnostic log.
+   */
+  const diff = calculateObjectDiff(
+    siteContent as any,
+    nextContent as any
+  );
+
+  const modifiedKeys = Object.keys(diff);
+
+  /*
+   * Keep the existing logger calls only as diagnostics.
+   * They do not represent persistence.
+   */
+  dbLogger.logFormInput({
+    sourceComponent: 'ShopContext',
+    actionName: 'updateSiteContent',
+    targetPath: 'cms_site_content/main',
+    summary:
+      `CMS update initiated for ${modifiedKeys.length} section(s): ` +
+      `[${modifiedKeys.join(', ') || 'full update'}]`,
+    payload: nextContent,
+    diff
+  });
+
+  /*
+   * Remove undefined values before sending data to Supabase.
+   */
+  const sanitized =
+    sanitizeDocumentData(nextContent);
+
+  dbLogger.logSanitization({
+    sourceComponent: 'ShopContext',
+    actionName: 'sanitizeDbPayload',
+    targetPath: 'cms_site_content/main',
+    summary:
+      'Removed undefined values from the CMS payload before the Supabase write.',
+    cleanedPayload: sanitized
+  });
+
+  dbLogger.logDbWriteStart({
+    operation: 'upsert',
+    targetPath: 'cms_site_content/main',
+    sourceComponent: 'ShopContext',
+    actionName: 'upsert(cms_site_content/main)',
+    summary:
+      'Persisting updated CMS content to Supabase.',
+    payload: sanitized
+  });
+
+  try {
+    /*
+     * --------------------------------------------------------
+     * 1. Synchronize custom blocks
+     * --------------------------------------------------------
+     *
+     * Blocks are stored in cms_custom_blocks, not inside the
+     * cms_site_content JSONB document.
+     */
+    const nextBlocks =
+      (nextContent.customBlocks || []) as CMSCustomBlock[];
+
+    const currentBlocks =
+      (siteContent.customBlocks || []) as CMSCustomBlock[];
+
+    const syncedBlocks =
+      await supabaseCmsService.syncCustomBlocks(
+        currentBlocks,
+        nextBlocks
+      );
+
+    /*
+     * An empty block array is also authoritative.
+     * Do NOT use `length > 0` as the success condition.
+     */
+    cmsBlocksFromSupabaseRef.current = true;
+
+    /*
+     * --------------------------------------------------------
+     * 2. Save site-level CMS content
+     * --------------------------------------------------------
+     *
+     * saveSiteContent is responsible for storing the
+     * cms_site_content row. Custom blocks remain in their
+     * dedicated table.
+     */
+    const contentForDatabase = {
+      ...sanitized,
+      customBlocks: undefined
+    };
+
+    const savedContent =
+      await supabaseCmsService.saveSiteContent(
+        contentForDatabase as SiteContent
+      );
+
+    cmsSupabaseAuthoritativeRef.current = true;
+
+    /*
+     * --------------------------------------------------------
+     * 3. Update React state only after Supabase succeeds
+     * --------------------------------------------------------
+     *
+     * Re-attach the synchronized blocks because they live in
+     * cms_custom_blocks rather than cms_site_content.
+     */
+    const authoritativeContent: SiteContent = {
+      ...sanitized,
+      ...(savedContent || {}),
+      customBlocks: syncedBlocks
+    };
+
+    setSiteContent(authoritativeContent);
+
+    /*
+     * LocalStorage is only a performance/offline cache.
+     * It is never treated as the CMS source of truth.
+     */
+    try {
+      localStorage.setItem(
+        'yallalb_site_content',
+        JSON.stringify(authoritativeContent)
+      );
+    } catch (localErr) {
+      console.warn(
+        '[ShopContext] Failed to persist CMS cache:',
+        localErr
+      );
+    }
+
+    /*
+     * Record the successful CMS change.
+     */
+    await logAdminActivity(
+      'cms_update',
+      'Site content updated',
+      `Updated CMS sections: ${
+        modifiedKeys.join(', ') || 'full update'
+      }. Custom blocks synchronized: ${
+        syncedBlocks.length
+      }.`,
+      'cms_site_content/main',
+      siteContent,
+      authoritativeContent
+    );
+  } catch (err: any) {
+    /*
+     * IMPORTANT:
+     * Do not update React state or claim the CMS was saved when
+     * Supabase rejected the operation.
+     */
+    console.error(
+      '[ShopContext] Failed to save CMS content to Supabase:',
+      err
+    );
+
+    showToast(
+      language === 'ar'
+        ? `تعذر حفظ محتوى الموقع: ${
+            err?.message || 'خطأ غير معروف'
+          }`
+        : `Could not save site content: ${
+            err?.message || 'unknown error'
+          }`,
+      'error'
+    );
+
+    throw err;
+  }
+};
+    
+    const isMetaChange =
+      modifiedKeys.includes('seo') ||
+      Object.keys(diff).some(key =>
+        key.startsWith('seo.')
+      );
+
     if (isMetaChange) {
       await logAdminActivity(
         'meta_change',
         'SEO Meta Tags updated',
-        `Modified global page title or description for search engines: [${modifiedKeys.join(', ')}].`
+        `Modified global page title or description for search engines: [${modifiedKeys.join(', ')}].`,
+        'cms_site_content/main',
+        siteContent,
+        nextContent
       );
     } else {
       await logAdminActivity(
         'cms_update',
         'Site content updated',
-        `Published updates to sections: [${modifiedKeys.join(', ') || 'none'}].`
+        `Published updates to sections: [${modifiedKeys.join(', ') || 'none'}].`,
+        'cms_site_content/main',
+        siteContent,
+        nextContent
       );
     }
   };
 
+  const toggleSectionVisibility = async (
+    sectionKey: keyof SectionVisibilityConfig
+  ) => {
+    const currentVal =
+      siteContent.visibility?.[sectionKey] ?? true;
 
-  const toggleSectionVisibility = async (sectionKey: keyof SectionVisibilityConfig) => {
-    const currentVal = siteContent.visibility?.[sectionKey] ?? true;
     const nextVal = !currentVal;
-    
-    await updateSiteContent((prev) => ({
+
+    await updateSiteContent(prev => ({
       ...prev,
       visibility: {
-        ...(prev.visibility || DEFAULT_SITE_CONTENT.visibility),
+        ...(prev.visibility ||
+          DEFAULT_SITE_CONTENT.visibility),
         [sectionKey]: nextVal
       }
     }));
 
-    showToast(`Section "${String(sectionKey)}" is now ${nextVal ? 'VISIBLE (Published)' : 'HIDDEN'}`, 'info');
+    showToast(
+      `Section "${String(sectionKey)}" is now ${
+        nextVal
+          ? 'VISIBLE (Published)'
+          : 'HIDDEN'
+      }`,
+      'info'
+    );
   };
 
-  /**
-   * CMS block mutations write to Supabase `cms_custom_blocks`.
-   *
-   * They used to route through updateSiteContent, which persisted the block list
-   * inside the Firestore CMS document. Two problems with that: the blocks table
-   * is the store of record, and the id was minted as `block-${Date.now()}` —
-   * a string Postgres cannot cast to the uuid primary key, so every insert
-   * would have been rejected.
-   *
-   * Local state is updated only after the write succeeds, so the admin UI never
-   * shows a block that is not in the database. Errors are surfaced and
-   * rethrown so the calling form can keep the admin's input.
+  // ============================================================
+  // CMS Custom Blocks
+  // ============================================================
+
+  const addCustomBlock = async (
+    newBlockData: Omit<CMSCustomBlock, 'id'>
+  ) => {
+    const newBlock: CMSCustomBlock = {
+      ...newBlockData,
+      id: generateUuidV4()
+    };
+
+    try {
+      const saved =
+        await supabaseCmsService.upsertCustomBlock(
+          newBlock
+        );
+
+      setSiteContent(prev => ({
+        ...prev,
+        customBlocks: [
+          ...(prev.customBlocks || []),
+          saved
+        ]
+      }));
+
+      cmsBlocksFromSupabaseRef.current = true;
+
+      await logAdminActivity(
+        'cms_update',
+        `Custom block "${saved.title}" created`,
+        `Created and published CMS custom block "${saved.title}".`,
+        saved.id,
+        null,
+        saved
+      );
+
+      showToast(
+        `Custom element "${saved.title}" created & published!`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error(
+        '[ShopContext] addCustomBlock failed:',
+        err
+      );
+
+      showToast(
+        language === 'ar'
+          ? `تعذر إنشاء العنصر: ${
+              err?.message || 'خطأ غير معروف'
+            }`
+          : `Could not create block: ${
+              err?.message || 'unknown error'
+            }`,
+        'error'
+      );
+
+      throw err;
+    }
+  };
+
+  const updateCustomBlock = async (
+    id: string,
+    updates: Partial<CMSCustomBlock>
+  ) => {
+    const existing = (
+      siteContent.customBlocks || []
+    ).find(block => block.id === id);
+
+    if (!existing) {
+      showToast(
+        'Custom block not found.',
+        'warning'
+      );
+      return;
+    }
+
+    try {
+      const saved =
+        await supabaseCmsService.upsertCustomBlock({
+          ...existing,
+          ...updates,
+          id
+        });
+
+      setSiteContent(prev => ({
+        ...prev,
+        customBlocks: (
+          prev.customBlocks || []
+        ).map(block =>
+          block.id === id
+            ? saved
+            : block
+        )
+      }));
+
+      cmsBlocksFromSupabaseRef.current = true;
+
+      await logAdminActivity(
+        'cms_update',
+        `Custom block "${existing.title}" updated`,
+        `Updated custom block attributes: ${Object.keys(updates).join(', ')}.`,
+        id,
+        existing,
+        saved
+      );
+
+      showToast(
+        'Custom block updated and published!',
+        'success'
+      );
+    } catch (err: any) {
+      console.error(
+        '[ShopContext] updateCustomBlock failed:',
+        err
+      );
+
+      showToast(
+        language === 'ar'
+          ? `تعذر تحديث العنصر: ${
+              err?.message || 'خطأ غير معروف'
+            }`
+          : `Could not update block: ${
+              err?.message || 'unknown error'
+            }`,
+        'error'
+      );
+
+      throw err;
+    }
+  };
+
+  const deleteCustomBlock = async (
+    id: string
+  ) => {
+    const existing = (
+      siteContent.customBlocks || []
+    ).find(block => block.id === id);
+
+    if (!existing) {
+      showToast(
+        'Custom block not found.',
+        'warning'
+      );
+      return;
+    }
+
+    try {
+      await supabaseCmsService.deleteCustomBlock(
+        id
+      );
+
+      setSiteContent(prev => ({
+        ...prev,
+        customBlocks: (
+          prev.customBlocks || []
+        ).filter(
+          block => block.id !== id
+        )
+      }));
+
+      cmsBlocksFromSupabaseRef.current = true;
+
+      await logAdminActivity(
+        'cms_update',
+        `Custom block "${existing.title}" deleted`,
+        `Deleted custom block "${existing.title}" from the CMS.`,
+        id,
+        existing,
+        null
+      );
+
+      showToast(
+        'Custom block deleted from page',
+        'warning'
+      );
+    } catch (err: any) {
+      console.error(
+        '[ShopContext] deleteCustomBlock failed:',
+        err
+      );
+
+      showToast(
+        language === 'ar'
+          ? `تعذر حذف العنصر: ${
+              err?.message || 'خطأ غير معروف'
+            }`
+          : `Could not delete block: ${
+              err?.message || 'unknown error'
+            }`,
+        'error'
+      );
+
+      throw err;
+    }
+  };
+
+  const toggleProductPublish = async (
+    productId: string
+  ) => {
+    const targetProd = products.find(
+      product => product.id === productId
+    );
+
+    if (!targetProd) {
+      showToast(
+        'Product not found.',
+        'warning'
+      );
+      return;
+    }
+
+    const isCurrentlyPublished =
+      targetProd.isPublished !== false;
+
+    const nextState =
+      !isCurrentlyPublished;
+
+    await updateProduct(
+      productId,
+      {
+        isPublished: nextState
+      }
+    );
+
+    showToast(
+      `Product "${targetProd.name}" is now ${
+        nextState
+          ? 'PUBLISHED'
+          : 'HIDDEN'
+      }`,
+      'info'
+    );
+  };
+
+  // ============================================================
+  // Catalog Cache
+  // ============================================================
+
+  /*
+   * LocalStorage is only a cache.
+   * Supabase remains the authoritative product catalog.
    */
-  const addCustomBlock = async (newBlockData: Omit<CMSCustomBlock, 'id'>) => {
-    // Real v4 UUID: cms_custom_blocks.id is a uuid column.
-    const newBlock: CMSCustomBlock = { ...newBlockData, id: generateUuidV4() };
-
-    try {
-      const saved = await supabaseCmsService.upsertCustomBlock(newBlock);
-      setSiteContent((prev) => ({
-        ...prev,
-        customBlocks: [...(prev.customBlocks || []), saved],
-      }));
-      cmsBlocksFromSupabaseRef.current = true;
-      showToast(`Custom element "${saved.title}" created & published!`, 'success');
-    } catch (err: any) {
-      console.error('[ShopContext] addCustomBlock failed:', err);
-      showToast(
-        language === 'ar'
-          ? `تعذر إنشاء العنصر: ${err?.message || 'خطأ غير معروف'}`
-          : `Could not create block: ${err?.message || 'unknown error'}`,
-        'error'
-      );
-      throw err;
-    }
-  };
-
-  const updateCustomBlock = async (id: string, updates: Partial<CMSCustomBlock>) => {
-    try {
-      const existing = (siteContent.customBlocks || []).find((b) => b.id === id);
-      const saved = await supabaseCmsService.upsertCustomBlock({ ...(existing || {}), ...updates, id });
-
-      setSiteContent((prev) => ({
-        ...prev,
-        customBlocks: (prev.customBlocks || []).map((b) => (b.id === id ? saved : b)),
-      }));
-      cmsBlocksFromSupabaseRef.current = true;
-      showToast('Custom block updated and published!', 'success');
-    } catch (err: any) {
-      console.error('[ShopContext] updateCustomBlock failed:', err);
-      showToast(
-        language === 'ar'
-          ? `تعذر تحديث العنصر: ${err?.message || 'خطأ غير معروف'}`
-          : `Could not update block: ${err?.message || 'unknown error'}`,
-        'error'
-      );
-      throw err;
-    }
-  };
-
-  const deleteCustomBlock = async (id: string) => {
-    try {
-      await supabaseCmsService.deleteCustomBlock(id);
-      setSiteContent((prev) => ({
-        ...prev,
-        customBlocks: (prev.customBlocks || []).filter((b) => b.id !== id),
-      }));
-      showToast('Custom block deleted from page', 'warning');
-    } catch (err: any) {
-      console.error('[ShopContext] deleteCustomBlock failed:', err);
-      showToast(
-        language === 'ar'
-          ? `تعذر حذف العنصر: ${err?.message || 'خطأ غير معروف'}`
-          : `Could not delete block: ${err?.message || 'unknown error'}`,
-        'error'
-      );
-      throw err;
-    }
-  };
-
-  const toggleProductPublish = async (productId: string) => {
-    const targetProd = products.find(p => p.id === productId);
-    if (!targetProd) return;
-    const isCurrentlyPublished = targetProd.isPublished !== false;
-    const nextState = !isCurrentlyPublished;
-
-    await updateProduct(productId, { isPublished: nextState });
-    showToast(`Product "${targetProd.name}" is now ${nextState ? 'PUBLISHED' : 'HIDDEN'}`, 'info');
-  };
-
-  // Local storage persistence
   useEffect(() => {
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products));
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.products,
+        JSON.stringify(products)
+      );
     } catch {}
   }, [products]);
 
-  // Guests only: an authenticated cart is persisted to public.carts by the
-  // effect further down, and must not be mirrored into this browser, where the
-  // next person to use it would inherit it.
+  /*
+   * Guests only:
+   * authenticated carts are persisted to Supabase public.carts.
+   */
   useEffect(() => {
     if (authUser) return;
+
     try {
-      localStorage.setItem(GUEST_CART_KEY, JSON.stringify(storedCart));
+      localStorage.setItem(
+        GUEST_CART_KEY,
+        JSON.stringify(storedCart)
+      );
     } catch {}
   }, [storedCart, authUser]);
 
+  /*
+   * Guests only:
+   * authenticated wishlists are persisted to Supabase.
+   */
   useEffect(() => {
     if (authUser) return;
+
     try {
-      localStorage.setItem(GUEST_WISHLIST_KEY, JSON.stringify(wishlist));
+      localStorage.setItem(
+        GUEST_WISHLIST_KEY,
+        JSON.stringify(wishlist)
+      );
     } catch {}
   }, [wishlist, authUser]);
 
+  /*
+   * Orders:
+   *
+   * Supabase is authoritative.
+   * Only a customer's own orders are cached locally.
+   * Admin-wide order lists are NEVER cached in localStorage.
+   */
   useEffect(() => {
     try {
-      // Only ever cache a single customer's own orders. An admin's list spans
-      // every account, so caching it would leave other people's orders in this
-      // browser; signing out clears the cache entirely.
-      if (!isAdminUser && authUser && orders.length > 0) {
-        localStorage.setItem('yallalb_orders', JSON.stringify(orders));
+      if (
+        !isAdminUser &&
+        authUser &&
+        orders.length > 0
+      ) {
+        localStorage.setItem(
+          'yallalb_orders',
+          JSON.stringify(orders)
+        );
       } else if (!authUser) {
-        localStorage.removeItem('yallalb_orders');
+        localStorage.removeItem(
+          'yallalb_orders'
+        );
       }
     } catch {}
-  }, [orders, isAdminUser, authUser]);
+  }, [
+    orders,
+    isAdminUser,
+    authUser
+  ]);
 
+  /*
+   * User profile:
+   * localStorage is only a UI cache.
+   * Supabase profiles remain authoritative.
+   */
   useEffect(() => {
     try {
-      localStorage.setItem('yallalb_user', JSON.stringify(user));
+      localStorage.setItem(
+        'yallalb_user',
+        JSON.stringify(user)
+      );
     } catch {}
   }, [user]);
+      /**
+ * Live catalogue sync from Supabase Realtime.
+ *
+ * Supabase is the only catalogue source of truth.
+ *
+ * Realtime events are treated as invalidation signals only. We do not merge
+ * raw Realtime rows directly into `products` because those rows do not contain
+ * the joined seller/category/gallery data required by the UI.
+ *
+ * After an INSERT/UPDATE/DELETE on products or product_images, the catalogue
+ * is re-read through the same audience-aware Supabase service used during
+ * hydration.
+ */
+useEffect(() => {
+  let isMounted = true;
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /**
-   * Live catalogue sync from Supabase Realtime.
-   *
-   * Replaces an onSnapshot listener on the Firestore `products` collection,
-   * which did three things that cannot survive the migration:
-   *
-   *  - on an empty collection it wrote the entire bundled demo catalogue into
-   *    the database (as admin) and put it on screen for everyone else, which is
-   *    exactly the "demo data in production" failure being removed here;
-   *  - it overwrote the Supabase-hydrated catalogue on every snapshot, so
-   *    whichever store answered last won;
-   *  - it read Firestore documents shaped like the pre-migration Product, with
-   *    slug ids that checkout rejects.
-   *
-   * `products` is a member of the `supabase_realtime` publication (verified in
-   * pg_publication_tables), so INSERT/UPDATE/DELETE arrive here. Realtime
-   * payloads are raw table rows: they carry no joined seller or category names,
-   * no gallery rows, and — for a privileged subscriber — the private columns
-   * that still exist on `products`. So a change notification is treated as an
-   * invalidation signal, not as data: it triggers a re-read through the same
-   * audience-appropriate path (public_catalog for customers, the base table for
-   * admins and sellers) rather than being merged into state directly. That also
-   * means an unpublish reaches customers as a removal, because the re-read goes
-   * through a view that filters unpublished rows.
-   */
-  useEffect(() => {
-    let isMounted = true;
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const refreshCatalog = async () => {
-      try {
-        const fresh = await supabaseCatalogService.fetchProducts({
+  const refreshCatalog = async () => {
+    try {
+      const fresh =
+        await supabaseCatalogService.fetchProducts({
           isAdmin: isAdminUser,
           isSeller: isSellerUser,
-          sellerId,
+          sellerId
         });
-        if (!isMounted) return;
 
-        // An empty array is applied: a catalogue emptied (or fully unpublished)
-        // in the database must empty on screen too.
-        setProducts(fresh.map(ensureSellerItemCode));
-        setHasMoreProducts(false);
-        setCatalogStatus('ready');
-        setCatalogError(null);
-        try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(fresh));
-        } catch {}
-      } catch (err) {
-        if (!isMounted) return;
-        console.error('[ShopContext] Realtime catalogue refresh failed:', err);
-        setCatalogStatus('error');
-        setCatalogError(err instanceof Error ? err.message : String(err));
-      } finally {
-        if (isMounted) setIsDbSyncing(false);
+      if (!isMounted) return;
+
+      const normalized =
+        fresh.map(ensureSellerItemCode);
+
+      // Supabase is authoritative, including an empty catalogue.
+      setProducts(normalized);
+      setHasMoreProducts(false);
+      setCatalogStatus('ready');
+      setCatalogError(null);
+
+      try {
+        localStorage.setItem(
+          CATALOG_CACHE_KEYS.products,
+          JSON.stringify(normalized)
+        );
+      } catch {}
+    } catch (err) {
+      if (!isMounted) return;
+
+      console.error(
+        '[ShopContext] Supabase realtime catalogue refresh failed:',
+        err
+      );
+
+      setCatalogStatus('error');
+      setCatalogError(
+        err instanceof Error
+          ? err.message
+          : String(err)
+      );
+    } finally {
+      if (isMounted) {
+        setIsDbSyncing(false);
       }
-    };
+    }
+  };
 
-    // Coalesce bursts: a single admin save can emit several row events, and a
-    // bulk publish emits one per product. Re-reading once per burst keeps that
-    // to one round trip.
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(refreshCatalog, 400);
-    };
-
-    const channel = supabase
-      .channel('yalla-products-catalog')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_images' }, scheduleRefresh)
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Not fatal: the catalogue still loads on mount and after each admin
-          // write. Logged so a broken realtime connection is visible rather
-          // than silently degrading to a stale storefront.
-          console.error(`[ShopContext] Supabase realtime channel for products: ${status}`);
-        }
-      });
-
-    setIsDbSyncing(false);
-
-    return () => {
-      isMounted = false;
-      if (refreshTimer) clearTimeout(refreshTimer);
-      supabase.removeChannel(channel);
-    };
-  }, [isAdminUser, isSellerUser, sellerId]);
-
-  /**
-   * No-op: the catalogue is read in full, so there is no next page.
+  /*
+   * Coalesce multiple row events into one catalogue refresh.
    *
-   * This used to paginate Firestore `products` 24 documents at a time and
-   * append them to state. Two problems now: those documents are the
-   * pre-migration shape with slug ids that checkout rejects, and appending them
-   * to a Supabase-sourced list would mix two stores in one catalogue. The
-   * Supabase read returns the whole visible catalogue in one query (filtered by
-   * the public_catalog view or by RLS), which is why hasMoreProducts is always
-   * false.
-   *
-   * Kept as a function because the infinite-scroll UI calls it; if the
-   * catalogue grows enough to need paging, page it with .range() against
-   * public_catalog rather than reinstating this.
+   * A single admin operation can generate several events, especially when
+   * product images are changed. Waiting 400ms prevents unnecessary duplicate
+   * reads while still keeping the storefront effectively live.
    */
-  const loadMoreProducts = useCallback(async () => {
-    return;
-  }, []);
+  const scheduleRefresh = () => {
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+    }
 
-  // Merchant-private product fields (strictly scoped to admin or owning seller by RLS)
-  useEffect(() => {
-    /**
-     * Removed: the Firestore product_private listener.
-     *
-     * The private merchant fields (cost price, stock thresholds, seller item
-     * code) now arrive with the catalogue itself: fetchPrivilegedProducts
-     * embeds public.product_private, whose RLS is
-     * `is_admin() OR (is_seller() AND owns the row)`. Merging a second stream
-     * into the product list was how those fields used to appear, and it is no
-     * longer needed.
-     */
-  }, []);
+    refreshTimer = setTimeout(() => {
+      void refreshCatalog();
+    }, 400);
+  };
 
-  // Real-time orders sync from Supabase (scoped to the current user or admin by RLS)
+  const channel = supabase
+    .channel('yalla-products-catalog')
+
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'products'
+      },
+      scheduleRefresh
+    )
+
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'product_images'
+      },
+      scheduleRefresh
+    )
+
+    .subscribe(status => {
+      if (
+        status === 'CHANNEL_ERROR' ||
+        status === 'TIMED_OUT'
+      ) {
+        console.error(
+          `[ShopContext] Supabase realtime channel for products: ${status}`
+        );
+      }
+    });
+
+  setIsDbSyncing(false);
+
+  return () => {
+    isMounted = false;
+
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+    }
+
+    void supabase.removeChannel(channel);
+  };
+}, [
+  isAdminUser,
+  isSellerUser,
+  sellerId
+]);
+
+/**
+ * Catalogue pagination compatibility.
+ *
+ * The current Supabase catalogue service loads the complete audience-specific
+ * catalogue. The existing storefront still calls this function for its
+ * infinite-scroll compatibility, so keep it as a no-op.
+ *
+ * If pagination is introduced later, it should be implemented directly in
+ * supabaseCatalogService using Supabase `.range()` rather than reintroducing
+ * Firebase pagination.
+ */
+const loadMoreProducts = useCallback(async () => {
+  return;
+}, []);
+
+/**
+ * Product-private data.
+ *
+ * No separate Firebase/private-product listener is required.
+ *
+ * `fetchProducts()` already returns the fields allowed for the current
+ * audience, while Supabase RLS remains the actual security boundary.
+ *
+ * Cost price and other merchant-private fields must never be exposed through
+ * the public catalogue path.
+ */
+    
+    // ============================================================
+  // Real-time Orders Sync
+  // ============================================================
+  //
+  // Supabase is the authoritative source for orders.
+  //
+  // The database/RLS decides which rows the current user can see:
+  //   - customer -> own orders
+  //   - admin    -> permitted admin order set
+  //   - seller   -> permitted seller-related order set
+  //
+  // Realtime events are treated as invalidation signals. We re-read through
+  // supabaseOrderService instead of merging raw Realtime rows into state,
+  // because an order screen normally depends on order_items and related data.
+  //
   useEffect(() => {
-    /**
-     * Orders, from public.orders via supabaseOrderService.
-     *
-     * Replaces an onSnapshot listener over the Firestore `orders` collection.
-     * Row visibility is the database's: orders RLS restricts a customer to
-     * their own orders, and `orders` IS in the supabase_realtime publication,
-     * so a status change is picked up by the channel below rather than by a
-     * client-side query per role.
-     */
     if (!authUser) {
       setOrders([]);
       return;
@@ -2767,1224 +5064,3989 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const loadOrders = async () => {
       try {
-        const rows = await supabaseOrderService.fetchOrders();
-        if (isMounted) setOrders(rows);
+        const rows =
+          await supabaseOrderService.fetchOrders();
+
+        if (!isMounted) return;
+
+        setOrders(rows);
       } catch (err) {
-        console.error('[ShopContext] Failed to load orders:', err);
+        if (!isMounted) return;
+
+        console.error(
+          '[ShopContext] Failed to load orders from Supabase:',
+          err
+        );
       }
     };
 
-    loadOrders();
+    void loadOrders();
 
+    /*
+     * Coalesce multiple order events into one read.
+     *
+     * A checkout/status update can generate multiple database events.
+     */
     const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(loadOrders, 400);
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = setTimeout(() => {
+        void loadOrders();
+      }, 400);
     };
 
     const channel = supabase
       .channel('yalla-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`[ShopContext] Supabase realtime channel for orders: ${status}`);
+
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        scheduleRefresh
+      )
+
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'order_items'
+        },
+        scheduleRefresh
+      )
+
+      .subscribe(status => {
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.error(
+            `[ShopContext] Supabase realtime channel for orders: ${status}`
+          );
         }
       });
 
     return () => {
       isMounted = false;
-      if (refreshTimer) clearTimeout(refreshTimer);
-      supabase.removeChannel(channel);
-    };
-  }, [authUser, isAdminUser, isSellerUser, sellerId]);
 
-  // Auth & User / Cart / Wishlist synchronization using Supabase Auth
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+
+      void supabase.removeChannel(channel);
+    };
+  }, [
+    authUser,
+    isAdminUser,
+    isSellerUser,
+    sellerId
+  ]);
+
+  // ============================================================
+  // Supabase Auth + Profile + Cart + Wishlist Synchronization
+  // ============================================================
+
   useEffect(() => {
     let isMounted = true;
 
-    /**
-     * Which auth event the in-flight profile read belongs to.
+    /*
+     * Every auth event gets its own generation.
      *
-     * handleAuthUser defers its database reads, and getSession() plus every
-     * onAuthStateChange event can have one in flight at once. Without this,
-     * a slow read for an earlier event could land after a newer one and
-     * reinstate the previous user's role, profile and cart — signing out and
-     * straight back in as someone else being the obvious case. Each call
-     * claims a generation and abandons its work if a newer one has started.
+     * This prevents a slow profile/cart request belonging to an old session
+     * from overwriting state after the user has already signed out or another
+     * user has signed in.
      */
     let authGeneration = 0;
-    console.log("[ShopContext] Initializing Supabase Auth listener...");
 
-    const deriveNames = (displayName?: string | null, email?: string | null) => {
-      if (displayName && displayName.trim()) {
-        const parts = displayName.trim().split(/\s+/);
+    console.log(
+      '[ShopContext] Initializing Supabase Auth listener...'
+    );
+
+    const deriveNames = (
+      displayName?: string | null,
+      email?: string | null
+    ) => {
+      if (
+        displayName &&
+        displayName.trim()
+      ) {
+        const parts =
+          displayName
+            .trim()
+            .split(/\s+/);
+
         return {
           firstName: parts[0],
-          lastName: parts.slice(1).join(' ') || '',
+          lastName:
+            parts.slice(1).join(' ') || '',
           name: displayName.trim()
         };
       }
-      if (email && email.includes('@')) {
-        const raw = email.split('@')[0].replace(/[0-9]+/g, ' ').trim();
-        const parts = raw.split(/[\._\-\s]+/).filter(Boolean);
+
+      if (
+        email &&
+        email.includes('@')
+      ) {
+        const raw =
+          email
+            .split('@')[0]
+            .replace(/[0-9]+/g, ' ')
+            .trim();
+
+        const parts =
+          raw
+            .split(/[\._\-\s]+/)
+            .filter(Boolean);
+
         if (parts.length >= 2) {
-          const f = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-          const l = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase();
-          return { firstName: f, lastName: l, name: `${f} ${l}` };
-        } else if (parts.length === 1 && parts[0].length > 0) {
-          const f = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-          return { firstName: f, lastName: '', name: f };
+          const first =
+            parts[0]
+              .charAt(0)
+              .toUpperCase() +
+            parts[0]
+              .slice(1)
+              .toLowerCase();
+
+          const last =
+            parts[1]
+              .charAt(0)
+              .toUpperCase() +
+            parts[1]
+              .slice(1)
+              .toLowerCase();
+
+          return {
+            firstName: first,
+            lastName: last,
+            name: `${first} ${last}`
+          };
+        }
+
+        if (
+          parts.length === 1 &&
+          parts[0].length > 0
+        ) {
+          const first =
+            parts[0]
+              .charAt(0)
+              .toUpperCase() +
+            parts[0]
+              .slice(1)
+              .toLowerCase();
+
+          return {
+            firstName: first,
+            lastName: '',
+            name: first
+          };
         }
       }
-      return { firstName: '', lastName: '', name: '' };
+
+      return {
+        firstName: '',
+        lastName: '',
+        name: ''
+      };
     };
 
-    const handleAuthUser = (supaUser: SupabaseUser | null) => {
+    const handleAuthUser = (
+      supaUser: SupabaseUser | null
+    ) => {
       if (!isMounted) return;
+
       authGeneration += 1;
-      const myGeneration = authGeneration;
-      const isCurrent = () => isMounted && myGeneration === authGeneration;
+
+      const myGeneration =
+        authGeneration;
+
+      const isCurrent = () =>
+        isMounted &&
+        myGeneration ===
+          authGeneration;
+
+      // ========================================================
+      // Signed out
+      // ========================================================
+
       if (!supaUser) {
         setAuthUser(null);
         setUser(INITIAL_USER);
+
         setIsAdminUser(false);
         setIsSellerUser(false);
         setSellerId(null);
+
         setIsEmailVerified(false);
         setIsLocalAdminUnlockedState(false);
+
         setIsLoadingAuth(false);
+
         setOrders([]);
+
         try {
-          localStorage.removeItem('yallalb_orders');
+          localStorage.removeItem(
+            'yallalb_orders'
+          );
         } catch {}
 
-        // Close the write gate: with no session, RLS would reject a cart write
-        // anyway, and an attempted one must not look like a save.
+        /*
+         * Close authenticated persistence gates.
+         */
         setCartHydratedForUserId(null);
-        lastPersistedCartRef.current = null;
-        lastPersistedWishlistRef.current = null;
 
-        // A cart that belonged to a signed-in account is that account's, and it
-        // is already saved in Supabase. Leaving it on screen after sign-out
-        // would hand it to whoever uses this browser next, so it is cleared.
-        // A genuine guest cart is preserved, which keeps the
-        // browse → add to cart → sign up flow working.
-        if (readLocalCartOwner() !== 'guest') {
+        lastPersistedCartRef.current =
+          null;
+
+        lastPersistedWishlistRef.current =
+          null;
+
+        /*
+         * Never leave an authenticated user's cart/wishlist in browser
+         * storage for the next person using this browser.
+         *
+         * A genuine guest cart is preserved.
+         */
+        if (
+          readLocalCartOwner() !==
+          'guest'
+        ) {
           setCart([]);
           setWishlist([]);
+
           try {
-            localStorage.removeItem(GUEST_CART_KEY);
-            localStorage.removeItem(GUEST_WISHLIST_KEY);
-            localStorage.removeItem(LEGACY_CART_KEY);
-            localStorage.removeItem(LEGACY_WISHLIST_KEY);
+            localStorage.removeItem(
+              GUEST_CART_KEY
+            );
+
+            localStorage.removeItem(
+              GUEST_WISHLIST_KEY
+            );
+
+            localStorage.removeItem(
+              LEGACY_CART_KEY
+            );
+
+            localStorage.removeItem(
+              LEGACY_WISHLIST_KEY
+            );
           } catch {}
-          writeLocalCartOwner('guest');
+
+          writeLocalCartOwner(
+            'guest'
+          );
         } else {
+          /*
+           * Restore the legitimate guest cart/wishlist.
+           */
           try {
-            const guestCart = getGuestStorage(GUEST_CART_KEY, LEGACY_CART_KEY);
+            const guestCart =
+              getGuestStorage(
+                GUEST_CART_KEY,
+                LEGACY_CART_KEY
+              );
+
             if (guestCart) {
-              const parsed = JSON.parse(guestCart);
-              if (Array.isArray(parsed) && parsed.length > 0) {
+              const parsed =
+                JSON.parse(
+                  guestCart
+                );
+
+              if (
+                Array.isArray(parsed)
+              ) {
                 setCart(parsed);
               }
             }
-            const guestWishlist = getGuestStorage(GUEST_WISHLIST_KEY, LEGACY_WISHLIST_KEY);
+
+            const guestWishlist =
+              getGuestStorage(
+                GUEST_WISHLIST_KEY,
+                LEGACY_WISHLIST_KEY
+              );
+
             if (guestWishlist) {
-              const parsed = JSON.parse(guestWishlist);
-              if (Array.isArray(parsed)) {
+              const parsed =
+                JSON.parse(
+                  guestWishlist
+                );
+
+              if (
+                Array.isArray(parsed)
+              ) {
                 setWishlist(parsed);
               }
             }
-          } catch {}
+          } catch (err) {
+            console.error(
+              '[ShopContext] Failed to restore guest cart/wishlist:',
+              err
+            );
+          }
         }
+
         return;
       }
 
-      // 1. Initial immediate user adapter setup to unblock UI while deferring DB queries
-      const initialUserAdapter = createAuthUserAdapter(supaUser, 'customer', null, {});
-      setAuthUser(initialUserAdapter);
-      setIsEmailVerified(Boolean(supaUser.email_confirmed_at));
+      // ========================================================
+      // Signed in
+      // ========================================================
 
-      // 2. Defer database query using setTimeout to avoid potential deadlock in onAuthStateChange
-      setTimeout(async () => {
-        if (!isCurrent()) return;
+      setAuthUser(
+        createAuthUserAdapter(
+          supaUser
+        )
+      );
 
-        let profileRole: 'admin' | 'seller' | 'customer' = 'customer';
-        let profileSellerId: string | null = null;
-        let profileData: Record<string, any> = {};
+      /*
+       * Supabase Auth is the source of truth for email verification.
+       *
+       * Do not use a client-side profile flag as the security authority.
+       */
+      setIsEmailVerified(
+        Boolean(
+          supaUser.email_confirmed_at
+        )
+      );
 
+      /*
+       * Start the authenticated-user loading state.
+       */
+      setIsLoadingAuth(true);
+
+      /*
+       * Profile, role, seller ownership, cart and wishlist are loaded
+       * asynchronously. Every continuation checks `isCurrent()` so an
+       * earlier session cannot overwrite a newer session.
+       */
+      void (async () => {
         try {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', supaUser.id)
-            .maybeSingle();
-
-          if (profile && !error) {
-            profileData = profile;
-            if (profile.role === 'admin') {
-              profileRole = 'admin';
-            } else if (profile.role === 'seller') {
-              profileRole = 'seller';
-            }
-            if (profile.seller_id || profile.sellerId) {
-              profileSellerId = profile.seller_id || profile.sellerId;
-            }
-          }
-        } catch (profileErr) {
-          console.warn("[ShopContext] Error loading Supabase user profile from database:", profileErr);
-        }
-
-        if (!isCurrent()) return;
-
-        const isAdmin = profileRole === 'admin';
-        const isSeller = profileRole === 'seller';
-        const isEmailConfirmed = Boolean(supaUser.email_confirmed_at);
-
-        setIsAdminUser(isAdmin);
-        setIsSellerUser(isSeller);
-        setSellerId(profileSellerId);
-        setIsEmailVerified(isEmailConfirmed);
-
-        const authoritativeUserAdapter = createAuthUserAdapter(supaUser, profileRole, profileSellerId, profileData);
-        setAuthUser(authoritativeUserAdapter);
-
-        // Check if local cache has shipping defaults
-        let cachedShipping: Partial<UserProfile> = {};
-        try {
-          const rawCache = localStorage.getItem('yallalb_saved_checkout_data');
-          if (rawCache) {
-            cachedShipping = JSON.parse(rawCache);
-          }
-        } catch {}
-
-        const fallbackNames = deriveNames(authoritativeUserAdapter.displayName, supaUser.email);
-        const safeProfile = mapSafeShopUserProfile(
-          profileData,
-          authoritativeUserAdapter,
-          profileSellerId,
-          cachedShipping,
-          fallbackNames
-        );
-        setUser(safeProfile);
-        setIsLoadingAuth(false);
-
-        // ── Cart & wishlist hydration from Supabase ──────────────────────────
-        // Supabase `carts` / `wishlists` are authoritative. This previously read
-        // Firestore `carts/<id>` and `wishlists/<id>`, documents that nothing
-        // writes any more, so a saved cart could never come back after a reload.
-        //
-        // Row access is enforced in the database: carts_own / wishlists_own are
-        // `user_id = auth.uid() OR is_admin()` for ALL commands, so one user
-        // cannot read or write another user's cart even by passing their id.
-        const localOwner = readLocalCartOwner();
-        const localBelongsToSomeoneElse = localOwner !== 'guest' && localOwner !== supaUser.id;
-
-        if (localBelongsToSomeoneElse) {
-          // Previous account's cart is still in this browser. Drop it rather
-          // than showing it to the person who just signed in.
-          setCart([]);
-          setWishlist([]);
-        }
-
-        try {
-          const [savedCart, savedWishlist] = await Promise.all([
-            supabaseUserDataService.fetchCart(supaUser.id),
-            supabaseUserDataService.fetchWishlist(supaUser.id),
+          const [
+            profile,
+            savedCart,
+            savedWishlist
+          ] = await Promise.all([
+            supabaseUserDataService.fetchProfile(
+              supaUser.id
+            ),
+            supabaseUserDataService.fetchCart(
+              supaUser.id
+            ),
+            supabaseUserDataService.fetchWishlist(
+              supaUser.id
+            )
           ]);
 
           if (!isCurrent()) return;
 
-          // null means "no row saved yet" (an expected empty result), not
-          // failure — in that case a guest cart carried into sign-in is kept
-          // and the effect below saves it to the account.
-          if (savedCart) {
-            setCart(savedCart);
-            // Mark it already persisted: it came straight from the row, so the
-            // effect has nothing to write back.
-            lastPersistedCartRef.current = JSON.stringify(savedCart);
-          } else {
-            lastPersistedCartRef.current = null;
-          }
+          /*
+           * Role and seller ownership come from the Supabase profile.
+           *
+           * These values control UI behavior only.
+           * Actual authorization remains enforced by RLS/database policies.
+           */
+          const role =
+            profile?.role;
 
-          if (savedWishlist) {
-            setWishlist(savedWishlist);
-            lastPersistedWishlistRef.current = JSON.stringify(savedWishlist);
-          } else {
-            lastPersistedWishlistRef.current = null;
-          }
+          const admin =
+            role === 'admin';
 
-          writeLocalCartOwner(supaUser.id);
-          // Only now may the persistence effects write: before this point a
-          // write would overwrite the saved row with unhydrated local state.
-          setCartHydratedForUserId(supaUser.id);
-        } catch (cartErr) {
-          // A failed read must not be mistaken for an empty cart. Leave the
-          // hydration gate closed so nothing is written over the saved row,
-          // and tell the user their saved cart could not be loaded.
-          console.error('[ShopContext] Failed to load saved cart/wishlist from Supabase:', cartErr);
-          if (isCurrent()) {
-            setCartHydratedForUserId(null);
-            showToast(
-              language === 'ar'
-                ? 'تعذر تحميل سلتك المحفوظة. لن يتم حفظ التغييرات حتى تحديث الصفحة.'
-                : 'Could not load your saved cart. Changes will not be saved until you reload.',
-              'error'
+          const seller =
+            role === 'seller';
+
+          const profileSellerId =
+            profile?.sellerId ??
+            null;
+
+          setIsAdminUser(admin);
+          setIsSellerUser(seller);
+          setSellerId(
+            seller
+              ? profileSellerId
+              : null
+          );
+
+          /*
+           * Build the UI user from the authoritative Supabase profile.
+           */
+          const metadata =
+            supaUser.user_metadata ||
+            {};
+
+          const derived =
+            deriveNames(
+              metadata.display_name ??
+                metadata.full_name ??
+                metadata.name ??
+                null,
+              supaUser.email
             );
-          }
+
+          const nextUser =
+            mapSafeShopUserProfile(
+              profile,
+              {
+                id: supaUser.id,
+                email:
+                  supaUser.email,
+                displayName:
+                  metadata.display_name ??
+                  metadata.full_name ??
+                  metadata.name ??
+                  derived.name,
+                photoURL:
+                  metadata.avatar_url ??
+                  metadata.picture ??
+                  null
+              }
+            );
+
+          setUser(
+            nextUser || {
+              ...INITIAL_USER,
+              id: supaUser.id,
+              email:
+                supaUser.email || '',
+              firstName:
+                derived.firstName,
+              lastName:
+                derived.lastName,
+              name:
+                derived.name
+            }
+          );
+
+          /*
+           * The authenticated user's cart/wishlist now come from Supabase.
+           *
+           * Mark the cart as hydrated only after the database read succeeds.
+           * This prevents the persistence effect from accidentally overwriting
+           * a user's saved cart with an empty initial React state.
+           */
+          setCart(
+            Array.isArray(savedCart)
+              ? savedCart
+              : []
+          );
+
+          setWishlist(
+            Array.isArray(
+              savedWishlist
+            )
+              ? savedWishlist
+              : []
+          );
+
+          setCartHydratedForUserId(
+            supaUser.id
+          );
+
+          lastPersistedCartRef.current =
+            JSON.stringify(
+              Array.isArray(
+                savedCart
+              )
+                ? savedCart
+                : []
+            );
+
+          lastPersistedWishlistRef.current =
+            JSON.stringify(
+              Array.isArray(
+                savedWishlist
+              )
+                ? savedWishlist
+                : []
+            );
+
+          /*
+           * Authenticated data must no longer be treated as a guest-owned
+           * browser cart.
+           */
+          writeLocalCartOwner(
+            supaUser.id
+          );
+
+          try {
+            localStorage.removeItem(
+              GUEST_CART_KEY
+            );
+
+            localStorage.removeItem(
+              GUEST_WISHLIST_KEY
+            );
+
+            localStorage.removeItem(
+              LEGACY_CART_KEY
+            );
+
+            localStorage.removeItem(
+              LEGACY_WISHLIST_KEY
+            );
+          } catch {}
+
+          if (!isCurrent()) return;
+
+          setIsLoadingAuth(false);
+        } catch (err) {
+          if (!isCurrent()) return;
+
+          console.error(
+            '[ShopContext] Failed to hydrate Supabase user:',
+            err
+          );
+
+          /*
+           * Do not silently promote the user to admin/seller or invent
+           * profile/cart data when the database read fails.
+           */
+          setIsAdminUser(false);
+          setIsSellerUser(false);
+          setSellerId(null);
+
+          setIsLoadingAuth(false);
         }
-      }, 0);
+      })();
     };
 
-    // 1. Initial Session Restoration
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.warn("[ShopContext] Error restoring Supabase session:", error);
-      }
-      handleAuthUser(session?.user ?? null);
-    }).catch((err) => {
-      console.warn("[ShopContext] Supabase getSession catch:", err);
-      handleAuthUser(null);
-    });
+    /*
+     * Read the current Supabase session first.
+     *
+     * `getSession()` restores the persisted browser session while
+     * `onAuthStateChange()` handles subsequent SIGNED_IN/SIGNED_OUT/
+     * TOKEN_REFRESHED events.
+     */
+    void supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!isMounted) return;
 
-    // 2. Auth State Change Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`[ShopContext] Supabase Auth event: ${event}`, session?.user?.id ?? "None (Guest)");
-      handleAuthUser(session?.user ?? null);
-    });
+        if (error) {
+          console.error(
+            '[ShopContext] Supabase getSession failed:',
+            error
+          );
+
+          handleAuthUser(null);
+          return;
+        }
+
+        handleAuthUser(
+          data.session?.user ??
+            null
+        );
+      });
+
+    const {
+      data: authSubscription
+    } =
+      supabase.auth.onAuthStateChange(
+        (event, session) => {
+          if (!isMounted) return;
+
+          /*
+           * Supabase can emit INITIAL_SESSION immediately after registering
+           * the listener. It is safe to process because handleAuthUser()
+           * uses the generation guard.
+           */
+          console.log(
+            `[ShopContext] Supabase auth event: ${event}`
+          );
+
+          handleAuthUser(
+            session?.user ?? null
+          );
+        }
+      );
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      authSubscription.subscription.unsubscribe();
     };
   }, []);
+      
+          // ============================================================
+      // Supabase user/profile/cart hydration
+      // ============================================================
 
-  /**
-   * Persist the cart to Supabase `carts` whenever it changes (debounced 800ms).
+      /*
+       * Set the auth adapter immediately so the UI knows that a Supabase
+       * session exists. The database profile is loaded separately below.
+       *
+       * IMPORTANT:
+       * This adapter does NOT grant authorization. Admin/seller permissions
+       * are determined by the Supabase `profiles` row and enforced by RLS.
+       */
+      const initialUserAdapter =
+        createAuthUserAdapter(
+          supaUser,
+          'customer',
+          null,
+          {}
+        );
+
+      setAuthUser(
+        initialUserAdapter
+      );
+
+      setIsEmailVerified(
+        Boolean(
+          supaUser.email_confirmed_at
+        )
+      );
+
+      /*
+       * Supabase Auth callbacks should not perform a large chain of database
+       * operations synchronously inside the auth callback.
+       *
+       * Defer the profile/cart/wishlist hydration to the next event-loop turn.
+       */
+      setTimeout(() => {
+        if (!isCurrent()) return;
+
+        void (async () => {
+          try {
+            // ============================================================
+            // 1. Load authoritative profile
+            // ============================================================
+
+            let profileRole:
+              | 'admin'
+              | 'seller'
+              | 'customer' =
+              'customer';
+
+            let profileSellerId:
+              string | null = null;
+
+            let profileData:
+              Record<string, any> = {};
+
+            try {
+              const {
+                data: profile,
+                error: profileError
+              } = await supabase
+                .from('profiles')
+                .select(
+                  'id,name,first_name,last_name,email,phone,avatar,default_address,default_city,default_region,default_country,role,seller_id,email_verified,is_otp_verified,created_at,updated_at'
+                )
+                .eq(
+                  'id',
+                  supaUser.id
+                )
+                .maybeSingle();
+
+              if (profileError) {
+                throw profileError;
+              }
+
+              if (profile) {
+                profileData =
+                  profile;
+
+                if (
+                  profile.role ===
+                  'admin'
+                ) {
+                  profileRole =
+                    'admin';
+                } else if (
+                  profile.role ===
+                  'seller'
+                ) {
+                  profileRole =
+                    'seller';
+                }
+
+                profileSellerId =
+                  profile.seller_id ??
+                  null;
+              }
+            } catch (profileErr) {
+              /*
+               * Do not invent an admin/seller role when the profile cannot
+               * be read. Fail closed to customer for UI purposes.
+               */
+              console.error(
+                '[ShopContext] Failed to load Supabase profile:',
+                profileErr
+              );
+
+              profileRole =
+                'customer';
+
+              profileSellerId =
+                null;
+
+              profileData = {};
+            }
+
+            if (!isCurrent()) return;
+
+            // ============================================================
+            // 2. Apply authoritative role/profile state
+            // ============================================================
+
+            const isAdmin =
+              profileRole ===
+              'admin';
+
+            const isSeller =
+              profileRole ===
+              'seller';
+
+            const isEmailConfirmed =
+              Boolean(
+                supaUser.email_confirmed_at
+              );
+
+            setIsAdminUser(
+              isAdmin
+            );
+
+            setIsSellerUser(
+              isSeller
+            );
+
+            setSellerId(
+              isSeller
+                ? profileSellerId
+                : null
+            );
+
+            setIsEmailVerified(
+              isEmailConfirmed
+            );
+
+            /*
+             * Rebuild the compatibility adapter using the actual Supabase
+             * profile. This keeps the existing UI compatible while Supabase
+             * remains the real authentication system.
+             */
+            const authoritativeUserAdapter =
+              createAuthUserAdapter(
+                supaUser,
+                profileRole,
+                profileSellerId,
+                profileData
+              );
+
+            setAuthUser(
+              authoritativeUserAdapter
+            );
+
+            // ============================================================
+            // 3. Build application user profile
+            // ============================================================
+
+            let cachedShipping:
+              Partial<UserProfile> =
+              {};
+
+            try {
+              const rawCache =
+                localStorage.getItem(
+                  'yallalb_saved_checkout_data'
+                );
+
+              if (rawCache) {
+                cachedShipping =
+                  JSON.parse(
+                    rawCache
+                  );
+              }
+            } catch {
+              cachedShipping =
+                {};
+            }
+
+            const fallbackNames =
+              deriveNames(
+                authoritativeUserAdapter.displayName,
+                supaUser.email
+              );
+
+            const safeProfile =
+              mapSafeShopUserProfile(
+                profileData,
+                authoritativeUserAdapter,
+                profileSellerId,
+                cachedShipping,
+                fallbackNames
+              );
+
+            if (!isCurrent()) return;
+
+            setUser(
+              safeProfile
+            );
+
+            // ============================================================
+            // 4. Hydrate authenticated cart + wishlist
+            // ============================================================
+
+            /*
+             * Supabase is authoritative for authenticated users.
+             *
+             * Before loading the account's rows, make sure a previous
+             * account's browser data cannot leak into this session.
+             */
+            const localOwner =
+              readLocalCartOwner();
+
+            const localBelongsToSomeoneElse =
+              localOwner !==
+                'guest' &&
+              localOwner !==
+                supaUser.id;
+
+            if (
+              localBelongsToSomeoneElse
+            ) {
+              setCart([]);
+              setWishlist([]);
+
+              try {
+                localStorage.removeItem(
+                  GUEST_CART_KEY
+                );
+
+                localStorage.removeItem(
+                  GUEST_WISHLIST_KEY
+                );
+
+                localStorage.removeItem(
+                  LEGACY_CART_KEY
+                );
+
+                localStorage.removeItem(
+                  LEGACY_WISHLIST_KEY
+                );
+              } catch {}
+            }
+
+            /*
+             * Keep the persistence gate CLOSED while these reads are in
+             * progress. Otherwise the initial React state could overwrite
+             * the user's saved Supabase cart.
+             */
+            setCartHydratedForUserId(
+              null
+            );
+
+            const [
+              savedCart,
+              savedWishlist
+            ] = await Promise.all([
+              supabaseUserDataService.fetchCart(
+                supaUser.id
+              ),
+              supabaseUserDataService.fetchWishlist(
+                supaUser.id
+              )
+            ]);
+
+            if (!isCurrent()) return;
+
+            // ============================================================
+            // 5. Apply saved cart
+            // ============================================================
+
+            /*
+             * `null` means there is no row yet.
+             *
+             * It is different from a failed request. A successful null
+             * allows the authenticated persistence layer to continue.
+             */
+            if (
+              savedCart !== null &&
+              savedCart !== undefined
+            ) {
+              setCart(
+                savedCart
+              );
+
+              lastPersistedCartRef.current =
+                JSON.stringify(
+                  savedCart
+                );
+            } else {
+              lastPersistedCartRef.current =
+                null;
+            }
+
+            // ============================================================
+            // 6. Apply saved wishlist
+            // ============================================================
+
+            if (
+              savedWishlist !== null &&
+              savedWishlist !== undefined
+            ) {
+              setWishlist(
+                savedWishlist
+              );
+
+              lastPersistedWishlistRef.current =
+                JSON.stringify(
+                  savedWishlist
+                );
+            } else {
+              lastPersistedWishlistRef.current =
+                null;
+            }
+
+            // ============================================================
+            // 7. Mark account hydration complete
+            // ============================================================
+
+            writeLocalCartOwner(
+              supaUser.id
+            );
+
+            /*
+             * Only AFTER the Supabase rows have been successfully read may
+             * the cart/wishlist persistence effects write to the database.
+             */
+            setCartHydratedForUserId(
+              supaUser.id
+            );
+
+            // ============================================================
+            // 8. Remove guest browser data
+            // ============================================================
+
+            try {
+              localStorage.removeItem(
+                GUEST_CART_KEY
+              );
+
+              localStorage.removeItem(
+                GUEST_WISHLIST_KEY
+              );
+
+              localStorage.removeItem(
+                LEGACY_CART_KEY
+              );
+
+              localStorage.removeItem(
+                LEGACY_WISHLIST_KEY
+              );
+            } catch {}
+
+            if (!isCurrent()) return;
+
+            setIsLoadingAuth(
+              false
+            );
+          } catch (err) {
+            if (!isCurrent()) return;
+
+            /*
+             * A failed cart/wishlist read must NOT be interpreted as an
+             * empty account.
+             *
+             * Keep the hydration gate closed so the persistence effects
+             * cannot overwrite the existing Supabase data.
+             */
+            console.error(
+              '[ShopContext] Failed to hydrate Supabase user data:',
+              err
+            );
+
+            setCartHydratedForUserId(
+              null
+            );
+
+            /*
+             * Fail closed for authorization state if the profile/data
+             * hydration failed.
+             */
+            setIsAdminUser(
+              false
+            );
+
+            setIsSellerUser(
+              false
+            );
+
+            setSellerId(
+              null
+            );
+
+            setIsLoadingAuth(
+              false
+            );
+
+            showToast(
+              language === 'ar'
+                ? 'تعذر تحميل بيانات حسابك. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
+                : 'Could not load your account data. Please refresh the page and try again.',
+              'error'
+            );
+          }
+        })();
+      }, 0);
+    };
+                
+      // ============================================================
+  // Supabase Auth Session Restoration
+  // ============================================================
+
+  /*
+   * Restore the existing Supabase session when the provider mounts.
    *
-   * This replaces a write to Firestore `carts/<uid>`, which is no longer the
-   * store of record. It covers every cart mutation — add, quantity change,
-   * remove, and clear — because they all reduce onto `storedCart`; clearing to
-   * [] is persisted as an empty cart rather than being skipped.
-   *
-   * The write is gated on hydration having succeeded for this exact user, so a
-   * saved cart is never overwritten by local state that predates the read.
+   * `handleAuthUser()` is responsible for profile, role, cart and wishlist
+   * hydration. Supabase Auth remains the only authentication authority.
    */
-  useEffect(() => {
-    const userId = authUser?.uid;
-    if (!userId) return; // guest: localStorage only
-    if (cartHydratedForUserId !== userId) return;
+  void supabase.auth
+    .getSession()
+    .then(({ data, error }) => {
+      if (error) {
+        console.error(
+          '[ShopContext] Failed to restore Supabase session:',
+          error
+        );
 
-    const payload = JSON.stringify(storedCart);
-    if (payload === lastPersistedCartRef.current) return;
+        handleAuthUser(null);
+        return;
+      }
 
-    const handler = setTimeout(() => {
-      supabaseUserDataService
-        .saveCart(userId, storedCart)
-        .then(() => {
-          lastPersistedCartRef.current = payload;
-        })
-        .catch((err) => {
-          // Surfaced, not swallowed: the user needs to know the cart they are
-          // looking at is not saved.
-          console.error('[ShopContext] Failed to save cart to Supabase:', err);
-          showToast(
-            language === 'ar' ? 'تعذر حفظ سلتك على الخادم.' : 'Could not save your cart to the server.',
-            'error'
-          );
-        });
-    }, 800);
+      handleAuthUser(
+        data.session?.user ?? null
+      );
+    })
+    .catch(err => {
+      console.error(
+        '[ShopContext] Supabase session restoration failed:',
+        err
+      );
 
-    return () => clearTimeout(handler);
-    // `language` is intentionally not a dependency: it is declared further down
-    // this component body, so naming it here would read it during render, while
-    // it is still in its temporal dead zone. The callback reads it safely
-    // because it only runs after the body has finished.
-  }, [storedCart, authUser, cartHydratedForUserId]);
+      handleAuthUser(null);
+    });
 
-  /** Persist the wishlist to Supabase `wishlists`. Same gating as the cart. */
-  useEffect(() => {
-    const userId = authUser?.uid;
-    if (!userId) return;
-    if (cartHydratedForUserId !== userId) return;
+  // ============================================================
+  // Supabase Auth State Listener
+  // ============================================================
 
-    const payload = JSON.stringify(wishlist);
-    if (payload === lastPersistedWishlistRef.current) return;
-
-    const handler = setTimeout(() => {
-      supabaseUserDataService
-        .saveWishlist(userId, wishlist)
-        .then(() => {
-          lastPersistedWishlistRef.current = payload;
-        })
-        .catch((err) => {
-          console.error('[ShopContext] Failed to save wishlist to Supabase:', err);
-
-          // The catalog is still serving bundled demo slugs, so the ids cannot
-          // go into a uuid[] column. That is a migration state to fix, not a
-          // server fault, and telling the shopper the server failed would be
-          // wrong — so it is loud in the console and silent in the UI.
-          if (err?.name === 'NonUuidProductIdsError') return;
-
-          showToast(
-            language === 'ar' ? 'تعذر حفظ قائمة رغباتك على الخادم.' : 'Could not save your wishlist to the server.',
-            'error'
-          );
-        });
-    }, 800);
-
-    return () => clearTimeout(handler);
-  }, [wishlist, authUser, cartHydratedForUserId]);
-
-  /**
-   * Classifies a Supabase Auth failure.
-   *
-   * The three call sites below compared `error.code` against Firebase codes
-   * ('auth/invalid-credential', 'auth/email-already-in-use',
-   * 'auth/weak-password', 'auth/network-request-failed', …). Supabase never
-   * sets those, so every specific branch was dead and users saw the generic
-   * fallback message.
-   *
-   * Supabase reports an AuthApiError with an HTTP `status`, a snake_case
-   * `code` on recent client versions, and a human message. All three are
-   * consulted so the mapping keeps working whichever the installed client
-   * provides.
-   */
-  type AuthErrorKind =
-    | 'invalid_credentials'
-    | 'unconfirmed_email'
-    | 'already_registered'
-    | 'weak_password'
-    | 'invalid_email'
-    | 'rate_limited'
-    | 'network'
-    | 'not_found'
-    | 'unknown';
-
-  const classifyAuthError = (error: any): AuthErrorKind => {
-    const code = String(error?.code ?? '');
-    const status = Number(error?.status ?? 0);
-    const message = String(error?.message ?? '').toLowerCase();
-
-    if (error?.name === 'AuthRetryableFetchError' || error instanceof TypeError) return 'network';
-    if (
-      message.includes('failed to fetch') ||
-      message.includes('fetch failed') ||
-      message.includes('networkerror') ||
-      message.includes('load failed')
-    ) {
-      return 'network';
+  const {
+    data: {
+      subscription
     }
+  } =
+    supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log(
+          `[ShopContext] Supabase Auth event: ${event}`,
+          session?.user?.id ??
+            'None (Guest)'
+        );
 
-    if (code === 'invalid_credentials' || message.includes('invalid login credentials') || message.includes('invalid credentials')) {
-      return 'invalid_credentials';
-    }
-    if (code === 'email_not_confirmed' || message.includes('email not confirmed')) return 'unconfirmed_email';
-    if (
-      code === 'user_already_exists' ||
-      code === 'email_exists' ||
-      message.includes('already registered') ||
-      message.includes('already in use') ||
-      message.includes('user already exists')
-    ) {
-      return 'already_registered';
-    }
-    if (code === 'weak_password' || message.includes('password should be') || message.includes('password is too weak')) {
-      return 'weak_password';
-    }
-    if (code === 'validation_failed' || message.includes('invalid email') || message.includes('unable to validate email')) {
-      return 'invalid_email';
-    }
-    if (status === 429 || code.includes('rate_limit') || message.includes('rate limit') || message.includes('too many requests')) {
-      return 'rate_limited';
-    }
-    if (status === 404 || code === 'user_not_found' || message.includes('user not found')) return 'not_found';
+        handleAuthUser(
+          session?.user ?? null
+        );
+      }
+    );
 
-    return 'unknown';
+  return () => {
+    isMounted = false;
+
+    subscription.unsubscribe();
   };
+}, []);
 
-  /**
-   * Retries only failures that a retry can fix.
-   *
-   * The condition was `error.code === 'auth/network-request-failed'`, a
-   * Firebase Auth code Supabase never emits, so in practice nothing retried
-   * except a message that happened to contain "fetch failed".
-   *
-   * Retryable: a transport failure (the fetch itself threw), Supabase's own
-   * AuthRetryableFetchError, and 408 / 429 / 5xx from the API.
-   *
-   * Never retried: authorization and validation failures. Repeating them
-   * cannot change the answer, and retrying a rejected sign-in burns the rate
-   * limit that produced it — so invalid credentials, 400/401/403/422, RLS
-   * denials (42501) and constraint violations (23xxx) are rethrown at once.
+/**
+ * Persist the authenticated user's cart to Supabase.
+ *
+ * Supabase `carts` is authoritative for signed-in users.
+ * Guest carts remain localStorage-only.
+ *
+ * The hydration gate is critical: the cart cannot be written until the
+ * current user's saved cart has successfully been loaded.
+ */
+useEffect(() => {
+  const userId =
+    authUser?.uid;
+
+  if (!userId) return;
+
+  if (
+    cartHydratedForUserId !==
+    userId
+  ) {
+    return;
+  }
+
+  const payload =
+    JSON.stringify(
+      storedCart
+    );
+
+  if (
+    payload ===
+    lastPersistedCartRef.current
+  ) {
+    return;
+  }
+
+  const handler =
+    setTimeout(() => {
+      void supabaseUserDataService
+        .saveCart(
+          userId,
+          storedCart
+        )
+        .then(() => {
+          lastPersistedCartRef.current =
+            payload;
+        })
+        .catch(err => {
+          console.error(
+            '[ShopContext] Failed to save cart to Supabase:',
+            err
+          );
+
+          showToast(
+            language === 'ar'
+              ? 'تعذر حفظ سلتك على الخادم.'
+              : 'Could not save your cart to the server.',
+            'error'
+          );
+        });
+    }, 800);
+
+  return () =>
+    clearTimeout(handler);
+
+  /*
+   * `language` is intentionally not included because it is declared later
+   * in this component and would be accessed while still in its temporal
+   * dead zone. The callback executes after render has completed.
    */
-  const isRetryableBackendError = (error: any): boolean => {
+}, [
+  storedCart,
+  authUser,
+  cartHydratedForUserId
+]);
+
+/**
+ * Persist the authenticated user's wishlist to Supabase.
+ *
+ * Supabase `wishlists` is authoritative for signed-in users.
+ * Guest wishlists remain localStorage-only.
+ */
+useEffect(() => {
+  const userId =
+    authUser?.uid;
+
+  if (!userId) return;
+
+  if (
+    cartHydratedForUserId !==
+    userId
+  ) {
+    return;
+  }
+
+  const payload =
+    JSON.stringify(
+      wishlist
+    );
+
+  if (
+    payload ===
+    lastPersistedWishlistRef.current
+  ) {
+    return;
+  }
+
+  const handler =
+    setTimeout(() => {
+      void supabaseUserDataService
+        .saveWishlist(
+          userId,
+          wishlist
+        )
+        .then(() => {
+          lastPersistedWishlistRef.current =
+            payload;
+        })
+        .catch(err => {
+          console.error(
+            '[ShopContext] Failed to save wishlist to Supabase:',
+            err
+          );
+
+          /*
+           * Product IDs are UUIDs in Supabase. If old/migrated demo IDs are
+           * encountered, this is a migration/data issue rather than an Auth
+           * failure.
+           */
+          if (
+            err?.name ===
+            'NonUuidProductIdsError'
+          ) {
+            return;
+          }
+
+          showToast(
+            language === 'ar'
+              ? 'تعذر حفظ قائمة رغباتك على الخادم.'
+              : 'Could not save your wishlist to the server.',
+            'error'
+          );
+        });
+    }, 800);
+
+  return () =>
+    clearTimeout(handler);
+}, [
+  wishlist,
+  authUser,
+  cartHydratedForUserId
+]);
+
+// ============================================================
+// Supabase Auth Error Classification
+// ============================================================
+
+type AuthErrorKind =
+  | 'invalid_credentials'
+  | 'unconfirmed_email'
+  | 'already_registered'
+  | 'weak_password'
+  | 'invalid_email'
+  | 'rate_limited'
+  | 'network'
+  | 'not_found'
+  | 'unknown';
+
+const classifyAuthError = (
+  error: any
+): AuthErrorKind => {
+  const code = String(
+    error?.code ?? ''
+  ).toLowerCase();
+
+  const status = Number(
+    error?.status ?? 0
+  );
+
+  const message = String(
+    error?.message ?? ''
+  ).toLowerCase();
+
+  // ------------------------------------------------------------
+  // Network / transport errors
+  // ------------------------------------------------------------
+
+  if (
+    error?.name ===
+      'AuthRetryableFetchError' ||
+    error instanceof TypeError ||
+    message.includes(
+      'failed to fetch'
+    ) ||
+    message.includes(
+      'fetch failed'
+    ) ||
+    message.includes(
+      'networkerror'
+    ) ||
+    message.includes(
+      'load failed'
+    )
+  ) {
+    return 'network';
+  }
+
+  // ------------------------------------------------------------
+  // Invalid credentials
+  // ------------------------------------------------------------
+
+  if (
+    code ===
+      'invalid_credentials' ||
+    message.includes(
+      'invalid login credentials'
+    ) ||
+    message.includes(
+      'invalid credentials'
+    )
+  ) {
+    return 'invalid_credentials';
+  }
+
+  // ------------------------------------------------------------
+  // Email confirmation
+  // ------------------------------------------------------------
+
+  if (
+    code ===
+      'email_not_confirmed' ||
+    message.includes(
+      'email not confirmed'
+    )
+  ) {
+    return 'unconfirmed_email';
+  }
+
+  // ------------------------------------------------------------
+  // Existing account
+  // ------------------------------------------------------------
+
+  if (
+    code ===
+      'user_already_exists' ||
+    code ===
+      'email_exists' ||
+    message.includes(
+      'already registered'
+    ) ||
+    message.includes(
+      'already in use'
+    ) ||
+    message.includes(
+      'user already exists'
+    )
+  ) {
+    return 'already_registered';
+  }
+
+  // ------------------------------------------------------------
+  // Password validation
+  // ------------------------------------------------------------
+
+  if (
+    code ===
+      'weak_password' ||
+    message.includes(
+      'password should be'
+    ) ||
+    message.includes(
+      'password is too weak'
+    )
+  ) {
+    return 'weak_password';
+  }
+
+  // ------------------------------------------------------------
+  // Email validation
+  // ------------------------------------------------------------
+
+  if (
+    code ===
+      'validation_failed' ||
+    message.includes(
+      'invalid email'
+    ) ||
+    message.includes(
+      'unable to validate email'
+    )
+  ) {
+    return 'invalid_email';
+  }
+
+  // ------------------------------------------------------------
+  // Rate limiting
+  // ------------------------------------------------------------
+
+  if (
+    status === 429 ||
+    code.includes(
+      'rate_limit'
+    ) ||
+    message.includes(
+      'rate limit'
+    ) ||
+    message.includes(
+      'too many requests'
+    )
+  ) {
+    return 'rate_limited';
+  }
+
+  // ------------------------------------------------------------
+  // User not found
+  // ------------------------------------------------------------
+
+  if (
+    status === 404 ||
+    code ===
+      'user_not_found' ||
+    message.includes(
+      'user not found'
+    )
+  ) {
+    return 'not_found';
+  }
+
+  return 'unknown';
+};
+                
+   /**
+   * Determines whether a Supabase/backend failure is safe to retry.
+   *
+   * Retry:
+   *   - network/transport failures
+   *   - Supabase AuthRetryableFetchError
+   *   - HTTP 408
+   *   - HTTP 429
+   *   - HTTP 5xx
+   *
+   * Never retry:
+   *   - authentication/authorization failures
+   *   - validation errors
+   *   - RLS failures
+   *   - PostgreSQL constraint errors
+   *   - application/business-rule errors
+   */
+  const isRetryableBackendError = (
+    error: any
+  ): boolean => {
     if (!error) return false;
 
-    const status = Number(error.status ?? error.statusCode ?? 0);
-    const code = String(error.code ?? '');
-    const message = String(error.message ?? '').toLowerCase();
+    const status = Number(
+      error?.status ??
+      error?.statusCode ??
+      0
+    );
 
-    // Authorization / validation: never retry.
-    if ([400, 401, 403, 404, 409, 422].includes(status)) return false;
-    if (/^(42501|42P01|23\d{3}|P0001|P0002|PGRST\d+)$/.test(code)) return false;
+    const code = String(
+      error?.code ?? ''
+    ).toLowerCase();
+
+    const message = String(
+      error?.message ?? ''
+    ).toLowerCase();
+
+    // ------------------------------------------------------------
+    // Never retry deterministic client/auth/database failures
+    // ------------------------------------------------------------
+
     if (
-      message.includes('invalid login credentials') ||
-      message.includes('email not confirmed') ||
-      message.includes('already registered') ||
-      message.includes('row-level security') ||
-      message.includes('violates')
+      [
+        400,
+        401,
+        403,
+        404,
+        409,
+        422
+      ].includes(status)
     ) {
       return false;
     }
 
-    // Supabase marks its own retryable transport failures.
-    if (error.name === 'AuthRetryableFetchError') return true;
+    /*
+     * PostgreSQL / PostgREST errors:
+     *
+     * 42501 -> insufficient_privilege / RLS
+     * 42xxx -> SQL/schema errors
+     * 23xxx -> constraint violations
+     * P0001/P0002 -> application-raised PostgreSQL exceptions
+     * PGRSTxxx -> PostgREST errors
+     */
+    if (
+      /^(42501|42\d{3}|23\d{3}|P0001|P0002|PGRST\d+)$/i.test(
+        code
+      )
+    ) {
+      return false;
+    }
 
-    // Server-side and throttling failures are worth one more attempt.
-    if (status === 408 || status === 429 || (status >= 500 && status <= 599)) return true;
+    if (
+      message.includes(
+        'invalid login credentials'
+      ) ||
+      message.includes(
+        'invalid credentials'
+      ) ||
+      message.includes(
+        'email not confirmed'
+      ) ||
+      message.includes(
+        'already registered'
+      ) ||
+      message.includes(
+        'already exists'
+      ) ||
+      message.includes(
+        'row-level security'
+      ) ||
+      message.includes(
+        'permission denied'
+      ) ||
+      message.includes(
+        'violates'
+      ) ||
+      message.includes(
+        'duplicate key'
+      ) ||
+      message.includes(
+        'foreign key'
+      ) ||
+      message.includes(
+        'not-null'
+      )
+    ) {
+      return false;
+    }
 
-    // A fetch that never reached the API throws a TypeError.
-    return (
+    // ------------------------------------------------------------
+    // Explicit Supabase retryable Auth transport error
+    // ------------------------------------------------------------
+
+    if (
+      error?.name ===
+      'AuthRetryableFetchError'
+    ) {
+      return true;
+    }
+
+    // ------------------------------------------------------------
+    // Temporary HTTP failures
+    // ------------------------------------------------------------
+
+    if (
+      status === 408 ||
+      status === 429 ||
+      (status >= 500 &&
+        status <= 599)
+    ) {
+      return true;
+    }
+
+    // ------------------------------------------------------------
+    // Network / transport failures
+    // ------------------------------------------------------------
+
+    if (
       error instanceof TypeError ||
-      message.includes('failed to fetch') ||
-      message.includes('fetch failed') ||
-      message.includes('networkerror') ||
-      message.includes('network request failed') ||
-      message.includes('load failed') ||
-      message.includes('timeout')
-    );
+      message.includes(
+        'failed to fetch'
+      ) ||
+      message.includes(
+        'fetch failed'
+      ) ||
+      message.includes(
+        'networkerror'
+      ) ||
+      message.includes(
+        'network request failed'
+      ) ||
+      message.includes(
+        'load failed'
+      ) ||
+      message.includes(
+        'connection reset'
+      ) ||
+      message.includes(
+        'connection refused'
+      ) ||
+      message.includes(
+        'socket'
+      ) ||
+      message.includes(
+        'timeout'
+      ) ||
+      message.includes(
+        'timed out'
+      )
+    ) {
+      return true;
+    }
+
+    return false;
   };
 
-  async function executeWithRetry<T>(fn: () => Promise<T>, retries = 2, delay = 1000): Promise<T> {
+  /**
+   * Execute a Supabase operation with bounded exponential retry.
+   *
+   * Default:
+   *   attempt 1 -> immediate
+   *   attempt 2 -> +1 second
+   *   attempt 3 -> +2 seconds
+   *
+   * Only retryable transport/server failures are retried.
+   * Authentication, RLS, validation and database constraint failures are
+   * immediately returned to the caller.
+   */
+  async function executeWithRetry<T>(
+    fn: () => Promise<T>,
+    retries = 2,
+    delay = 1000
+  ): Promise<T> {
     try {
       return await fn();
     } catch (error: any) {
-      if (retries > 0 && isRetryableBackendError(error)) {
-        console.warn(
-          `[ShopContext] Retryable backend failure (${error?.name || error?.code || error?.status || 'network'}), ` +
-            `retrying... (${retries} attempts left)`
-        );
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return executeWithRetry(fn, retries - 1, delay * 2);
+      if (
+        retries <= 0 ||
+        !isRetryableBackendError(error)
+      ) {
+        throw error;
       }
-      throw error;
+
+      console.warn(
+        '[ShopContext] Retryable Supabase failure:',
+        {
+          name:
+            error?.name,
+          code:
+            error?.code,
+          status:
+            error?.status,
+          retriesRemaining:
+            retries
+        }
+      );
+
+      await new Promise<void>(
+        resolve =>
+          setTimeout(
+            resolve,
+            delay
+          )
+      );
+
+      return executeWithRetry(
+        fn,
+        retries - 1,
+        Math.min(
+          delay * 2,
+          8000
+        )
+      );
     }
   }
 
-  const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
-      });
-      if (error) throw error;
-      showToast('Redirecting to Google sign in...', 'info');
-    } catch (error: any) {
-      console.warn('[ShopContext] Supabase Google sign-in failed:', error);
-      showToast('Failed to sign in with Google: ' + (error.message || 'Unknown error'), 'warning');
-    }
-  };
+  // ============================================================
+  // OAuth
+  // ============================================================
 
-  const signInWithApple = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
-      });
-      if (error) throw error;
-      showToast('Redirecting to Apple sign in...', 'info');
-    } catch (error: any) {
-      console.warn('[ShopContext] Supabase Apple sign-in failed:', error);
-      showToast('Failed to sign in with Apple: ' + (error.message || 'Unknown error'), 'warning');
-    }
-  };
-  
-  const resetPassword = async (email: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail) {
-      const msg = language === 'ar' ? 'الرجاء إدخال البريد الإلكتروني' : 'Please enter an email address.';
-      showToast(msg, 'warning');
-      throw new Error(msg);
-    }
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?resetPassword=true` : undefined,
-      });
-      if (error) throw error;
-
-      const successMsg = language === 'ar'
-        ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
-        : 'If an account exists for this email address, a password reset link has been sent.';
-      showToast(successMsg, 'success');
-    } catch (error: any) {
-      if (classifyAuthError(error) === 'not_found') {
-        // OWASP User Enumeration Prevention: generic response prevents email address discovery
-        const successMsg = language === 'ar'
-          ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
-          : 'If an account exists for this email address, a password reset link has been sent.';
-        showToast(successMsg, 'success');
-        return;
-      }
-      let msg = language === 'ar' ? 'فشل إرسال رابط إعادة التعيين: ' : 'Failed to send reset email: ';
-      msg += error.message || '';
-      showToast(msg, 'warning');
-      throw error;
-    }
-  };
-
-  const sendEmailOtp = async (email: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      const msg = language === 'ar' ? 'الرجاء إدخال بريد إلكتروني صالح' : 'Please enter a valid email address.';
-      showToast(msg, 'warning');
-      throw new Error(msg);
-    }
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
-        },
-      });
-      if (error) throw error;
-
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('emailForSignIn', cleanEmail);
-      }
-
-      const successMsg = language === 'ar'
-        ? `تم إرسال رمز التحقق إلى ${cleanEmail}! يرجى مراجعة بريدك الإلكتروني.`
-        : `Verification code sent to ${cleanEmail}! Please check your email inbox.`;
-      showToast(successMsg, 'success');
-    } catch (err: any) {
-      console.error("[ShopContext] sendEmailOtp error:", err);
-      let msg = err.message || 'Failed to send OTP code';
-      showToast(msg, 'warning');
-      throw err;
-    }
-  };
-
-  const verifyEmailOtp = async (email: string, token: string, type: 'email' | 'signup' | 'magiclink' | 'recovery' = 'email') => {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanToken = token.trim();
-    if (!cleanEmail || !cleanToken) {
-      const msg = language === 'ar' ? 'يرجى إدخال البريد الإلكتروني ورمز التحقق' : 'Please enter email and verification code.';
-      showToast(msg, 'warning');
-      throw new Error(msg);
-    }
-
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: cleanEmail,
-        token: cleanToken,
-        type: type as any,
-      });
-
-      if (error) throw error;
-
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem('emailForSignIn');
-      }
-
-      showToast(language === 'ar' ? 'تم التحقق بنجاح!' : 'Verification successful!', 'success');
-    } catch (err: any) {
-      console.error("[ShopContext] verifyEmailOtp error:", err);
-      let msg = err.message || 'Invalid or expired verification code.';
-      showToast(msg, 'warning');
-      throw err;
-    }
-  };
-
-  const resendEmailVerification = async (email?: string) => {
-    const targetEmail = (email || authUser?.email || user.email || '').trim().toLowerCase();
-    if (!targetEmail) {
-      const msg = language === 'ar' ? 'الرجاء إدخال البريد الإلكتروني' : 'Please provide an email address.';
-      showToast(msg, 'warning');
-      return;
-    }
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: targetEmail,
-        options: {
-          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?verified=true` : undefined,
-        }
-      });
-      if (error) throw error;
-      showToast(
-        language === 'ar'
-          ? 'تم إرسال بريد التحقق بنجاح! يرجى مراجعة صندوق الوارد.'
-          : 'Verification email sent successfully! Please check your inbox.',
-        'success'
-      );
-    } catch (err: any) {
-      console.error("[ShopContext] resendEmailVerification error:", err);
-      showToast(err.message || 'Failed to resend verification email.', 'warning');
-      throw err;
-    }
-  };
-
-  const signUpWithEmail = async (email: string, pass: string, phone?: string) => {
-    // Check phone uniqueness before creating the auth record if phone is provided
-    const targetPhone = phone || (() => {
+  const signInWithGoogle =
+    async () => {
       try {
-        const rawTemp = localStorage.getItem('yallalb_signup_profile_temp');
-        if (rawTemp) {
-          const parsed = JSON.parse(rawTemp);
-          return parsed.phone || '';
+        const {
+          error
+        } =
+          await supabase.auth.signInWithOAuth(
+            {
+              provider:
+                'google',
+              options: {
+                redirectTo:
+                  typeof window !==
+                  'undefined'
+                    ? window.location
+                        .origin
+                    : undefined
+              }
+            }
+          );
+
+        if (error) {
+          throw error;
         }
-      } catch {}
-      return '';
-    })();
 
-    if (targetPhone) {
-      const phoneCheck = await checkPhoneUniqueness(targetPhone);
-      if (!phoneCheck.available) {
-        const msg = phoneCheck.reason || (language === 'ar' ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.');
-        showToast(msg, 'warning');
-        throw new Error(msg);
-      }
-    }
-
-    // L-5: Validate password complexity
-    if (pass.length < 8) {
-      const msg = 'Password must be at least 8 characters long.';
-      showToast(msg, 'warning');
-      throw new Error(msg);
-    }
-    const hasUppercase = /[A-Z]/.test(pass);
-    const hasLowercase = /[a-z]/.test(pass);
-    const hasNumber = /[0-9]/.test(pass);
-    const hasSpecial = /[^A-Za-z0-9]/.test(pass);
-    if (!hasUppercase || !hasLowercase || !hasNumber || !hasSpecial) {
-      const msg = 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.';
-      showToast(msg, 'warning');
-      throw new Error(msg);
-    }
-
-    try {
-      let tempSignup: any = {};
-      try {
-        const rawTemp = localStorage.getItem('yallalb_signup_profile_temp');
-        if (rawTemp) tempSignup = JSON.parse(rawTemp);
-      } catch {}
-
-      const cleanEmail = email.trim().toLowerCase();
-      const { data: supaAuthData, error: supaErr } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: pass,
-        options: {
-          data: {
-            name: tempSignup.firstName && tempSignup.lastName ? `${tempSignup.firstName} ${tempSignup.lastName}`.trim() : '',
-            phone: targetPhone || '',
-          },
-          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?verified=true` : undefined,
-        },
-      });
-
-      if (supaErr) {
-        throw supaErr;
-      }
-
-      // Safe profile sync to database if triggered or needed (DB trigger handles row creation)
-      if (supaAuthData?.user) {
-        try {
-          await supabase.from('profiles').update({
-            first_name: tempSignup.firstName || '',
-            last_name: tempSignup.lastName || '',
-            name: tempSignup.firstName && tempSignup.lastName ? `${tempSignup.firstName} ${tempSignup.lastName}`.trim() : '',
-            phone: targetPhone || '',
-            default_governorate: tempSignup.defaultGovernorate || '',
-            default_city: tempSignup.defaultCity || '',
-            default_address: tempSignup.defaultAddress || '',
-            default_building: tempSignup.defaultBuilding || '',
-            default_notes: tempSignup.defaultNotes || '',
-          }).eq('id', supaAuthData.user.id);
-        } catch (profErr) {
-          console.warn('[ShopContext] Safe profile update notice:', profErr);
-        }
-      }
-
-      if (supaAuthData.user && !supaAuthData.session) {
         showToast(
           language === 'ar'
-            ? 'تم إنشاء الحساب! تحقق من بريدك الإلكتروني واضغط على رابط التفعيل.'
-            : 'Account created. Check your email and click the verification link to start ordering.',
+            ? 'جارٍ تحويلك لتسجيل الدخول باستخدام Google...'
+            : 'Redirecting to Google sign in...',
+          'info'
+        );
+      } catch (
+        error: any
+      ) {
+        console.error(
+          '[ShopContext] Supabase Google sign-in failed:',
+          error
+        );
+
+        showToast(
+          language === 'ar'
+            ? `فشل تسجيل الدخول باستخدام Google: ${
+                error?.message ||
+                'خطأ غير معروف'
+              }`
+            : `Failed to sign in with Google: ${
+                error?.message ||
+                'Unknown error'
+              }`,
+          'warning'
+        );
+      }
+    };
+
+  const signInWithApple =
+    async () => {
+      try {
+        const {
+          error
+        } =
+          await supabase.auth.signInWithOAuth(
+            {
+              provider:
+                'apple',
+              options: {
+                redirectTo:
+                  typeof window !==
+                  'undefined'
+                    ? window.location
+                        .origin
+                    : undefined
+              }
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        showToast(
+          language === 'ar'
+            ? 'جارٍ تحويلك لتسجيل الدخول باستخدام Apple...'
+            : 'Redirecting to Apple sign in...',
+          'info'
+        );
+      } catch (
+        error: any
+      ) {
+        console.error(
+          '[ShopContext] Supabase Apple sign-in failed:',
+          error
+        );
+
+        showToast(
+          language === 'ar'
+            ? `فشل تسجيل الدخول باستخدام Apple: ${
+                error?.message ||
+                'خطأ غير معروف'
+              }`
+            : `Failed to sign in with Apple: ${
+                error?.message ||
+                'Unknown error'
+              }`,
+          'warning'
+        );
+      }
+    };
+
+  // ============================================================
+  // Password Reset
+  // ============================================================
+
+  const resetPassword =
+    async (
+      email: string
+    ) => {
+      const cleanEmail =
+        email
+          .trim()
+          .toLowerCase();
+
+      if (!cleanEmail) {
+        const msg =
+          language === 'ar'
+            ? 'الرجاء إدخال البريد الإلكتروني'
+            : 'Please enter an email address.';
+
+        showToast(
+          msg,
+          'warning'
+        );
+
+        throw new Error(
+          msg
+        );
+      }
+
+      try {
+        /*
+         * Supabase sends the password-reset email.
+         *
+         * The redirect URL must point back to the application. The reset
+         * callback should then use Supabase's PASSWORD_RECOVERY event/session.
+         */
+        const {
+          error
+        } =
+          await supabase.auth.resetPasswordForEmail(
+            cleanEmail,
+            {
+              redirectTo:
+                typeof window !==
+                'undefined'
+                  ? `${window.location.origin}/reset-password`
+                  : undefined
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        /*
+         * Keep the response generic. Do not reveal whether an email address
+         * exists in Supabase.
+         */
+        showToast(
+          language === 'ar'
+            ? 'إذا كان البريد مسجلاً، فستصلك رسالة لإعادة تعيين كلمة المرور.'
+            : 'If the email is registered, you will receive a password reset email.',
           'success'
         );
-      } else {
-        showToast('Account created successfully!', 'success');
-      }
-    } catch (err: any) {
-      console.error("Sign up error:", err);
-      let msg = 'Sign up failed: ' + (err.message || 'Unknown error');
-      switch (classifyAuthError(err)) {
-        case 'already_registered':
-          msg = 'This email is already in use. If you already have an account, please Sign In instead.';
-          break;
-        case 'weak_password':
-          msg = 'Password is too weak. Please choose a stronger password.';
-          break;
-        case 'invalid_email':
-          msg = 'Invalid email address format.';
-          break;
-        case 'rate_limited':
-          msg = 'Too many sign-up attempts. Please wait a moment and try again.';
-          break;
-        case 'network':
-          msg = 'Network connection error. Please check your internet connection and try again.';
-          break;
-        default:
-          break;
-      }
-      showToast(msg, 'warning');
-      throw err;
-    }
-  };
+      } catch (
+        error: any
+      ) {
+        const kind =
+          classifyAuthError(
+            error
+          );
 
-  const sendEmailSignInLink = async (email: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      const msg = language === 'ar' ? 'الرجاء إدخال بريد إلكتروني صالح' : 'Please enter a valid email address.';
-      showToast(msg, 'warning');
+        console.error(
+          '[ShopContext] Supabase password reset failed:',
+          error
+        );
+
+        /*
+         * Do not expose account-enumeration information to the user.
+         */
+        if (
+          kind ===
+          'network'
+        ) {
+          showToast(
+            language === 'ar'
+              ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.'
+              : 'Could not connect to the server. Please try again.',
+            'error'
+          );
+        } else if (
+          kind ===
+          'rate_limited'
+        ) {
+          showToast(
+            language === 'ar'
+              ? 'تم إجراء محاولات كثيرة. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+              : 'Too many attempts. Please wait a while and try again.',
+            'warning'
+          );
+        } else {
+          /*
+           * Generic response intentionally avoids confirming whether the
+           * account exists.
+           */
+          showToast(
+            language === 'ar'
+              ? 'تعذر معالجة طلب إعادة تعيين كلمة المرور.'
+              : 'Unable to process the password reset request.',
+            'error'
+          );
+        }
+
+        throw error;
+      }
+    };
+        
+      const resetPassword = async (
+    email: string
+  ) => {
+    const cleanEmail = email
+      .trim()
+      .toLowerCase();
+
+    if (
+      !cleanEmail ||
+      !cleanEmail.includes('@')
+    ) {
+      const msg =
+        language === 'ar'
+          ? 'الرجاء إدخال بريد إلكتروني صالح'
+          : 'Please enter a valid email address.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
       throw new Error(msg);
     }
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/account`,
-        },
-      });
-      if (error) throw error;
-
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('emailForSignIn', cleanEmail);
-      }
-
-      const successMsg = language === 'ar'
-        ? `تم إرسال رابط الدخول الآمن إلى ${cleanEmail}! تحقق من صندوق بريدك الإلكتروني.`
-        : `Secure sign-in link sent to ${cleanEmail}! Please check your email inbox.`;
-      showToast(successMsg, 'success');
-    } catch (err: any) {
-      console.error("[ShopContext] sendSignInLink error:", err);
-      let msg = err.message || 'Failed to send sign-in link';
-      showToast(msg, 'warning');
-      throw err;
-    }
-  };
-
-  const completeEmailLinkSignIn = async (emailInput?: string, urlOrToken?: string) => {
-    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-    let email = emailInput || (typeof window !== 'undefined' ? window.localStorage.getItem('emailForSignIn') || '' : '');
-
-    try {
-      // 1. If 6-digit OTP code was provided
-      if (urlOrToken && urlOrToken.trim().length === 6 && !urlOrToken.startsWith('http') && email) {
-        await verifyEmailOtp(email, urlOrToken, 'email');
-        return;
-      }
-
-      const callbackUrl = new URL(urlOrToken || currentUrl || 'http://localhost/');
-      const hashParams = new URLSearchParams(
-        callbackUrl.hash.startsWith('#') ? callbackUrl.hash.slice(1) : ''
-      );
-
-      // 2. A link Supabase rejected (expired, already used, wrong redirect) is
-      //    reported in the URL, not by an exception. Surface it instead of
-      //    falling through to "no session" and looking like nothing happened.
-      const callbackError =
-        callbackUrl.searchParams.get('error_description') ||
-        callbackUrl.searchParams.get('error') ||
-        hashParams.get('error_description') ||
-        hashParams.get('error');
-      if (callbackError) {
-        throw new Error(decodeURIComponent(callbackError.replace(/\+/g, ' ')));
-      }
-
-      // 3. Token-hash email templates (?token_hash=&type=) are not consumed by
-      //    detectSessionInUrl; they have to be redeemed explicitly.
-      const tokenHash = callbackUrl.searchParams.get('token_hash');
-      const linkType = callbackUrl.searchParams.get('type');
-      if (tokenHash) {
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: (linkType as EmailOtpType) || 'magiclink',
-        });
-        if (verifyError) throw verifyError;
-      }
-
-      // 4. The PKCE code exchange (?code=) and the implicit fragment are
-      //    handled by the client on load because detectSessionInUrl is on;
-      //    getSession() waits for that to finish before answering.
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-
-      if (data.session?.user) {
-        if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('emailForSignIn');
-          // Strip the Supabase callback parameters so a reload cannot replay
-          // a spent code and so the address bar stops showing the token.
-          ['code', 'token_hash', 'type', 'error', 'error_code', 'error_description', 'emailSignIn'].forEach((k) =>
-            callbackUrl.searchParams.delete(k)
-          );
-          callbackUrl.hash = '';
-          const cleaned = `${callbackUrl.pathname || '/'}${callbackUrl.search}`;
-          window.history.replaceState({}, document.title, cleaned);
-        }
-        showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح عبر الرابط!' : 'Successfully signed in via email link!', 'success');
-        return;
-      }
-
-      // No session and no error: the link carried nothing usable.
-      throw new Error(
-        language === 'ar'
-          ? 'رابط تسجيل الدخول غير صالح أو انتهت صلاحيته.'
-          : 'Sign-in link is invalid or has expired.'
-      );
-    } catch (error: any) {
-      console.error("[ShopContext] completeEmailLinkSignIn error:", error);
-      let msg = error.message || 'Sign in link is invalid or has expired.';
-      showToast(msg, 'warning');
-      throw error;
-    }
-  };
-
-  const signInWithEmail = async (email: string, pass: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    try {
-      const { data, error } = await executeWithRetry(() =>
-        supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: pass,
-        })
-      );
+      const {
+        error
+      } =
+        await supabase.auth.resetPasswordForEmail(
+          cleanEmail,
+          {
+            redirectTo:
+              typeof window !==
+              'undefined'
+                ? `${window.location.origin}/account?resetPassword=true`
+                : undefined
+          }
+        );
 
       if (error) {
         throw error;
       }
 
-      showToast('Successfully signed in!', 'success');
-    } catch (error: any) {
-      console.error("Auth error:", error);
-      let msg = 'Authentication failed: ' + (error.message || 'Unknown error');
-      switch (classifyAuthError(error)) {
-        case 'invalid_credentials':
-        case 'not_found':
-          msg = 'Incorrect email or password. If you forgot your password, please click "Forgot Password?".';
-          break;
-        case 'unconfirmed_email':
-          msg = 'Please confirm your email address first. Check your inbox for the verification link.';
-          break;
-        case 'network':
-          msg = 'Network connection error. Please check your internet connection and try again.';
-          break;
-        case 'invalid_email':
-          msg = 'Invalid email address format.';
-          break;
-        case 'rate_limited':
-          msg = 'Too many attempts. Please wait a moment and try again.';
-          break;
-        default:
-          break;
+      /*
+       * Always use a generic response.
+       * This prevents user/email enumeration.
+       */
+      showToast(
+        language === 'ar'
+          ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
+          : 'If an account exists for this email address, a password reset link has been sent.',
+        'success'
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] resetPassword error:',
+        error
+      );
+
+      const kind =
+        classifyAuthError(
+          error
+        );
+
+      /*
+       * Never reveal whether the email exists.
+       */
+      if (
+        kind === 'not_found'
+      ) {
+        showToast(
+          language === 'ar'
+            ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
+            : 'If an account exists for this email address, a password reset link has been sent.',
+          'success'
+        );
+        return;
       }
-      showToast(msg, 'warning');
+
+      if (
+        kind === 'network'
+      ) {
+        const msg =
+          language === 'ar'
+            ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.'
+            : 'Could not connect to the server. Please try again.';
+
+        showToast(
+          msg,
+          'warning'
+        );
+
+        throw error;
+      }
+
+      if (
+        kind === 'rate_limited'
+      ) {
+        const msg =
+          language === 'ar'
+            ? 'تم إجراء محاولات كثيرة. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+            : 'Too many attempts. Please wait a while and try again.';
+
+        showToast(
+          msg,
+          'warning'
+        );
+
+        throw error;
+      }
+
+      const msg =
+        language === 'ar'
+          ? 'تعذر معالجة طلب إعادة تعيين كلمة المرور.'
+          : 'Unable to process the password reset request.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
       throw error;
     }
   };
 
+  // ============================================================
+  // Email OTP
+  // ============================================================
+
+  const sendEmailOtp = async (
+    email: string
+  ) => {
+    const cleanEmail =
+      email
+        .trim()
+        .toLowerCase();
+
+    if (
+      !cleanEmail ||
+      !cleanEmail.includes('@')
+    ) {
+      const msg =
+        language === 'ar'
+          ? 'الرجاء إدخال بريد إلكتروني صالح'
+          : 'Please enter a valid email address.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw new Error(msg);
+    }
+
+    try {
+      const {
+        error
+      } =
+        await supabase.auth.signInWithOtp(
+          {
+            email:
+              cleanEmail,
+
+            options: {
+              /*
+               * Keep this true if OTP should also support
+               * creating a new customer account.
+               */
+              shouldCreateUser:
+                true,
+
+              /*
+               * Supabase handles the email delivery.
+               * No Resend/custom domain is required here.
+               */
+              emailRedirectTo:
+                typeof window !==
+                'undefined'
+                  ? `${window.location.origin}/account`
+                  : undefined
+            }
+          }
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      if (
+        typeof window !==
+        'undefined'
+      ) {
+        window.localStorage.setItem(
+          'emailForSignIn',
+          cleanEmail
+        );
+      }
+
+      showToast(
+        language === 'ar'
+          ? `تم إرسال رمز التحقق إلى ${cleanEmail}! يرجى مراجعة بريدك الإلكتروني.`
+          : `Verification code sent to ${cleanEmail}! Please check your email inbox.`,
+        'success'
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] sendEmailOtp error:',
+        error
+      );
+
+      const kind =
+        classifyAuthError(
+          error
+        );
+
+      if (
+        kind ===
+        'rate_limited'
+      ) {
+        const msg =
+          language === 'ar'
+            ? 'تم إرسال عدد كبير من الرموز. يرجى الانتظار قليلاً قبل طلب رمز جديد.'
+            : 'Too many OTP requests. Please wait a while before requesting another code.';
+
+        showToast(
+          msg,
+          'warning'
+        );
+
+        throw error;
+      }
+
+      if (
+        kind === 'network'
+      ) {
+        const msg =
+          language === 'ar'
+            ? 'تعذر الاتصال بخدمة التحقق. يرجى المحاولة مرة أخرى.'
+            : 'Could not connect to the verification service. Please try again.';
+
+        showToast(
+          msg,
+          'warning'
+        );
+
+        throw error;
+      }
+
+      const msg =
+        error?.message ||
+        (
+          language === 'ar'
+            ? 'فشل إرسال رمز التحقق.'
+            : 'Failed to send verification code.'
+        );
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw error;
+    }
+  };
+
+  // ============================================================
+  // Verify Email OTP
+  // ============================================================
+
+  const verifyEmailOtp = async (
+    email: string,
+    token: string,
+    type:
+      | 'email'
+      | 'signup'
+      | 'magiclink'
+      | 'recovery' = 'email'
+  ) => {
+    const cleanEmail =
+      email
+        .trim()
+        .toLowerCase();
+
+    const cleanToken =
+      token.trim();
+
+    if (
+      !cleanEmail ||
+      !cleanToken
+    ) {
+      const msg =
+        language === 'ar'
+          ? 'يرجى إدخال البريد الإلكتروني ورمز التحقق'
+          : 'Please enter email and verification code.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw new Error(msg);
+    }
+
+    try {
+      const {
+        data,
+        error
+      } =
+        await supabase.auth.verifyOtp(
+          {
+            email:
+              cleanEmail,
+            token:
+              cleanToken,
+            type
+          }
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      /*
+       * Supabase has now established/updated the authenticated session.
+       * The auth listener will hydrate the profile and application state.
+       */
+      if (
+        typeof window !==
+        'undefined'
+      ) {
+        window.localStorage.removeItem(
+          'emailForSignIn'
+        );
+      }
+
+      console.log(
+        '[ShopContext] Email OTP verified:',
+        data?.user?.id ??
+          'unknown-user'
+      );
+
+      showToast(
+        language === 'ar'
+          ? 'تم التحقق بنجاح!'
+          : 'Verification successful!',
+        'success'
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] verifyEmailOtp error:',
+        error
+      );
+
+      const kind =
+        classifyAuthError(
+          error
+        );
+
+      let msg: string;
+
+      if (
+        kind === 'rate_limited'
+      ) {
+        msg =
+          language === 'ar'
+            ? 'تم إجراء محاولات كثيرة. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+            : 'Too many attempts. Please wait a while and try again.';
+      } else if (
+        kind === 'network'
+      ) {
+        msg =
+          language === 'ar'
+            ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.'
+            : 'Could not connect to the server. Please try again.';
+      } else {
+        /*
+         * Do not expose raw Supabase internals to customers.
+         */
+        msg =
+          language === 'ar'
+            ? 'رمز التحقق غير صالح أو منتهي الصلاحية.'
+            : 'Invalid or expired verification code.';
+      }
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw error;
+    }
+  };
+
+  // ============================================================
+  // Resend Email Verification
+  // ============================================================
+
+  const resendEmailVerification =
+    async (
+      email?: string
+    ) => {
+      const targetEmail =
+        (
+          email ||
+          authUser?.email ||
+          user.email ||
+          ''
+        )
+          .trim()
+          .toLowerCase();
+
+      if (!targetEmail) {
+        const msg =
+          language === 'ar'
+            ? 'الرجاء إدخال البريد الإلكتروني'
+            : 'Please provide an email address.';
+
+        showToast(
+          msg,
+          'warning'
+        );
+
+        return;
+      }
+
+      try {
+        const {
+          error
+        } =
+          await supabase.auth.resend(
+            {
+              type:
+                'signup',
+
+              email:
+                targetEmail,
+
+              options: {
+                emailRedirectTo:
+                  typeof window !==
+                  'undefined'
+                    ? `${window.location.origin}/account?verified=true`
+                    : undefined
+              }
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        showToast(
+          language === 'ar'
+            ? 'تم إرسال بريد التحقق بنجاح! يرجى مراجعة صندوق الوارد.'
+            : 'Verification email sent successfully! Please check your inbox.',
+          'success'
+        );
+      } catch (
+        error: any
+      ) {
+        console.error(
+          '[ShopContext] resendEmailVerification error:',
+          error
+        );
+
+        const kind =
+          classifyAuthError(
+            error
+          );
+
+        if (
+          kind ===
+          'rate_limited'
+        ) {
+          showToast(
+            language === 'ar'
+              ? 'تم إرسال عدد كبير من الرسائل. يرجى الانتظار قليلاً قبل المحاولة مرة أخرى.'
+              : 'Too many verification emails requested. Please wait a while before trying again.',
+            'warning'
+          );
+        } else if (
+          kind === 'network'
+        ) {
+          showToast(
+            language === 'ar'
+              ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.'
+              : 'Could not connect to the server. Please try again.',
+            'warning'
+          );
+        } else {
+          showToast(
+            language === 'ar'
+              ? 'تعذر إرسال بريد التحقق.'
+              : 'Failed to send verification email.',
+            'warning'
+          );
+        }
+
+        throw error;
+      }
+    };
+        
+    const signUpWithEmail = async (
+    email: string,
+    pass: string,
+    phone?: string
+  ) => {
+    // ------------------------------------------------------------
+    // Recover temporary signup data
+    // ------------------------------------------------------------
+
+    let tempSignup: any = {};
+
+    try {
+      const rawTemp =
+        localStorage.getItem(
+          'yallalb_signup_profile_temp'
+        );
+
+      if (rawTemp) {
+        tempSignup =
+          JSON.parse(rawTemp);
+      }
+    } catch {
+      tempSignup = {};
+    }
+
+    const cleanEmail =
+      email
+        .trim()
+        .toLowerCase();
+
+    const targetPhone =
+      phone?.trim() ||
+      String(
+        tempSignup.phone ||
+        ''
+      ).trim();
+
+    // ------------------------------------------------------------
+    // Basic email validation
+    // ------------------------------------------------------------
+
+    if (
+      !cleanEmail ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        cleanEmail
+      )
+    ) {
+      const msg =
+        language === 'ar'
+          ? 'الرجاء إدخال بريد إلكتروني صالح.'
+          : 'Please enter a valid email address.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw new Error(msg);
+    }
+
+    // ------------------------------------------------------------
+    // Check phone uniqueness before creating the Auth account
+    // ------------------------------------------------------------
+
+    if (targetPhone) {
+      try {
+        const phoneCheck =
+          await checkPhoneUniqueness(
+            targetPhone
+          );
+
+        if (!phoneCheck.available) {
+          const msg =
+            phoneCheck.reason ||
+            (
+              language === 'ar'
+                ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.'
+                : 'This phone number is already registered to another account.'
+            );
+
+          showToast(
+            msg,
+            'warning'
+          );
+
+          throw new Error(
+            msg
+          );
+        }
+      } catch (
+        error: any
+      ) {
+        /*
+         * Preserve the explicit duplicate-phone error.
+         * Do not continue signup if the uniqueness check failed.
+         */
+        console.error(
+          '[ShopContext] Phone uniqueness check failed:',
+          error
+        );
+
+        throw error;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // Password validation
+    // ------------------------------------------------------------
+
+    if (
+      pass.length < 8
+    ) {
+      const msg =
+        language === 'ar'
+          ? 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.'
+          : 'Password must be at least 8 characters long.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw new Error(msg);
+    }
+
+    const hasUppercase =
+      /[A-Z]/.test(pass);
+
+    const hasLowercase =
+      /[a-z]/.test(pass);
+
+    const hasNumber =
+      /[0-9]/.test(pass);
+
+    const hasSpecial =
+      /[^A-Za-z0-9]/.test(pass);
+
+    if (
+      !hasUppercase ||
+      !hasLowercase ||
+      !hasNumber ||
+      !hasSpecial
+    ) {
+      const msg =
+        language === 'ar'
+          ? 'يجب أن تحتوي كلمة المرور على حرف كبير وحرف صغير ورقم ورمز خاص.'
+          : 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw new Error(msg);
+    }
+
+    // ------------------------------------------------------------
+    // Create Supabase Auth account
+    // ------------------------------------------------------------
+
+    try {
+      const fullName =
+        [
+          tempSignup.firstName,
+          tempSignup.lastName
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+
+      const {
+        data:
+          supaAuthData,
+        error:
+          supaErr
+      } =
+        await supabase.auth.signUp(
+          {
+            email:
+              cleanEmail,
+
+            password:
+              pass,
+
+            options: {
+              /*
+               * These values are metadata only.
+               * Authorization must NEVER depend on user_metadata.
+               */
+              data: {
+                name:
+                  fullName,
+
+                first_name:
+                  tempSignup.firstName ||
+                  '',
+
+                last_name:
+                  tempSignup.lastName ||
+                  '',
+
+                phone:
+                  targetPhone ||
+                  ''
+              },
+
+              emailRedirectTo:
+                typeof window !==
+                'undefined'
+                  ? `${window.location.origin}/account?verified=true`
+                  : undefined
+            }
+          }
+        );
+
+      if (supaErr) {
+        throw supaErr;
+      }
+
+      const authUser =
+        supaAuthData?.user;
+
+      if (!authUser) {
+        throw new Error(
+          'Supabase did not return a user after signup.'
+        );
+      }
+
+      // ----------------------------------------------------------
+      // Profile synchronization
+      // ----------------------------------------------------------
+      //
+      // The database trigger should create the profiles row.
+      // This update only synchronizes signup information.
+      //
+      // IMPORTANT:
+      // Do NOT allow the client to set:
+      //   role
+      //   seller_id
+      //   email_verified
+      //   is_otp_verified
+      //
+      // Those values must remain server/database controlled.
+      // ----------------------------------------------------------
+
+      try {
+        const {
+          error:
+            profileError
+        } =
+          await supabase
+            .from('profiles')
+            .update(
+              {
+                first_name:
+                  tempSignup.firstName ||
+                  '',
+
+                last_name:
+                  tempSignup.lastName ||
+                  '',
+
+                name:
+                  fullName,
+
+                phone:
+                  targetPhone ||
+                  '',
+
+                /*
+                 * These are the actual profile columns from
+                 * the Supabase schema.
+                 */
+                default_address:
+                  tempSignup.defaultAddress ||
+                  '',
+
+                default_city:
+                  tempSignup.defaultCity ||
+                  '',
+
+                /*
+                 * If your current schema uses default_region,
+                 * store the governorate/region there.
+                 */
+                default_region:
+                  tempSignup.defaultGovernorate ||
+                  '',
+
+                default_country:
+                  tempSignup.defaultCountry ||
+                  'Lebanon'
+              }
+            )
+            .eq(
+              'id',
+              authUser.id
+            );
+
+        if (profileError) {
+          /*
+           * Do not fail the Auth account creation because the
+           * optional profile synchronization failed.
+           *
+           * The database trigger remains responsible for creating
+           * the base profile row.
+           */
+          console.warn(
+            '[ShopContext] Signup profile synchronization notice:',
+            profileError
+          );
+        }
+      } catch (
+        profileError
+      ) {
+        console.warn(
+          '[ShopContext] Signup profile synchronization notice:',
+          profileError
+        );
+      }
+
+      // ----------------------------------------------------------
+      // Clean temporary signup data
+      // ----------------------------------------------------------
+
+      try {
+        localStorage.removeItem(
+          'yallalb_signup_profile_temp'
+        );
+      } catch {}
+
+      // ----------------------------------------------------------
+      // Supabase email confirmation state
+      // ----------------------------------------------------------
+
+      if (
+        !supaAuthData.session
+      ) {
+        /*
+         * Email confirmation is required.
+         * Supabase has created the Auth user but has not established
+         * a normal authenticated session yet.
+         */
+        showToast(
+          language === 'ar'
+            ? 'تم إنشاء الحساب! تحقق من بريدك الإلكتروني واضغط على رابط التفعيل للمتابعة.'
+            : 'Account created! Check your email and click the verification link to continue.',
+          'success'
+        );
+      } else {
+        /*
+         * This can happen when email confirmation is disabled
+         * in the Supabase project.
+         */
+        showToast(
+          language === 'ar'
+            ? 'تم إنشاء الحساب بنجاح!'
+            : 'Account created successfully!',
+          'success'
+        );
+      }
+
+      return authUser;
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] Supabase signup error:',
+        error
+      );
+
+      const kind =
+        classifyAuthError(
+          error
+        );
+
+      let msg: string;
+
+      switch (
+        kind
+      ) {
+        case 'already_registered':
+          msg =
+            language === 'ar'
+              ? 'هذا البريد الإلكتروني مستخدم بالفعل. إذا كان لديك حساب، يرجى تسجيل الدخول بدلاً من إنشاء حساب جديد.'
+              : 'This email is already in use. If you already have an account, please sign in instead.';
+          break;
+
+        case 'weak_password':
+          msg =
+            language === 'ar'
+              ? 'كلمة المرور ضعيفة. يرجى اختيار كلمة مرور أقوى.'
+              : 'Password is too weak. Please choose a stronger password.';
+          break;
+
+        case 'invalid_email':
+          msg =
+            language === 'ar'
+              ? 'عنوان البريد الإلكتروني غير صالح.'
+              : 'Invalid email address format.';
+          break;
+
+        case 'rate_limited':
+          msg =
+            language === 'ar'
+              ? 'تم إجراء عدد كبير من محاولات التسجيل. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+              : 'Too many sign-up attempts. Please wait a moment and try again.';
+          break;
+
+        case 'network':
+          msg =
+            language === 'ar'
+              ? 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'
+              : 'Network connection error. Please check your internet connection and try again.';
+          break;
+
+        default:
+          msg =
+            language === 'ar'
+              ? 'فشل إنشاء الحساب. يرجى المحاولة مرة أخرى.'
+              : 'Sign up failed. Please try again.';
+          break;
+      }
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw error;
+    }
+  };
+
+  // ============================================================
+  // Passwordless Email Sign-In Link / Magic Link
+  // ============================================================
+
+  const sendEmailSignInLink =
+    async (
+      email: string
+    ) => {
+      const cleanEmail =
+        email
+          .trim()
+          .toLowerCase();
+
+      if (
+        !cleanEmail ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          cleanEmail
+        )
+      ) {
+        const msg =
+          language === 'ar'
+            ? 'الرجاء إدخال بريد إلكتروني صالح.'
+            : 'Please enter a valid email address.';
+
+        showToast(
+          msg,
+          'warning'
+        );
+
+        throw new Error(msg);
+      }
+
+      try {
+        const {
+          error
+        } =
+          await supabase.auth.signInWithOtp(
+            {
+              email:
+                cleanEmail,
+
+              options: {
+                /*
+                 * Do not set shouldCreateUser:false here unless you
+                 * explicitly want to prevent passwordless signup.
+                 *
+                 * For a normal Yalla magic-link login flow,
+                 * Supabase can create the user when appropriate.
+                 */
+                shouldCreateUser:
+                  true,
+
+                emailRedirectTo:
+                  typeof window !==
+                  'undefined'
+                    ? `${window.location.origin}/account`
+                    : undefined
+              }
+            }
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        if (
+          typeof window !==
+          'undefined'
+        ) {
+          window.localStorage.setItem(
+            'emailForSignIn',
+            cleanEmail
+          );
+        }
+
+        showToast(
+          language === 'ar'
+            ? `تم إرسال رابط تسجيل الدخول إلى ${cleanEmail}. يرجى مراجعة بريدك الإلكتروني.`
+            : `A sign-in link has been sent to ${cleanEmail}. Please check your email inbox.`,
+          'success'
+        );
+      } catch (
+        error: any
+      ) {
+        console.error(
+          '[ShopContext] sendEmailSignInLink error:',
+          error
+        );
+
+        const kind =
+          classifyAuthError(
+            error
+          );
+
+        if (
+          kind ===
+          'rate_limited'
+        ) {
+          showToast(
+            language === 'ar'
+              ? 'تم إرسال عدد كبير من الطلبات. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+              : 'Too many requests. Please wait a while and try again.',
+            'warning'
+          );
+        } else if (
+          kind === 'network'
+        ) {
+          showToast(
+            language === 'ar'
+              ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.'
+              : 'Could not connect to the server. Please try again.',
+            'warning'
+          );
+        } else {
+          showToast(
+            language === 'ar'
+              ? 'تعذر إرسال رابط تسجيل الدخول.'
+              : 'Failed to send sign-in link.',
+            'warning'
+          );
+        }
+
+        throw error;
+      }
+    };
+        
+          const successMsg =
+        language === 'ar'
+          ? `تم إرسال رابط الدخول الآمن إلى ${cleanEmail}! تحقق من صندوق بريدك الإلكتروني.`
+          : `Secure sign-in link sent to ${cleanEmail}! Please check your email inbox.`;
+
+      showToast(
+        successMsg,
+        'success'
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] sendEmailSignInLink error:',
+        error
+      );
+
+      const kind =
+        classifyAuthError(
+          error
+        );
+
+      if (
+        kind ===
+        'rate_limited'
+      ) {
+        showToast(
+          language === 'ar'
+            ? 'تم إرسال عدد كبير من الطلبات. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+            : 'Too many requests. Please wait a while and try again.',
+          'warning'
+        );
+      } else if (
+        kind === 'network'
+      ) {
+        showToast(
+          language === 'ar'
+            ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.'
+            : 'Could not connect to the server. Please try again.',
+          'warning'
+        );
+      } else {
+        showToast(
+          language === 'ar'
+            ? 'تعذر إرسال رابط تسجيل الدخول.'
+            : 'Failed to send sign-in link.',
+          'warning'
+        );
+      }
+
+      throw error;
+    }
+  };
+
+  // ============================================================
+  // Complete Email OTP / Magic-Link Sign-In
+  // ============================================================
+
+  const completeEmailLinkSignIn = async (
+    emailInput?: string,
+    urlOrToken?: string
+  ) => {
+    const currentUrl =
+      typeof window !== 'undefined'
+        ? window.location.href
+        : '';
+
+    const storedEmail =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem(
+            'emailForSignIn'
+          ) || ''
+        : '';
+
+    const email =
+      (
+        emailInput ||
+        storedEmail
+      )
+        .trim()
+        .toLowerCase();
+
+    try {
+      // ----------------------------------------------------------
+      // 1. Six-digit OTP
+      // ----------------------------------------------------------
+
+      if (
+        urlOrToken &&
+        /^\d{6}$/.test(
+          urlOrToken.trim()
+        ) &&
+        email
+      ) {
+        await verifyEmailOtp(
+          email,
+          urlOrToken.trim(),
+          'email'
+        );
+
+        return;
+      }
+
+      // ----------------------------------------------------------
+      // 2. Parse callback URL
+      // ----------------------------------------------------------
+
+      const callbackUrl =
+        new URL(
+          urlOrToken ||
+            currentUrl ||
+            'http://localhost/'
+        );
+
+      const hashParams =
+        new URLSearchParams(
+          callbackUrl.hash.startsWith(
+            '#'
+          )
+            ? callbackUrl.hash.slice(1)
+            : callbackUrl.hash
+        );
+
+      // ----------------------------------------------------------
+      // 3. Handle Supabase callback errors
+      // ----------------------------------------------------------
+
+      const callbackError =
+        callbackUrl.searchParams.get(
+          'error_description'
+        ) ||
+        callbackUrl.searchParams.get(
+          'error'
+        ) ||
+        hashParams.get(
+          'error_description'
+        ) ||
+        hashParams.get(
+          'error'
+        );
+
+      if (callbackError) {
+        throw new Error(
+          decodeURIComponent(
+            callbackError.replace(
+              /\+/g,
+              ' '
+            )
+          )
+        );
+      }
+
+      // ----------------------------------------------------------
+      // 4. Explicit token_hash verification
+      // ----------------------------------------------------------
+      //
+      // This is required for email templates that use:
+      // ?token_hash=...&type=...
+      //
+      // PKCE ?code=... is handled by Supabase Auth because
+      // detectSessionInUrl=true in src/lib/supabase.ts.
+      // ----------------------------------------------------------
+
+      const tokenHash =
+        callbackUrl.searchParams.get(
+          'token_hash'
+        );
+
+      const linkType =
+        callbackUrl.searchParams.get(
+          'type'
+        );
+
+      if (tokenHash) {
+        const allowedTypes =
+          [
+            'email',
+            'signup',
+            'magiclink',
+            'recovery'
+          ] as const;
+
+        const resolvedType =
+          allowedTypes.includes(
+            linkType as any
+          )
+            ? (linkType as
+                | 'email'
+                | 'signup'
+                | 'magiclink'
+                | 'recovery')
+            : 'magiclink';
+
+        const {
+          error:
+            verifyError
+        } =
+          await supabase.auth.verifyOtp(
+            {
+              token_hash:
+                tokenHash,
+              type:
+                resolvedType
+            }
+          );
+
+        if (verifyError) {
+          throw verifyError;
+        }
+      }
+
+      // ----------------------------------------------------------
+      // 5. Wait for Supabase session
+      // ----------------------------------------------------------
+
+      /*
+       * detectSessionInUrl is enabled in the Supabase client.
+       * Supabase therefore handles the PKCE ?code=... callback.
+       *
+       * getSession() retrieves the resulting session.
+       */
+      const {
+        data,
+        error
+      } =
+        await supabase.auth.getSession();
+
+      if (error) {
+        throw error;
+      }
+
+      const sessionUser =
+        data.session?.user;
+
+      if (!sessionUser) {
+        throw new Error(
+          language === 'ar'
+            ? 'رابط تسجيل الدخول غير صالح أو انتهت صلاحيته.'
+            : 'Sign-in link is invalid or has expired.'
+        );
+      }
+
+      // ----------------------------------------------------------
+      // 6. Clean callback information
+      // ----------------------------------------------------------
+
+      if (
+        typeof window !==
+        'undefined'
+      ) {
+        window.localStorage.removeItem(
+          'emailForSignIn'
+        );
+
+        [
+          'code',
+          'token_hash',
+          'type',
+          'error',
+          'error_code',
+          'error_description',
+          'emailSignIn'
+        ].forEach(
+          key =>
+            callbackUrl.searchParams.delete(
+              key
+            )
+        );
+
+        callbackUrl.hash = '';
+
+        const cleanedUrl =
+          `${callbackUrl.pathname || '/'}${
+            callbackUrl.search
+          }`;
+
+        window.history.replaceState(
+          {},
+          document.title,
+          cleanedUrl
+        );
+      }
+
+      /*
+       * The Supabase auth state listener will now hydrate:
+       *   - authUser
+       *   - profile
+       *   - cart
+       *   - wishlist
+       *   - seller/admin UI state
+       */
+      showToast(
+        language === 'ar'
+          ? 'تم تسجيل الدخول بنجاح عبر البريد الإلكتروني!'
+          : 'Successfully signed in via email!',
+        'success'
+      );
+
+      return sessionUser;
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] completeEmailLinkSignIn error:',
+        error
+      );
+
+      const kind =
+        classifyAuthError(
+          error
+        );
+
+      let msg: string;
+
+      if (
+        kind ===
+        'network'
+      ) {
+        msg =
+          language === 'ar'
+            ? 'تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.'
+            : 'Could not connect to the server. Please try again.';
+      } else if (
+        kind ===
+        'rate_limited'
+      ) {
+        msg =
+          language === 'ar'
+            ? 'تم إجراء محاولات كثيرة. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+            : 'Too many attempts. Please wait a while and try again.';
+      } else {
+        msg =
+          language === 'ar'
+            ? 'رابط تسجيل الدخول غير صالح أو انتهت صلاحيته.'
+            : 'Sign-in link is invalid or has expired.';
+      }
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw error;
+    }
+  };
+
+  // ============================================================
+  // Email + Password Sign-In
+  // ============================================================
+
+  const signInWithEmail = async (
+    email: string,
+    pass: string
+  ) => {
+    const cleanEmail =
+      email
+        .trim()
+        .toLowerCase();
+
+    if (
+      !cleanEmail ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        cleanEmail
+      )
+    ) {
+      const msg =
+        language === 'ar'
+          ? 'الرجاء إدخال بريد إلكتروني صالح.'
+          : 'Please enter a valid email address.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw new Error(msg);
+    }
+
+    if (!pass) {
+      const msg =
+        language === 'ar'
+          ? 'الرجاء إدخال كلمة المرور.'
+          : 'Please enter your password.';
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw new Error(msg);
+    }
+
+    try {
+      const {
+        data,
+        error
+      } =
+        await executeWithRetry(
+          () =>
+            supabase.auth.signInWithPassword(
+              {
+                email:
+                  cleanEmail,
+                password:
+                  pass
+              }
+            )
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data.user) {
+        throw new Error(
+          'Supabase did not return an authenticated user.'
+        );
+      }
+
+      /*
+       * The auth listener is authoritative and will hydrate the
+       * complete ShopContext state from Supabase.
+       */
+      showToast(
+        language === 'ar'
+          ? 'تم تسجيل الدخول بنجاح!'
+          : 'Successfully signed in!',
+        'success'
+      );
+
+      return data.user;
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] Email/password authentication error:',
+        error
+      );
+
+      const kind =
+        classifyAuthError(
+          error
+        );
+
+      let msg: string;
+
+      switch (
+        kind
+      ) {
+        case 'invalid_credentials':
+        case 'not_found':
+          msg =
+            language === 'ar'
+              ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة. إذا نسيت كلمة المرور، يرجى استخدام "نسيت كلمة المرور؟".'
+              : 'Incorrect email or password. If you forgot your password, please use "Forgot Password?".';
+          break;
+
+        case 'unconfirmed_email':
+          msg =
+            language === 'ar'
+              ? 'يرجى تأكيد بريدك الإلكتروني أولاً. تحقق من صندوق بريدك الإلكتروني للحصول على رابط التفعيل.'
+              : 'Please confirm your email address first. Check your inbox for the verification link.';
+          break;
+
+        case 'network':
+          msg =
+            language === 'ar'
+              ? 'تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'
+              : 'Network connection error. Please check your internet connection and try again.';
+          break;
+
+        case 'invalid_email':
+          msg =
+            language === 'ar'
+              ? 'عنوان البريد الإلكتروني غير صالح.'
+              : 'Invalid email address format.';
+          break;
+
+        case 'rate_limited':
+          msg =
+            language === 'ar'
+              ? 'تم إجراء محاولات كثيرة. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+              : 'Too many attempts. Please wait a moment and try again.';
+          break;
+
+        default:
+          msg =
+            language === 'ar'
+              ? 'تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى.'
+              : 'Authentication failed. Please try again.';
+          break;
+      }
+
+      showToast(
+        msg,
+        'warning'
+      );
+
+      throw error;
+    }
+  };
+
+  // ============================================================
+  // Sign Out
+  // ============================================================
+
   const signOutUser = async () => {
     try {
-      await supabase.auth.signOut();
-      setAuthUser(null);
-      setUser(INITIAL_USER);
+      const {
+        error
+      } =
+        await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
+      }
+
+      /*
+       * Reset local UI state immediately.
+       * The Supabase auth listener will also receive SIGNED_OUT and
+       * keep the application state synchronized.
+       */
+      setAuthUser(
+        null
+      );
+
+      setUser(
+        INITIAL_USER
+      );
+
+      setIsAdminUser(
+        false
+      );
+
+      setIsSellerUser(
+        false
+      );
+
+      setSellerId(
+        null
+      );
+
+      setIsLocalAdminUnlockedState(
+        false
+      );
+
+      setOrders(
+        []
+      );
+
+      /*
+       * Prevent authenticated cart/wishlist data from being
+       * accidentally persisted under the next account.
+       */
+      setCartHydratedForUserId(
+        null
+      );
+
+      try {
+        localStorage.removeItem(
+          'yallalb_orders'
+        );
+
+        localStorage.removeItem(
+          'yallalb_saved_checkout_data'
+        );
+
+        localStorage.removeItem(
+          'emailForSignIn'
+        );
+
+        localStorage.removeItem(
+          'yallalb_admin_unlocked'
+        );
+      } catch {}
+
+      showToast(
+        language === 'ar'
+          ? 'تم تسجيل الخروج بنجاح.'
+          : 'Signed out successfully.',
+        'info'
+      );
+    } catch (
+      error: any
+    ) {
+      console.error(
+        '[ShopContext] Supabase signOut error:',
+        error
+      );
+
+      /*
+       * If the local session is already gone, still reset the UI.
+       */
+      setAuthUser(
+        null
+      );
+
+      setUser(
+        INITIAL_USER
+      );
+
+      setIsAdminUser(
+        false
+      );
+
+      setIsSellerUser(
+        false
+      );
+
+      setSellerId(
+        null
+      );
+
+      setIsLocalAdminUnlockedState(
+        false
+      );
+
+      setOrders(
+        []
+      );
+
+      setCartHydratedForUserId(
+        null
+      );
+
+      showToast(
+        language === 'ar'
+          ? 'تم تسجيل الخروج.'
+          : 'Signed out.',
+        'info'
+      );
+    }
+  };
+        
+    const refreshUserProfile = async () => {
+    try {
+      // ----------------------------------------------------------
+      // Get the currently authenticated Supabase user
+      // ----------------------------------------------------------
+
+      const {
+        data: authData,
+        error: authError
+      } =
+        await supabase.auth.getUser();
+
+      if (authError) {
+        console.warn(
+          '[ShopContext] Unable to retrieve Supabase user:',
+          authError
+        );
+        return;
+      }
+
+      const supaUser =
+        authData?.user;
+
+      if (!supaUser) {
+        // No authenticated user: reset user-related UI state.
+        setAuthUser(null);
+        setIsAdminUser(false);
+        setIsSellerUser(false);
+        setSellerId(null);
+        setIsEmailVerified(false);
+        setUser(INITIAL_USER);
+        return;
+      }
+
+      // ----------------------------------------------------------
+      // Load only the profile fields required by the application
+      // ----------------------------------------------------------
+      //
+      // Do not use SELECT * here.
+      // Explicit columns prevent accidental exposure/use of newly
+      // added private columns and keep the client contract clear.
+      // ----------------------------------------------------------
+
+      const {
+        data: profile,
+        error: profileError
+      } =
+        await supabase
+          .from('profiles')
+          .select(
+            [
+              'id',
+              'name',
+              'first_name',
+              'last_name',
+              'email',
+              'phone',
+              'avatar',
+              'default_address',
+              'default_city',
+              'default_region',
+              'default_country',
+              'role',
+              'seller_id',
+              'email_verified',
+              'is_otp_verified',
+              'created_at',
+              'updated_at'
+            ].join(',')
+          )
+          .eq(
+            'id',
+            supaUser.id
+          )
+          .maybeSingle();
+
+      if (profileError) {
+        /*
+         * Fail closed.
+         *
+         * A profile/RLS error must NEVER result in assuming the user
+         * is an admin or seller.
+         */
+        console.warn(
+          '[ShopContext] Failed to load Supabase profile:',
+          profileError
+        );
+      }
+
+      // ----------------------------------------------------------
+      // Determine UI role from the database profile
+      // ----------------------------------------------------------
+      //
+      // This is used only for UI behavior.
+      // Supabase RLS remains the actual security boundary.
+      // ----------------------------------------------------------
+
+      let profileRole:
+        | 'admin'
+        | 'seller'
+        | 'customer' =
+        'customer';
+
+      let profileSellerId:
+        | string
+        | null =
+        null;
+
+      const profileData:
+        Record<string, any> =
+        profile &&
+        !profileError
+          ? profile
+          : {};
+
+      if (
+        !profileError &&
+        profile
+      ) {
+        if (
+          profile.role ===
+          'admin'
+        ) {
+          profileRole =
+            'admin';
+        } else if (
+          profile.role ===
+          'seller'
+        ) {
+          profileRole =
+            'seller';
+        }
+
+        if (
+          profile.seller_id
+        ) {
+          profileSellerId =
+            profile.seller_id;
+        }
+      }
+
+      const hasAdminRole =
+        profileRole ===
+        'admin';
+
+      const hasSellerRole =
+        profileRole ===
+        'seller';
+
+      // ----------------------------------------------------------
+      // Email verification
+      // ----------------------------------------------------------
+      //
+      // Supabase Auth is authoritative for actual email confirmation.
+      // Do not trust profiles.email_verified as the primary source.
+      // ----------------------------------------------------------
+
+      const emailVerified =
+        Boolean(
+          supaUser.email_confirmed_at
+        );
+
+      setIsEmailVerified(
+        emailVerified
+      );
+
+      // ----------------------------------------------------------
+      // UI authorization state
+      // ----------------------------------------------------------
+
+      setIsAdminUser(
+        hasAdminRole
+      );
+
+      setIsSellerUser(
+        hasSellerRole
+      );
+
+      setSellerId(
+        profileSellerId
+      );
+
+      // ----------------------------------------------------------
+      // Create the compatibility AuthUser object
+      // ----------------------------------------------------------
+
+      const userAdapter =
+        createAuthUserAdapter(
+          supaUser,
+          profileRole,
+          profileSellerId,
+          profileData
+        );
+
+      setAuthUser(
+        userAdapter
+      );
+
+      // ----------------------------------------------------------
+      // Recover cached checkout/shipping information
+      // ----------------------------------------------------------
+
+      let cachedShipping:
+        Partial<UserProfile> =
+        {};
+
+      try {
+        const rawCache =
+          localStorage.getItem(
+            'yallalb_saved_checkout_data'
+          );
+
+        if (rawCache) {
+          cachedShipping =
+            JSON.parse(
+              rawCache
+            );
+        }
+      } catch {
+        cachedShipping = {};
+      }
+
+      // ----------------------------------------------------------
+      // Build safe fallback names
+      // ----------------------------------------------------------
+
+      const metadataName =
+        typeof supaUser
+          .user_metadata
+          ?.name === 'string'
+          ? supaUser
+              .user_metadata
+              .name
+          : '';
+
+      const fallbackNames = {
+        firstName:
+          profileData.first_name ||
+          '',
+
+        lastName:
+          profileData.last_name ||
+          '',
+
+        name:
+          profileData.name ||
+          metadataName ||
+          ''
+      };
+
+      // ----------------------------------------------------------
+      // Map the authoritative Supabase profile into ShopContext
+      // ----------------------------------------------------------
+
+      const safeUser =
+        mapSafeShopUserProfile(
+          profileData,
+          userAdapter,
+          profileSellerId,
+          cachedShipping,
+          fallbackNames
+        );
+
+      /*
+       * Ensure the Auth-confirmed email state is reflected in the
+       * application profile as well.
+       *
+       * This does NOT write anything to Supabase.
+       */
+      setUser({
+        ...safeUser,
+        email:
+          safeUser.email ||
+          supaUser.email ||
+          '',
+        emailVerified
+      });
+    } catch (
+      error
+    ) {
+      /*
+       * Never elevate privileges when profile refresh fails.
+       */
+      console.warn(
+        '[ShopContext] refreshUserProfile notice:',
+        error
+      );
+
       setIsAdminUser(false);
       setIsSellerUser(false);
       setSellerId(null);
-      setIsLocalAdminUnlockedState(false);
-      setOrders([]);
-      try {
-        localStorage.removeItem('yallalb_orders');
-        localStorage.removeItem('yallalb_saved_checkout_data');
-      } catch {}
-      showToast('Signed out successfully', 'info');
-    } catch (error: any) {
-      console.error("[ShopContext] signOut error:", error);
-      showToast('Signed out', 'info');
     }
   };
+          
+    // ============================================================
+  // Cart
+  // ============================================================
 
-  const refreshUserProfile = async () => {
-    try {
-      const { data: supaUserData } = await supabase.auth.getUser();
-      const supaUser = supaUserData?.user;
-      if (!supaUser) return;
+  const removeFromCart = (
+    productId: string
+  ) => {
+    setCart(prev =>
+      prev.filter(
+        item =>
+          item.product.id !==
+          productId
+      )
+    );
 
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', supaUser.id)
-        .maybeSingle();
-
-      let profileRole: 'admin' | 'seller' | 'customer' = 'customer';
-      let profileSellerId: string | null = null;
-      let profileData: Record<string, any> = {};
-
-      if (profile && !error) {
-        profileData = profile;
-        if (profile.role === 'admin') {
-          profileRole = 'admin';
-        } else if (profile.role === 'seller') {
-          profileRole = 'seller';
-        }
-        if (profile.seller_id || profile.sellerId) {
-          profileSellerId = profile.seller_id || profile.sellerId;
-        }
-      }
-
-      const hasAdminClaim = profileRole === 'admin';
-      const hasSellerClaim = profileRole === 'seller';
-      const claimSellerId = profileSellerId;
-
-      setIsAdminUser(hasAdminClaim);
-      setIsSellerUser(hasSellerClaim);
-      setSellerId(claimSellerId);
-      setIsEmailVerified(Boolean(supaUser.email_confirmed_at));
-
-      const userAdapter = createAuthUserAdapter(supaUser, profileRole, claimSellerId, profileData);
-      setAuthUser(userAdapter);
-
-      let cachedShipping: Partial<UserProfile> = {};
-      try {
-        const rawCache = localStorage.getItem('yallalb_saved_checkout_data');
-        if (rawCache) cachedShipping = JSON.parse(rawCache);
-      } catch {}
-      const fallbackNames = {
-        firstName: profileData.first_name || profileData.firstName || '',
-        lastName: profileData.last_name || profileData.lastName || '',
-        name: profileData.name || supaUser.user_metadata?.name || ''
-      };
-      setUser(mapSafeShopUserProfile(profileData, userAdapter, claimSellerId, cachedShipping, fallbackNames));
-    } catch (err) {
-      console.warn("[ShopContext] refreshUserProfile notice:", err);
-    }
+    showToast(
+      language === 'ar'
+        ? 'تمت إزالة المنتج من السلة'
+        : 'Item removed from cart',
+      'info'
+    );
   };
 
-
-
-  const [language, setLanguageState] = useState<Language>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const urlLang = new URLSearchParams(window.location.search).get('lang');
-        if (urlLang === 'ar' || urlLang === 'en') {
-          return urlLang;
-        }
-      }
-      const saved = localStorage.getItem('yallalb_language');
-      return (saved === 'ar' || saved === 'en') ? saved : 'en';
-    } catch {
-      return 'en';
-    }
-  });
-
-  const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
-    try {
-      const isCmsPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cmsPreview') === '1';
-      if (!isCmsPreview) {
-        localStorage.setItem('yallalb_language', lang);
-      }
-    } catch {}
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = lang;
-  };
-
-  useEffect(() => {
-    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = language;
-  }, [language]);
-
-  const t = (key: keyof typeof translations['en'], params?: Record<string, string>): string => {
-    let text = translations[language]?.[key] || translations['en']?.[key] || (key as string);
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        text = text.replace(`{${k}}`, v);
-      });
-    }
-    return text;
-  };
-
-  const navHistoryRef = useRef<Array<{ tab: NavTab; selectedProduct: Product | null; category?: string }>>([]);
-
-  const setActiveTab = useCallback((tab: NavTab) => {
-    setActiveTabState(prev => {
-      if (prev !== tab) {
-        navHistoryRef.current.push({ tab: prev, selectedProduct: selectedProductDetail, category: selectedCategory });
-        if (tab !== 'product_detail') {
-          setSelectedProductDetail(null);
-        }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return tab;
-      }
-      return prev;
-    });
-  }, [selectedProductDetail, selectedCategory]);
-
-  const openProductDetail = useCallback((product: Product) => {
-    setActiveTabState(prev => {
-      navHistoryRef.current.push({ tab: prev, selectedProduct: selectedProductDetail, category: selectedCategory });
-      setSelectedProductDetail(product);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return 'product_detail';
-    });
-  }, [selectedProductDetail, selectedCategory]);
-
-  const goBack = useCallback(() => {
-    const prevEntry = navHistoryRef.current.pop();
-    if (prevEntry) {
-      setSelectedProductDetail(prevEntry.selectedProduct);
-      if (prevEntry.category && prevEntry.tab === 'products') {
-        setSelectedCategory(prevEntry.category);
-      }
-      setActiveTabState(prevEntry.tab);
-    } else {
-      setSelectedProductDetail(null);
-      setSelectedCategory('all');
-      setActiveTabState('home');
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
-  const showToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'success') => {
-    const id = Date.now().toString();
-    setToast({ id, message, type });
-    setTimeout(() => {
-      setToast(prev => (prev?.id === id ? null : prev));
-    }, 3500);
-  };
-
-  const currencySymbol = currency === 'LBP' ? 'L.L.' : '$';
-  const currencyRate = currency === 'LBP' ? LBP_USD_RATE : 1;
-
-  const convertUSDToLBP = (amountUSD: number) => {
-    return Math.round(amountUSD * LBP_USD_RATE);
-  };
-
-  const formatPrice = (amountUSD: number) => {
-    if (currency === 'LBP') {
-      const amountLBP = convertUSDToLBP(amountUSD);
-      return `L.L. ${amountLBP.toLocaleString()}`;
-    }
-    return `$${amountUSD.toFixed(2)}`;
-  };
-
-  const addToCart = (product: Product, quantity = 1, option?: string) => {
-    // Determine the product from our master products list to get the most up-to-date stock
-    const currentProduct = products.find(p => p.id === product.id) || product;
-    const availableStock = Number.isFinite(Number(currentProduct.stock)) ? Math.max(0, Math.floor(Number(currentProduct.stock))) : 0;
-    
-    if (availableStock <= 0) {
-      showToast(
-        language === 'ar'
-          ? 'عذراً، هذا المنتج غير متوفر حالياً'
-          : 'Sorry, this product is currently out of stock!',
-        'warning'
+  const updateQuantity = (
+    productId: string,
+    quantity: number
+  ) => {
+    if (quantity <= 0) {
+      removeFromCart(
+        productId
       );
       return;
     }
 
-    setCart(prev => {
-      const existingIndex = prev.findIndex(item => item.product.id === product.id && item.selectedOption === option);
-      if (existingIndex > -1) {
-        const existingQty = prev[existingIndex].quantity;
-        const targetQty = existingQty + quantity;
-        if (targetQty > availableStock) {
-          const clampedQty = availableStock;
-          showToast(
-            language === 'ar'
-              ? `تم تحديد الكمية بـ ${clampedQty} (الحد الأقصى للمخزون)`
-              : `Quantity limited to ${clampedQty} (maximum stock available)`,
-            'warning'
-          );
-          return prev.map((item, idx) =>
-            idx === existingIndex
-              ? { ...item, quantity: clampedQty }
-              : item
-          );
-        }
-        return prev.map((item, idx) =>
-          idx === existingIndex
-            ? { ...item, quantity: targetQty }
-            : item
-        );
-      }
-      
-      const initialQty = quantity > availableStock ? availableStock : quantity;
-      if (initialQty < quantity) {
-        showToast(
-          language === 'ar'
-            ? `تمت إضافة ${initialQty} قطع فقط (الحد الأقصى للمخزون)`
-            : `Added only ${initialQty} items due to stock limit`,
-          'warning'
-        );
-      }
-      return [...prev, { product: currentProduct, quantity: initialQty, selectedOption: option }];
-    });
-    showToast(`Added ${quantity}x "${product.name.split('(')[0].trim()}" to cart!`);
-  };
+    const currentProduct =
+      products.find(
+        product =>
+          product.id ===
+          productId
+      );
 
-  const addMultipleToCart = (itemsToAdd: { product: Product; quantity?: number; option?: string }[]) => {
-    setCart(prev => {
-      const nextCart = [...prev];
-      for (const item of itemsToAdd) {
-        const currentProd = products.find(p => p.id === item.product.id) || item.product;
-        const availableStock = Number.isFinite(Number(currentProd.stock)) ? Math.max(0, Math.floor(Number(currentProd.stock))) : 0;
-        if (availableStock <= 0) continue;
+    const availableStock =
+      currentProduct &&
+      Number.isFinite(
+        Number(
+          currentProduct.stock
+        )
+      )
+        ? Math.max(
+            0,
+            Math.floor(
+              Number(
+                currentProduct.stock
+              )
+            )
+          )
+        : 0;
 
-        const qty = item.quantity || 1;
-        const existingIndex = nextCart.findIndex(c => c.product.id === item.product.id && c.selectedOption === item.option);
-        if (existingIndex > -1) {
-          const targetQty = Math.min(nextCart[existingIndex].quantity + qty, availableStock);
-          nextCart[existingIndex] = {
-            ...nextCart[existingIndex],
-            quantity: targetQty
-          };
-        } else {
-          nextCart.push({
-            product: currentProd,
-            quantity: Math.min(qty, availableStock),
-            selectedOption: item.option
-          });
-        }
-      }
-      return nextCart;
-    });
-  };
+    /*
+     * If the product disappeared or is now out of stock,
+     * do not leave an impossible quantity in the cart.
+     */
+    if (
+      !currentProduct ||
+      availableStock <= 0
+    ) {
+      setCart(prev =>
+        prev.filter(
+          item =>
+            item.product.id !==
+            productId
+        )
+      );
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
-    showToast('Item removed from cart', 'info');
-  };
+      showToast(
+        language === 'ar'
+          ? 'هذا المنتج لم يعد متوفراً.'
+          : 'This product is no longer available.',
+        'warning'
+      );
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
       return;
     }
-    const currentProduct = products.find(p => p.id === productId);
-    const availableStock = currentProduct && Number.isFinite(Number(currentProduct.stock)) ? Math.max(0, Math.floor(Number(currentProduct.stock))) : 0;
 
-    let finalQty = quantity;
-    if (finalQty > availableStock) {
-      finalQty = availableStock;
+    const finalQty =
+      Math.min(
+        Math.max(
+          1,
+          Math.floor(
+            quantity
+          )
+        ),
+        availableStock
+      );
+
+    if (
+      finalQty !==
+      quantity
+    ) {
       showToast(
         language === 'ar'
           ? `عذراً، المخزون المتاح هو ${availableStock} قطع فقط`
@@ -3995,7 +9057,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setCart(prev =>
       prev.map(item =>
-        item.product.id === productId ? { ...item, quantity: finalQty } : item
+        item.product.id ===
+        productId
+          ? {
+              ...item,
+              quantity:
+                finalQty,
+              /*
+               * Keep the latest product data from Supabase
+               * instead of retaining a stale cart snapshot.
+               */
+              product:
+                currentProduct
+            }
+          : item
       )
     );
   };
@@ -4004,1149 +9079,3590 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
     setCart([]);
   };
 
-  const toggleWishlist = (productId: string) => {
-    let nextWishlist: string[] = [];
-    const exists = wishlist.includes(productId);
-    if (exists) {
-      nextWishlist = wishlist.filter(id => id !== productId);
-      showToast(language === 'ar' ? 'تمت إزالة المنتج من المفضلة' : 'Removed from saved favorites', 'info');
-    } else {
-      nextWishlist = [...wishlist, productId];
-      showToast(language === 'ar' ? 'تمت إضافة المنتج إلى المفضلة' : 'Saved to your favorites!', 'success');
-    }
-    setWishlist(nextWishlist);
+  // ============================================================
+  // Wishlist
+  // ============================================================
+
+  const toggleWishlist = (
+    productId: string
+  ) => {
+    setWishlist(prev => {
+      const exists =
+        prev.includes(
+          productId
+        );
+
+      if (exists) {
+        showToast(
+          language === 'ar'
+            ? 'تمت إزالة المنتج من المفضلة'
+            : 'Removed from saved favorites',
+          'info'
+        );
+
+        return prev.filter(
+          id =>
+            id !== productId
+        );
+      }
+
+      showToast(
+        language === 'ar'
+          ? 'تمت إضافة المنتج إلى المفضلة'
+          : 'Saved to your favorites!',
+        'success'
+      );
+
+      /*
+       * Avoid duplicate UUIDs even if the function is triggered
+       * more than once before React finishes the state update.
+       */
+      return [
+        ...new Set([
+          ...prev,
+          productId
+        ])
+      ];
+    });
   };
 
-  const removeFromWishlist = (productId: string) => {
-    setWishlist(prev => prev.filter(id => id !== productId));
-    showToast(language === 'ar' ? 'تمت إزالة المنتج من المفضلة' : 'Removed from saved favorites', 'info');
+  const removeFromWishlist = (
+    productId: string
+  ) => {
+    setWishlist(prev =>
+      prev.filter(
+        id =>
+          id !== productId
+      )
+    );
+
+    showToast(
+      language === 'ar'
+        ? 'تمت إزالة المنتج من المفضلة'
+        : 'Removed from saved favorites',
+      'info'
+    );
   };
 
-  const isInWishlist = (productId: string) => wishlist.includes(productId);
+  const isInWishlist = (
+    productId: string
+  ) =>
+    wishlist.includes(
+      productId
+    );
 
   const clearWishlist = () => {
     setWishlist([]);
   };
 
-  const rawSubtotalUSD = Math.round(cart.reduce((sum, item) => sum + item.product.priceUSD * item.quantity, 0) * 100) / 100;
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  // ============================================================
+  // Cart Totals
+  // ============================================================
 
-  const [appliedCouponCode, setAppliedCouponCode] = useState<string>(() => {
-    try {
-      return localStorage.getItem('yallalb_applied_coupon') || '';
-    } catch {
-      return '';
-    }
-  });
+  const rawSubtotalUSD =
+    Math.round(
+      cart.reduce(
+        (
+          sum,
+          item
+        ) =>
+          sum +
+          Number(
+            item.product
+              .priceUSD
+          ) *
+            item.quantity,
+        0
+      ) * 100
+    ) / 100;
 
+  const cartCount =
+    cart.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        item.quantity,
+      0
+    );
+
+  // ============================================================
+  // Coupon
+  // ============================================================
+
+  const [
+    appliedCouponCode,
+    setAppliedCouponCode
+  ] =
+    useState<string>(() => {
+      try {
+        return (
+          localStorage.getItem(
+            'yallalb_applied_coupon'
+          ) || ''
+        )
+          .trim()
+          .toUpperCase();
+      } catch {
+        return '';
+      }
+    });
+
+  /*
+   * Coupon code is only a client-side checkout preference/cache.
+   *
+   * The actual coupon validity, discount and final order total MUST
+   * be revalidated by the Supabase checkout RPC.
+   */
   useEffect(() => {
     try {
-      if (appliedCouponCode) {
-        localStorage.setItem('yallalb_applied_coupon', appliedCouponCode);
+      if (
+        appliedCouponCode
+      ) {
+        localStorage.setItem(
+          'yallalb_applied_coupon',
+          appliedCouponCode
+        );
       } else {
-        localStorage.removeItem('yallalb_applied_coupon');
+        localStorage.removeItem(
+          'yallalb_applied_coupon'
+        );
       }
     } catch {}
-  }, [appliedCouponCode]);
+  }, [
+    appliedCouponCode
+  ]);
 
-  const isNewUser = useMemo(() => {
-    if (!authUser) return true;
-    const userOrdersCount = orders.filter(o => o.userId === authUser.uid).length;
-    return userOrdersCount === 0;
-  }, [authUser, orders]);
+  // ============================================================
+  // New Customer
+  // ============================================================
 
-  const discountCalculation = useMemo(() => {
-    return applyDiscounts(cart, discountRules, {
-      couponCode: appliedCouponCode,
+  const isNewUser =
+    useMemo(() => {
+      if (!authUser) {
+        return true;
+      }
+
+      const userOrdersCount =
+        orders.filter(
+          order =>
+            order.userId ===
+            authUser.uid
+        ).length;
+
+      return (
+        userOrdersCount ===
+        0
+      );
+    }, [
+      authUser,
+      orders
+    ]);
+
+  // ============================================================
+  // Client-Side Discount Preview
+  // ============================================================
+  //
+  // This is for displaying an estimated cart discount only.
+  // It is NOT trusted during checkout.
+  //
+  // private.checkout_create_order must independently calculate:
+  //   - product prices
+  //   - stock
+  //   - discounts
+  //   - coupon
+  //   - bundles
+  //   - delivery
+  //   - final total
+  // ============================================================
+
+  const discountCalculation =
+    useMemo(() => {
+      return applyDiscounts(
+        cart,
+        discountRules,
+        {
+          couponCode:
+            appliedCouponCode,
+          isNewUser,
+          productBundles
+        }
+      );
+    }, [
+      cart,
+      discountRules,
+      appliedCouponCode,
       isNewUser,
       productBundles
-    });
-  }, [cart, discountRules, appliedCouponCode, isNewUser, productBundles]);
+    ]);
 
-  const discountUSD = discountCalculation.discountUSD;
-  const finalCartTotalUSD = discountCalculation.finalSubtotalUSD;
-  const appliedDiscountRules = discountCalculation.appliedRules;
+  const discountUSD =
+    discountCalculation.discountUSD;
 
-  // Maintain cartTotalUSD as the effective total for backwards-compatible consumers
-  const cartTotalUSD = finalCartTotalUSD;
+  const finalCartTotalUSD =
+    discountCalculation.finalSubtotalUSD;
 
-  const applyCoupon = useCallback((code: string): boolean => {
-    const normalized = code.trim().toUpperCase();
-    if (!normalized) return false;
-    const testResult = applyDiscounts(cart, discountRules, { couponCode: normalized, isNewUser, productBundles });
-    if (testResult.discountUSD > 0) {
-      setAppliedCouponCode(normalized);
-      showToast(
-        language === 'ar' 
-          ? `تم تطبيق الكوبون (${normalized}) بنجاح! وفرت $${testResult.discountUSD.toFixed(2)}` 
-          : `Coupon (${normalized}) applied! You saved $${testResult.discountUSD.toFixed(2)}`,
-        'success'
+  const appliedDiscountRules =
+    discountCalculation.appliedRules;
+
+  /*
+   * Backwards-compatible consumer name.
+   */
+  const cartTotalUSD =
+    finalCartTotalUSD;
+
+  // ============================================================
+  // Apply Coupon
+  // ============================================================
+
+  const applyCoupon =
+    useCallback(
+      (
+        code: string
+      ): boolean => {
+        const normalized =
+          code
+            .trim()
+            .toUpperCase();
+
+        if (!normalized) {
+          return false;
+        }
+
+        /*
+         * This is only a UI preview.
+         * The server will revalidate the coupon during checkout.
+         */
+        const testResult =
+          applyDiscounts(
+            cart,
+            discountRules,
+            {
+              couponCode:
+                normalized,
+              isNewUser,
+              productBundles
+            }
+          );
+
+        if (
+          testResult.discountUSD >
+          0
+        ) {
+          setAppliedCouponCode(
+            normalized
+          );
+
+          showToast(
+            language === 'ar'
+              ? `تم تطبيق الكوبون (${normalized}) بنجاح! وفرت $${testResult.discountUSD.toFixed(2)}`
+              : `Coupon (${normalized}) applied! You saved $${testResult.discountUSD.toFixed(2)}`,
+            'success'
+          );
+
+          return true;
+        }
+
+        showToast(
+          language === 'ar'
+            ? 'رمز الكوبون غير صالح أو لم يستوفِ الحد الأدنى للشراء'
+            : 'Coupon is invalid or does not meet minimum order requirements',
+          'warning'
+        );
+
+        return false;
+      },
+      [
+        cart,
+        discountRules,
+        language,
+        isNewUser,
+        productBundles
+      ]
+    );
+
+  const removeCoupon =
+    useCallback(() => {
+      setAppliedCouponCode(
+        ''
       );
-      return true;
-    } else {
+
       showToast(
-        language === 'ar' 
-          ? 'رمز الكوبون غير صالح أو لم يستوفِ الحد الأدنى للشراء' 
-          : 'Coupon is invalid or does not meet minimum order requirements',
+        language === 'ar'
+          ? 'تمت إزالة الكوبون'
+          : 'Coupon code removed',
+        'info'
+      );
+    }, [
+      language
+    ]);
+
+  // ============================================================
+  // Product Bundle
+  // ============================================================
+
+  const addBundleToCart =
+    useCallback(
+      (
+        bundleId: string
+      ) => {
+        const bundle =
+          productBundles.find(
+            item =>
+              item.id ===
+              bundleId
+          );
+
+        if (!bundle) {
+          return;
+        }
+
+        const itemsToAdd =
+          products.filter(
+            product =>
+              bundle.productIds.includes(
+                product.id
+              )
+          );
+
+        if (
+          itemsToAdd.length ===
+          0
+        ) {
+          showToast(
+            language === 'ar'
+              ? 'المنتجات في هذه الباقة غير متوفرة حالياً'
+              : 'Bundle products are currently unavailable',
+            'warning'
+          );
+
+          return;
+        }
+
+        /*
+         * Update the cart once instead of calling setCart once per
+         * product. This prevents multiple asynchronous state updates
+         * and makes the operation atomic from the React UI perspective.
+         */
+        setCart(prev => {
+          const nextCart =
+            [...prev];
+
+          for (
+            const product of
+              itemsToAdd
+          ) {
+            const availableStock =
+              Number.isFinite(
+                Number(
+                  product.stock
+                )
+              )
+                ? Math.max(
+                    0,
+                    Math.floor(
+                      Number(
+                        product.stock
+                      )
+                    )
+                  )
+                : 0;
+
+            if (
+              availableStock <=
+              0
+            ) {
+              continue;
+            }
+
+            const existingIndex =
+              nextCart.findIndex(
+                item =>
+                  item.product.id ===
+                  product.id
+              );
+
+            if (
+              existingIndex >
+              -1
+            ) {
+              const existing =
+                nextCart[
+                  existingIndex
+                ];
+
+              nextCart[
+                existingIndex
+              ] = {
+                ...existing,
+                product,
+                quantity:
+                  Math.min(
+                    existing.quantity +
+                      1,
+                    availableStock
+                  )
+              };
+            } else {
+              nextCart.push({
+                product,
+                quantity: 1
+              });
+            }
+          }
+
+          return nextCart;
+        });
+
+        showToast(
+          language === 'ar'
+            ? `تمت إضافة صفقة "${bundle.nameAr || bundle.name}" إلى سلة التسوق!`
+            : `Added "${bundle.name}" Combo Deal to your cart!`,
+          'success'
+        );
+      },
+      [
+        productBundles,
+        products,
+        language
+      ]
+    );
+
+  // ============================================================
+  // Search Logging
+  // ============================================================
+
+  const lastLoggedSearchRef =
+    useRef<{
+      query: string;
+      time: number;
+    }>({
+      query: '',
+      time: 0
+    });
+
+  const logSearchQuery =
+    useCallback(
+      async (
+        query: string,
+        origin:
+          | 'navbar'
+          | 'products_page'
+          | 'mobile_menu'
+          | 'direct' =
+          'direct'
+      ) => {
+        const trimmed =
+          query.trim();
+
+        if (
+          trimmed.length <
+          2
+        ) {
+          return;
+        }
+
+        // Prevent duplicate consecutive searches within 6 seconds.
+        const now =
+          Date.now();
+
+        if (
+          lastLoggedSearchRef
+            .current
+            .query
+            .toLowerCase() ===
+            trimmed.toLowerCase() &&
+          now -
+            lastLoggedSearchRef
+              .current.time <
+            6000
+        ) {
+          return;
+        }
+
+        lastLoggedSearchRef.current =
+          {
+            query:
+              trimmed,
+            time:
+              now
+          };
+
+        /*
+         * Keep a local cache for admin/UI convenience and offline
+         * behavior, but do not generate the database ID client-side.
+         */
+        try {
+          if (
+            typeof window !==
+              'undefined' &&
+            window.localStorage
+          ) {
+            const raw =
+              localStorage.getItem(
+                'yallalb_search_logs_cache'
+              );
+
+            const list: SearchLog[] =
+              raw
+                ? JSON.parse(
+                    raw
+                  )
+                : [];
+
+            const searchEntry: SearchLog =
+              {
+                id:
+                  `local_${Date.now()}_${secureRandomString(5)}`,
+                query:
+                  trimmed,
+                timestamp:
+                  new Date().toISOString(),
+                userId:
+                  authUser?.uid ||
+                  null,
+                userEmail:
+                  authUser?.email ||
+                  user?.email ||
+                  null,
+                userName:
+                  user?.name ||
+                  null,
+                origin
+              };
+
+            list.unshift(
+              searchEntry
+            );
+
+            localStorage.setItem(
+              'yallalb_search_logs_cache',
+              JSON.stringify(
+                list.slice(
+                  0,
+                  200
+                )
+              )
+            );
+          }
+        } catch (
+          cacheError
+        ) {
+          console.warn(
+            '[ShopContext] Search cache notice:',
+            cacheError
+          );
+        }
+
+        // --------------------------------------------------------
+        // Supabase is authoritative.
+        // --------------------------------------------------------
+        //
+        // Do not send userEmail/userName to the database.
+        // The database should derive identity from auth.uid().
+        //
+        // Anonymous searches can be stored with NULL user_id if
+        // the RLS policy permits anonymous inserts.
+        // --------------------------------------------------------
+
+        try {
+          await supabase
+            .from(
+              'search_logs'
+            )
+            .insert({
+              query:
+                trimmed,
+              user_id:
+                authUser?.uid ||
+                null,
+              origin
+            });
+        } catch (
+          error
+        ) {
+          /*
+           * Search analytics must never break the shopping experience.
+           */
+          console.warn(
+            '[ShopContext] Failed to persist search log to Supabase:',
+            error
+          );
+        }
+      },
+      [
+        authUser,
+        user
+      ]
+    );
+
+  // ============================================================
+  // Place Order
+  // ============================================================
+  //
+  // KEEP YOUR EXISTING placeOrder FUNCTION BELOW THIS POINT.
+  //
+  // The checkout RPC remains authoritative for:
+  //   - prices
+  //   - stock
+  //   - discounts
+  //   - coupons
+  //   - bundles
+  //   - delivery
+  //   - final total
+  //   - order creation
+  //   - idempotency
+  //
+                
+     // ============================================================
+    // AUTHORITATIVE CHECKOUT
+    // ============================================================
+
+    const rawShipping =
+      orderData.shipping ||
+      ({} as Order['shipping']);
+
+    const chosenSpeed =
+      rawShipping.deliverySpeed ||
+      'standard';
+
+    /*
+     * The browser only sends customer selections.
+     *
+     * Supabase remains authoritative for:
+     * - product prices
+     * - stock
+     * - discounts
+     * - coupons
+     * - bundles
+     * - delivery fees
+     * - final total
+     * - order creation
+     * - order items
+     * - stock decrement
+     * - idempotency
+     */
+    const normalizedItems =
+      lineItems.map(item => ({
+        productId:
+          item.product.id,
+
+        quantity:
+          Math.max(
+            1,
+            Math.floor(
+              Number(
+                item.quantity
+              ) || 1
+            )
+          ),
+
+        ...(item.selectedOption
+          ? {
+              selectedOption:
+                item.selectedOption
+            }
+          }
+          : {})
+      }));
+
+    if (
+      normalizedItems.length ===
+      0
+    ) {
+      const errorMessage =
+        language === 'ar'
+          ? 'سلة التسوق فارغة.'
+          : 'Your cart is empty.';
+
+      showToast(
+        errorMessage,
         'warning'
       );
-      return false;
-    }
-  }, [cart, discountRules, language, isNewUser, productBundles]);
 
-  const removeCoupon = useCallback(() => {
-    setAppliedCouponCode('');
-    showToast(language === 'ar' ? 'تمت إزالة الكوبون' : 'Coupon code removed', 'info');
-  }, [language]);
-
-  const addBundleToCart = useCallback((bundleId: string) => {
-    const bundle = productBundles.find(b => b.id === bundleId);
-    if (!bundle) return;
-    
-    // Find matching products
-    const itemsToAdd = products.filter(p => bundle.productIds.includes(p.id));
-    if (itemsToAdd.length === 0) {
-      showToast(language === 'ar' ? 'المنتجات في هذه الباقة غير متوفرة حالياً' : 'Bundle products are currently unavailable', 'warning');
-      return;
-    }
-
-    // Add each item to cart
-    itemsToAdd.forEach(p => {
-      setCart(prev => {
-        const existingIndex = prev.findIndex(ci => ci.product.id === p.id);
-        if (existingIndex > -1) {
-          const updated = [...prev];
-          updated[existingIndex] = { ...updated[existingIndex], quantity: updated[existingIndex].quantity + 1 };
-          return updated;
-        }
-        return [...prev, { product: p, quantity: 1 }];
-      });
-    });
-
-    showToast(
-      language === 'ar'
-        ? `تمت إضافة صفقة "${bundle.nameAr || bundle.name}" إلى سلة التسوق!`
-        : `Added "${bundle.name}" Combo Deal to your cart!`,
-      'success'
-    );
-  }, [productBundles, products, language, showToast]);
-
-  const lastLoggedSearchRef = useRef<{ query: string; time: number }>({ query: '', time: 0 });
-
-  const logSearchQuery = useCallback(async (query: string, origin: 'navbar' | 'products_page' | 'mobile_menu' | 'direct' = 'direct') => {
-    const trimmed = query.trim();
-    if (!trimmed || trimmed.length < 2) return;
-
-    // Flood protection: Avoid logging identical consecutive queries within 6 seconds
-    const now = Date.now();
-    if (
-      lastLoggedSearchRef.current.query.toLowerCase() === trimmed.toLowerCase() &&
-      now - lastLoggedSearchRef.current.time < 6000
-    ) {
-      return;
-    }
-    lastLoggedSearchRef.current = { query: trimmed, time: now };
-
-    const searchEntry: SearchLog = {
-      id: `srch_${Date.now()}_${secureRandomString(5)}`,
-      query: trimmed,
-      timestamp: new Date().toISOString(),
-      userId: authUser?.uid || null,
-      userEmail: authUser?.email || user?.email || null,
-      userName: user?.name || null,
-      origin: origin
-    };
-
-    // Immediate Local Cache for instant UI updates & offline fallback
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const raw = localStorage.getItem('yallalb_search_logs_cache');
-        const list: SearchLog[] = raw ? JSON.parse(raw) : [];
-        list.unshift(searchEntry);
-        localStorage.setItem('yallalb_search_logs_cache', JSON.stringify(list.slice(0, 200)));
-      }
-    } catch (cacheErr) {
-      console.warn("[ShopContext] Search cache notice:", cacheErr);
-    }
-
-    // public.search_logs. `search_insert` permits user_id = auth.uid() OR
-    // NULL, so an anonymous visitor's search is recorded without being
-    // attributed to anyone.
-    await supabaseAdminService.logSearch(searchEntry.query, origin);
-  }, [authUser, user]);
-
-  // Place Order — server-authoritative via private.checkout_create_order.
-  //
-  // The database RPC is the single source of truth for pricing, discounts,
-  // bundles, coupons, delivery and stock. This function only collects the
-  // customer's selections and delivery details, submits them, and renders the
-  // order the database committed. It deliberately does not send, and does not
-  // fall back to, any client-computed subtotal / discount / delivery / total.
-  const placeOrder = async (
-    orderData: Omit<Order, 'id' | 'date' | 'trackingNumber' | 'status'>,
-    customIdempotencyKey?: string
-  ): Promise<Order> => {
-    // Reused across retries by CheckoutView so a resubmit is idempotent: the
-    // RPC returns the original order instead of creating a second one.
-    const idempotencyKey = (customIdempotencyKey || generateIdempotencyKey()).trim();
-    const lineItems = orderData.items && orderData.items.length > 0 ? orderData.items : cart;
-
-    if (lineItems.length === 0) {
-      const errMsg = language === 'ar' ? 'سلة التسوق فارغة.' : 'Your cart is empty.';
-      showToast(errMsg, 'warning');
-      throw new Error(errMsg);
-    }
-
-    if (lineItems.length > MAX_ORDER_LINE_ITEMS) {
-      const errMsg = language === 'ar'
-        ? `الحد الأقصى لعدد المنتجات المختلفة في الطلب الواحد هو ${MAX_ORDER_LINE_ITEMS}. يرجى تقسيم الطلب.`
-        : `Orders are limited to a maximum of ${MAX_ORDER_LINE_ITEMS} distinct items per checkout. Please split your order.`;
-      showToast(errMsg, 'warning');
-      throw new Error(errMsg);
-    }
-
-    const rawShipping = orderData.shipping || ({} as Order['shipping']);
-    const chosenSpeed = rawShipping.deliverySpeed || 'standard';
-
-    try {
-      const placedOrder = await supabaseOrderService.createOrderAuthoritative({
-        items: lineItems.map(it => ({
-          productId: it.product.id,
-          quantity: Math.max(1, Math.floor(it.quantity || 1)),
-          ...(it.selectedOption ? { selectedOption: it.selectedOption } : {})
-        })),
-        shipping: {
-          fullName: String(rawShipping.fullName || '').trim(),
-          phone: String(rawShipping.phone || '').trim(),
-          email: String(rawShipping.email || user?.email || '').trim() || undefined,
-          governorate: String(rawShipping.governorate || '').trim(),
-          city: String(rawShipping.city || '').trim(),
-          village: String(rawShipping.village || '').trim() || undefined,
-          street: String(rawShipping.street || (rawShipping as any)?.address || '').trim(),
-          building: String(rawShipping.building || 'N/A').trim(),
-          floorApartment: String(rawShipping.floorApartment || '').trim() || undefined,
-          deliveryNotes: String(rawShipping.deliveryNotes || (rawShipping as any)?.notes || '').trim() || undefined,
-          deliverySpeed: chosenSpeed
-        },
-        paymentMethod: orderData.paymentMethod || 'cod_usd',
-        currency: orderData.currency || currency,
-        couponCode: appliedCouponCode || undefined,
-        deliverySpeed: chosenSpeed,
-        idempotencyKey
-      });
-
-      // Optimistic local stock decrement so the shopper immediately sees the
-      // new availability. Realtime on `products` corrects it either way.
-      setProducts(prevProducts =>
-        prevProducts.map(p => {
-          const line = lineItems.find(i => i.product.id === p.id);
-          return line ? { ...p, stock: Math.max(0, (p.stock || 0) - line.quantity) } : p;
-        })
+      throw new Error(
+        errorMessage
       );
+    }
 
-      setOrders(prev => (prev.some(o => o.id === placedOrder.id) ? prev : [placedOrder, ...prev]));
-
-      // Cart is cleared ONLY after a confirmed order id.
-      clearCart();
-      setAppliedCouponCode('');
+    if (
+      normalizedItems.length >
+      MAX_ORDER_LINE_ITEMS
+    ) {
+      const errorMessage =
+        language === 'ar'
+          ? `الحد الأقصى لعدد المنتجات المختلفة في الطلب الواحد هو ${MAX_ORDER_LINE_ITEMS}. يرجى تقسيم الطلب.`
+          : `Orders are limited to a maximum of ${MAX_ORDER_LINE_ITEMS} distinct items per checkout. Please split your order.`;
 
       showToast(
-        `Mabrouk! Order ${placedOrder.trackingNumber || `#${placedOrder.id.slice(0, 8)}`} placed and confirmed by server.`,
+        errorMessage,
+        'warning'
+      );
+
+      throw new Error(
+        errorMessage
+      );
+    }
+
+    const normalizedShipping = {
+      fullName:
+        String(
+          rawShipping.fullName ||
+            ''
+        ).trim(),
+
+      phone:
+        String(
+          rawShipping.phone ||
+            ''
+        ).trim(),
+
+      email:
+        String(
+          rawShipping.email ||
+            user?.email ||
+            authUser?.email ||
+            ''
+        ).trim() ||
+        undefined,
+
+      governorate:
+        String(
+          rawShipping.governorate ||
+            ''
+        ).trim(),
+
+      city:
+        String(
+          rawShipping.city ||
+            ''
+        ).trim(),
+
+      village:
+        String(
+          rawShipping.village ||
+            ''
+        ).trim() ||
+        undefined,
+
+      street:
+        String(
+          rawShipping.street ||
+            (rawShipping as any)
+              ?.address ||
+            ''
+        ).trim(),
+
+      building:
+        String(
+          rawShipping.building ||
+            ''
+        ).trim() ||
+        'N/A',
+
+      floorApartment:
+        String(
+          rawShipping.floorApartment ||
+            ''
+        ).trim() ||
+        undefined,
+
+      deliveryNotes:
+        String(
+          rawShipping.deliveryNotes ||
+            (rawShipping as any)
+              ?.notes ||
+            ''
+        ).trim() ||
+        undefined,
+
+      deliverySpeed:
+        chosenSpeed
+    };
+
+    /*
+     * Basic client-side validation.
+     *
+     * This is only for user experience.
+     * The Supabase RPC MUST validate everything again.
+     */
+    if (
+      !normalizedShipping.fullName ||
+      !normalizedShipping.phone ||
+      !normalizedShipping.governorate ||
+      !normalizedShipping.city ||
+      !normalizedShipping.street
+    ) {
+      const errorMessage =
+        language === 'ar'
+          ? 'يرجى إكمال معلومات التوصيل المطلوبة.'
+          : 'Please complete the required delivery information.';
+
+      showToast(
+        errorMessage,
+        'warning'
+      );
+
+      throw new CheckoutError(
+        'INVALID_SHIPPING',
+        errorMessage
+      );
+    }
+
+    try {
+      /*
+       * ==========================================================
+       * SUPABASE AUTHORITATIVE CHECKOUT
+       * ==========================================================
+       *
+       * DO NOT calculate or send:
+       * - subtotal
+       * - discount amount
+       * - delivery fee
+       * - final total
+       * - product price
+       *
+       * The database calculates these values from trusted data.
+       */
+      const placedOrder =
+        await supabaseOrderService.createOrderAuthoritative({
+          items:
+            normalizedItems,
+
+          shipping:
+            normalizedShipping,
+
+          paymentMethod:
+            orderData.paymentMethod ||
+            'cod_usd',
+
+          currency:
+            orderData.currency ||
+            currency,
+
+          couponCode:
+            appliedCouponCode ||
+            undefined,
+
+          deliverySpeed:
+            chosenSpeed,
+
+          idempotencyKey
+        });
+
+      /*
+       * IMPORTANT:
+       *
+       * Do NOT manually decrement product stock here.
+       *
+       * checkout_create_order must decrement stock atomically.
+       * The existing Supabase Realtime products listener will refresh
+       * the catalogue after the database change.
+       */
+
+      /*
+       * Add the confirmed order to the current UI.
+       *
+       * Realtime/order refresh will reconcile the state afterward.
+       */
+      setOrders(prev =>
+        prev.some(
+          order =>
+            order.id ===
+            placedOrder.id
+        )
+          ? prev
+          : [
+              placedOrder,
+              ...prev
+            ]
+      );
+
+      /*
+       * The cart is cleared ONLY after Supabase confirms the order.
+       */
+      clearCart();
+
+      /*
+       * The coupon is also cleared only after successful checkout.
+       */
+      setAppliedCouponCode(
+        ''
+      );
+
+      const orderReference =
+        placedOrder.trackingNumber ||
+        `#${placedOrder.id.slice(
+          0,
+          8
+        )}`;
+
+      showToast(
+        language === 'ar'
+          ? `مبروك! تم تأكيد طلبك ${orderReference}.`
+          : `Mabrouk! Order ${orderReference} placed and confirmed by server.`,
         'success'
       );
+
       return placedOrder;
     } catch (error: any) {
-      // CheckoutError.message is already customer-safe. Anything else gets a
-      // generic message so raw Postgres/PostgREST text never reaches the DOM.
-      const isCheckoutError = error instanceof CheckoutError;
-      const displayMsg = isCheckoutError
-        ? error.message
-        : (language === 'ar'
+      /*
+       * CheckoutError contains customer-safe messages.
+       * Never expose raw Postgres/PostgREST/RPC errors to the DOM.
+       */
+      const isCheckoutError =
+        error instanceof
+        CheckoutError;
+
+      const displayMsg =
+        isCheckoutError
+          ? error.message
+          : language === 'ar'
             ? 'تعذر إتمام الطلب. يرجى المحاولة مرة أخرى.'
-            : 'We could not place your order. Please try again.');
+            : 'We could not place your order. Please try again.';
 
-      console.error('[ShopContext] placeOrder failed:', isCheckoutError ? `${error.code}: ${error.message}` : error);
-      showToast(displayMsg, 'warning');
+      console.error(
+        '[ShopContext] placeOrder failed:',
+        isCheckoutError
+          ? `${error.code}: ${error.message}`
+          : error
+      );
 
-      // The cart is intentionally preserved on every failure path: losing a
-      // cart is worse for the customer than a retry, and the idempotency key
-      // makes a retry safe.
+      /*
+       * IMPORTANT:
+       *
+       * Never clear the cart on failure.
+       *
+       * If the RPC rejected the order, the customer keeps the cart and
+       * can retry. The idempotency key prevents duplicate orders when
+       * the same checkout is retried.
+       */
+      showToast(
+        displayMsg,
+        'warning'
+      );
+
       throw error;
     }
   };
 
-  // Update order status - persists to public.orders
-  const updateOrderStatus = async (orderId: string, status: Order['status']) => {
-    const targetOrder = orders.find(o => o.id === orderId);
-    if (targetOrder && targetOrder.status === 'delivered' && status === 'cancelled') {
-      showToast('Cannot cancel an order that has already been delivered.', 'warning');
-      throw new Error('Cannot cancel a delivered order.');
+  // ============================================================
+  // Update Order Status
+  // ============================================================
+
+  const updateOrderStatus = async (
+    orderId: string,
+    status: Order['status']
+  ) => {
+    const targetOrder =
+      orders.find(
+        order =>
+          order.id ===
+          orderId
+      );
+
+    if (!targetOrder) {
+      const errorMessage =
+        language === 'ar'
+          ? 'الطلب غير موجود.'
+          : 'Order not found.';
+
+      showToast(
+        errorMessage,
+        'warning'
+      );
+
+      throw new Error(
+        errorMessage
+      );
+    }
+
+    if (
+      targetOrder.status ===
+        'delivered' &&
+      status === 'cancelled'
+    ) {
+      const errorMessage =
+        language === 'ar'
+          ? 'لا يمكن إلغاء طلب تم تسليمه بالفعل.'
+          : 'Cannot cancel an order that has already been delivered.';
+
+      showToast(
+        errorMessage,
+        'warning'
+      );
+
+      throw new Error(
+        errorMessage
+      );
     }
 
     dbLogger.logFormInput({
-      sourceComponent: 'AdminView',
-      actionName: 'updateOrderStatus',
-      targetPath: `orders/${orderId}`,
-      summary: `Updating order #${orderId} status to "${status}"`,
-      payload: { status }
+      sourceComponent:
+        'AdminView',
+
+      actionName:
+        'updateOrderStatus',
+
+      targetPath:
+        `orders/${orderId}`,
+
+      summary:
+        `Updating order #${orderId} status to "${status}"`,
+
+      payload: {
+        status
+      }
     });
 
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'upsert',
-      targetPath: `orders/${orderId}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'updateOrderStatus',
-      summary: `Persisting status change for order #${orderId} to orders...`
-    });
+    const {
+      startTime
+    } =
+      dbLogger.logDbWriteStart({
+        operation:
+          'upsert',
 
-    const previousOrders = [...orders];
+        targetPath:
+          `orders/${orderId}`,
 
-    // Optimistic local state update
-    setOrders(prev => {
-      const next = prev.map(ord => (ord.id === orderId ? { ...ord, status } : ord));
-      try {
-        localStorage.setItem('yallalb_orders', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+        sourceComponent:
+          'ShopContext',
 
-    await logAdminActivity(
-      'order_status',
-      `Order #${orderId} status updated`,
-      `Shifted fulfillment status to "${status.replace(/_/g, ' ')}".`
-    );
-    showToast(`Order status updated to ${status.replace('_', ' ')}`, 'info');
+        actionName:
+          'updateOrderStatus',
+
+        summary:
+          `Persisting status change for order #${orderId}...`
+      });
+
+    const previousOrders =
+      [...orders];
+
+    try {
+      /*
+       * The service/RPC must enforce administrator/seller authorization
+       * server-side.
+       *
+       * Do not perform a blind client-side update on public.orders.
+       */
+      const updatedOrder =
+        await supabaseOrderService.updateOrderStatus(
+          orderId,
+          status
+        );
+
+      /*
+       * Only update React state AFTER Supabase confirms the write.
+       */
+      setOrders(prev =>
+        prev.map(order =>
+          order.id ===
+          orderId
+            ? {
+                ...order,
+                ...updatedOrder,
+                status
+              }
+            : order
+        )
+      );
+
+      dbLogger.logDbWriteSuccess({
+        operation:
+          'upsert',
+
+        targetPath:
+          `orders/${orderId}`,
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'updateOrderStatus',
+
+        startTime,
+
+        summary:
+          `Order ${orderId} status changed to "${status}".`
+      });
+
+      await logAdminActivity(
+        'order_status',
+
+        `Order #${orderId} status updated`,
+
+        `Shifted fulfillment status to "${status.replace(
+          /_/g,
+          ' '
+        )}".`
+      );
+
+      showToast(
+        language === 'ar'
+          ? `تم تحديث حالة الطلب إلى ${status.replace(
+              /_/g,
+              ' '
+            )}`
+          : `Order status updated to ${status.replace(
+              /_/g,
+              ' '
+            )}`,
+
+        'info'
+      );
+    } catch (error: any) {
+      /*
+       * Restore the previous UI state if Supabase rejected the change.
+       */
+      setOrders(
+        previousOrders
+      );
+
+      dbLogger.logDbWriteError({
+        operation:
+          'upsert',
+
+        targetPath:
+          `orders/${orderId}`,
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'updateOrderStatus',
+
+        startTime,
+
+        summary:
+          `Order ${orderId} status update failed.`,
+
+        error
+      });
+
+      console.error(
+        '[ShopContext] updateOrderStatus failed:',
+        error
+      );
+
+      const message =
+        language === 'ar'
+          ? 'تعذر تحديث حالة الطلب.'
+          : 'Failed to update order status.';
+
+      showToast(
+        message,
+        'error'
+      );
+
+      throw error;
+    }
   };
 
-  // Delete order - removes the row from public.orders
-  const deleteOrder = async (orderId: string) => {
-    const order = orders.find(o => o.id === orderId);
+  // ============================================================
+  // Delete Order
+  // ============================================================
+
+  const deleteOrder = async (
+    orderId: string
+  ) => {
+    const order =
+      orders.find(
+        item =>
+          item.id ===
+          orderId
+      );
+
     if (!order) {
-      showToast('Order not found.', 'warning');
+      showToast(
+        language === 'ar'
+          ? 'الطلب غير موجود.'
+          : 'Order not found.',
+        'warning'
+      );
+
       return;
     }
-    if (order.status === 'delivered') {
-      showToast('Cannot delete a delivered order.', 'warning');
+
+    if (
+      order.status ===
+      'delivered'
+    ) {
+      showToast(
+        language === 'ar'
+          ? 'لا يمكن حذف طلب تم تسليمه.'
+          : 'Cannot delete a delivered order.',
+        'warning'
+      );
+
       return;
     }
 
     dbLogger.logFormInput({
-      sourceComponent: 'AdminView',
-      actionName: 'deleteOrder',
-      targetPath: `orders/${orderId}`,
-      summary: `Admin deleting order #${orderId}`
+      sourceComponent:
+        'AdminView',
+
+      actionName:
+        'deleteOrder',
+
+      targetPath:
+        `orders/${orderId}`,
+
+      summary:
+        `Admin deleting order #${orderId}`
     });
 
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'delete',
-      targetPath: `orders/${orderId}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'deleteOrder',
-      summary: `Deleting row from orders (id ${orderId})...`
-    });
+    const {
+      startTime
+    } =
+      dbLogger.logDbWriteStart({
+        operation:
+          'delete',
 
-    // ── Authoritative delete: private.admin_delete_order ────────────────────
-    // The row is removed first, then the UI. This used to drop the order from
-    // React state and localStorage only, so it came back on the next load
-    // after the admin had been told it was permanently removed. A direct
-    // .delete() cannot replace the RPC: orders has no DELETE policy, so RLS
-    // filters the delete and PostgREST still answers 200.
-    const previousOrders = orders;
-    try {
-      await supabaseOrderService.deleteOrder(orderId);
-    } catch (err: any) {
-      dbLogger.logDbWriteError({
-        operation: 'delete',
-        targetPath: `orders/${orderId}`,
-        sourceComponent: 'ShopContext',
-        actionName: 'deleteOrder',
-        startTime,
-        summary: `Delete of order ${orderId} was refused.`,
-        error: err,
+        targetPath:
+          `orders/${orderId}`,
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'deleteOrder',
+
+        summary:
+          `Deleting order ${orderId}...`
       });
-      setOrders(previousOrders);
-      const detail = String(err?.message || '');
-      const msg = err?.code === '42501' || detail.includes('administrator')
-        ? 'Only an administrator may delete an order.'
-        : detail.includes('delivered')
-          ? 'Cannot delete a delivered order.'
-          : `Failed to delete order: ${detail || 'unknown error'}`;
-      console.error('[ShopContext] deleteOrder failed:', err);
-      showToast(msg, 'error');
-      throw err;
+
+    const previousOrders =
+      [...orders];
+
+    try {
+      /*
+       * Authoritative server-side deletion.
+       *
+       * This must be implemented through the secure Supabase RPC/service
+       * rather than a direct browser-side delete.
+       */
+      await supabaseOrderService.deleteOrder(
+        orderId
+      );
+    } catch (
+      error: any
+    ) {
+      dbLogger.logDbWriteError({
+        operation:
+          'delete',
+
+        targetPath:
+          `orders/${orderId}`,
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'deleteOrder',
+
+        startTime,
+
+        summary:
+          `Delete of order ${orderId} was refused.`,
+
+        error
+      });
+
+      setOrders(
+        previousOrders
+      );
+
+      console.error(
+        '[ShopContext] deleteOrder failed:',
+        error
+      );
+
+      const detail =
+        String(
+          error?.message ||
+            ''
+        );
+
+      const errorCode =
+        String(
+          error?.code ||
+            ''
+        );
+
+      let message: string;
+
+      if (
+        errorCode ===
+          '42501' ||
+        detail
+          .toLowerCase()
+          .includes(
+            'administrator'
+          ) ||
+        detail
+          .toLowerCase()
+          .includes(
+            'admin'
+          )
+      ) {
+        message =
+          language === 'ar'
+            ? 'فقط المسؤول يمكنه حذف الطلب.'
+            : 'Only an administrator may delete an order.';
+      } else if (
+        detail
+          .toLowerCase()
+          .includes(
+            'delivered'
+          )
+      ) {
+        message =
+          language === 'ar'
+            ? 'لا يمكن حذف طلب تم تسليمه.'
+            : 'Cannot delete a delivered order.';
+      } else {
+        message =
+          language === 'ar'
+            ? 'تعذر حذف الطلب.'
+            : 'Failed to delete the order.';
+      }
+
+      showToast(
+        message,
+        'error'
+      );
+
+      throw error;
     }
 
     dbLogger.logDbWriteSuccess({
-      operation: 'delete',
-      targetPath: `orders/${orderId}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'deleteOrder',
+      operation:
+        'delete',
+
+      targetPath:
+        `orders/${orderId}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'deleteOrder',
+
       startTime,
-      summary: `Order ${orderId} deleted from orders.`,
+
+      summary:
+        `Order ${orderId} deleted from orders.`
     });
 
-    setOrders(prev => {
-      const next = prev.filter(o => o.id !== orderId);
-      try {
-        localStorage.setItem('yallalb_orders', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+    /*
+     * Update the UI only after the database confirms deletion.
+     *
+     * Do not use localStorage as the source of truth.
+     */
+    setOrders(prev =>
+      prev.filter(
+        order =>
+          order.id !==
+          orderId
+      )
+    );
 
     await logAdminActivity(
       'order_delete',
+
       `Order #${orderId} deleted`,
+
       `Permanently removed order #${orderId} from system.`
     );
-    showToast('Order deleted!');
+
+    showToast(
+      language === 'ar'
+        ? 'تم حذف الطلب بنجاح.'
+        : 'Order deleted!',
+      'success'
+    );
   };
 
-  // Add product - writes products, product_private and product_images
-  const addProduct = async (newProdData: Omit<Product, 'id'> & { id?: string }) => {
-    // Seller authorization check: non-admin sellers can only create products for their own workshop
-    if (!isAdminUser && isSellerUser) {
-      if (!sellerId) {
-        const errorMsg = 'Unauthorized: Your account is not linked to a registered seller workshop.';
-        showToast(errorMsg, 'error');
-        throw new Error(errorMsg);
-      }
-      newProdData.sellerId = sellerId;
+  // ============================================================
+// Add product - writes products, product_private and product_images
+// ============================================================
+
+const addProduct = async (
+  newProdData: Omit<Product, 'id'> & {
+    id?: string;
+  }
+) => {
+  // ----------------------------------------------------------
+  // Seller authorization
+  // ----------------------------------------------------------
+  if (
+    !isAdminUser &&
+    isSellerUser
+  ) {
+    if (!sellerId) {
+      const errorMsg =
+        'Unauthorized: Your account is not linked to a registered seller workshop.';
+
+      showToast(
+        errorMsg,
+        'error'
+      );
+
+      throw new Error(
+        errorMsg
+      );
     }
 
-    // 1. Validation: Duplicate Product Number (sellerItemCode or custom ID)
-    if (newProdData.sellerItemCode) {
-      const targetSellerId = newProdData.sellerId;
-      const targetSellerName = newProdData.artisan || newProdData.seller;
-      const dupCodeCheck = checkDuplicateProductNumber(newProdData.sellerItemCode, null, products, targetSellerId, targetSellerName);
-      if (dupCodeCheck.isDuplicate) {
-        const errorMsg = `Duplicate seller item code: "${newProdData.sellerItemCode}" is already in use by "${dupCodeCheck.conflictingProduct?.name}" for seller "${targetSellerName || 'this seller'}".`;
-        showToast(errorMsg, 'error');
-        throw new Error(errorMsg);
-      }
+    newProdData.sellerId =
+      sellerId;
+  }
+
+  // ----------------------------------------------------------
+  // Duplicate seller item code
+  // ----------------------------------------------------------
+  if (
+    newProdData.sellerItemCode
+  ) {
+    const targetSellerId =
+      newProdData.sellerId;
+
+    const targetSellerName =
+      newProdData.artisan ||
+      newProdData.seller;
+
+    const dupCodeCheck =
+      checkDuplicateProductNumber(
+        newProdData.sellerItemCode,
+        null,
+        products,
+        targetSellerId,
+        targetSellerName
+      );
+
+    if (
+      dupCodeCheck.isDuplicate
+    ) {
+      const errorMsg =
+        `Duplicate seller item code: "${newProdData.sellerItemCode}" is already in use by "${dupCodeCheck.conflictingProduct?.name}" for seller "${targetSellerName || 'this seller'}".`;
+
+      showToast(
+        errorMsg,
+        'error'
+      );
+
+      throw new Error(
+        errorMsg
+      );
+    }
+  }
+
+  // ----------------------------------------------------------
+  // Validate custom product ID
+  // ----------------------------------------------------------
+  if (newProdData.id) {
+    const dupIdCheck =
+      checkDuplicateProductNumber(
+        newProdData.id,
+        null,
+        products
+      );
+
+    if (
+      dupIdCheck.isDuplicate
+    ) {
+      const errorMsg =
+        `Duplicate product ID/SKU: "${newProdData.id}" is already in use by "${dupIdCheck.conflictingProduct?.name}".`;
+
+      showToast(
+        errorMsg,
+        'error'
+      );
+
+      throw new Error(
+        errorMsg
+      );
     }
 
-    if (newProdData.id) {
-      const dupIdCheck = checkDuplicateProductNumber(newProdData.id, null, products);
-      if (dupIdCheck.isDuplicate) {
-        const errorMsg = `Duplicate product ID/SKU: "${newProdData.id}" is already in use by "${dupIdCheck.conflictingProduct?.name}".`;
-        showToast(errorMsg, 'error');
-        throw new Error(errorMsg);
-      }
+    /*
+     * products.id is UUID in Supabase.
+     */
+    if (
+      !isUuid(
+        newProdData.id
+      )
+    ) {
+      const errorMsg =
+        `Invalid product id "${newProdData.id}": products.id must be a valid UUID. Leave it blank to generate one automatically.`;
+
+      showToast(
+        errorMsg,
+        'error'
+      );
+
+      throw new Error(
+        errorMsg
+      );
     }
+  }
 
-    // Duplicate Description validation removed for flexibility
+  // ----------------------------------------------------------
+  // Separate public and private fields
+  // ----------------------------------------------------------
+  const {
+    rating = 0,
+    reviewsCount = 0,
+    sellerItemCode,
+    lowStockThreshold,
+    lowStockNotice,
+    customStockLabel,
+    costPriceUSD,
+    ...restProdData
+  } = newProdData;
 
-    const { rating = 0, reviewsCount = 0, sellerItemCode, lowStockThreshold, lowStockNotice, customStockLabel, costPriceUSD, ...restProdData } = newProdData;
+  const id =
+    newProdData.id ||
+    generateUuidV4();
 
-    // products.id is uuid. The old `prod-custom-<timestamp>` id cannot be cast
-    // to it, so an admin-created product could never reach Supabase — and a
-    // cart built from one is rejected by the checkout RPC, which requires
-    // product ids that match products.id.
-    if (newProdData.id && !isUuid(newProdData.id)) {
-      const errorMsg = `Invalid product id "${newProdData.id}": products.id is a uuid column. Leave it blank to have one generated.`;
-      showToast(errorMsg, 'error');
-      throw new Error(errorMsg);
-    }
-    const id = newProdData.id || generateUuidV4();
-    const nowIso = new Date().toISOString();
-    
-    // Public product object stored in /products/{id} (does not expose merchant/cost internals)
-    const publicProduct: Product = {
-      createdAt: nowIso,
-      updatedAt: nowIso,
+  const nowIso =
+    new Date().toISOString();
+
+  /*
+   * Public product representation.
+   *
+   * Sensitive merchant fields are deliberately excluded.
+   */
+  const publicProduct: Product =
+    {
+      createdAt:
+        nowIso,
+
+      updatedAt:
+        nowIso,
+
       rating,
+
       reviewsCount,
+
       ...restProdData,
+
       id
     } as Product;
-    delete (publicProduct as any).sellerItemCode;
-    delete (publicProduct as any).lowStockThreshold;
-    delete (publicProduct as any).lowStockNotice;
-    delete (publicProduct as any).customStockLabel;
-    delete (publicProduct as any).costPriceUSD;
 
-    const sanitizedProduct = sanitizeDocumentData(publicProduct);
+  delete (
+    publicProduct as any
+  ).sellerItemCode;
 
-    // Private metadata payload stored in /product_private/{id}
-    const privatePayload: Record<string, any> = {
-      productId: id,
-      sellerId: publicProduct.sellerId || (isSellerUser ? sellerId : null) || null,
-      updatedAt: nowIso
-    };
-    if (sellerItemCode !== undefined && sellerItemCode !== '') privatePayload.sellerItemCode = sellerItemCode;
-    if (lowStockThreshold !== undefined) privatePayload.lowStockThreshold = lowStockThreshold;
-    if (lowStockNotice !== undefined) privatePayload.lowStockNotice = lowStockNotice;
-    if (customStockLabel !== undefined) privatePayload.customStockLabel = customStockLabel;
-    if (costPriceUSD !== undefined) privatePayload.costPriceUSD = costPriceUSD;
+  delete (
+    publicProduct as any
+  ).lowStockThreshold;
 
-    // Full in-memory product representation for the current UI session
-    const newProduct: Product = {
+  delete (
+    publicProduct as any
+  ).lowStockNotice;
+
+  delete (
+    publicProduct as any
+  ).customStockLabel;
+
+  delete (
+    publicProduct as any
+  ).costPriceUSD;
+
+  const sanitizedProduct =
+    sanitizeDocumentData(
+      publicProduct
+    );
+
+  /*
+   * Full UI representation.
+   *
+   * These private fields may be returned to authorized admin/seller
+   * views by the catalog service, but must never be exposed publicly.
+   */
+  const newProduct: Product =
+    {
       ...publicProduct,
+
       sellerItemCode,
+
       lowStockThreshold,
+
       lowStockNotice,
+
       customStockLabel,
+
       costPriceUSD
     };
-    
-    dbLogger.logFormInput({
-      sourceComponent: 'AdminView (AddProductModal)',
-      actionName: 'addProduct',
-      targetPath: `products/${id}`,
-      summary: `Admin created new product "${newProduct.name}" ($${newProduct.priceUSD})`,
-      payload: sanitizedProduct
+
+  // ----------------------------------------------------------
+  // Logging
+  // ----------------------------------------------------------
+  dbLogger.logFormInput({
+    sourceComponent:
+      'AdminView (AddProductModal)',
+
+    actionName:
+      'addProduct',
+
+    targetPath:
+      `products/${id}`,
+
+    summary:
+      `Admin created new product "${newProduct.name}" ($${newProduct.priceUSD})`,
+
+    payload:
+      sanitizedProduct
+  });
+
+  const {
+    startTime
+  } =
+    dbLogger.logDbWriteStart({
+      operation:
+        'upsert',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'addProduct',
+
+      summary:
+        `Writing new product ${id} to Supabase...`,
+
+      payload:
+        sanitizedProduct
     });
 
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'upsert',
-      targetPath: `products/${id}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'addProduct',
-      summary: `Writing new row to products (id ${id})...`,
-      payload: sanitizedProduct
-    });
+  /*
+   * Optimistic UI update.
+   *
+   * This is only a temporary UI/cache representation.
+   * Supabase remains authoritative.
+   */
+  setProducts(prev => {
+    const next = [
+      newProduct,
+      ...prev
+    ];
 
-    // Optimistically update state
-    setProducts(prev => {
-      const next = [newProduct, ...prev];
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-
-    // ── Authoritative write: Supabase ─────────────────────────────────────
-    // products for the public columns, product_private for the merchant
-    // fields, product_images for the gallery. This is the only write; the
-    // Firestore mirror that used to follow it is gone.
-    //
-    // On failure the optimistic row is rolled back and the error rethrown: an
-    // admin must not be told a product was created when it does not exist.
     try {
-      await supabaseCatalogService.upsertProduct(newProduct);
-    } catch (supaErr: any) {
-      setProducts(prev => {
-        const next = prev.filter(p => p.id !== id);
-        try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
-        } catch {}
-        return next;
-      });
-      console.error('[ShopContext] addProduct Supabase write failed:', supaErr);
-      showToast(`Could not save product: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.products,
+        JSON.stringify(
+          next
+        )
+      );
+    } catch {}
 
-    await logAdminActivity(
-      'product_add',
-      `Product "${newProduct.name}" created`,
-      `Added new catalog item with ID: ${newProduct.id}, category: ${newProduct.category}, and price: $${newProduct.priceUSD}.`,
-      newProduct.id,
-      null,
+    return next;
+  });
+
+  // ----------------------------------------------------------
+  // Authoritative Supabase write
+  // ----------------------------------------------------------
+  try {
+    await supabaseCatalogService.upsertProduct(
       newProduct
     );
-    showToast(`Product "${newProduct.name}" saved!`);
+
+    dbLogger.logDbWriteSuccess({
+      operation:
+        'upsert',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'addProduct',
+
+      startTime,
+
+      summary:
+        `Product ${id} successfully saved to Supabase.`
+    });
+  } catch (
+    supaErr: any
+  ) {
+    /*
+     * Roll back optimistic UI if Supabase rejected the write.
+     */
+    setProducts(prev => {
+      const next =
+        prev.filter(
+          product =>
+            product.id !==
+            id
+        );
+
+      try {
+        localStorage.setItem(
+          CATALOG_CACHE_KEYS.products,
+          JSON.stringify(
+            next
+          )
+        );
+      } catch {}
+
+      return next;
+    });
+
+    dbLogger.logDbWriteError({
+      operation:
+        'upsert',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'addProduct',
+
+      startTime,
+
+      summary:
+        `Supabase rejected creation of product ${id}.`,
+
+      error:
+        supaErr
+    });
+
+    console.error(
+      '[ShopContext] addProduct Supabase write failed:',
+      supaErr
+    );
+
+    showToast(
+      language === 'ar'
+        ? 'تعذر حفظ المنتج. يرجى المحاولة مرة أخرى.'
+        : 'Could not save product. Please try again.',
+      'error'
+    );
+
+    throw supaErr;
+  }
+
+  // ----------------------------------------------------------
+  // Admin activity
+  // ----------------------------------------------------------
+  await logAdminActivity(
+    'product_add',
+
+    `Product "${newProduct.name}" created`,
+
+    `Added new catalog item with ID: ${newProduct.id}, category: ${newProduct.category}, and price: $${newProduct.priceUSD}.`,
+
+    newProduct.id,
+
+    null,
+
+    newProduct
+  );
+
+  showToast(
+    language === 'ar'
+      ? `تم حفظ المنتج "${newProduct.name}" بنجاح!`
+      : `Product "${newProduct.name}" saved!`,
+    'success'
+  );
+};
+
+
+// ============================================================
+// Update product
+// ============================================================
+
+const updateProduct = async (
+  id: string,
+  updates: Partial<Product>
+) => {
+  const existing =
+    products.find(
+      product =>
+        product.id ===
+        id
+    );
+
+  if (!existing) {
+    const errorMsg =
+      language === 'ar'
+        ? 'المنتج غير موجود.'
+        : 'Product not found.';
+
+    showToast(
+      errorMsg,
+      'error'
+    );
+
+    throw new Error(
+      errorMsg
+    );
+  }
+
+  // ----------------------------------------------------------
+  // Seller authorization
+  // ----------------------------------------------------------
+  if (
+    !isAdminUser &&
+    isSellerUser
+  ) {
+    if (
+      !sellerId ||
+      existing.sellerId?.toLowerCase() !==
+        sellerId.toLowerCase()
+    ) {
+      const errorMsg =
+        language === 'ar'
+          ? 'غير مصرح لك بتعديل منتجات ورشتك فقط.'
+          : 'Unauthorized: You can only edit products belonging to your workshop.';
+
+      showToast(
+        errorMsg,
+        'error'
+      );
+
+      throw new Error(
+        errorMsg
+      );
+    }
+
+    updates = {
+      ...updates,
+      sellerId
+    };
+  }
+
+  // ----------------------------------------------------------
+  // Duplicate seller item code
+  // ----------------------------------------------------------
+  if (
+    updates.sellerItemCode
+  ) {
+    const targetSellerId =
+      updates.sellerId ||
+      existing.sellerId;
+
+    const targetSellerName =
+      updates.artisan ||
+      updates.seller ||
+      existing.artisan ||
+      existing.seller;
+
+    const dupCodeCheck =
+      checkDuplicateProductNumber(
+        updates.sellerItemCode,
+        id,
+        products,
+        targetSellerId,
+        targetSellerName
+      );
+
+    if (
+      dupCodeCheck.isDuplicate
+    ) {
+      const errorMsg =
+        `Duplicate seller item code: "${updates.sellerItemCode}" is already assigned to "${dupCodeCheck.conflictingProduct?.name}" for seller "${targetSellerName || 'this seller'}".`;
+
+      showToast(
+        errorMsg,
+        'error'
+      );
+
+      throw new Error(
+        errorMsg
+      );
+    }
+  }
+
+  // ----------------------------------------------------------
+  // Separate private fields
+  // ----------------------------------------------------------
+  const {
+    sellerItemCode,
+    lowStockThreshold,
+    lowStockNotice,
+    customStockLabel,
+    costPriceUSD,
+    ...publicUpdates
+  } = updates;
+
+  const nowIso =
+    new Date().toISOString();
+
+  const mergedUpdates = {
+    ...updates,
+    updatedAt:
+      nowIso
   };
 
-  // Update product - updates products, product_private and product_images
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
-    const existing = products.find(p => p.id === id);
+  const mergedPublicUpdates =
+    {
+      ...publicUpdates,
+      updatedAt:
+        nowIso
+    };
 
-    // Seller authorization check: non-admin sellers can only update their own products
-    if (!isAdminUser && isSellerUser) {
-      if (!sellerId || !existing || existing.sellerId?.toLowerCase() !== sellerId?.toLowerCase()) {
-        const errorMsg = 'Unauthorized: You can only edit products belonging to your workshop.';
-        showToast(errorMsg, 'error');
-        throw new Error(errorMsg);
+  const sanitizedUpdates =
+    sanitizeDocumentData(
+      mergedPublicUpdates
+    );
+
+  // ----------------------------------------------------------
+  // Logging
+  // ----------------------------------------------------------
+  dbLogger.logFormInput({
+    sourceComponent:
+      'AdminView',
+
+    actionName:
+      'updateProduct',
+
+    targetPath:
+      `products/${id}`,
+
+    summary:
+      `Admin updated product #${id} (${existing.name}): [${Object.keys(
+        updates
+      ).join(', ')}]`,
+
+    payload:
+      sanitizedUpdates,
+
+    diff:
+      calculateObjectDiff(
+        existing as any,
+        {
+          ...existing,
+          ...mergedUpdates
+        } as any
+      )
+  });
+
+  const {
+    startTime
+  } =
+    dbLogger.logDbWriteStart({
+      operation:
+        'upsert',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'updateProduct',
+
+      summary:
+        `Persisting product #${id} updates to Supabase...`,
+
+      payload:
+        sanitizedUpdates
+    });
+
+  const previousProduct =
+    existing;
+
+  /*
+   * Optimistic UI update.
+   */
+  setProducts(prev => {
+    const next =
+      prev.map(
+        product =>
+          product.id ===
+          id
+            ? {
+                ...product,
+                ...mergedUpdates
+              }
+            : product
+      );
+
+    try {
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.products,
+        JSON.stringify(
+          next
+        )
+      );
+    } catch {}
+
+    return next;
+  });
+
+  // ----------------------------------------------------------
+  // Authoritative Supabase write
+  // ----------------------------------------------------------
+  try {
+    /*
+     * Only supplied fields are sent.
+     *
+     * This prevents a targeted edit such as changing price from
+     * accidentally overwriting unrelated columns.
+     */
+    await supabaseCatalogService.upsertProduct(
+      {
+        ...updates,
+        id
       }
-      updates.sellerId = sellerId;
+    );
+
+    dbLogger.logDbWriteSuccess({
+      operation:
+        'upsert',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'updateProduct',
+
+      startTime,
+
+      summary:
+        `Product ${id} successfully updated in Supabase.`
+    });
+  } catch (
+    supaErr: any
+  ) {
+    /*
+     * Roll back optimistic state.
+     */
+    setProducts(prev => {
+      const next =
+        prev.map(
+          product =>
+            product.id ===
+            id
+              ? previousProduct
+              : product
+        );
+
+      try {
+        localStorage.setItem(
+          CATALOG_CACHE_KEYS.products,
+          JSON.stringify(
+            next
+          )
+        );
+      } catch {}
+
+      return next;
+    });
+
+    dbLogger.logDbWriteError({
+      operation:
+        'upsert',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'updateProduct',
+
+      startTime,
+
+      summary:
+        `Supabase rejected update of product ${id}.`,
+
+      error:
+        supaErr
+    });
+
+    console.error(
+      '[ShopContext] updateProduct Supabase write failed:',
+      supaErr
+    );
+
+    showToast(
+      language === 'ar'
+        ? 'تعذر حفظ تغييرات المنتج. يرجى المحاولة مرة أخرى.'
+        : 'Could not save product changes. Please try again.',
+      'error'
+    );
+
+    throw supaErr;
+  }
+
+  // ----------------------------------------------------------
+  // Admin activity
+  // ----------------------------------------------------------
+  await logAdminActivity(
+    'product_update',
+
+    `Product "${existing.name}" updated`,
+
+    `Modified attributes: ${Object.keys(
+      updates
+    ).join(', ')}.`,
+
+    id,
+
+    existing,
+
+    {
+      ...existing,
+      ...mergedUpdates
+    }
+  );
+
+  showToast(
+    language === 'ar'
+      ? 'تم تحديث المنتج بنجاح!'
+      : 'Product updated!',
+    'success'
+  );
+};
+
+
+// ============================================================
+// Delete product
+// ============================================================
+
+const deleteProduct = async (
+  id: string
+) => {
+  /*
+   * High-risk authorization is still required for administrators.
+   */
+  if (
+    isAdminUser
+  ) {
+    const authorized =
+      await assertHighRiskAuthorization(
+        authUser?.uid
+      );
+
+    if (!authorized) {
+      showToast(
+        language === 'ar'
+          ? 'تم إلغاء العملية أو انتهت صلاحية التحقق.'
+          : 'High-risk action cancelled or verification expired.',
+        'error'
+      );
+
+      throw new Error(
+        'High-risk authorization failed'
+      );
+    }
+  }
+
+  const target =
+    products.find(
+      product =>
+        product.id ===
+        id
+    );
+
+  if (!target) {
+    const errorMsg =
+      language === 'ar'
+        ? 'المنتج غير موجود.'
+        : 'Product not found.';
+
+    showToast(
+      errorMsg,
+      'warning'
+    );
+
+    return;
+  }
+
+  // ----------------------------------------------------------
+  // Seller authorization
+  // ----------------------------------------------------------
+  if (
+    !isAdminUser &&
+    isSellerUser
+  ) {
+    if (
+      !sellerId ||
+      target.sellerId?.toLowerCase() !==
+        sellerId.toLowerCase()
+    ) {
+      const errorMsg =
+        language === 'ar'
+          ? 'غير مصرح لك بحذف منتجات ورشتك فقط.'
+          : 'Unauthorized: You can only delete products belonging to your workshop.';
+
+      showToast(
+        errorMsg,
+        'error'
+      );
+
+      throw new Error(
+        errorMsg
+      );
+    }
+  }
+
+  dbLogger.logFormInput({
+    sourceComponent:
+      'AdminView',
+
+    actionName:
+      'deleteProduct',
+
+    targetPath:
+      `products/${id}`,
+
+    summary:
+      `Admin deleted product #${id} ("${target.name}")`
+  });
+
+  const {
+    startTime
+  } =
+    dbLogger.logDbWriteStart({
+      operation:
+        'delete',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'deleteProduct',
+
+      summary:
+        `Deleting product ${id} from Supabase...`
+    });
+
+  const previousProducts =
+    [...products];
+
+  /*
+   * Optimistic removal.
+   */
+  setProducts(prev => {
+    const next =
+      prev.filter(
+        product =>
+          product.id !==
+          id
+      );
+
+    try {
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.products,
+        JSON.stringify(
+          next
+        )
+      );
+    } catch {}
+
+    return next;
+  });
+
+  // ----------------------------------------------------------
+  // Authoritative Supabase delete
+  // ----------------------------------------------------------
+  try {
+    await supabaseCatalogService.deleteProduct(
+      id
+    );
+
+    dbLogger.logDbWriteSuccess({
+      operation:
+        'delete',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'deleteProduct',
+
+      startTime,
+
+      summary:
+        `Product ${id} deleted from Supabase.`
+    });
+  } catch (
+    supaErr: any
+  ) {
+    /*
+     * Restore the product if the database deletion failed.
+     */
+    setProducts(
+      previousProducts
+    );
+
+    try {
+      localStorage.setItem(
+        CATALOG_CACHE_KEYS.products,
+        JSON.stringify(
+          previousProducts
+        )
+      );
+    } catch {}
+
+    dbLogger.logDbWriteError({
+      operation:
+        'delete',
+
+      targetPath:
+        `products/${id}`,
+
+      sourceComponent:
+        'ShopContext',
+
+      actionName:
+        'deleteProduct',
+
+      startTime,
+
+      summary:
+        `Supabase rejected deletion of product ${id}.`,
+
+      error:
+        supaErr
+    });
+
+    console.error(
+      '[ShopContext] deleteProduct Supabase delete failed:',
+      supaErr
+    );
+
+    showToast(
+      language === 'ar'
+        ? 'تعذر حذف المنتج. يرجى المحاولة مرة أخرى.'
+        : 'Could not delete product. Please try again.',
+      'error'
+    );
+
+    throw supaErr;
+  }
+
+  await logAdminActivity(
+    'product_delete',
+
+    `Product "${target.name}" deleted`,
+
+    `Permanently removed product #${id} from catalog.`,
+
+    id,
+
+    target,
+
+    null
+  );
+
+  showToast(
+    language === 'ar'
+      ? 'تم حذف المنتج بنجاح!'
+      : 'Product deleted!',
+    'success'
+  );
+};
+
+
+// ============================================================
+// Mass delete products
+// ============================================================
+
+const deleteMultipleProducts =
+  async (
+    ids: string[]
+  ) => {
+    if (
+      !ids ||
+      ids.length === 0
+    ) {
+      return;
     }
 
-    // 1. Validation: Duplicate Product Number
-    if (updates.sellerItemCode) {
-      const targetSellerId = updates.sellerId || existing?.sellerId;
-      const targetSellerName = updates.artisan || updates.seller || existing?.artisan || existing?.seller;
-      const dupCodeCheck = checkDuplicateProductNumber(updates.sellerItemCode, id, products, targetSellerId, targetSellerName);
-      if (dupCodeCheck.isDuplicate) {
-        const errorMsg = `Duplicate seller item code: "${updates.sellerItemCode}" is already assigned to "${dupCodeCheck.conflictingProduct?.name}" for seller "${targetSellerName || 'this seller'}".`;
-        showToast(errorMsg, 'error');
-        throw new Error(errorMsg);
+    /*
+     * Only valid UUID product IDs should reach Supabase.
+     */
+    const validIds =
+      ids.filter(
+        id =>
+          isUuid(id)
+      );
+
+    if (
+      validIds.length ===
+      0
+    ) {
+      showToast(
+        language === 'ar'
+          ? 'لا توجد منتجات صالحة للحذف.'
+          : 'No valid products were selected for deletion.',
+        'warning'
+      );
+
+      return;
+    }
+
+    /*
+     * High-risk authorization for administrators.
+     */
+    if (
+      isAdminUser
+    ) {
+      const authorized =
+        await assertHighRiskAuthorization(
+          authUser?.uid
+        );
+
+      if (!authorized) {
+        showToast(
+          language === 'ar'
+            ? 'تم إلغاء العملية أو انتهت صلاحية التحقق.'
+            : 'High-risk action cancelled or verification expired.',
+          'error'
+        );
+
+        throw new Error(
+          'High-risk authorization failed'
+        );
       }
     }
+
+    /*
+     * Sellers may only delete their own products.
+     */
+    if (
+      !isAdminUser &&
+      isSellerUser
+    ) {
+      if (!sellerId) {
+        const errorMsg =
+          language === 'ar'
+            ? 'حساب البائع غير مرتبط بورشة.'
+            : 'Your seller account is not linked to a workshop.';
+
+        showToast(
+          errorMsg,
+          'error'
+        );
+
+        throw new Error(
+          errorMsg
+        );
+      }
+
+      const unauthorized =
+        products.some(
+          product =>
+            validIds.includes(
+              product.id
+            ) &&
+            product.sellerId?.toLowerCase() !==
+              sellerId.toLowerCase()
+        );
+
+      if (
+        unauthorized
+      ) {
+        const errorMsg =
+          language === 'ar'
+            ? 'يمكنك حذف منتجات ورشتك فقط.'
+            : 'You can only delete products belonging to your workshop.';
+
+        showToast(
+          errorMsg,
+          'error'
+        );
+
+        throw new Error(
+          errorMsg
+        );
+      }
+    }
+
+    dbLogger.logFormInput({
+      sourceComponent:
+        'AdminView',
+
+      actionName:
+        'deleteMultipleProducts',
+
+      targetPath:
+        'products/mass_delete',
+
+      summary:
+        `Deleting ${validIds.length} products`
+    });
 
     const {
-      sellerItemCode,
-      lowStockThreshold,
-      lowStockNotice,
-      customStockLabel,
-      costPriceUSD,
-      ...publicUpdates
-    } = updates;
+      startTime
+    } =
+      dbLogger.logDbWriteStart({
+        operation:
+          'delete',
 
-    const nowIso = new Date().toISOString();
-    const mergedUpdates = { ...updates, updatedAt: nowIso };
-    const mergedPublicUpdates = { ...publicUpdates, updatedAt: nowIso };
-    const sanitizedUpdates = sanitizeDocumentData(mergedPublicUpdates);
+        targetPath:
+          'products/mass_delete',
 
-    const privateUpdates: Record<string, any> = {
-      productId: id,
-      sellerId: updates.sellerId || existing?.sellerId || (isSellerUser ? sellerId : null) || null,
-      updatedAt: nowIso
-    };
-    let hasPrivateUpdates = false;
-    if (sellerItemCode !== undefined) { privateUpdates.sellerItemCode = sellerItemCode; hasPrivateUpdates = true; }
-    if (lowStockThreshold !== undefined) { privateUpdates.lowStockThreshold = lowStockThreshold; hasPrivateUpdates = true; }
-    if (lowStockNotice !== undefined) { privateUpdates.lowStockNotice = lowStockNotice; hasPrivateUpdates = true; }
-    if (customStockLabel !== undefined) { privateUpdates.customStockLabel = customStockLabel; hasPrivateUpdates = true; }
-    if (costPriceUSD !== undefined) { privateUpdates.costPriceUSD = costPriceUSD; hasPrivateUpdates = true; }
-    
-    dbLogger.logFormInput({
-      sourceComponent: 'AdminView',
-      actionName: 'updateProduct',
-      targetPath: `products/${id}`,
-      summary: `Admin updated product #${id} (${existing?.name || 'Item'}): [${Object.keys(updates).join(', ')}]`,
-      payload: sanitizedUpdates,
-      diff: calculateObjectDiff(existing as any, { ...existing, ...mergedUpdates } as any)
-    });
+        sourceComponent:
+          'ShopContext',
 
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'upsert',
-      targetPath: `products/${id}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'updateProduct',
-      summary: `Persisting product #${id} updates to products...`,
-      payload: sanitizedUpdates
-    });
+        actionName:
+          'deleteMultipleProducts',
 
+        summary:
+          `Deleting ${validIds.length} products from Supabase...`
+      });
+
+    const previousProducts =
+      [...products];
+
+    /*
+     * Optimistic UI update.
+     */
     setProducts(prev => {
-      const next = prev.map(p => (p.id === id ? { ...p, ...mergedUpdates } : p));
+      const next =
+        prev.filter(
+          product =>
+            !validIds.includes(
+              product.id
+            )
+        );
+
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        localStorage.setItem(
+          CATALOG_CACHE_KEYS.products,
+          JSON.stringify(
+            next
+          )
+        );
       } catch {}
+
       return next;
     });
 
-    // ── Authoritative write: Supabase ─────────────────────────────────────
-    // Only the fields the caller actually changed are sent, so a targeted edit
-    // (a price, a publish toggle) cannot blank out columns it never mentioned:
-    // upsertProduct drops undefined keys, and leaves product_private and
-    // product_images alone unless those fields were supplied.
     try {
-      await supabaseCatalogService.upsertProduct({ ...updates, id });
-    } catch (supaErr: any) {
-      if (existing) {
-        setProducts(prev => {
-          const next = prev.map(p => (p.id === id ? existing : p));
-          try {
-            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
-          } catch {}
-          return next;
-        });
+      /*
+       * Delete each product through the authoritative catalog service.
+       *
+       * This preserves the existing service authorization/RLS model and
+       * ensures product_private/product_images are handled consistently.
+       */
+      for (
+        const productId of
+          validIds
+      ) {
+        await supabaseCatalogService.deleteProduct(
+          productId
+        );
       }
-      console.error('[ShopContext] updateProduct Supabase write failed:', supaErr);
-      showToast(`Could not save changes: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
-    }
 
-    await logAdminActivity(
-      'product_update',
-      `Product "${existing?.name || id}" updated`,
-      `Modified attributes: ${Object.keys(updates).join(', ')}.`,
-      id,
-      existing,
-      { ...existing, ...mergedUpdates }
-    );
-    showToast('Product updated!');
-  };
+      dbLogger.logDbWriteSuccess({
+        operation:
+          'delete',
 
-  // Delete product - removes the row from public.products
-  const deleteProduct = async (id: string) => {
-    if (isAdminUser) {
-      const authorized = await assertHighRiskAuthorization(authUser?.uid);
-      if (!authorized) {
-        showToast('High-risk action cancelled or verification expired.', 'error');
-        throw new Error('High-risk authorization failed');
-      }
-    }
+        targetPath:
+          'products/mass_delete',
 
-    const target = products.find(p => p.id === id);
-    
-    // Seller authorization check: non-admin sellers can only delete their own products
-    if (!isAdminUser && isSellerUser) {
-      if (!sellerId || !target || target.sellerId?.toLowerCase() !== sellerId?.toLowerCase()) {
-        const errorMsg = 'Unauthorized: You can only delete products belonging to your workshop.';
-        showToast(errorMsg, 'error');
-        throw new Error(errorMsg);
-      }
-    }
+        sourceComponent:
+          'ShopContext',
 
-    dbLogger.logFormInput({
-      sourceComponent: 'AdminView',
-      actionName: 'deleteProduct',
-      targetPath: `products/${id}`,
-      summary: `Admin deleted product #${id} ("${target?.name || id}")`
-    });
+        actionName:
+          'deleteMultipleProducts',
 
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'delete',
-      targetPath: `products/${id}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'deleteProduct',
-      summary: `Deleting row from products (id ${id})...`
-    });
+        startTime,
 
-    setProducts(prev => {
-      const next = prev.filter(p => p.id !== id);
+        summary:
+          `Deleted ${validIds.length} products from Supabase.`
+      });
+    } catch (
+      supaErr: any
+    ) {
+      /*
+       * Restore everything if any deletion failed.
+       */
+      setProducts(
+        previousProducts
+      );
+
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        localStorage.setItem(
+          CATALOG_CACHE_KEYS.products,
+          JSON.stringify(
+            previousProducts
+          )
+        );
       } catch {}
-      return next;
-    });
 
-    // ── Authoritative delete: Supabase ────────────────────────────────────
-    // product_images and product_private rows go with it via ON DELETE
-    // cascade on their product_id foreign keys. The row is restored on screen
-    // if the delete fails, so the admin never sees a product disappear from a
-    // catalogue that still contains it.
-    try {
-      await supabaseCatalogService.deleteProduct(id);
-    } catch (supaErr: any) {
-      if (target) {
-        setProducts(prev => {
-          const next = [target, ...prev.filter(p => p.id !== id)];
-          try {
-            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
-          } catch {}
-          return next;
-        });
-      }
-      console.error('[ShopContext] deleteProduct Supabase delete failed:', supaErr);
-      showToast(`Could not delete product: ${supaErr?.message || 'unknown error'}`, 'error');
+      dbLogger.logDbWriteError({
+        operation:
+          'delete',
+
+        targetPath:
+          'products/mass_delete',
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'deleteMultipleProducts',
+
+        startTime,
+
+        summary:
+          'Bulk product deletion failed.',
+
+        error:
+          supaErr
+      });
+
+      console.error(
+        '[ShopContext] deleteMultipleProducts failed:',
+        supaErr
+      );
+
+      showToast(
+        language === 'ar'
+          ? 'تعذر حذف المنتجات المحددة. لم يتم اعتماد العملية بالكامل.'
+          : 'Could not delete the selected products. The operation was not fully completed.',
+        'error'
+      );
+
       throw supaErr;
     }
 
     await logAdminActivity(
       'product_delete',
-      `Product "${target?.name || id}" deleted`,
-      `Permanently removed product #${id} from catalog.`,
-      id,
-      target,
-      null
+
+      `Bulk deleted ${validIds.length} products`,
+
+      `Permanently removed ${validIds.length} products from catalog.`
     );
-    showToast('Product deleted!');
+
+    showToast(
+      language === 'ar'
+        ? `تم حذف ${validIds.length} منتج بنجاح!`
+        : `${validIds.length} products deleted!`,
+      'success'
+    );
   };
 
-  // Mass delete products - removes multiple rows from public.products
-  const deleteMultipleProducts = async (ids: string[]) => {
-    if (!ids || ids.length === 0) return;
 
-    dbLogger.logFormInput({
-      sourceComponent: 'AdminView',
-      actionName: 'deleteMultipleProducts',
-      targetPath: 'products/mass_delete',
-      summary: `Admin bulk deleting ${ids.length} products`
-    });
+// ============================================================
+// Reload catalogue from Supabase
+// ============================================================
 
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'delete', // or mass delete
-      targetPath: `products/mass_delete`,
-      sourceComponent: 'ShopContext',
-      actionName: 'deleteMultipleProducts',
-      summary: `Deleting ${ids.length} rows from products...`
-    });
-
-    setProducts(prev => {
-      const next = prev.filter(p => !ids.includes(p.id));
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-
-    await logAdminActivity(
-      'product_delete',
-      `Bulk deleted ${ids.length} products`,
-      `Permanently removed ${ids.length} products from catalog.`
-    );
-    showToast(`${ids.length} products deleted!`);
-  };
-
-  /**
-   * Re-reads the catalogue from Supabase.
-   *
-   * This used to restore the bundled seed catalogue: it batch-wrote every
-   * INITIAL_PRODUCTS entry into the database, overwriting real admin edits with
-   * sample data and inserting products whose ids are slugs rather than UUIDs —
-   * which checkout then rejects. Seeding a production catalogue from bundled
-   * demo data is not a recovery tool, so the action now does the thing an admin
-   * actually wants from a "sync" button: discard local cache and re-read the
-   * authoritative rows.
-   */
-  const syncAllProductsToDatabase = async () => {
+const syncAllProductsToDatabase =
+  async () => {
     try {
-      showToast('Reloading catalogue from Supabase...', 'info');
+      showToast(
+        language === 'ar'
+          ? 'جارٍ إعادة تحميل الكتالوج من Supabase...'
+          : 'Reloading catalogue from Supabase...',
+        'info'
+      );
 
-      const [freshProducts, freshCategories] = await Promise.all([
-        supabaseCatalogService.fetchProducts({ isAdmin: isAdminUser, isSeller: isSellerUser, sellerId }),
-        supabaseCatalogService.fetchCategories(),
-      ]);
+      const [
+        freshProducts,
+        freshCategories
+      ] =
+        await Promise.all([
+          supabaseCatalogService.fetchProducts(
+            {
+              isAdmin:
+                isAdminUser,
+
+              isSeller:
+                isSellerUser,
+
+              sellerId
+            }
+          ),
+
+          supabaseCatalogService.fetchCategories()
+        ]);
+
       await refreshSellersFromSupabase();
 
-      setProducts(freshProducts.map(ensureSellerItemCode));
-      setCategories(freshCategories);
-      setCatalogStatus('ready');
-      setCatalogError(null);
+      const normalizedProducts =
+        freshProducts.map(
+          ensureSellerItemCode
+        );
 
+      setProducts(
+        normalizedProducts
+      );
+
+      setCategories(
+        freshCategories
+      );
+
+      setCatalogStatus(
+        'ready'
+      );
+
+      setCatalogError(
+        null
+      );
+
+      /*
+       * localStorage is only a cache.
+       */
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(freshProducts));
-        localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(freshCategories));
+        localStorage.setItem(
+          CATALOG_CACHE_KEYS.products,
+          JSON.stringify(
+            normalizedProducts
+          )
+        );
+
+        localStorage.setItem(
+          CATALOG_CACHE_KEYS.categories,
+          JSON.stringify(
+            freshCategories
+          )
+        );
       } catch {}
 
       showToast(
-        freshProducts.length === 0
-          ? 'Catalogue reloaded: the database has no products yet.'
-          : `Catalogue reloaded: ${freshProducts.length} product(s) from Supabase.`,
+        normalizedProducts.length ===
+          0
+          ? language === 'ar'
+            ? 'تم تحديث الكتالوج. لا توجد منتجات في قاعدة البيانات حالياً.'
+            : 'Catalogue reloaded: the database has no products yet.'
+          : language === 'ar'
+            ? `تم تحديث الكتالوج: ${normalizedProducts.length} منتج من Supabase.`
+            : `Catalogue reloaded: ${normalizedProducts.length} product(s) from Supabase.`,
         'success'
       );
-    } catch (err: any) {
-      console.error('[ShopContext] Catalogue reload failed:', err);
-      setCatalogStatus('error');
-      setCatalogError(err?.message || String(err));
-      showToast(`Could not reload the catalogue: ${err?.message || 'unknown error'}`, 'error');
+    } catch (
+      err: any
+    ) {
+      console.error(
+        '[ShopContext] Catalogue reload failed:',
+        err
+      );
+
+      setCatalogStatus(
+        'error'
+      );
+
+      setCatalogError(
+        err?.message ||
+          String(err)
+      );
+
+      showToast(
+        language === 'ar'
+          ? 'تعذر إعادة تحميل الكتالوج.'
+          : 'Could not reload the catalogue.',
+        'error'
+      );
+
       throw err;
     }
   };
 
-  // Check phone number uniqueness against the Supabase phone registry
-  /**
-   * Whether a phone number can be claimed by the current user.
-   *
-   * `excludeUid` is kept for call-site compatibility but is deliberately NOT
-   * sent: the exclusion is the caller's own id, taken from auth.uid() inside
-   * the function, so a client cannot free up another account's number by
-   * naming it.
-   *
-   * This used to answer from `yallalb_registered_users_cache` in localStorage
-   * — a per-browser list that said "available" for every number the browser
-   * had not seen, and that a user can edit. A direct read of phone_registry is
-   * no better: `phone_registry_own` restricts rows to their owner, so another
-   * account's number simply comes back as missing. public.is_phone_available
-   * answers server-side without disclosing who holds a number.
-   *
-   * The real guarantee is still the phone_key primary key at claim time; this
-   * only lets the form warn before the round trip. A read failure therefore
-   * reports availability rather than blocking a legitimate signup — but it is
-   * logged, never swallowed.
-   */
-  const checkPhoneUniqueness = useCallback(async (phone: string, excludeUid?: string): Promise<{ available: boolean; reason?: string }> => {
-    void excludeUid;
 
-    const norm = normalizeLebanesePhone(phone);
-    if (!norm.isValid) {
-      return {
-        available: false,
-        reason: language === 'ar'
-          ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام صحيحة (مثال: 70123456 أو 03123456).'
-          : 'Lebanese phone number must be strictly 8 valid digits (e.g. 70123456 or 03123456).'
-      };
-    }
+// ============================================================
+// Check phone number uniqueness
+// ============================================================
 
-    const { data, error } = await supabase.rpc('is_phone_available', {
-      p_phone_key: norm.cleanDigits,
-    });
+const checkPhoneUniqueness =
+  useCallback(
+    async (
+      phone: string,
+      excludeUid?: string
+    ): Promise<{
+      available: boolean;
+      reason?: string;
+    }> => {
+      /*
+       * Kept for compatibility with existing callers.
+       *
+       * The database derives the authenticated UID from auth.uid().
+       * Never allow the browser to exclude another user's UID.
+       */
+      void excludeUid;
 
-    if (error) {
-      console.error('[ShopContext] is_phone_available failed:', error);
-      return { available: true };
-    }
+      const norm =
+        normalizeLebanesePhone(
+          phone
+        );
 
-    if (data === false) {
-      return {
-        available: false,
-        reason: language === 'ar'
-          ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.'
-          : 'This phone number is already registered to another account.'
-      };
-    }
+      if (
+        !norm.isValid
+      ) {
+        return {
+          available:
+            false,
 
-    return { available: true };
-  }, [language]);
+          reason:
+            language === 'ar'
+              ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام صحيحة (مثال: 70123456 أو 03123456).'
+              : 'Lebanese phone number must be strictly 8 valid digits (e.g. 70123456 or 03123456).'
+        };
+      }
 
-  // Update user profile - persists to public.profiles
-  const updateUser = async (updates: Partial<UserProfile>) => {
-    // If phone number is updated, check uniqueness and manage registry
-    if (updates.phone !== undefined && updates.phone !== '') {
-      const norm = normalizeLebanesePhone(updates.phone);
-      if (norm.isValid) {
-        const oldNorm = normalizeLebanesePhone(user.phone);
-        const isChanging = !oldNorm.isValid || oldNorm.cleanDigits !== norm.cleanDigits;
-        const userUid = authUser?.uid || user.uid;
-
-        if (isChanging) {
-          const check = await checkPhoneUniqueness(norm.cleanDigits, userUid);
-          if (!check.available) {
-            showToast(check.reason || 'This phone number is already registered.', 'warning');
-            throw new Error(check.reason || 'Phone number already registered.');
+      const {
+        data,
+        error
+      } =
+        await supabase.rpc(
+          'is_phone_available',
+          {
+            p_phone_key:
+              norm.cleanDigits
           }
+        );
 
+      if (error) {
+        console.error(
+          '[ShopContext] is_phone_available failed:',
+          error
+        );
+
+        /*
+         * This check is advisory only.
+         * The unique phone_key constraint remains authoritative.
+         */
+        return {
+          available:
+            true
+        };
+      }
+
+      if (
+        data === false
+      ) {
+        return {
+          available:
+            false,
+
+          reason:
+            language === 'ar'
+              ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.'
+              : 'This phone number is already registered to another account.'
+        };
+      }
+
+      return {
+        available:
+          true
+      };
+    },
+    [
+      language
+    ]
+  );
+
+
+// ============================================================
+// Update user profile
+// ============================================================
+
+const updateUser =
+  async (
+    updates: Partial<UserProfile>
+  ) => {
+    // ----------------------------------------------------------
+    // Phone uniqueness
+    // ----------------------------------------------------------
+    if (
+      updates.phone !==
+        undefined &&
+      updates.phone !==
+        ''
+    ) {
+      const norm =
+        normalizeLebanesePhone(
+          updates.phone
+        );
+
+      if (
+        norm.isValid
+      ) {
+        const oldNorm =
+          normalizeLebanesePhone(
+            user.phone
+          );
+
+        const isChanging =
+          !oldNorm.isValid ||
+          oldNorm.cleanDigits !==
+            norm.cleanDigits;
+
+        const userUid =
+          authUser?.uid ||
+          user.uid;
+
+        if (
+          isChanging
+        ) {
+          const check =
+            await checkPhoneUniqueness(
+              norm.cleanDigits,
+              userUid
+            );
+
+          if (
+            !check.available
+          ) {
+            const message =
+              check.reason ||
+              (
+                language === 'ar'
+                  ? 'رقم الهاتف مسجل مسبقاً.'
+                  : 'This phone number is already registered.'
+              );
+
+            showToast(
+              message,
+              'warning'
+            );
+
+            throw new Error(
+              message
+            );
+          }
         }
       }
     }
 
-    // Strip privileged and authorization fields to prevent client-side privilege escalation
-    const safeUpdates = { ...updates };
-    delete (safeUpdates as any).role;
-    delete (safeUpdates as any).sellerId;
-    delete (safeUpdates as any).admin;
-    delete (safeUpdates as any).seller;
-    delete (safeUpdates as any).isAdminUser;
-    delete (safeUpdates as any).isSellerUser;
-    delete (safeUpdates as any).uid;
-    delete (safeUpdates as any).isBanned;
-    delete (safeUpdates as any).ordersPlaced;
+    // ----------------------------------------------------------
+    // Strip privileged fields
+    // ----------------------------------------------------------
+    const safeUpdates =
+      {
+        ...updates
+      };
 
-    const updatedUser: UserProfile = {
-      ...user,
-      ...safeUpdates,
-      uid: authUser ? authUser.uid : user.uid,
-      role: 'customer',
-      sellerId: sellerId || undefined
-    };
-    const sanitizedUser = sanitizeDocumentData(updatedUser);
-    setUser(updatedUser);
+    /*
+     * These fields can NEVER be changed through the customer profile
+     * update path.
+     *
+     * Authorization is controlled by Supabase/RLS/database functions,
+     * not by this client state.
+     */
+    delete (
+      safeUpdates as any
+    ).role;
 
+    delete (
+      safeUpdates as any
+    ).sellerId;
+
+    delete (
+      safeUpdates as any
+    ).admin;
+
+    delete (
+      safeUpdates as any
+    ).seller;
+
+    delete (
+      safeUpdates as any
+    ).isAdminUser;
+
+    delete (
+      safeUpdates as any
+    ).isSellerUser;
+
+    delete (
+      safeUpdates as any
+    ).uid;
+
+    delete (
+      safeUpdates as any
+    ).isBanned;
+
+    delete (
+      safeUpdates as any
+    ).ordersPlaced;
+
+    delete (
+      safeUpdates as any
+    ).emailVerified;
+
+    delete (
+      safeUpdates as any
+    ).isOtpVerified;
+
+    // ----------------------------------------------------------
+    // Build local representation
+    // ----------------------------------------------------------
+    const updatedUser:
+      UserProfile =
+      {
+        ...user,
+
+        ...safeUpdates,
+
+        uid:
+          authUser?.uid ||
+          user.uid,
+
+        /*
+         * Do not allow this function to manufacture admin/seller
+         * privileges locally.
+         */
+        role:
+          user.role,
+
+        sellerId:
+          user.sellerId
+      };
+
+    const sanitizedUser =
+      sanitizeDocumentData(
+        updatedUser
+      );
+
+    setUser(
+      updatedUser
+    );
+
+    // ----------------------------------------------------------
+    // Guest profile
+    // ----------------------------------------------------------
     if (!authUser) {
       try {
-        localStorage.setItem('yallalb_saved_checkout_data', JSON.stringify(sanitizedUser));
+        localStorage.setItem(
+          'yallalb_saved_checkout_data',
+          JSON.stringify(
+            sanitizedUser
+          )
+        );
       } catch {}
+
       return;
     }
 
-    const userKey = authUser.uid;
+    // ----------------------------------------------------------
+    // Authenticated profile
+    // ----------------------------------------------------------
+    const userKey =
+      authUser.uid;
 
-    const { startTime } = dbLogger.logDbWriteStart({
-      operation: 'upsert',
-      targetPath: `profiles/${userKey}`,
-      sourceComponent: 'ShopContext',
-      actionName: 'updateUser',
-      summary: `Persisting profile and delivery details for user (${userKey}) to profiles...`,
-      payload: sanitizedUser
-    });
+    const {
+      startTime
+    } =
+      dbLogger.logDbWriteStart({
+        operation:
+          'upsert',
 
-    // public.profiles is the only profile store; the Firestore `users` mirror
-    // that stood here is gone. upsertProfile omits every privilege field, and
-    // protect_profile_role() pins them for non-admins regardless.
+        targetPath:
+          `profiles/${userKey}`,
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'updateUser',
+
+        summary:
+          `Persisting profile and delivery details for user ${userKey}...`,
+
+        payload:
+          sanitizedUser
+      });
+
     try {
-      await supabaseUserDataService.upsertProfile(userKey, sanitizedUser as Partial<UserProfile>);
-    } catch (err) {
-      console.error('[ShopContext] Failed to save the user profile:', err);
-      showToast('Could not save your details. Please try again.', 'error');
+      /*
+       * upsertProfile must itself restrict writable columns.
+       *
+       * Never allow this path to update:
+       * role
+       * seller_id
+       * email_verified
+       * is_otp_verified
+       */
+      await supabaseUserDataService.upsertProfile(
+        userKey,
+        sanitizedUser as Partial<UserProfile>
+      );
+
+      dbLogger.logDbWriteSuccess({
+        operation:
+          'upsert',
+
+        targetPath:
+          `profiles/${userKey}`,
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'updateUser',
+
+        startTime,
+
+        summary:
+          `Profile ${userKey} successfully saved to Supabase.`
+      });
+    } catch (
+      err
+    ) {
+      dbLogger.logDbWriteError({
+        operation:
+          'upsert',
+
+        targetPath:
+          `profiles/${userKey}`,
+
+        sourceComponent:
+          'ShopContext',
+
+        actionName:
+          'updateUser',
+
+        startTime,
+
+        summary:
+          'Supabase profile update failed.',
+
+        error:
+          err
+      });
+
+      console.error(
+        '[ShopContext] Failed to save the user profile:',
+        err
+      );
+
+      /*
+       * Restore the previous profile in the UI because the database
+       * rejected the operation.
+       */
+      setUser(
+        user
+      );
+
+      showToast(
+        language === 'ar'
+          ? 'تعذر حفظ بياناتك. يرجى المحاولة مرة أخرى.'
+          : 'Could not save your details. Please try again.',
+        'error'
+      );
+
       throw err;
     }
   };
 
-  const navigateToProductCategory = (category: string) => {
-    setSelectedCategory(category);
-    setActiveTab('products');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+// ============================================================
+// Navigation
+// ============================================================
+
+const navigateToProductCategory =
+  (
+    category: string
+  ) => {
+    setSelectedCategory(
+      category
+    );
+
+    setActiveTab(
+      'products'
+    );
+
+    window.scrollTo({
+      top: 0,
+      behavior:
+        'smooth'
+    });
   };
 
-  const providerValue = useMemo(() => ({
-    activeTab,
-    setActiveTab,
-    navigateToProductCategory,
-    selectedProductDetail,
-    setSelectedProductDetail,
-    openProductDetail,
-    goBack,
-    language,
-    setLanguage,
-    t,
-    products,
-    addProduct,
-    updateProduct,
-    deleteProduct,
-    deleteMultipleProducts,
-    reorderProducts,
-    syncAllProductsToDatabase,
-    selectedProductForModal,
-    setSelectedProductForModal,
-    isDbSyncing,
-    catalogStatus,
-    catalogError,
-    hasMoreProducts,
-    isFetchingMore,
-    loadMoreProducts,
-    currency,
-    setCurrency,
-    formatPrice,
-    convertUSDToLBP,
-    currencySymbol,
-    currencyRate,
-    cart,
-    addToCart,
-    addMultipleToCart,
-    removeFromCart,
-    updateQuantity,
-    clearCart,
-    cartTotalUSD,
-    cartCount,
-    isCartOpen,
-    setIsCartOpen,
-    wishlist,
-    toggleWishlist,
-    removeFromWishlist,
-    isInWishlist,
-    clearWishlist,
-    orders,
-    placeOrder,
-    updateOrderStatus,
-    deleteOrder,
-    user,
-    updateUser,
-    checkPhoneUniqueness,
-    authUser,
-    // Compatibility alias; never an authorization source (see the type).
-    firebaseUser: authUser,
-    isAdminUser,
-    isSellerUser,
-    sellerId,
-    isEmailVerified,
-    signInWithEmail,
-    signUpWithEmail,
-    sendEmailOtp,
-    verifyEmailOtp,
-    resendEmailVerification,
-    sendEmailSignInLink,
-    completeEmailLinkSignIn,
-    resetPassword,
-    signInWithGoogle,
-    signInWithApple,
-    signOutUser,
-    refreshUserProfile,
-    isLoadingAuth,
-    authStatus: (isLoadingAuth
-      ? 'loading'
-      : !authUser
-      ? 'unauthenticated'
-      : isAdminUser
-      ? 'authenticated_admin'
-      : 'authenticated_non_admin') as 'loading' | 'unauthenticated' | 'authenticated_non_admin' | 'authenticated_admin',
-    searchQuery,
-    setSearchQuery,
-    logSearchQuery,
-    selectedCategory,
-    setSelectedCategory,
-    toast,
-    showToast,
-    siteContent,
-    updateSiteContent,
-    toggleSectionVisibility,
-    toggleProductPublish,
-    addCustomBlock,
-    updateCustomBlock,
-    deleteCustomBlock,
-    isVisualEditMode,
-    setIsVisualEditMode,
-    isCustomBlockModalOpen,
-    setIsCustomBlockModalOpen,
-    customBlockToEdit,
-    setCustomBlockToEdit,
-    isAdminUnlocked,
-    setIsAdminUnlocked,
-    recentActivities,
-    logAdminActivity,
-    undoAdminActivity,
-    discountRules,
-    appliedCouponCode,
-    applyCoupon,
-    removeCoupon,
-    discountUSD,
-    finalCartTotalUSD,
-    appliedDiscountRules,
-    addDiscountRule,
-    updateDiscountRule,
-    deleteDiscountRule,
-    productBundles,
-    addProductBundle,
-    updateProductBundle,
-    deleteProductBundle,
-    addBundleToCart,
-    categories,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    reorderCategories,
-    regions,
-    updateRegion,
-    addRegion,
-    deleteRegion,
-    sellers,
-    addSeller,
-    updateSeller,
-    toggleSellerActive,
-    deleteSeller,
-    bulkImportProducts
-  }), [
-    activeTab,
-    selectedProductDetail,
-    language,
-    products,
-    selectedProductForModal,
-    isDbSyncing,
-    catalogStatus,
-    catalogError,
-    hasMoreProducts,
-    isFetchingMore,
-    loadMoreProducts,
-    currency,
-    cart,
-    cartTotalUSD,
-    cartCount,
-    isCartOpen,
-    wishlist,
-    orders,
-    user,
-    checkPhoneUniqueness,
-    authUser,
-    isEmailVerified,
-    isAdminUser,
-    isSellerUser,
-    searchQuery,
-    logSearchQuery,
-    selectedCategory,
-    toast,
-    siteContent,
-    isVisualEditMode,
-    isCustomBlockModalOpen,
-    customBlockToEdit,
-    isAdminUnlocked,
-    recentActivities,
-    discountRules,
-    appliedCouponCode,
-    applyCoupon,
-    removeCoupon,
-    discountUSD,
-    finalCartTotalUSD,
-    appliedDiscountRules,
-    productBundles,
-    addBundleToCart,
-    categories,
-    regions,
-    sellers
-  ]);
 
-  return (
-    <ShopContext.Provider value={providerValue}>
-      {children}
-    </ShopContext.Provider>
+// ============================================================
+// Provider value
+// ============================================================
+
+const providerValue =
+  useMemo(
+    () => ({
+      activeTab,
+      setActiveTab,
+
+      navigateToProductCategory,
+
+      selectedProductDetail,
+      setSelectedProductDetail,
+
+      openProductDetail,
+      goBack,
+
+      language,
+      setLanguage,
+      t,
+
+      // --------------------------------------------------------
+      // Catalogue
+      // --------------------------------------------------------
+      products,
+
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      deleteMultipleProducts,
+
+      reorderProducts,
+
+      syncAllProductsToDatabase,
+
+      selectedProductForModal,
+      setSelectedProductForModal,
+
+      isDbSyncing,
+      catalogStatus,
+      catalogError,
+
+      hasMoreProducts,
+      isFetchingMore,
+      loadMoreProducts,
+
+      // --------------------------------------------------------
+      // Currency
+      // --------------------------------------------------------
+      currency,
+      setCurrency,
+
+      formatPrice,
+      convertUSDToLBP,
+
+      currencySymbol,
+      currencyRate,
+
+      // --------------------------------------------------------
+      // Cart
+      // --------------------------------------------------------
+      cart,
+
+      addToCart,
+      addMultipleToCart,
+
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+
+      cartTotalUSD,
+      cartCount,
+
+      isCartOpen,
+      setIsCartOpen,
+
+      // --------------------------------------------------------
+      // Wishlist
+      // --------------------------------------------------------
+      wishlist,
+
+      toggleWishlist,
+      removeFromWishlist,
+      isInWishlist,
+      clearWishlist,
+
+      // --------------------------------------------------------
+      // Orders
+      // --------------------------------------------------------
+      orders,
+
+      placeOrder,
+      updateOrderStatus,
+      deleteOrder,
+
+      // --------------------------------------------------------
+      // User
+      // --------------------------------------------------------
+      user,
+      updateUser,
+      checkPhoneUniqueness,
+
+      authUser,
+
+      /*
+       * Compatibility alias.
+       *
+       * This MUST NOT be used for authorization.
+       */
+      firebaseUser:
+        authUser,
+
+      isAdminUser,
+      isSellerUser,
+      sellerId,
+      isEmailVerified,
+
+      // --------------------------------------------------------
+      // Authentication
+      // --------------------------------------------------------
+      signInWithEmail,
+      signUpWithEmail,
+
+      sendEmailOtp,
+      verifyEmailOtp,
+      resendEmailVerification,
+
+      sendEmailSignInLink,
+      completeEmailLinkSignIn,
+
+      resetPassword,
+
+      signInWithGoogle,
+      signInWithApple,
+
+      signOutUser,
+
+      refreshUserProfile,
+
+      isLoadingAuth,
+
+      authStatus:
+        (isLoadingAuth
+          ? 'loading'
+          : !authUser
+            ? 'unauthenticated'
+            : isAdminUser
+              ? 'authenticated_admin'
+              : 'authenticated_non_admin') as
+          | 'loading'
+          | 'unauthenticated'
+          | 'authenticated_non_admin'
+          | 'authenticated_admin',
+
+      // --------------------------------------------------------
+      // Search
+      // --------------------------------------------------------
+      searchQuery,
+      setSearchQuery,
+      logSearchQuery,
+
+      // --------------------------------------------------------
+      // Categories
+      // --------------------------------------------------------
+      selectedCategory,
+      setSelectedCategory,
+
+      categories,
+
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      reorderCategories,
+
+      // --------------------------------------------------------
+      // Regions
+      // --------------------------------------------------------
+      regions,
+
+      updateRegion,
+      addRegion,
+      deleteRegion,
+
+      // --------------------------------------------------------
+      // Sellers
+      // --------------------------------------------------------
+      sellers,
+
+      addSeller,
+      updateSeller,
+      toggleSellerActive,
+      deleteSeller,
+
+      // --------------------------------------------------------
+      // Toast
+      // --------------------------------------------------------
+      toast,
+      showToast,
+
+      // --------------------------------------------------------
+      // CMS
+      // --------------------------------------------------------
+      siteContent,
+
+      updateSiteContent,
+      toggleSectionVisibility,
+      toggleProductPublish,
+
+      addCustomBlock,
+      updateCustomBlock,
+      deleteCustomBlock,
+
+      isVisualEditMode,
+      setIsVisualEditMode,
+
+      isCustomBlockModalOpen,
+      setIsCustomBlockModalOpen,
+
+      customBlockToEdit,
+      setCustomBlockToEdit,
+
+      // --------------------------------------------------------
+      // Admin
+      // --------------------------------------------------------
+      isAdminUnlocked,
+      setIsAdminUnlocked,
+
+      recentActivities,
+
+      logAdminActivity,
+      undoAdminActivity,
+
+      // --------------------------------------------------------
+      // Discounts
+      // --------------------------------------------------------
+      discountRules,
+
+      appliedCouponCode,
+
+      applyCoupon,
+      removeCoupon,
+
+      discountUSD,
+      finalCartTotalUSD,
+      appliedDiscountRules,
+
+      addDiscountRule,
+      updateDiscountRule,
+      deleteDiscountRule,
+
+      // --------------------------------------------------------
+      // Bundles
+      // --------------------------------------------------------
+      productBundles,
+
+      addProductBundle,
+      updateProductBundle,
+      deleteProductBundle,
+
+      addBundleToCart,
+
+      // --------------------------------------------------------
+      // Bulk import
+      // --------------------------------------------------------
+      bulkImportProducts
+    }),
+    [
+      activeTab,
+
+      selectedProductDetail,
+
+      language,
+
+      products,
+
+      selectedProductForModal,
+
+      isDbSyncing,
+      catalogStatus,
+      catalogError,
+
+      hasMoreProducts,
+      isFetchingMore,
+
+      loadMoreProducts,
+
+      currency,
+
+      cart,
+      cartTotalUSD,
+      cartCount,
+
+      isCartOpen,
+
+      wishlist,
+
+      orders,
+
+      user,
+
+      checkPhoneUniqueness,
+
+      authUser,
+
+      isEmailVerified,
+
+      isAdminUser,
+      isSellerUser,
+      sellerId,
+
+      searchQuery,
+      logSearchQuery,
+
+      selectedCategory,
+
+      toast,
+
+      siteContent,
+
+      isVisualEditMode,
+
+      isCustomBlockModalOpen,
+      customBlockToEdit,
+
+      isAdminUnlocked,
+
+      recentActivities,
+
+      discountRules,
+
+      appliedCouponCode,
+
+      applyCoupon,
+      removeCoupon,
+
+      discountUSD,
+      finalCartTotalUSD,
+      appliedDiscountRules,
+
+      productBundles,
+
+      addBundleToCart,
+
+      categories,
+
+      regions,
+
+      sellers
+    ]
   );
+
+return (
+  <ShopContext.Provider
+    value={
+      providerValue
+    }
+  >
+    {children}
+  </ShopContext.Provider>
+);
+
 };
 
-export const useShop = () => {
-  const context = useContext(ShopContext);
-  if (!context) {
-    throw new Error('useShop must be used within a ShopProvider');
-  }
-  return context;
-};
+export const useShop =
+  () => {
+    const context =
+      useContext(
+        ShopContext
+      );
+
+    if (!context) {
+      throw new Error(
+        'useShop must be used within a ShopProvider'
+      );
+    }
+
+    return context;
+  };
