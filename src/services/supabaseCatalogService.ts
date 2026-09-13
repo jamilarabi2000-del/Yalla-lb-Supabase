@@ -12,7 +12,10 @@ import {
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value
-      .filter((item): item is string => typeof item === 'string')
+      .filter(
+        (item): item is string =>
+          typeof item === 'string',
+      )
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -30,42 +33,66 @@ function toStringArray(value: unknown): string[] {
 /**
  * Convert an unknown value to a number or undefined.
  */
-function toNumberOrUndefined(value: unknown): number | undefined {
-  if (value === null || value === undefined || value === '') {
+function toNumberOrUndefined(
+  value: unknown,
+): number | undefined {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
     return undefined;
   }
 
   const numberValue = Number(value);
 
-  return Number.isFinite(numberValue) ? numberValue : undefined;
+  return Number.isFinite(numberValue)
+    ? numberValue
+    : undefined;
+}
+
+/**
+ * Remove undefined properties from a payload.
+ */
+function removeUndefined<T extends Record<string, any>>(
+  payload: T,
+): Partial<T> {
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined) {
+      delete payload[key];
+    }
+  });
+
+  return payload;
 }
 
 /**
  * Maps a Supabase product row to the frontend Product interface.
  *
- * IMPORTANT:
- * - category is the Supabase category UUID.
- * - sellerId is the Supabase seller UUID.
- * - Product media is loaded from product_images.
- * - Private product fields are only attached when explicitly returned
- *   by an authorized admin/seller query.
+ * Notes:
+ * - Product.category is the Supabase category UUID.
+ * - Product.sellerId is the Supabase seller UUID.
+ * - Product media is stored in product_images.
+ * - Private product fields are mapped only when they are
+ *   returned by an authorized/admin query.
  */
 export function mapSupabaseProduct(
   row: Record<string, any>,
 ): Product {
-  const additionalImages = toStringArray(
-    row.additional_images,
-  );
+  const additionalImages =
+    toStringArray(row.additional_images);
 
-  const additionalVideos = toStringArray(
-    row.additional_videos,
-  );
+  const additionalVideos =
+    toStringArray(row.additional_videos);
 
-  const videos = toStringArray(row.videos);
+  const videos =
+    toStringArray(row.videos);
 
   return {
     id: String(row.id || ''),
+
     name: String(row.name || ''),
+
     arabicName:
       row.arabic_name ?? undefined,
 
@@ -93,11 +120,13 @@ export function mapSupabaseProduct(
         : true,
 
     origin:
-      String(row.origin || 'Lebanon'),
+      String(
+        row.origin || 'Lebanon',
+      ),
 
-    /*
-     * IMPORTANT:
-     * Product.category is now the category UUID.
+    /**
+     * Product.category intentionally contains
+     * the Supabase category UUID.
      */
     category:
       String(row.category_id || ''),
@@ -158,10 +187,11 @@ export function mapSupabaseProduct(
     displayOrder:
       Number(row.display_order ?? 0),
 
-    /*
-     * These fields come from product_private.
-     * They will only exist when the caller is authorized
-     * to receive them.
+    /**
+     * Private/admin fields.
+     *
+     * These are NOT selected by the public
+     * storefront query.
      */
     sellerItemCode:
       row.seller_item_code ??
@@ -192,7 +222,9 @@ export function mapSupabaseProduct(
       toStringArray(row.keywords),
 
     arabicKeywords:
-      toStringArray(row.arabic_keywords),
+      toStringArray(
+        row.arabic_keywords,
+      ),
 
     seoTitle:
       row.seo_title ??
@@ -231,7 +263,8 @@ export function mapSupabaseCategory(
   row: Record<string, any>,
 ): CategoryItem {
   return {
-    id: String(row.id || ''),
+    id:
+      String(row.id || ''),
 
     nameEn:
       String(row.name_en || ''),
@@ -240,26 +273,38 @@ export function mapSupabaseCategory(
       String(row.name_ar || ''),
 
     icon:
-      String(row.icon || '🛍️'),
+      String(
+        row.icon || '🛍️',
+      ),
 
     description:
-      String(row.description || ''),
+      String(
+        row.description || '',
+      ),
 
     descriptionAr:
       row.description_ar ??
       undefined,
 
     subcategories:
-      toStringArray(row.subcategories),
+      toStringArray(
+        row.subcategories,
+      ),
 
     bannerUrl:
-      String(row.banner_url || ''),
+      String(
+        row.banner_url || '',
+      ),
 
     arabicKeywords:
-      toStringArray(row.arabic_keywords),
+      toStringArray(
+        row.arabic_keywords,
+      ),
 
     englishKeywords:
-      toStringArray(row.english_keywords),
+      toStringArray(
+        row.english_keywords,
+      ),
 
     isPublished:
       row.is_published !== undefined
@@ -267,15 +312,17 @@ export function mapSupabaseCategory(
         : true,
 
     displayOrder:
-      Number(row.display_order ?? 0),
+      Number(
+        row.display_order ?? 0,
+      ),
   };
 }
 
 /**
  * Maps a Supabase seller row to Seller.
  *
- * Sensitive seller fields are supported by the mapper but are
- * intentionally NOT requested by the public storefront query.
+ * Sensitive seller fields are supported by the mapper,
+ * but are intentionally excluded from the public query.
  */
 export function mapSupabaseSeller(
   row: Record<string, any>,
@@ -323,8 +370,8 @@ export function mapSupabaseSeller(
       row.village ??
       undefined,
 
-    /*
-     * exactAddress is intentionally not returned
+    /**
+     * exactAddress is intentionally not requested
      * by the public seller query.
      */
     exactAddress:
@@ -397,7 +444,9 @@ export function mapSupabaseRegion(
       String(row.name_ar || ''),
 
     majorCities:
-      toStringArray(row.major_cities),
+      toStringArray(
+        row.major_cities,
+      ),
 
     expressAvailable:
       Boolean(
@@ -420,10 +469,12 @@ export function mapSupabaseRegion(
 }
 
 /**
- * Convert Product media into rows for product_images.
+ * Convert Product media into product_images rows.
  */
 function buildProductMediaRows(
-  product: Partial<Product> & { id: string },
+  product: Partial<Product> & {
+    id: string;
+  },
 ) {
   const rows: Array<{
     product_id: string;
@@ -445,7 +496,9 @@ function buildProductMediaRows(
   }
 
   const additionalImages =
-    Array.isArray(product.additionalImages)
+    Array.isArray(
+      product.additionalImages,
+    )
       ? product.additionalImages
       : [];
 
@@ -472,13 +525,14 @@ function buildProductMediaRows(
       product_id: product.id,
       url: mainVideo,
       media_type: 'video',
-      display_order:
-        rows.length,
+      display_order: rows.length,
     });
   }
 
   const additionalVideos =
-    Array.isArray(product.additionalVideos)
+    Array.isArray(
+      product.additionalVideos,
+    )
       ? product.additionalVideos
       : [];
 
@@ -492,15 +546,13 @@ function buildProductMediaRows(
         product_id: product.id,
         url: url.trim(),
         media_type: 'video',
-        display_order:
-          rows.length,
+        display_order: rows.length,
       });
     },
   );
 
-  /*
+  /**
    * Legacy videos array support.
-   * This keeps the frontend compatible while migrating.
    */
   const legacyVideos =
     Array.isArray(product.videos)
@@ -513,11 +565,16 @@ function buildProductMediaRows(
         return;
       }
 
+      const normalizedUrl =
+        url.trim();
+
       const alreadyExists =
         rows.some(
           (row) =>
-            row.url === url.trim() &&
-            row.media_type === 'video',
+            row.url ===
+              normalizedUrl &&
+            row.media_type ===
+              'video',
         );
 
       if (alreadyExists) {
@@ -526,10 +583,9 @@ function buildProductMediaRows(
 
       rows.push({
         product_id: product.id,
-        url: url.trim(),
+        url: normalizedUrl,
         media_type: 'video',
-        display_order:
-          rows.length,
+        display_order: rows.length,
       });
     },
   );
@@ -538,9 +594,18 @@ function buildProductMediaRows(
 }
 
 /**
- * Public product columns.
+ * PUBLIC PRODUCT COLUMNS
  *
- * DO NOT add cost_price_usd or other private fields here.
+ * IMPORTANT:
+ * Never include:
+ * - seller_item_code
+ * - low_stock_threshold
+ * - low_stock_notice
+ * - custom_stock_label
+ * - cost_price_usd
+ *
+ * The products table contains these columns, but the
+ * storefront must not request them.
  */
 const PUBLIC_PRODUCT_COLUMNS = `
   id,
@@ -575,11 +640,13 @@ const PUBLIC_PRODUCT_COLUMNS = `
   weight_or_volume,
   created_at,
   updated_at,
+
   sellers!products_seller_id_fkey (
     name_en,
     name_ar,
     is_active
   ),
+
   categories!products_category_id_fkey (
     name_en,
     name_ar
@@ -587,10 +654,11 @@ const PUBLIC_PRODUCT_COLUMNS = `
 `;
 
 /**
- * Admin/seller product columns.
+ * ADMIN / SELLER PRODUCT COLUMNS
  *
- * Private fields are intentionally included only for
- * authorized admin/seller requests.
+ * These fields exist in the current products table.
+ *
+ * They are only requested for admin/seller queries.
  */
 const ADMIN_PRODUCT_COLUMNS = `
   id,
@@ -615,11 +683,13 @@ const ADMIN_PRODUCT_COLUMNS = `
   is_bestseller,
   is_published,
   display_order,
+
   seller_item_code,
   low_stock_threshold,
   low_stock_notice,
   custom_stock_label,
   cost_price_usd,
+
   tags,
   keywords,
   arabic_keywords,
@@ -630,11 +700,13 @@ const ADMIN_PRODUCT_COLUMNS = `
   weight_or_volume,
   created_at,
   updated_at,
+
   sellers!products_seller_id_fkey (
     name_en,
     name_ar,
     is_active
   ),
+
   categories!products_category_id_fkey (
     name_en,
     name_ar
@@ -652,21 +724,31 @@ async function attachProductMedia(
   }
 
   const productIds =
-    products.map((product) => product.id);
+    products.map(
+      (product) => product.id,
+    );
 
-  const { data, error } =
-    await supabase
-      .from('product_images')
-      .select(`
-        product_id,
-        url,
-        media_type,
-        display_order
-      `)
-      .in('product_id', productIds)
-      .order('display_order', {
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('product_images')
+    .select(`
+      product_id,
+      url,
+      media_type,
+      display_order
+    `)
+    .in(
+      'product_id',
+      productIds,
+    )
+    .order(
+      'display_order',
+      {
         ascending: true,
-      });
+      },
+    );
 
   if (error) {
     console.error(
@@ -682,12 +764,18 @@ async function attachProductMedia(
       string,
       Array<{
         url: string;
-        media_type: 'image' | 'video';
+        media_type:
+          | 'image'
+          | 'video';
       }>
     >();
 
   for (const row of data ?? []) {
-    if (!mediaByProduct.has(row.product_id)) {
+    if (
+      !mediaByProduct.has(
+        row.product_id,
+      )
+    ) {
       mediaByProduct.set(
         row.product_id,
         [],
@@ -698,15 +786,17 @@ async function attachProductMedia(
       .get(row.product_id)!
       .push({
         url: row.url,
-        media_type: row.media_type,
+        media_type:
+          row.media_type,
       });
   }
 
   return products.map(
     (product) => {
       const media =
-        mediaByProduct.get(product.id) ??
-        [];
+        mediaByProduct.get(
+          product.id,
+        ) ?? [];
 
       const images =
         media
@@ -715,7 +805,9 @@ async function attachProductMedia(
               item.media_type ===
               'image',
           )
-          .map((item) => item.url);
+          .map(
+            (item) => item.url,
+          );
 
       const videos =
         media
@@ -724,15 +816,13 @@ async function attachProductMedia(
               item.media_type ===
               'video',
           )
-          .map((item) => item.url);
+          .map(
+            (item) => item.url,
+          );
 
       return {
         ...product,
 
-        /*
-         * Keep products.image as the primary image.
-         * Remaining product_images become additionalImages.
-         */
         additionalImages:
           images.length > 0
             ? images.filter(
@@ -757,22 +847,107 @@ async function attachProductMedia(
   );
 }
 
+/**
+ * Synchronize private product fields.
+ *
+ * The current database contains these fields in both
+ * products and product_private.
+ *
+ * products remains the compatibility/source used by
+ * the existing admin/seller catalog UI.
+ *
+ * product_private is synchronized as the protected
+ * private-data table.
+ */
+async function syncProductPrivate(
+  product: Partial<Product> & {
+    id: string;
+  },
+): Promise<void> {
+  const hasPrivateFields =
+    product.sellerId !==
+      undefined ||
+    product.sellerItemCode !==
+      undefined ||
+    product.lowStockThreshold !==
+      undefined ||
+    product.lowStockNotice !==
+      undefined ||
+    product.customStockLabel !==
+      undefined ||
+    product.costPriceUSD !==
+      undefined;
+
+  if (!hasPrivateFields) {
+    return;
+  }
+
+  const privatePayload =
+    removeUndefined({
+      product_id:
+        product.id,
+
+      seller_id:
+        product.sellerId,
+
+      seller_item_code:
+        product.sellerItemCode,
+
+      low_stock_threshold:
+        product.lowStockThreshold,
+
+      low_stock_notice:
+        product.lowStockNotice,
+
+      custom_stock_label:
+        product.customStockLabel,
+
+      cost_price_usd:
+        product.costPriceUSD,
+
+      updated_at:
+        new Date().toISOString(),
+    });
+
+  const {
+    error,
+  } = await supabase
+    .from('product_private')
+    .upsert(
+      privatePayload,
+      {
+        onConflict:
+          'product_id',
+      },
+    );
+
+  if (error) {
+    console.error(
+      '[supabaseCatalogService] syncProductPrivate:',
+      error,
+    );
+
+    throw error;
+  }
+}
+
 export const supabaseCatalogService = {
   /**
    * Fetch products from Supabase.
    *
-   * Public storefront:
+   * Public:
    * - published products only
-   * - no private cost data
-   * - no demo fallback
+   * - no private product fields
+   * - no demo/local fallback
    *
    * Admin:
    * - all products
-   * - private fields included subject to Supabase RLS
+   * - private product fields
    *
    * Seller:
-   * - published products + own products
-   * - private fields included subject to Supabase RLS
+   * - published products
+   * - seller's own unpublished products
+   * - private product fields
    */
   async fetchProducts(
     options?: {
@@ -786,7 +961,9 @@ export const supabaseCatalogService = {
 
     const isSeller =
       options?.isSeller === true &&
-      Boolean(options?.sellerId);
+      Boolean(
+        options?.sellerId,
+      );
 
     const columns =
       isAdmin || isSeller
@@ -810,15 +987,23 @@ export const supabaseCatalogService = {
         isSeller &&
         options?.sellerId
       ) {
+        /**
+         * Sellers can see:
+         * - all published products
+         * - their own products
+         */
         query = query.or(
           `is_published.eq.true,seller_id.eq.${options.sellerId}`,
         );
       } else {
-        query =
-          query.eq(
-            'is_published',
-            true,
-          );
+        /**
+         * Public storefront:
+         * published products only.
+         */
+        query = query.eq(
+          'is_published',
+          true,
+        );
       }
     }
 
@@ -859,9 +1044,7 @@ export const supabaseCatalogService = {
   },
 
   /**
-   * Fetch categories.
-   *
-   * No local/demo fallback.
+   * Fetch published categories.
    */
   async fetchCategories(): Promise<
     CategoryItem[]
@@ -975,8 +1158,6 @@ export const supabaseCatalogService = {
 
   /**
    * Fetch delivery regions.
-   *
-   * Supabase is the source of truth.
    */
   async fetchRegions(): Promise<
     TerroirRegion[]
@@ -1020,10 +1201,13 @@ export const supabaseCatalogService = {
   },
 
   /**
-   * Upsert a product.
+   * Create or update a product.
    *
-   * Product data is stored in products.
-   * Private product data is stored in product_private.
+   * Main product data is stored in products.
+   *
+   * Private product fields are also synchronized
+   * into product_private.
+   *
    * Media is stored in product_images.
    */
   async upsertProduct(
@@ -1037,169 +1221,95 @@ export const supabaseCatalogService = {
       );
     }
 
-    const productPayload: Record<
-      string,
-      any
-    > = {
-      id: product.id,
-
-      name:
-        product.name,
-
-      arabic_name:
-        product.arabicName,
-
-      artisan:
-        product.artisan ??
-        product.seller ??
-        '',
-
-      seller_id:
-        product.sellerId,
-
-      origin:
-        product.origin ??
-        'Lebanon',
-
-      /*
-       * Product.category is the category UUID.
-       */
-      category_id:
-        product.category,
-
-      price_usd:
-        product.priceUSD ?? 0,
-
-      original_price_usd:
-        product.originalPriceUSD,
-
-      discount_percentage:
-        product.discountPercentage,
-
-      rating:
-        product.rating ?? 0,
-
-      reviews_count:
-        product.reviewsCount ?? 0,
-
-      image:
-        product.image ?? '',
-
-      video_url:
-        product.videoUrl,
-
-      description:
-        product.description ?? '',
-
-      craft_story:
-        product.craftStory ?? '',
-
-      stock:
-        product.stock ?? 0,
-
-      is_new_arrival:
-        product.isNewArrival ?? false,
-
-      is_featured:
-        product.isFeatured ?? false,
-
-      is_bestseller:
-        product.isBestseller ?? false,
-
-      is_published:
-        product.isPublished ?? false,
-
-      display_order:
-        product.displayOrder ?? 0,
-
-      tags:
-        product.tags ?? [],
-
-      keywords:
-        product.keywords ?? [],
-
-      arabic_keywords:
-        product.arabicKeywords ?? [],
-
-      seo_title:
-        product.seoTitle,
-
-      seo_arabic_title:
-        product.seoArabicTitle,
-
-      seo_description:
-        product.seoDescription,
-
-      seo_arabic_description:
-        product.seoArabicDescription,
-
-      weight_or_volume:
-        product.weightOrVolume,
-
-      updated_at:
-        new Date().toISOString(),
-    };
-
-    Object.keys(
-      productPayload,
-    ).forEach(
-      (key) => {
-        if (
-          productPayload[key] ===
-          undefined
-        ) {
-          delete productPayload[key];
-        }
-      },
-    );
-
-    const {
-      error: productError,
-    } = await supabase
-      .from('products')
-      .upsert(
-        productPayload,
-      );
-
-    if (productError) {
-      console.error(
-        '[supabaseCatalogService] upsertProduct products:',
-        productError,
-      );
-
-      throw productError;
-    }
-
-    /*
-     * Save private product fields.
-     *
-     * These are protected by Supabase RLS.
-     */
-    const hasPrivateFields =
-      product.sellerId !==
-        undefined ||
-      product.sellerItemCode !==
-        undefined ||
-      product.lowStockThreshold !==
-        undefined ||
-      product.lowStockNotice !==
-        undefined ||
-      product.customStockLabel !==
-        undefined ||
-      product.costPriceUSD !==
-        undefined;
-
-    if (hasPrivateFields) {
-      const privatePayload: Record<
-        string,
-        any
-      > = {
-        product_id:
+    const productPayload =
+      removeUndefined({
+        id:
           product.id,
+
+        name:
+          product.name ?? '',
+
+        arabic_name:
+          product.arabicName,
+
+        artisan:
+          product.artisan ??
+          product.seller ??
+          '',
 
         seller_id:
           product.sellerId,
 
+        origin:
+          product.origin ??
+          'Lebanon',
+
+        category_id:
+          product.category,
+
+        price_usd:
+          product.priceUSD ??
+          0,
+
+        original_price_usd:
+          product.originalPriceUSD,
+
+        discount_percentage:
+          product.discountPercentage,
+
+        rating:
+          product.rating ??
+          0,
+
+        reviews_count:
+          product.reviewsCount ??
+          0,
+
+        image:
+          product.image ??
+          '',
+
+        video_url:
+          product.videoUrl,
+
+        description:
+          product.description ??
+          '',
+
+        craft_story:
+          product.craftStory ??
+          '',
+
+        stock:
+          product.stock ??
+          0,
+
+        is_new_arrival:
+          product.isNewArrival ??
+          false,
+
+        is_featured:
+          product.isFeatured ??
+          false,
+
+        is_bestseller:
+          product.isBestseller ??
+          false,
+
+        is_published:
+          product.isPublished ??
+          false,
+
+        display_order:
+          product.displayOrder ??
+          0,
+
+        /**
+         * These columns currently exist
+         * in products and are kept here for
+         * compatibility with the existing
+         * admin/catalog schema.
+         */
         seller_item_code:
           product.sellerItemCode,
 
@@ -1215,46 +1325,68 @@ export const supabaseCatalogService = {
         cost_price_usd:
           product.costPriceUSD,
 
+        tags:
+          product.tags ??
+          [],
+
+        keywords:
+          product.keywords ??
+          [],
+
+        arabic_keywords:
+          product.arabicKeywords ??
+          [],
+
+        seo_title:
+          product.seoTitle,
+
+        seo_arabic_title:
+          product.seoArabicTitle,
+
+        seo_description:
+          product.seoDescription,
+
+        seo_arabic_description:
+          product.seoArabicDescription,
+
+        weight_or_volume:
+          product.weightOrVolume,
+
         updated_at:
           new Date().toISOString(),
-      };
+      });
 
-      Object.keys(
-        privatePayload,
-      ).forEach(
-        (key) => {
-          if (
-            privatePayload[key] ===
-            undefined
-          ) {
-            delete privatePayload[key];
-          }
+    const {
+      error: productError,
+    } = await supabase
+      .from('products')
+      .upsert(
+        productPayload,
+        {
+          onConflict:
+            'id',
         },
       );
 
-      const {
-        error: privateError,
-      } = await supabase
-        .from('product_private')
-        .upsert(
-          privatePayload,
-        );
+    if (productError) {
+      console.error(
+        '[supabaseCatalogService] upsertProduct products:',
+        productError,
+      );
 
-      if (privateError) {
-        console.error(
-          '[supabaseCatalogService] upsertProduct product_private:',
-          privateError,
-        );
-
-        throw privateError;
-      }
+      throw productError;
     }
 
-    /*
-     * Synchronize product_images.
-     *
-     * We replace the media rows for this product
-     * with the current frontend media state.
+    /**
+     * Keep product_private synchronized.
+     */
+    await syncProductPrivate(
+      product,
+    );
+
+    /**
+     * Replace the product's media rows
+     * with the current frontend state.
      */
     const mediaRows =
       buildProductMediaRows(
@@ -1280,9 +1412,12 @@ export const supabaseCatalogService = {
       throw deleteMediaError;
     }
 
-    if (mediaRows.length > 0) {
+    if (
+      mediaRows.length > 0
+    ) {
       const {
-        error: insertMediaError,
+        error:
+          insertMediaError,
       } = await supabase
         .from('product_images')
         .insert(
@@ -1301,10 +1436,7 @@ export const supabaseCatalogService = {
   },
 
   /**
-   * Deletes a product and its associated media/private data.
-   *
-   * The database foreign keys may cascade depending on migration
-   * configuration. We explicitly remove dependent rows first.
+   * Delete product and dependent data.
    */
   async deleteProduct(
     productId: string,
@@ -1315,6 +1447,9 @@ export const supabaseCatalogService = {
       );
     }
 
+    /**
+     * Remove product media.
+     */
     const {
       error: mediaError,
     } = await supabase
@@ -1334,6 +1469,9 @@ export const supabaseCatalogService = {
       throw mediaError;
     }
 
+    /**
+     * Remove private product record.
+     */
     const {
       error: privateError,
     } = await supabase
@@ -1353,6 +1491,9 @@ export const supabaseCatalogService = {
       throw privateError;
     }
 
+    /**
+     * Finally remove the main product.
+     */
     const {
       error: productError,
     } = await supabase
@@ -1374,7 +1515,7 @@ export const supabaseCatalogService = {
   },
 
   /**
-   * Upsert a category.
+   * Create or update a category.
    */
   async upsertCategory(
     category: Partial<CategoryItem> & {
@@ -1387,62 +1528,57 @@ export const supabaseCatalogService = {
       );
     }
 
-    const payload: Record<
-      string,
-      any
-    > = {
-      id:
-        category.id,
+    const payload =
+      removeUndefined({
+        id:
+          category.id,
 
-      name_en:
-        category.nameEn ?? '',
+        name_en:
+          category.nameEn ??
+          '',
 
-      name_ar:
-        category.nameAr ?? '',
+        name_ar:
+          category.nameAr ??
+          '',
 
-      icon:
-        category.icon ?? '',
+        icon:
+          category.icon ??
+          '',
 
-      description:
-        category.description ?? '',
+        description:
+          category.description ??
+          '',
 
-      description_ar:
-        category.descriptionAr,
+        description_ar:
+          category.descriptionAr,
 
-      subcategories:
-        category.subcategories ?? [],
+        subcategories:
+          category.subcategories ??
+          [],
 
-      banner_url:
-        category.bannerUrl ?? '',
+        banner_url:
+          category.bannerUrl ??
+          '',
 
-      arabic_keywords:
-        category.arabicKeywords ?? [],
+        arabic_keywords:
+          category.arabicKeywords ??
+          [],
 
-      english_keywords:
-        category.englishKeywords ?? [],
+        english_keywords:
+          category.englishKeywords ??
+          [],
 
-      is_published:
-        category.isPublished ?? true,
+        is_published:
+          category.isPublished ??
+          true,
 
-      display_order:
-        category.displayOrder ?? 0,
+        display_order:
+          category.displayOrder ??
+          0,
 
-      updated_at:
-        new Date().toISOString(),
-    };
-
-    Object.keys(
-      payload,
-    ).forEach(
-      (key) => {
-        if (
-          payload[key] ===
-          undefined
-        ) {
-          delete payload[key];
-        }
-      },
-    );
+        updated_at:
+          new Date().toISOString(),
+      });
 
     const {
       error,
@@ -1450,6 +1586,10 @@ export const supabaseCatalogService = {
       .from('categories')
       .upsert(
         payload,
+        {
+          onConflict:
+            'id',
+        },
       );
 
     if (error) {
@@ -1495,9 +1635,9 @@ export const supabaseCatalogService = {
   },
 
   /**
-   * Upsert seller.
+   * Create or update a seller.
    *
-   * This method is intended for authorized admin operations.
+   * Intended for authorized admin operations.
    */
   async upsertSeller(
     seller: Partial<Seller> & {
@@ -1510,89 +1650,77 @@ export const supabaseCatalogService = {
       );
     }
 
-    const payload: Record<
-      string,
-      any
-    > = {
-      id:
-        seller.id,
+    const payload =
+      removeUndefined({
+        id:
+          seller.id,
 
-      seller_code:
-        seller.sellerCode,
+        seller_code:
+          seller.sellerCode,
 
-      name_en:
-        seller.nameEn ?? '',
+        name_en:
+          seller.nameEn ??
+          '',
 
-      name_ar:
-        seller.nameAr,
+        name_ar:
+          seller.nameAr,
 
-      logo_url:
-        seller.logoUrl,
+        logo_url:
+          seller.logoUrl,
 
-      banner_image:
-        seller.bannerImage,
+        banner_image:
+          seller.bannerImage,
 
-      bio_en:
-        seller.bioEn,
+        bio_en:
+          seller.bioEn,
 
-      bio_ar:
-        seller.bioAr,
+        bio_ar:
+          seller.bioAr,
 
-      governorate:
-        seller.governorate,
+        governorate:
+          seller.governorate,
 
-      district:
-        seller.district,
+        district:
+          seller.district,
 
-      village:
-        seller.village,
+        village:
+          seller.village,
 
-      exact_address:
-        seller.exactAddress,
+        exact_address:
+          seller.exactAddress,
 
-      region:
-        seller.region,
+        region:
+          seller.region,
 
-      contact_phone:
-        seller.contactPhone,
+        contact_phone:
+          seller.contactPhone,
 
-      contact_email:
-        seller.contactEmail,
+        contact_email:
+          seller.contactEmail,
 
-      craft_category:
-        seller.craftCategory,
+        craft_category:
+          seller.craftCategory,
 
-      commission_pct:
-        seller.commissionPct,
+        commission_pct:
+          seller.commissionPct,
 
-      is_active:
-        seller.isActive ?? true,
+        is_active:
+          seller.isActive ??
+          true,
 
-      has_account:
-        seller.hasAccount ?? false,
+        has_account:
+          seller.hasAccount ??
+          false,
 
-      account_email:
-        seller.accountEmail,
+        account_email:
+          seller.accountEmail,
 
-      account_uid:
-        seller.accountUid,
+        account_uid:
+          seller.accountUid,
 
-      updated_at:
-        new Date().toISOString(),
-    };
-
-    Object.keys(
-      payload,
-    ).forEach(
-      (key) => {
-        if (
-          payload[key] ===
-          undefined
-        ) {
-          delete payload[key];
-        }
-      },
-    );
+        updated_at:
+          new Date().toISOString(),
+      });
 
     const {
       error,
@@ -1600,6 +1728,10 @@ export const supabaseCatalogService = {
       .from('sellers')
       .upsert(
         payload,
+        {
+          onConflict:
+            'id',
+        },
       );
 
     if (error) {
