@@ -30,6 +30,7 @@ import { applyDiscounts } from '../lib/pricing';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
 import { LEBANON_REGIONS, LBP_USD_RATE } from '../data/regions';
+
 import {
   normalizeLebanesePhone,
   isValidLebanesePhone
@@ -44,7 +45,11 @@ import {
 } from '../utils/uuid';
 
 import Papa from 'papaparse';
-import { translations, Language } from '../utils/translations';
+
+import {
+  translations,
+  Language
+} from '../utils/translations';
 
 import {
   resolveSeller,
@@ -91,44 +96,60 @@ import {
 } from '../utils/databaseMonitor';
 
 
-// Client-side checkout cap...
+// -----------------------------------------------------------------------------
+// Checkout
+// -----------------------------------------------------------------------------
+
+/**
+ * Client-side checkout cap.
+ *
+ * This is only a UI protection against an oversized cart.
+ * The authoritative checkout limit must be enforced by the Supabase
+ * checkout RPC / server-side implementation.
+ */
 export const MAX_ORDER_LINE_ITEMS = 50;
+
+
+// -----------------------------------------------------------------------------
+// Product / Seller helpers
+// -----------------------------------------------------------------------------
 
 export const ensureSellerItemCode = (p: Product): Product => {
   if (!p) return p;
   return p;
 };
 
-export const ensureSellerCode = (s: Seller, index = 0): Seller => {
+export const ensureSellerCode = (
+  s: Seller,
+  index = 0
+): Seller => {
   if (!s.sellerCode || !s.sellerCode.trim()) {
     const codeNum = index + 101;
-    return { ...s, sellerCode: `SLR-${codeNum}` };
+
+    return {
+      ...s,
+      sellerCode: `SLR-${codeNum}`
+    };
   }
+
   return s;
 };
 
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
 
-interface DbErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-  };
-}
+// -----------------------------------------------------------------------------
+// Authentication compatibility types
+// -----------------------------------------------------------------------------
 
+/**
+ * Compatibility adapter used by the existing UI.
+ *
+ * IMPORTANT:
+ * - This is NOT a Firebase user.
+ * - Supabase Auth is the real authentication system.
+ * - Database authorization is enforced by Supabase RLS.
+ * - Admin/seller privileges must come from the authoritative
+ *   profiles table / server-side authorization.
+ */
 export interface AuthUserLike {
   uid: string;
   id?: string;
@@ -138,39 +159,32 @@ export interface AuthUserLike {
   photoURL?: string | null;
   user_metadata?: Record<string, any>;
   app_metadata?: Record<string, any>;
-  /** The live Supabase access token, for callers that need to present one. */
-  getIdToken: (forceRefresh?: boolean) => Promise<string>;
+
+  /**
+   * Returns the live Supabase access token.
+   *
+   * Kept only for compatibility with existing callers.
+   * It must never be used as a replacement for RLS authorization.
+   */
+  getIdToken: (
+    forceRefresh?: boolean
+  ) => Promise<string>;
 }
 
 export type AuthUser = AuthUserLike;
 
 /**
- * Pre-migration name for the same type, kept so existing imports resolve.
+ * Legacy compatibility name.
  *
- * Nothing about it is Firebase any more: it is an adapter over the Supabase
- * user. Privilege comes from public.profiles and is enforced by RLS, never
- * from this object.
+ * The application no longer uses Firebase Authentication.
+ * This type is simply an adapter around Supabase Auth.
  */
 export type FirebaseUser = AuthUserLike;
 
-function handleDbError(error: unknown, operationType: OperationType, path: string | null, userId?: string | null) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  const errInfo = {
-    error: errorMessage,
-    authInfo: {
-      userId: userId || null,
-      email: null,
-      emailVerified: null,
-      isAnonymous: false,
-      tenantId: null,
-    },
-    operationType,
-    path,
-  };
-  console.error('[ShopContext] Database error: ', JSON.stringify(errInfo));
-  return `Database error during ${operationType} on ${path || 'unknown'}: ${errorMessage}`;
-}
 
+// -----------------------------------------------------------------------------
+// UI helpers
+// -----------------------------------------------------------------------------
 
 interface Toast {
   id: string;
@@ -178,77 +192,158 @@ interface Toast {
   type: 'success' | 'info' | 'warning' | 'error';
 }
 
-export type NavTab = 'home' | 'products' | 'product_detail' | 'checkout' | 'account' | 'admin' | 'favorites' | 'seller';
+
+// -----------------------------------------------------------------------------
+// Navigation
+// -----------------------------------------------------------------------------
+
+export type NavTab =
+  | 'home'
+  | 'products'
+  | 'product_detail'
+  | 'checkout'
+  | 'account'
+  | 'admin'
+  | 'favorites'
+  | 'seller';
 
 const getInitialNavTab = (): NavTab => {
-  if (typeof window === 'undefined') return 'home';
+  if (typeof window === 'undefined') {
+    return 'home';
+  }
+
   const path = window.location.pathname.replace(/^\/+/, '');
+
   if (path === 'admin') {
     return 'admin';
   }
+
   if (path === 'seller') {
     return 'seller';
   }
+
   if (path.startsWith('product/')) {
     return 'product_detail';
   }
+
   if (path.startsWith('products')) {
     return 'products';
   }
-  if (path === 'checkout' || path === 'account' || path === 'favorites') {
+
+  if (
+    path === 'checkout' ||
+    path === 'account' ||
+    path === 'favorites'
+  ) {
     return path as NavTab;
   }
+
   return 'home';
 };
 
 const getInitialCategory = (): string => {
-  if (typeof window === 'undefined') return 'all';
+  if (typeof window === 'undefined') {
+    return 'all';
+  }
+
   const path = window.location.pathname.replace(/^\/+/, '');
+
   if (path.startsWith('products/')) {
     const cat = path.replace('products/', '');
+
     return decodeURIComponent(cat) || 'all';
   }
+
   return 'all';
 };
+
+
+// -----------------------------------------------------------------------------
+// Catalogue cache
+// -----------------------------------------------------------------------------
 
 /**
  * Cache keys for catalogue data served by Supabase.
  *
- * Versioned (_v2) deliberately. The previous keys hold whatever the bundled
- * demo catalogue wrote there, and those products have slug ids rather than
- * UUIDs; reading them back after this change would put fake products on a
- * production storefront and non-UUID ids into carts. A new key starts empty and
- * only ever holds rows that came from the database.
+ * Versioned keys prevent older bundled/demo catalogue data from being
+ * accidentally loaded into the storefront.
+ *
+ * Supabase remains the authoritative source.
  */
 const CATALOG_CACHE_KEYS = {
   products: 'yallalb_products_v2',
   categories: 'yallalb_categories_v2',
-  sellers: 'yallalb_sellers_v2',
+  sellers: 'yallalb_sellers_v2'
 } as const;
 
-/** Reads a cached catalogue list. Never falls back to bundled sample data. */
-const readCachedList = <T,>(key: string): T[] => {
+
+/**
+ * Reads a cached catalogue list.
+ *
+ * This is cache-only.
+ * It never falls back to bundled/demo products.
+ */
+const readCachedList = <T,>(
+  key: string
+): T[] => {
   try {
-    const saved = localStorage.getItem(key);
-    if (!saved) return [];
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    if (typeof window === 'undefined') {
+      return [];
+    }
+
+    const saved = window.localStorage.getItem(key);
+
+    if (!saved) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(saved);
+
+    return Array.isArray(parsed)
+      ? (parsed as T[])
+      : [];
   } catch {
     return [];
   }
 };
 
+
+// -----------------------------------------------------------------------------
+// Initial product detail
+// -----------------------------------------------------------------------------
+
 const getInitialProductDetail = (): Product | null => {
-  if (typeof window === 'undefined') return null;
-  const path = window.location.pathname.replace(/^\/+/, '');
-  if (path.startsWith('product/')) {
-    const prodId = path.replace('product/', '');
-    // Only the cache of real database rows. A deep link to a product that is
-    // not cached resolves to null and the detail view loads it from Supabase.
-    return readCachedList<Product>(CATALOG_CACHE_KEYS.products).find(p => p.id === prodId) || null;
+  if (typeof window === 'undefined') {
+    return null;
   }
-  return null;
+
+  const path = window.location.pathname.replace(/^\/+/, '');
+
+  if (!path.startsWith('product/')) {
+    return null;
+  }
+
+  const prodId = path.replace('product/', '');
+
+  /**
+   * Only use cached rows that were previously loaded from Supabase.
+   *
+   * If the product is not cached, return null and allow the product-detail
+   * loading logic later in ShopContext to retrieve it from Supabase.
+   */
+  return (
+    readCachedList<Product>(
+      CATALOG_CACHE_KEYS.products
+    ).find(
+      product => product.id === prodId
+    ) || null
+  );
 };
+
+
+// -----------------------------------------------------------------------------
+// Shop Context
+// -----------------------------------------------------------------------------
 
 interface ShopContextType {
   // Navigation
@@ -263,51 +358,101 @@ interface ShopContextType {
   // Language & Translations
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: keyof typeof translations['en'], params?: Record<string, string>) => string;
+  t: (
+    key: keyof typeof translations['en'],
+    params?: Record<string, string>
+  ) => string;
 
   // Products
   products: Product[];
-  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
-  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
-  deleteProduct: (id: string) => Promise<void>;
-  deleteMultipleProducts: (ids: string[]) => Promise<void>;
-  reorderProducts: (orderedProducts: Product[]) => Promise<void>;
-  toggleProductPublish: (productId: string) => Promise<void>;
+  addProduct: (
+    product: Omit<Product, 'id'>
+  ) => Promise<void>;
+  updateProduct: (
+    id: string,
+    updates: Partial<Product>
+  ) => Promise<void>;
+  deleteProduct: (
+    id: string
+  ) => Promise<void>;
+  deleteMultipleProducts: (
+    ids: string[]
+  ) => Promise<void>;
+  reorderProducts: (
+    orderedProducts: Product[]
+  ) => Promise<void>;
+  toggleProductPublish: (
+    productId: string
+  ) => Promise<void>;
   syncAllProductsToDatabase: () => Promise<void>;
+
   selectedProductForModal: Product | null;
-  setSelectedProductForModal: (p: Product | null) => void;
+  setSelectedProductForModal: (
+    p: Product | null
+  ) => void;
+
   isDbSyncing: boolean;
+
   /**
    * Whether the catalogue on screen has been confirmed against Supabase.
-   * 'ready' with zero products means the shop is genuinely empty; 'error'
-   * means the read failed. The storefront must not present the second as the
-   * first — an outage is not an empty shop.
+   *
+   * 'ready' + zero products = genuinely empty catalogue.
+   * 'error' = database read failed.
+   *
+   * The storefront must never interpret a database outage as an empty shop.
    */
-  catalogStatus: 'loading' | 'ready' | 'error';
+  catalogStatus:
+    | 'loading'
+    | 'ready'
+    | 'error';
+
   catalogError: string | null;
+
   hasMoreProducts: boolean;
   isFetchingMore: boolean;
+
   loadMoreProducts: () => Promise<void>;
 
   // Currency
   currency: Currency;
   setCurrency: (c: Currency) => void;
-  formatPrice: (amountUSD: number) => string;
-  convertUSDToLBP: (amountUSD: number) => number;
+  formatPrice: (
+    amountUSD: number
+  ) => string;
+  convertUSDToLBP: (
+    amountUSD: number
+  ) => number;
   currencySymbol: string;
   currencyRate: number;
 
   // Cart
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number, option?: string) => void;
-  addMultipleToCart: (items: { product: Product; quantity?: number; option?: string }[]) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (
+    product: Product,
+    quantity?: number,
+    option?: string
+  ) => void;
+  addMultipleToCart: (
+    items: {
+      product: Product;
+      quantity?: number;
+      option?: string;
+    }[]
+  ) => void;
+  removeFromCart: (
+    productId: string
+  ) => void;
+  updateQuantity: (
+    productId: string,
+    quantity: number
+  ) => void;
   clearCart: () => void;
   cartTotalUSD: number;
   cartCount: number;
   isCartOpen: boolean;
-  setIsCartOpen: (open: boolean) => void;
+  setIsCartOpen: (
+    open: boolean
+  ) => void;
 
   // Wishlist
   wishlist: string[];
