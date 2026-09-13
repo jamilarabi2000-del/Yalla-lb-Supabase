@@ -1,27 +1,37 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-publishable-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabasePublishableKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!import.meta.env.VITE_SUPABASE_URL || (!import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY && !import.meta.env.VITE_SUPABASE_ANON_KEY)) {
-  console.info(
-    '[Supabase Setup]: Running in migration mode with fallback configuration. Provide VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in environment to connect to production Supabase.'
+const isProduction = Boolean(import.meta.env.PROD);
+
+if (isProduction && (!supabaseUrl || !supabasePublishableKey)) {
+  throw new Error(
+    '[Supabase Setup] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. Production cannot start without Supabase configuration.'
   );
 }
 
-/**
- * Client-side Supabase client instance.
- * Configured with:
- * - Persistent Auth sessions (localStorage)
- * - Automatic token refresh in background
- * - URL session detection (OAuth redirects & magic email links)
- * - Public Publishable/Anon Key ONLY (No Service-Role Key on client)
- */
-export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-  },
-});
+if (!supabaseUrl || !supabasePublishableKey) {
+  console.warn(
+    '[Supabase Setup] Supabase environment variables are missing. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY for local development.'
+  );
+}
+
+export const supabase = createClient(
+  supabaseUrl || 'http://127.0.0.1:54321',
+  supabasePublishableKey || 'development-publishable-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      storage:
+        typeof window !== 'undefined'
+          ? window.localStorage
+          : undefined,
+    },
+  }
+);
