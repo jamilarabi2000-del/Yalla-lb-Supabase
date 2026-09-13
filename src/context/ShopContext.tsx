@@ -1,42 +1,97 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Product, CartItem, Order, UserProfile, Currency, SiteContent, SectionVisibilityConfig, CMSCustomBlock, RecentActivity, DiscountRule, ProductBundle, CategoryItem, TerroirRegion, Seller, SearchLog } from '../types';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo
+} from 'react';
+
+import {
+  Product,
+  CartItem,
+  Order,
+  UserProfile,
+  Currency,
+  SiteContent,
+  SectionVisibilityConfig,
+  CMSCustomBlock,
+  RecentActivity,
+  DiscountRule,
+  ProductBundle,
+  CategoryItem,
+  TerroirRegion,
+  Seller,
+  SearchLog
+} from '../types';
+
 import { applyDiscounts } from '../lib/pricing';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
 import { LEBANON_REGIONS, LBP_USD_RATE } from '../data/regions';
-import { normalizeLebanesePhone, isValidLebanesePhone } from '../utils/phoneUtils';
-import { generateIdempotencyKey, generateUuidV4, isUuid, secureRandomInt, secureRandomString } from '../utils/uuid';
+import {
+  normalizeLebanesePhone,
+  isValidLebanesePhone
+} from '../utils/phoneUtils';
+
+import {
+  generateIdempotencyKey,
+  generateUuidV4,
+  isUuid,
+  secureRandomInt,
+  secureRandomString
+} from '../utils/uuid';
+
 import Papa from 'papaparse';
 import { translations, Language } from '../utils/translations';
-import { resolveSeller, resolveCategory, parsePrice, parseStock, isCsvRowEmpty } from '../utils/importerResolvers';
-import { checkDuplicateProductNumber, checkDuplicateDescription } from '../lib/productValidation';
+
+import {
+  resolveSeller,
+  resolveCategory,
+  parsePrice,
+  parseStock,
+  isCsvRowEmpty
+} from '../utils/importerResolvers';
+
+import {
+  checkDuplicateProductNumber,
+  checkDuplicateDescription
+} from '../lib/productValidation';
+
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
+
 import { supabase } from '../lib/supabase';
-import type { User as SupabaseUser, EmailOtpType } from '@supabase/supabase-js';
-import { 
-  supabaseCatalogService, 
-  supabaseUserDataService, 
-  supabaseOrderService, 
+
+import type {
+  User as SupabaseUser,
+  EmailOtpType
+} from '@supabase/supabase-js';
+
+import {
+  supabaseCatalogService,
+  supabaseUserDataService,
+  supabaseOrderService,
   supabaseCmsService
 } from '../services';
+
 import { CheckoutError } from '../services/supabaseOrderService';
 import { supabaseAdminService } from '../services/supabaseAdminService';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
-import { 
-  dbLogger, 
-  sanitizeDbPayload, 
-  calculateObjectDiff 
+
+import {
+  dbLogger,
+  calculateObjectDiff
 } from '../utils/dbLogger';
-import { dbMonitor, sanitizeDocumentData } from '../utils/databaseMonitor';
+
+import {
+  dbMonitor,
+  sanitizeDocumentData
+} from '../utils/databaseMonitor';
 
 
-// Client-side checkout cap. MUST equal MAX_LINE_ITEMS in functions/src/placeOrder.ts,
-// which is the authoritative limit; this constant only lets the UI reject an oversized
-// cart before the round trip. test/security.test.ts asserts the two stay in sync.
-// (The former value of 8 predated server-authoritative checkout, when order payloads were
-// still evaluated by firestore.rules. Orders are now `allow create: if false`, so no rule
-// evaluates an order and that budget constraint no longer applies.)
+// Client-side checkout cap...
 export const MAX_ORDER_LINE_ITEMS = 50;
 
 export const ensureSellerItemCode = (p: Product): Product => {
