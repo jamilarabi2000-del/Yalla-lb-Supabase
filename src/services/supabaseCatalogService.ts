@@ -1,9 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { Product, CategoryItem, Seller, TerroirRegion } from '../types';
-import { DEFAULT_CATEGORIES } from '../data/categories';
-import { DEFAULT_SELLERS } from '../data/sellers';
-import { LEBANON_REGIONS } from '../data/regions';
-import { INITIAL_PRODUCTS } from '../data/products';
+
 
 /**
  * Maps raw Supabase database row to frontend Product interface.
@@ -11,49 +8,97 @@ import { INITIAL_PRODUCTS } from '../data/products';
  */
 export function mapSupabaseProduct(row: Record<string, any>): Product {
   return {
-    id: String(row.id || row.product_id || ''),
+    id: String(row.id || ''),
     name: String(row.name || ''),
-    arabicName: row.arabic_name ?? row.arabicName ?? undefined,
-    artisan: String(row.artisan || row.seller || row.name_en || 'Lebanese Artisan'),
-    seller: row.seller ?? row.artisan ?? undefined,
-    arabicSeller: row.arabic_seller ?? row.arabicSeller ?? undefined,
-    sellerId: row.seller_id ?? row.sellerId ?? undefined,
-    sellerActive: row.seller_active ?? row.sellerActive ?? true,
+    arabicName: row.arabic_name ?? undefined,
+
+    artisan: String(
+      row.artisan ||
+      row.seller_name_en ||
+      row.name_en ||
+      'Lebanese Artisan'
+    ),
+
+    seller: row.seller_name_en ?? undefined,
+    arabicSeller: row.seller_name_ar ?? undefined,
+    sellerId: row.seller_id ?? undefined,
+    sellerActive: row.seller_active ?? true,
+
     origin: String(row.origin || 'Lebanon'),
-    category: String(row.category || 'grocery'),
-    priceUSD: Number(row.price_usd ?? row.priceUSD ?? row.price ?? 0),
-    originalPriceUSD: row.original_price_usd != null ? Number(row.original_price_usd) : (row.originalPriceUSD != null ? Number(row.originalPriceUSD) : undefined),
-    discountPercentage: row.discount_percentage != null ? Number(row.discount_percentage) : (row.discountPercentage != null ? Number(row.discountPercentage) : undefined),
-    rating: Number(row.rating ?? 5),
-    reviewsCount: Number(row.reviews_count ?? row.reviewsCount ?? 0),
-    image: String(row.image ?? row.image_url ?? 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80'),
-    additionalImages: Array.isArray(row.additional_images) ? row.additional_images : (Array.isArray(row.additionalImages) ? row.additionalImages : []),
-    videoUrl: row.video_url ?? row.videoUrl ?? undefined,
-    additionalVideos: Array.isArray(row.additional_videos) ? row.additional_videos : (Array.isArray(row.additionalVideos) ? row.additionalVideos : []),
-    videos: Array.isArray(row.videos) ? row.videos : [],
+
+    // IMPORTANT: this is the Supabase category UUID
+    category: String(row.category_id || ''),
+
+    priceUSD: Number(row.price_usd ?? 0),
+    originalPriceUSD:
+      row.original_price_usd != null
+        ? Number(row.original_price_usd)
+        : undefined,
+
+    discountPercentage:
+      row.discount_percentage != null
+        ? Number(row.discount_percentage)
+        : undefined,
+
+    rating: Number(row.rating ?? 0),
+    reviewsCount: Number(row.reviews_count ?? 0),
+
+    image: String(row.image || ''),
+
+    additionalImages: Array.isArray(row.additional_images)
+      ? row.additional_images
+      : [],
+
+    videoUrl: row.video_url ?? undefined,
+
+    additionalVideos: Array.isArray(row.additional_videos)
+      ? row.additional_videos
+      : [],
+
+    videos: Array.isArray(row.videos)
+      ? row.videos
+      : [],
+
     description: String(row.description || ''),
-    craftStory: String(row.craft_story ?? row.craftStory ?? ''),
+    craftStory: String(row.craft_story || ''),
     stock: Number(row.stock ?? 0),
-    isNewArrival: Boolean(row.is_new_arrival ?? row.isNewArrival ?? false),
-    isFeatured: Boolean(row.is_featured ?? row.isFeatured ?? false),
-    isBestseller: Boolean(row.is_bestseller ?? row.isBestseller ?? false),
-    isPublished: row.is_published !== undefined ? Boolean(row.is_published) : (row.isPublished !== undefined ? Boolean(row.isPublished) : true),
-    displayOrder: row.display_order != null ? Number(row.display_order) : (row.displayOrder != null ? Number(row.displayOrder) : 9999),
-    sellerItemCode: row.seller_item_code ?? row.sellerItemCode ?? undefined,
-    lowStockThreshold: row.low_stock_threshold != null ? Number(row.low_stock_threshold) : (row.lowStockThreshold != null ? Number(row.lowStockThreshold) : undefined),
-    lowStockNotice: row.low_stock_notice ?? row.lowStockNotice ?? undefined,
-    customStockLabel: row.custom_stock_label ?? row.customStockLabel ?? undefined,
-    costPriceUSD: row.cost_price_usd != null ? Number(row.cost_price_usd) : (row.costPriceUSD != null ? Number(row.costPriceUSD) : undefined),
-    tags: Array.isArray(row.tags) ? row.tags : (typeof row.tags === 'string' ? row.tags.split(',').map((t: string) => t.trim()) : []),
+
+    isNewArrival: Boolean(row.is_new_arrival),
+    isFeatured: Boolean(row.is_featured),
+    isBestseller: Boolean(row.is_bestseller),
+    isPublished: Boolean(row.is_published),
+
+    displayOrder: Number(row.display_order ?? 0),
+
+    sellerItemCode: row.seller_item_code ?? undefined,
+    lowStockThreshold:
+      row.low_stock_threshold != null
+        ? Number(row.low_stock_threshold)
+        : undefined,
+
+    lowStockNotice: row.low_stock_notice ?? undefined,
+    customStockLabel: row.custom_stock_label ?? undefined,
+
+    costPriceUSD:
+      row.cost_price_usd != null
+        ? Number(row.cost_price_usd)
+        : undefined,
+
+    tags: Array.isArray(row.tags) ? row.tags : [],
     keywords: Array.isArray(row.keywords) ? row.keywords : [],
-    arabicKeywords: Array.isArray(row.arabic_keywords) ? row.arabic_keywords : (Array.isArray(row.arabicKeywords) ? row.arabicKeywords : []),
-    seoTitle: row.seo_title ?? row.seoTitle ?? undefined,
-    seoArabicTitle: row.seo_arabic_title ?? row.seoArabicTitle ?? undefined,
-    seoDescription: row.seo_description ?? row.seoDescription ?? undefined,
-    seoArabicDescription: row.seo_arabic_description ?? row.seoArabicDescription ?? undefined,
-    weightOrVolume: row.weight_or_volume ?? row.weightOrVolume ?? undefined,
-    createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
-    updatedAt: row.updated_at ?? row.updatedAt ?? new Date().toISOString(),
+    arabicKeywords: Array.isArray(row.arabic_keywords)
+      ? row.arabic_keywords
+      : [],
+
+    seoTitle: row.seo_title ?? undefined,
+    seoArabicTitle: row.seo_arabic_title ?? undefined,
+    seoDescription: row.seo_description ?? undefined,
+    seoArabicDescription: row.seo_arabic_description ?? undefined,
+
+    weightOrVolume: row.weight_or_volume ?? undefined,
+
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
