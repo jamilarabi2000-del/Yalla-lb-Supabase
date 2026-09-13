@@ -70,7 +70,7 @@ export const supabaseUserDataService = {
   async fetchCart(userId: string): Promise<CartItem[] | null> {
     try {
       const { data, error } = await supabase
-        .from('user_carts')
+        .from('carts')
         .select('items')
         .eq('user_id', userId)
         .maybeSingle();
