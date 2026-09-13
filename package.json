@@ -31,15 +31,16 @@
     "migrate-product-private": "node scripts/migrate-product-private.mjs",
     "publish-cms": "node scripts/publish-cms.mjs"
   },
-  "dependencies": {
-    "express": "^5.2.1",
-    "firebase": "^12.17.1",
-    "firebase-functions": "^7.3.2",
-    "lucide-react": "^0.546.0",
-    "papaparse": "^5.6.0",
-    "react": "^19.0.1",
-    "react-dom": "^19.0.1"
-  },
+ "dependencies": {
+  "express": "^5.2.1",
+  "firebase": "^12.17.1",
+  "firebase-functions": "^7.3.2",
+  "@supabase/supabase-js": "^2.116.0",
+  "lucide-react": "^0.546.0",
+  "papaparse": "^5.6.0",
+  "react": "^19.0.1",
+  "react-dom": "^19.0.1"
+},
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
     "@tailwindcss/vite": "^4.1.14",
