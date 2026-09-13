@@ -17,22 +17,38 @@ export const supabaseUserDataService = {
 
       return {
         uid: data.id,
-        name: data.name || (data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : ''),
+        name:
+          data.name ||
+          (data.first_name
+            ? `${data.first_name} ${data.last_name || ''}`.trim()
+            : ''),
         firstName: data.first_name || data.firstName || '',
         lastName: data.last_name || data.lastName || '',
         email: data.email || '',
         phone: data.phone || '',
         avatar: data.avatar || data.avatar_url || '',
-        defaultGovernorate: data.default_governorate || data.defaultGovernorate || '',
+        defaultGovernorate:
+          data.default_governorate || data.defaultGovernorate || '',
         defaultCity: data.default_city || data.defaultCity || '',
-        defaultAddress: data.default_address || data.defaultAddress || '',
-        defaultBuilding: data.default_building || data.defaultBuilding || '',
-        defaultNotes: data.default_notes || data.defaultNotes || '',
-        role: data.role === 'admin' ? 'admin' : data.role === 'seller' ? 'seller' : 'customer',
+        defaultAddress:
+          data.default_address || data.defaultAddress || '',
+        defaultBuilding:
+          data.default_building || data.defaultBuilding || '',
+        defaultNotes:
+          data.default_notes || data.defaultNotes || '',
+        role:
+          data.role === 'admin'
+            ? 'admin'
+            : data.role === 'seller'
+              ? 'seller'
+              : 'customer',
         sellerId: data.seller_id || data.sellerId || undefined,
       };
     } catch (err) {
-      console.warn('[supabaseUserDataService] fetchProfile error:', err);
+      console.warn(
+        '[supabaseUserDataService] fetchProfile error:',
+        err
+      );
       return null;
     }
   },
@@ -40,11 +56,17 @@ export const supabaseUserDataService = {
   /**
    * Upserts user profile in Supabase profiles table.
    */
-  async upsertProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
+  async upsertProfile(
+    userId: string,
+    profile: Partial<UserProfile>
+  ): Promise<void> {
     const payload: Record<string, any> = {
       id: userId,
-      first_name: profile.firstName ?? profile.name?.split(' ')[0],
-      last_name: profile.lastName ?? (profile.name?.split(' ').slice(1).join(' ') || undefined),
+      first_name:
+        profile.firstName ?? profile.name?.split(' ')[0],
+      last_name:
+        profile.lastName ??
+        (profile.name?.split(' ').slice(1).join(' ') || undefined),
       email: profile.email,
       phone: profile.phone,
       avatar: profile.avatar,
@@ -56,11 +78,19 @@ export const supabaseUserDataService = {
       updated_at: new Date().toISOString(),
     };
 
-    Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+    Object.keys(payload).forEach(
+      (key) => payload[key] === undefined && delete payload[key]
+    );
 
-    const { error } = await supabase.from('profiles').upsert(payload);
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(payload);
+
     if (error) {
-      console.warn('[supabaseUserDataService] upsertProfile error:', error.message);
+      console.warn(
+        '[supabaseUserDataService] upsertProfile error:',
+        error.message
+      );
     }
   },
 
@@ -75,11 +105,24 @@ export const supabaseUserDataService = {
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (!error && data && Array.isArray(data.items)) {
+      if (error) {
+        console.warn(
+          '[supabaseUserDataService] fetchCart error:',
+          error.message
+        );
+        return null;
+      }
+
+      if (data && Array.isArray(data.items)) {
         return data.items as CartItem[];
       }
+
       return null;
-    } catch {
+    } catch (err) {
+      console.warn(
+        '[supabaseUserDataService] fetchCart error:',
+        err
+      );
       return null;
     }
   },
@@ -87,50 +130,101 @@ export const supabaseUserDataService = {
   /**
    * Saves persistent cart items for authenticated user.
    */
-  async saveCart(userId: string, items: CartItem[]): Promise<void> {
+  async saveCart(
+    userId: string,
+    items: CartItem[]
+  ): Promise<void> {
     try {
-      await supabase.from('user_carts').upsert({
-        user_id: userId,
-        items,
-        updated_at: new Date().toISOString(),
-      });
+      const { error } = await supabase
+        .from('carts')
+        .upsert(
+          {
+            user_id: userId,
+            items,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) {
+        console.warn(
+          '[supabaseUserDataService] saveCart error:',
+          error.message
+        );
+      }
     } catch (err) {
-      console.warn('[supabaseUserDataService] saveCart error:', err);
+      console.warn(
+        '[supabaseUserDataService] saveCart error:',
+        err
+      );
     }
   },
 
   /**
    * Fetches persistent wishlist for user.
    */
-  async fetchWishlist(userId: string): Promise<string[] | null> {
+  async fetchWishlist(
+    userId: string
+  ): Promise<string[] | null> {
     try {
       const { data, error } = await supabase
-        .from('user_wishlists')
+        .from('wishlists')
         .select('product_ids')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (!error && data && Array.isArray(data.product_ids)) {
+      if (error) {
+        console.warn(
+          '[supabaseUserDataService] fetchWishlist error:',
+          error.message
+        );
+        return null;
+      }
+
+      if (data && Array.isArray(data.product_ids)) {
         return data.product_ids as string[];
       }
+
       return null;
-    } catch {
+    } catch (err) {
+      console.warn(
+        '[supabaseUserDataService] fetchWishlist error:',
+        err
+      );
       return null;
     }
   },
 
   /**
-   * Saves persistent wishlist for user.
+   * Saves persistent wishlist for authenticated user.
    */
-  async saveWishlist(userId: string, productIds: string[]): Promise<void> {
+  async saveWishlist(
+    userId: string,
+    productIds: string[]
+  ): Promise<void> {
     try {
-      await supabase.from('user_wishlists').upsert({
-        user_id: userId,
-        product_ids: productIds,
-        updated_at: new Date().toISOString(),
-      });
+      const { error } = await supabase
+        .from('wishlists')
+        .upsert(
+          {
+            user_id: userId,
+            product_ids: productIds,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) {
+        console.warn(
+          '[supabaseUserDataService] saveWishlist error:',
+          error.message
+        );
+      }
     } catch (err) {
-      console.warn('[supabaseUserDataService] saveWishlist error:', err);
+      console.warn(
+        '[supabaseUserDataService] saveWishlist error:',
+        err
+      );
     }
   },
 
@@ -139,24 +233,36 @@ export const supabaseUserDataService = {
    */
   async fetchReviews(productId?: string): Promise<Review[]> {
     try {
-      let query = supabase.from('reviews').select('*').order('created_at', { ascending: false });
+      let query = supabase
+        .from('reviews')
+        .select('*')
+        .order('created_at', { ascending: false });
+
       if (productId) {
         query = query.eq('product_id', productId);
       }
+
       const { data, error } = await query;
+
       if (error || !data) return [];
 
       return data.map((r: any) => ({
         id: String(r.id),
         productId: String(r.product_id || r.productId),
         userId: String(r.user_id || r.userId),
-        userName: String(r.user_name || r.userName || 'Customer'),
+        userName: String(
+          r.user_name || r.userName || 'Customer'
+        ),
         rating: Number(r.rating || 5),
         comment: String(r.comment || ''),
-        createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+        createdAt:
+          r.created_at ||
+          r.createdAt ||
+          new Date().toISOString(),
         orderId: r.order_id || r.orderId,
         adminReply: r.admin_reply || r.adminReply,
-        adminReplyAt: r.admin_reply_at || r.adminReplyAt,
+        adminReplyAt:
+          r.admin_reply_at || r.adminReplyAt,
       }));
     } catch {
       return [];
@@ -166,9 +272,17 @@ export const supabaseUserDataService = {
   /**
    * Adds a product review in Supabase.
    */
-  async addReview(review: Omit<Review, 'id' | 'createdAt'> & { id?: string }): Promise<void> {
+  async addReview(
+    review: Omit<Review, 'id' | 'createdAt'> & {
+      id?: string;
+    }
+  ): Promise<void> {
     const payload = {
-      id: review.id || `rev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id:
+        review.id ||
+        `rev-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 7)}`,
       product_id: review.productId,
       user_id: review.userId,
       user_name: review.userName,
@@ -177,9 +291,16 @@ export const supabaseUserDataService = {
       order_id: review.orderId,
       created_at: new Date().toISOString(),
     };
-    const { error } = await supabase.from('reviews').insert(payload);
+
+    const { error } = await supabase
+      .from('reviews')
+      .insert(payload);
+
     if (error) {
-      console.error('[supabaseUserDataService] addReview error:', error);
+      console.error(
+        '[supabaseUserDataService] addReview error:',
+        error
+      );
       throw error;
     }
   },
