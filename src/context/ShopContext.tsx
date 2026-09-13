@@ -60,22 +60,6 @@ import {
   or
 } from 'firebase/firestore';
 
-const safeGetDoc = async (docRef: any): Promise<any> => {
-  try {
-    return await getDoc(docRef);
-  } catch (err: any) {
-    if (err.code === 'unavailable' || err.message?.includes('offline') || err.message?.includes('Failed to get document')) {
-      console.warn("[ShopContext] safeGetDoc: Client is offline. Falling back to cache...", err.message);
-      try {
-        return await getDocFromCache(docRef);
-      } catch (cacheErr) {
-        throw err;
-      }
-    }
-    throw err;
-  }
-};
-
 // Client-side checkout cap. MUST equal MAX_LINE_ITEMS in functions/src/placeOrder.ts,
 // which is the authoritative limit; this constant only lets the UI reject an oversized
 // cart before the round trip. test/security.test.ts asserts the two stay in sync.
@@ -667,6 +651,24 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const lastVisibleDocRef = useRef<any>(null);
 
+  // Guest cart/wishlist storage helpers.
+  // Authenticated users persist only to Supabase; guests persist only to localStorage.
+  const getGuestStorage = (key: string, legacyKey?: string) => {
+    try {
+      const current = localStorage.getItem(key);
+      if (current !== null) return current;
+      if (legacyKey) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy !== null) {
+          localStorage.setItem(key, legacy);
+          localStorage.removeItem(legacyKey);
+          return legacy;
+        }
+      }
+    } catch {}
+    return null;
+  };
+
   // Core Data States with local storage fallback
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -680,7 +682,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [storedCart, setCart] = useState<CartItem[]>(() => {
     try {
-      const saved = localStorage.getItem('yallalb_cart');
+      const saved = getGuestStorage('yallalb_guest_cart', 'yallalb_cart');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -702,12 +704,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('yallalb_wishlist');
+      const saved = getGuestStorage('yallalb_guest_wishlist', 'yallalb_wishlist');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
+
+  // Prevent cart/wishlist persistence until the authenticated user's Supabase
+  // state has been loaded. This avoids overwriting server data with stale guest data.
+  const cartSyncUserRef = useRef<string | null>(null);
+  const wishlistSyncUserRef = useRef<string | null>(null);
 
   const [orders, setOrders] = useState<Order[]>(() => {
     // Only load orders from local storage in offline/no-firebase mode, never in Firebase mode to prevent cross-account leak
@@ -2426,17 +2433,21 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
   }, [products]);
 
+  // Guests: persist cart locally. Authenticated users: Supabase is authoritative.
   useEffect(() => {
+    if (firebaseUser) return;
     try {
-      localStorage.setItem('yallalb_cart', JSON.stringify(storedCart));
+      localStorage.setItem('yallalb_guest_cart', JSON.stringify(storedCart));
     } catch {}
-  }, [storedCart]);
+  }, [storedCart, firebaseUser]);
 
+  // Guests: persist wishlist locally. Authenticated users: Supabase is authoritative.
   useEffect(() => {
+    if (firebaseUser) return;
     try {
-      localStorage.setItem('yallalb_wishlist', JSON.stringify(wishlist));
+      localStorage.setItem('yallalb_guest_wishlist', JSON.stringify(wishlist));
     } catch {}
-  }, [wishlist]);
+  }, [wishlist, firebaseUser]);
 
   useEffect(() => {
     try {
@@ -2773,23 +2784,21 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           localStorage.removeItem('yallalb_orders');
         } catch {}
-        // Preserve local guest cart and wishlist if available
+        // Restore guest cart and wishlist only from guest local storage.
+        cartSyncUserRef.current = null;
+        wishlistSyncUserRef.current = null;
         try {
-          const storedCart = localStorage.getItem('yallalb_cart');
-          if (storedCart) {
-            const parsed = JSON.parse(storedCart);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setCart(parsed);
-            }
-          }
-          const storedWishlist = localStorage.getItem('yallalb_wishlist');
-          if (storedWishlist) {
-            const parsed = JSON.parse(storedWishlist);
-            if (Array.isArray(parsed)) {
-              setWishlist(parsed);
-            }
-          }
-        } catch {}
+          const storedCart = getGuestStorage('yallalb_guest_cart', 'yallalb_cart');
+          const parsedCart = storedCart ? JSON.parse(storedCart) : [];
+          setCart(Array.isArray(parsedCart) ? parsedCart : []);
+
+          const storedWishlist = getGuestStorage('yallalb_guest_wishlist', 'yallalb_wishlist');
+          const parsedWishlist = storedWishlist ? JSON.parse(storedWishlist) : [];
+          setWishlist(Array.isArray(parsedWishlist) ? parsedWishlist : []);
+        } catch {
+          setCart([]);
+          setWishlist([]);
+        }
         return;
       }
 
@@ -2875,30 +2884,64 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(safeProfile);
         setIsLoadingAuth(false);
 
-        // Non-blocking sync with Firestore cart/wishlist if Firebase is also enabled
-        if (IS_FIREBASE_ENABLED && db) {
-          const userKey = supaUser.id;
-          try {
-            const wishlistRef = doc(db, 'wishlists', userKey);
-            const wishlistSnap = await safeGetDoc(wishlistRef);
-            if (wishlistSnap.exists()) {
-              const wData = wishlistSnap.data();
-              if (wData.productIds && Array.isArray(wData.productIds)) {
-                setWishlist(wData.productIds);
-              }
-            }
-          } catch {}
+        // Cart and wishlist are now Supabase-authoritative for authenticated users.
+        // If the user has no Supabase row yet, migrate the existing guest cache once.
+        try {
+          const [serverCart, serverWishlist] = await Promise.all([
+            supabaseUserDataService.fetchCart(supaUser.id),
+            supabaseUserDataService.fetchWishlist(supaUser.id),
+          ]);
 
-          try {
-            const cartRef = doc(db, 'carts', userKey);
-            const cartSnap = await safeGetDoc(cartRef);
-            if (cartSnap.exists()) {
-              const cData = cartSnap.data();
-              if (cData.items && Array.isArray(cData.items)) {
-                setCart(cData.items);
-              }
-            }
-          } catch {}
+          if (!isMounted) return;
+
+          if (serverCart !== null) {
+            // Existing server state always wins over guest/local state.
+            cartSyncUserRef.current = supaUser.id;
+            setCart(serverCart);
+          } else {
+            const guestCartRaw = getGuestStorage('yallalb_guest_cart', 'yallalb_cart');
+            let guestCart: CartItem[] = [];
+            try {
+              const parsed = guestCartRaw ? JSON.parse(guestCartRaw) : [];
+              if (Array.isArray(parsed)) guestCart = parsed;
+            } catch {}
+
+            await supabaseUserDataService.saveCart(supaUser.id, guestCart);
+            cartSyncUserRef.current = supaUser.id;
+            setCart(guestCart);
+            try {
+              localStorage.removeItem('yallalb_guest_cart');
+              localStorage.removeItem('yallalb_cart');
+            } catch {}
+          }
+
+          if (serverWishlist !== null) {
+            // Existing server state always wins over guest/local state.
+            wishlistSyncUserRef.current = supaUser.id;
+            setWishlist(serverWishlist);
+          } else {
+            const guestWishlistRaw = getGuestStorage('yallalb_guest_wishlist', 'yallalb_wishlist');
+            let guestWishlist: string[] = [];
+            try {
+              const parsed = guestWishlistRaw ? JSON.parse(guestWishlistRaw) : [];
+              if (Array.isArray(parsed)) guestWishlist = parsed;
+            } catch {}
+
+            await supabaseUserDataService.saveWishlist(supaUser.id, guestWishlist);
+            wishlistSyncUserRef.current = supaUser.id;
+            setWishlist(guestWishlist);
+            try {
+              localStorage.removeItem('yallalb_guest_wishlist');
+              localStorage.removeItem('yallalb_wishlist');
+            } catch {}
+          }
+        } catch (syncErr) {
+          // Do not replace or overwrite the authenticated user's server state if
+          // the initial Supabase cart/wishlist load fails. Persistence stays blocked
+          // until a successful authoritative load occurs.
+          cartSyncUserRef.current = null;
+          wishlistSyncUserRef.current = null;
+          console.warn('[ShopContext] Error loading Supabase cart/wishlist:', syncErr);
         }
       }, 0);
     };
@@ -2926,44 +2969,34 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Sync Cart to Firestore whenever cart changes (debounced by 1000ms)
+  // Persist authenticated cart to Supabase (debounced).
+  // The ref is set only after the initial server state has been loaded/migrated.
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
     if (!firebaseUser) return;
-    const userKey = firebaseUser.uid;
-    const cartDocRef = doc(db, 'carts', userKey);
-    const sanitizedCartPayload = sanitizeFirestorePayload({
-      userId: userKey,
-      items: storedCart,
-      updatedAt: new Date().toISOString()
-    });
+    const userId = firebaseUser.uid;
+    if (cartSyncUserRef.current !== userId) return;
 
     const handler = setTimeout(() => {
-      setDoc(cartDocRef, sanitizedCartPayload, { merge: true }).catch((err) => {
-        console.warn("[ShopContext] Non-blocking cart sync notice:", err);
+      supabaseUserDataService.saveCart(userId, storedCart).catch((err) => {
+        console.warn('[ShopContext] Non-blocking Supabase cart sync notice:', err);
       });
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(handler);
   }, [storedCart, firebaseUser]);
 
-  // Sync Wishlist to Firestore whenever wishlist changes (debounced by 1000ms)
+  // Persist authenticated wishlist to Supabase (debounced).
+  // The ref is set only after the initial server state has been loaded/migrated.
   useEffect(() => {
-    if (!IS_FIREBASE_ENABLED) return;
     if (!firebaseUser) return;
-    const userKey = firebaseUser.uid;
-    const wishlistDocRef = doc(db, 'wishlists', userKey);
-    const sanitizedWishlistPayload = sanitizeFirestorePayload({
-      userId: userKey,
-      productIds: wishlist,
-      updatedAt: new Date().toISOString()
-    });
+    const userId = firebaseUser.uid;
+    if (wishlistSyncUserRef.current !== userId) return;
 
     const handler = setTimeout(() => {
-      setDoc(wishlistDocRef, sanitizedWishlistPayload, { merge: true }).catch((err) => {
-        console.warn("[ShopContext] Non-blocking wishlist sync notice:", err);
+      supabaseUserDataService.saveWishlist(userId, wishlist).catch((err) => {
+        console.warn('[ShopContext] Non-blocking Supabase wishlist sync notice:', err);
       });
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(handler);
   }, [wishlist, firebaseUser]);
