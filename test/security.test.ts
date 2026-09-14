@@ -5,6 +5,13 @@ import path from 'node:path';
 const read = (relativePath: string) =>
   fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf-8');
 
+// Remove comments before testing executable source patterns. Security assertions
+// must not fail because documentation describes a previously vulnerable pattern.
+const executableSource = (source: string) =>
+  source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|\s)\/\/.*$/gm, '$1');
+
 describe('Supabase Security Regression Suite', () => {
   it('has no Firebase imports or Firebase configuration files in the Supabase client', () => {
     const treeFiles = [
@@ -60,12 +67,12 @@ describe('Supabase Security Regression Suite', () => {
   });
 
   it('keeps checkout authoritative on the server-side RPC and does not silently fall back', () => {
-    const checkout = read('src/services/supabaseOrderService.ts');
+    const checkout = executableSource(read('src/services/supabaseOrderService.ts'));
     expect(checkout).toContain("schema('private').rpc('checkout_create_order'");
     expect(checkout).toContain('CheckoutError');
     expect(checkout).not.toContain('httpsCallable');
     expect(checkout).not.toContain('functionsInstance');
-    expect(checkout).not.toContain('return {}');
+    expect(checkout).not.toMatch(/\breturn\s*\{\s*\}/);
   });
 
   it('does not expose private product cost fields in the public catalogue projection', () => {
