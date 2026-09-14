@@ -38,7 +38,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
-  const [otpSent, setOtpSent] = useState(false);
   const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [emailVerifSent, setEmailVerifSent] = useState(false);
   const [isSendingVerifEmail, setIsSendingVerifEmail] = useState(false);
@@ -78,14 +77,11 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     if (userError) throw userError;
     if (!userData.user?.email) throw new Error('No administrator email is available for OTP verification.');
 
-    // Supabase Auth's reauthentication flow sends a one-time verification code
-    // to the already authenticated user's email without creating a new session.
     const { error } = await supabase.auth.reauthenticate();
     if (error) throw error;
 
     setEmail(userData.user.email);
     setOtp('');
-    setOtpSent(true);
     setOtpError(null);
     setMode('otp');
   };
@@ -108,7 +104,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setLoginError(null);
 
     try {
-      // First factor: email + password.
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password,
@@ -118,9 +113,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       if (!data.user) throw new Error('No authenticated administrator was returned.');
 
       await verifyAdminRole(data.user.id);
-
-      // Second factor: send a Supabase Auth reauthentication OTP to the
-      // administrator's verified email. Admin access is not granted yet.
       await sendLoginOtp();
     } catch (err: any) {
       const message = String(err?.message || '').toLowerCase();
@@ -164,7 +156,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       await verifyAdminRole(data.user.id);
       setAdminMfaSession(data.user.id);
       setOtp('');
-      setOtpSent(false);
       setMode('login');
     } catch (err: any) {
       const message = String(err?.message || '').toLowerCase();
@@ -321,7 +312,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               onClick={async () => {
                 await supabase.auth.signOut();
                 setOtp('');
-                setOtpSent(false);
                 setMode('login');
               }}
               className="block w-full text-sm text-slate-500"
