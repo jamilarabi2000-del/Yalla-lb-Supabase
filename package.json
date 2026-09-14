@@ -30,7 +30,7 @@
     "verify-admin": "node scripts/verify-admin.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.116.0",
+    "@supabase/supabase-js": "2.116.0",
     "lucide-react": "^0.546.0",
     "papaparse": "^5.6.0",
     "react": "^19.0.1",
