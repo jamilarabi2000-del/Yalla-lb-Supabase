@@ -463,37 +463,17 @@ interface ShopContextType {
 
   // Orders
   orders: Order[];
-  placeOrder: (
-    orderData: Omit<
-      Order,
-      'id' | 'date' | 'trackingNumber' | 'status'
-    >,
-    customIdempotencyKey?: string
-  ) => Promise<Order>;
-  updateOrderStatus: (
-    orderId: string,
-    status: Order['status']
-  ) => Promise<void>;
-  deleteOrder: (
-    orderId: string
-  ) => Promise<void>;
+  placeOrder: (orderData: Omit<Order, 'id' | 'date' | 'trackingNumber' | 'status'>, customIdempotencyKey?: string) => Promise<Order>;
+  updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
+  deleteOrder: (orderId: string) => Promise<void>;
 
   // User Profile
   user: UserProfile;
-  updateUser: (
-    updates: Partial<UserProfile>
-  ) => Promise<void>;
-  checkPhoneUniqueness: (
-    phone: string,
-    excludeUid?: string
-  ) => Promise<{
-    available: boolean;
-    reason?: string;
-  }>;
+  updateUser: (updates: Partial<UserProfile>) => Promise<void>;
+  checkPhoneUniqueness: (phone: string, excludeUid?: string) => Promise<{ available: boolean; reason?: string }>;
 
   // Supabase Auth & email OTP verification
   authUser: AuthUser | null;
-
   /**
    * The same object as `authUser`, under the name the pre-migration UI used.
    *
@@ -503,57 +483,20 @@ interface ShopContextType {
    * are what actually decide access.
    */
   firebaseUser: AuthUser | null;
-
   isAdminUser: boolean;
   isSellerUser: boolean;
   sellerId: string | null;
   isEmailVerified: boolean;
   isLoadingAuth: boolean;
-
-  authStatus:
-    | 'loading'
-    | 'unauthenticated'
-    | 'authenticated_non_admin'
-    | 'authenticated_admin';
-
-  signInWithEmail: (
-    email: string,
-    pass: string
-  ) => Promise<void>;
-
-  signUpWithEmail: (
-    email: string,
-    pass: string,
-    phone?: string
-  ) => Promise<void>;
-
-  sendEmailOtp: (
-    email: string
-  ) => Promise<void>;
-
-  verifyEmailOtp: (
-    email: string,
-    token: string,
-    type?: EmailOtpType
-  ) => Promise<void>;
-
-  resendEmailVerification: (
-    email?: string
-  ) => Promise<void>;
-
-  sendEmailSignInLink: (
-    email: string
-  ) => Promise<void>;
-
-  completeEmailLinkSignIn: (
-    email?: string,
-    url?: string
-  ) => Promise<void>;
-
-  resetPassword: (
-    email: string
-  ) => Promise<void>;
-
+  authStatus: 'loading' | 'unauthenticated' | 'authenticated_non_admin' | 'authenticated_admin';
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, phone?: string) => Promise<void>;
+  sendEmailOtp: (email: string) => Promise<void>;
+  verifyEmailOtp: (email: string, token: string, type?: EmailOtpType) => Promise<void>;
+  resendEmailVerification?: (email?: string) => Promise<void>;
+  sendEmailSignInLink: (email: string) => Promise<void>;
+  completeEmailLinkSignIn: (email?: string, url?: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOutUser: () => Promise<void>;
@@ -562,44 +505,21 @@ interface ShopContextType {
   // Search & Filtering
   searchQuery: string;
   setSearchQuery: (q: string) => void;
-  logSearchQuery: (
-    query: string,
-    origin?:
-      | 'navbar'
-      | 'products_page'
-      | 'mobile_menu'
-      | 'direct'
-  ) => Promise<void>;
+  logSearchQuery: (query: string, origin?: 'navbar' | 'products_page' | 'mobile_menu' | 'direct') => Promise<void>;
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
 
   // Feedback Toast
   toast: Toast | null;
-  showToast: (
-    message: string,
-    type?: 'success' | 'info' | 'warning' | 'error'
-  ) => void;
+  showToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 
   // Site Content CMS (Admin Managed)
   siteContent: SiteContent;
-  updateSiteContent: (
-    updates:
-      | Partial<SiteContent>
-      | ((prev: SiteContent) => SiteContent)
-  ) => Promise<void>;
-  toggleSectionVisibility: (
-    sectionKey: keyof SectionVisibilityConfig
-  ) => Promise<void>;
-  addCustomBlock: (
-    block: Omit<CMSCustomBlock, 'id'>
-  ) => Promise<void>;
-  updateCustomBlock: (
-    id: string,
-    updates: Partial<CMSCustomBlock>
-  ) => Promise<void>;
-  deleteCustomBlock: (
-    id: string
-  ) => Promise<void>;
+  updateSiteContent: (updates: Partial<SiteContent> | ((prev: SiteContent) => SiteContent)) => Promise<void>;
+  toggleSectionVisibility: (sectionKey: keyof SectionVisibilityConfig) => Promise<void>;
+  addCustomBlock: (block: Omit<CMSCustomBlock, 'id'>) => Promise<void>;
+  updateCustomBlock: (id: string, updates: Partial<CMSCustomBlock>) => Promise<void>;
+  deleteCustomBlock: (id: string) => Promise<void>;
 
   // Visual Edit Mode
   isVisualEditMode: boolean;
@@ -607,9 +527,7 @@ interface ShopContextType {
   isCustomBlockModalOpen: boolean;
   setIsCustomBlockModalOpen: (open: boolean) => void;
   customBlockToEdit: CMSCustomBlock | null;
-  setCustomBlockToEdit: (
-    block: CMSCustomBlock | null
-  ) => void;
+  setCustomBlockToEdit: (block: CMSCustomBlock | null) => void;
 
   // Admin Security Lock
   isAdminUnlocked: boolean;
@@ -625,9 +543,7 @@ interface ShopContextType {
     snapshotBefore?: any,
     snapshotAfter?: any
   ) => Promise<void>;
-  undoAdminActivity: (
-    activityId: string
-  ) => Promise<void>;
+  undoAdminActivity: (activityId: string) => Promise<void>;
 
   // Discounts & Promos
   discountRules: DiscountRule[];
@@ -636,111 +552,40 @@ interface ShopContextType {
   removeCoupon: () => void;
   discountUSD: number;
   finalCartTotalUSD: number;
-  appliedDiscountRules: {
-    rule: DiscountRule;
-    savedUSD: number;
-  }[];
-  addDiscountRule: (
-    rule: Omit<DiscountRule, 'id'>,
-    couponCode?: string,
-    maxTotalUses?: number,
-    maxUsesPerUser?: number
-  ) => Promise<void>;
-  updateDiscountRule: (
-    id: string,
-    updates: Partial<DiscountRule>,
-    couponCode?: string,
-    maxTotalUses?: number,
-    maxUsesPerUser?: number
-  ) => Promise<void>;
-  deleteDiscountRule: (
-    id: string
-  ) => Promise<void>;
+  appliedDiscountRules: { rule: DiscountRule; savedUSD: number }[];
+  addDiscountRule: (rule: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => Promise<void>;
+  updateDiscountRule: (id: string, updates: Partial<DiscountRule>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => Promise<void>;
+  deleteDiscountRule: (id: string) => Promise<void>;
 
   // Bundles & Combo Deals
   productBundles: ProductBundle[];
-  addProductBundle: (
-    bundle: Omit<
-      ProductBundle,
-      'id' | 'createdAt' | 'updatedAt'
-    >
-  ) => Promise<void>;
-  updateProductBundle: (
-    id: string,
-    updates: Partial<ProductBundle>
-  ) => Promise<void>;
-  deleteProductBundle: (
-    id: string
-  ) => Promise<void>;
-  addBundleToCart: (
-    bundleId: string
-  ) => void;
+  addProductBundle: (bundle: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateProductBundle: (id: string, updates: Partial<ProductBundle>) => Promise<void>;
+  deleteProductBundle: (id: string) => Promise<void>;
+  addBundleToCart: (bundleId: string) => void;
 
   // Categories & Details Management
   categories: CategoryItem[];
-  addCategory: (
-    cat: Omit<CategoryItem, 'id'> & { id?: string }
-  ) => Promise<void>;
-  updateCategory: (
-    id: string,
-    updates: Partial<CategoryItem>
-  ) => Promise<void>;
-  deleteCategory: (
-    id: string,
-    reassignCategoryId?: string,
-    deleteAttachedProducts?: boolean
-  ) => Promise<void>;
-  reorderCategories: (
-    newOrder: CategoryItem[]
-  ) => Promise<void>;
+  addCategory: (cat: Omit<CategoryItem, 'id'> & { id?: string }) => Promise<void>;
+  updateCategory: (id: string, updates: Partial<CategoryItem>) => Promise<void>;
+  deleteCategory: (id: string, reassignCategoryId?: string, deleteAttachedProducts?: boolean) => Promise<void>;
+  reorderCategories: (newOrder: CategoryItem[]) => Promise<void>;
 
   // Terroir Regions & Logistics
   regions: TerroirRegion[];
-  updateRegion: (
-    id: string,
-    updates: Partial<TerroirRegion>
-  ) => Promise<void>;
-  addRegion: (
-    reg: TerroirRegion
-  ) => Promise<void>;
-  deleteRegion: (
-    id: string
-  ) => Promise<void>;
+  updateRegion: (id: string, updates: Partial<TerroirRegion>) => Promise<void>;
+  addRegion: (reg: TerroirRegion) => Promise<void>;
+  deleteRegion: (id: string) => Promise<void>;
 
   // Sellers Management
   sellers: Seller[];
-  addSeller: (
-    seller: Omit<
-      Seller,
-      'id' | 'createdAt' | 'updatedAt'
-    > & { id?: string }
-  ) => Promise<void>;
-  updateSeller: (
-    id: string,
-    updates: Partial<Seller>
-  ) => Promise<void>;
-  toggleSellerActive: (
-    sellerId: string,
-    isActive: boolean
-  ) => Promise<void>;
-  deleteSeller: (
-    id: string,
-    reassignSellerId?: string
-  ) => Promise<void>;
-  bulkImportProducts: (
-    csvText: string,
-    options?: {
-      targetSellerId?: string;
-      fallbackCategoryId?: string;
-    }
-  ) => Promise<{
-    created: number;
-    updated: number;
-    errors: string[];
-  }>;
+  addSeller: (seller: Omit<Seller, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => Promise<void>;
+  updateSeller: (id: string, updates: Partial<Seller>) => Promise<void>;
+  toggleSellerActive: (sellerId: string, isActive: boolean) => Promise<void>;
+  deleteSeller: (id: string, reassignSellerId?: string) => Promise<void>;
+  bulkImportProducts: (csvText: string, options?: { targetSellerId?: string; fallbackCategoryId?: string }) => Promise<{ created: number; updated: number; errors: string[] }>;
 }
 
-    
 const ShopContext = createContext<ShopContextType | undefined>(undefined);
 
 export const INITIAL_USER: UserProfile = {
@@ -755,38 +600,19 @@ export const INITIAL_USER: UserProfile = {
 
 /**
  * Strict allowlisted UserProfile mapper for ShopContext.
- *
- * Supabase Auth (`auth.users`) provides the user's identity and email.
- * `public.profiles` provides application-level profile information.
- *
- * IMPORTANT:
- * - This mapper does NOT determine admin/seller privileges.
- * - Role authorization is read from `public.profiles.role`.
- * - Seller authorization is read from `public.profiles.seller_id`.
- * - Supabase RLS is the actual security boundary.
- *
- * The returned role intentionally defaults to `customer`.
+ * Identity (uid), role ('customer'), and sellerId (authoritative profile only) are strictly enforced.
  */
 export function mapSafeShopUserProfile(
   data: Record<string, any>,
-  authUser: AuthUser | AuthUserLike | any,
+  fbUser: AuthUser | AuthUserLike | any,
   authoritativeSellerId: string | null,
   cachedShipping?: Partial<UserProfile>,
-  fallbackNames?: {
-    firstName: string;
-    lastName: string;
-    name: string;
-  }
+  fallbackNames?: { firstName: string; lastName: string; name: string }
 ): UserProfile {
   const firstName =
     (typeof data.firstName === 'string' && data.firstName.trim()) ||
     (typeof data.first_name === 'string' && data.first_name.trim()) ||
-    (
-      typeof data.name === 'string' &&
-      data.name.trim()
-        ? data.name.trim().split(' ')[0]
-        : ''
-    ) ||
+    (typeof data.name === 'string' && data.name.trim() ? data.name.trim().split(' ')[0] : '') ||
     cachedShipping?.firstName ||
     fallbackNames?.firstName ||
     '';
@@ -794,12 +620,7 @@ export function mapSafeShopUserProfile(
   const lastName =
     (typeof data.lastName === 'string' && data.lastName.trim()) ||
     (typeof data.last_name === 'string' && data.last_name.trim()) ||
-    (
-      typeof data.name === 'string' &&
-      data.name.trim()
-        ? data.name.trim().split(' ').slice(1).join(' ')
-        : ''
-    ) ||
+    (typeof data.name === 'string' && data.name.trim() ? data.name.trim().split(' ').slice(1).join(' ') : '') ||
     cachedShipping?.lastName ||
     fallbackNames?.lastName ||
     '';
@@ -810,244 +631,137 @@ export function mapSafeShopUserProfile(
     '';
 
   const defaultGovernorate =
-    (typeof data.defaultGovernorate === 'string' &&
-      data.defaultGovernorate.trim()) ||
-    (typeof data.default_governorate === 'string' &&
-      data.default_governorate.trim()) ||
+    (typeof data.defaultGovernorate === 'string' && data.defaultGovernorate.trim()) ||
+    (typeof data.default_governorate === 'string' && data.default_governorate.trim()) ||
     INITIAL_USER.defaultGovernorate ||
     '';
 
   const defaultCity =
-    (typeof data.defaultCity === 'string' &&
-      data.defaultCity.trim()) ||
-    (typeof data.default_city === 'string' &&
-      data.default_city.trim()) ||
+    (typeof data.defaultCity === 'string' && data.defaultCity.trim()) ||
+    (typeof data.default_city === 'string' && data.default_city.trim()) ||
     cachedShipping?.defaultCity ||
     '';
 
   const defaultAddress =
-    (typeof data.defaultAddress === 'string' &&
-      data.defaultAddress.trim()) ||
-    (typeof data.default_address === 'string' &&
-      data.default_address.trim()) ||
+    (typeof data.defaultAddress === 'string' && data.defaultAddress.trim()) ||
+    (typeof data.default_address === 'string' && data.default_address.trim()) ||
     cachedShipping?.defaultAddress ||
     '';
 
   const defaultBuilding =
-    (typeof data.defaultBuilding === 'string' &&
-      data.defaultBuilding.trim()) ||
-    (typeof data.default_building === 'string' &&
-      data.default_building.trim()) ||
+    (typeof data.defaultBuilding === 'string' && data.defaultBuilding.trim()) ||
+    (typeof data.default_building === 'string' && data.default_building.trim()) ||
     cachedShipping?.defaultBuilding ||
     undefined;
 
   const defaultNotes =
-    (typeof data.defaultNotes === 'string' &&
-      data.defaultNotes.trim()) ||
-    (typeof data.default_notes === 'string' &&
-      data.default_notes.trim()) ||
+    (typeof data.defaultNotes === 'string' && data.defaultNotes.trim()) ||
+    (typeof data.default_notes === 'string' && data.default_notes.trim()) ||
     cachedShipping?.defaultNotes ||
     undefined;
 
-  const uid =
-    authUser?.uid ||
-    authUser?.id ||
-    '';
-
-  const emailVerified =
-    typeof authUser?.emailVerified === 'boolean'
-      ? authUser.emailVerified
-      : Boolean(authUser?.email_confirmed_at);
+  const uid = fbUser?.uid || fbUser?.id || '';
+  const emailVerified = typeof fbUser?.emailVerified === 'boolean' ? fbUser.emailVerified : Boolean(fbUser?.email_confirmed_at);
 
   return {
     uid,
-
     name:
       (typeof data.name === 'string' && data.name.trim()) ||
       `${firstName} ${lastName}`.trim() ||
-      authUser?.displayName ||
-      authUser?.user_metadata?.full_name ||
-      authUser?.user_metadata?.name ||
+      fbUser?.displayName ||
+      fbUser?.user_metadata?.full_name ||
+      fbUser?.user_metadata?.name ||
       '',
-
     firstName,
     lastName,
-
-    email:
-      (typeof data.email === 'string' && data.email.trim()) ||
-      authUser?.email ||
-      '',
-
+    email: (typeof data.email === 'string' && data.email.trim()) || fbUser?.email || '',
     phone,
-
-    avatar:
-      (typeof data.avatar === 'string' && data.avatar.trim()) ||
-      (typeof data.avatar_url === 'string' && data.avatar_url.trim()) ||
-      authUser?.photoURL ||
-      authUser?.user_metadata?.avatar_url ||
-      INITIAL_USER.avatar,
-
+    avatar: (typeof data.avatar === 'string' && data.avatar.trim()) || (typeof data.avatar_url === 'string' && data.avatar_url.trim()) || fbUser?.photoURL || fbUser?.user_metadata?.avatar_url || INITIAL_USER.avatar,
     defaultGovernorate,
     defaultCity,
     defaultAddress,
     defaultBuilding,
     defaultNotes,
-
-    /**
-     * Never infer privileges from the client.
-     *
-     * The actual profile role is loaded separately from Supabase.
-     */
+    // Database profile & security claims authoritative role enforcement.
     role: 'customer',
-
-    sellerId:
-      authoritativeSellerId || undefined,
-
+    sellerId: authoritativeSellerId || undefined,
     emailVerified,
-
-    isOtpVerified:
-      typeof data.isOtpVerified === 'boolean'
-        ? data.isOtpVerified
-        : undefined
+    isOtpVerified: typeof data.isOtpVerified === 'boolean' ? data.isOtpVerified : undefined
   };
 }
 
-/**
- * Creates the compatibility user object consumed by the existing UI.
- *
- * This is NOT a Firebase user.
- *
- * It only adapts the Supabase Auth user to the shape expected by the
- * existing application while the rest of the UI is being migrated.
- *
- * No Firebase claims are generated.
- * No admin/seller claims are generated.
- * No authorization decision is made here.
- */
 export function createAuthUserAdapter(
   supaUser: SupabaseUser,
+  profileRole: 'admin' | 'seller' | 'customer' = 'customer',
+  profileSellerId: string | null = null,
   profileData: Record<string, any> = {}
-): AuthUser {
-  const isEmailConfirmed =
-    Boolean(supaUser.email_confirmed_at);
+): any {
+  /**
+   * Adapts a Supabase user to the shape the UI consumes.
+   *
+   * This used to also expose getIdTokenResult(), synthesizing a Firebase
+   * `claims` object ({ admin, seller, sellerId }) out of the profile. Nothing
+   * signs those values, so they were a mock of an authentication API that no
+   * longer exists — and its forced-refresh read named a `sellerId` column that
+   * profiles does not have, so the refresh silently failed. Roles are read
+   * from public.profiles by the caller instead, which is the same column
+   * is_admin() and is_seller() consult in RLS.
+   */
+  const isEmailConfirmed = Boolean(supaUser.email_confirmed_at);
+  void profileRole;
+  void profileSellerId;
 
   return {
     uid: supaUser.id,
-
     id: supaUser.id,
-
     email: supaUser.email,
-
     emailVerified: isEmailConfirmed,
-
     displayName:
       profileData.name ||
-      (
-        profileData.first_name &&
-        profileData.last_name
-          ? `${profileData.first_name} ${profileData.last_name}`.trim()
-          : ''
-      ) ||
+      (profileData.first_name && profileData.last_name
+        ? `${profileData.first_name} ${profileData.last_name}`.trim()
+        : '') ||
       supaUser.user_metadata?.name ||
       supaUser.user_metadata?.full_name ||
       null,
-
-    photoURL:
-      profileData.avatar ||
-      profileData.avatar_url ||
-      supaUser.user_metadata?.avatar_url ||
-      null,
-
-    user_metadata:
-      supaUser.user_metadata,
-
-    app_metadata:
-      supaUser.app_metadata,
-
-    /**
-     * Compatibility method for existing code that expects a Firebase-style
-     * getIdToken() function.
-     *
-     * This returns the current Supabase access token.
-     *
-     * IMPORTANT:
-     * This token must never be interpreted as a Firebase token.
-     */
+    photoURL: profileData.avatar || profileData.avatar_url || supaUser.user_metadata?.avatar_url || null,
+    user_metadata: supaUser.user_metadata,
+    app_metadata: supaUser.app_metadata,
     getIdToken: async (_force?: boolean) => {
-      const {
-        data,
-        error
-      } = await supabase.auth.getSession();
-
-      if (error) {
-        throw error;
-      }
-
+      const { data } = await supabase.auth.getSession();
       return data.session?.access_token || '';
-    }
+    },
   };
 }
 
-export const mapUserProfile =
-  mapSafeShopUserProfile;
-
-/**
- * Backward-compatible wrapper used by existing ShopContext code.
- *
- * `_uid` is intentionally retained so existing callers do not need to change
- * yet. Supabase Auth's user ID remains the authoritative identity.
- */
+export const mapUserProfile = mapSafeShopUserProfile;
 export function mapSafeUserProfile(
-  authUser: AuthUser | any,
+  fbUser: AuthUser | any,
   _uid: string,
   data: Record<string, any> | undefined,
-  sellerId: string | null
+  claimSellerId: string | null
 ): UserProfile {
-  return mapSafeShopUserProfile(
-    data || {},
-    authUser,
-    sellerId
-  );
+  return mapSafeShopUserProfile(data || {}, fbUser, claimSellerId);
 }
-
 
 const INITIAL_ORDERS: Order[] = [];
 
-export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
-  children
-}) => {
-  const [activeTab, setActiveTabState] =
-    useState<NavTab>(getInitialNavTab);
-
-  const [selectedProductDetail, setSelectedProductDetail] =
-    useState<Product | null>(getInitialProductDetail);
-
-  const [authUser, setAuthUser] =
-    useState<AuthUser | null>(null);
-
-  const [isAdminUser, setIsAdminUser] =
-    useState(false);
-
-  const [isSellerUser, setIsSellerUser] =
-    useState(false);
-
-  const [sellerId, setSellerId] =
-    useState<string | null>(null);
-
-  const [isEmailVerified, setIsEmailVerified] =
-    useState(false);
-
-  const [isLoadingAuth, setIsLoadingAuth] =
-    useState(true);
+export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [activeTab, setActiveTabState] = useState<NavTab>(getInitialNavTab);
+  const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(getInitialProductDetail);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [isSellerUser, setIsSellerUser] = useState(false);
+  const [sellerId, setSellerId] = useState<string | null>(null);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   /**
-   * Role and email verification are authoritative from Supabase.
-   *
-   * - Authentication: Supabase Auth
-   * - Email verification: auth.users.email_confirmed_at
-   * - Application role: public.profiles.role
-   * - Seller identity: public.profiles.seller_id
-   * - Actual authorization: Supabase RLS
+   * Role and email-verification state are set by the Supabase auth listener
+   * below (and by refreshUserProfile) straight from public.profiles and
+   * auth.users.email_confirmed_at. Two effects used to re-derive them here
+   * through the adapter's synthesized Firebase claims; with that mock removed
+   * there is a single source for each.
    */
   useEffect(() => {
     if (!authUser) {
@@ -1058,106 +772,181 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [authUser]);
 
-  const [isLocalAdminUnlocked, setIsLocalAdminUnlockedState] =
-    useState<boolean>(() => {
-      try {
-        return localStorage.getItem('yallalb_admin_unlocked') === 'true';
-      } catch {
-        return false;
-      }
-    });
+  const [isLocalAdminUnlocked, setIsLocalAdminUnlockedState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('yallalb_admin_unlocked') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
+  // HARDENED SECURITY DECISION:
+  // An attacker can NEVER unlock admin mode by manipulating localStorage keys.
+  // isAdminUnlocked is strictly gated by cryptographically verified isAdminUser.
   const isAdminUnlocked = useMemo(() => {
     return isAdminUser && isLocalAdminUnlocked;
   }, [isAdminUser, isLocalAdminUnlocked]);
 
   const setIsAdminUnlocked = (val: boolean) => {
     setIsLocalAdminUnlockedState(val);
-
     try {
-      localStorage.setItem(
-        'yallalb_admin_unlocked',
-        String(val)
-      );
+      localStorage.setItem('yallalb_admin_unlocked', String(val));
     } catch {}
   };
 
-  const [isDbSyncing, setIsDbSyncing] =
-    useState<boolean>(true);
+  const [isDbSyncing, setIsDbSyncing] = useState<boolean>(true);
+  const hasSeededProductsRef = useRef<boolean>(false);
+  const hasSeededOrdersRef = useRef<boolean>(false);
 
-  /**
-   * Compatibility refs only.
-   * Supabase is authoritative and production must not seed
-   * demo products/orders automatically.
-   */
-  const hasSeededProductsRef =
-    useRef<boolean>(false);
-
-  const hasSeededOrdersRef =
-    useRef<boolean>(false);
-
-  // Verify Supabase is reachable.
+  // Verify the database is reachable on boot.
   useEffect(() => {
-    const checkSupabase = async () => {
-      const { error } = await supabase
-        .from('categories')
-        .select('id')
-        .limit(1);
-
-      if (error) {
-        console.error(
-          '[ShopContext] Supabase is not reachable:',
-          error.message
-        );
+    supabaseAdminService.ping().then((ok) => {
+      if (!ok) {
+        console.error('[ShopContext] Supabase is not reachable. Check the project URL, key and network.');
       }
-    };
-
-    void checkSupabase();
+    });
   }, []);
 
   // UI state
-  const [selectedProductForModal, setSelectedProductForModal] =
-    useState<Product | null>(null);
+  const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
+  const [currency, setCurrency] = useState<Currency>('USD');
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>(getInitialCategory);
+  const [toast, setToast] = useState<Toast | null>(null);
 
-  const [currency, setCurrency] =
-    useState<Currency>('USD');
+  // Pagination states for products catalog
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const lastVisibleDocRef = useRef<any>(null);
 
-  const [isCartOpen, setIsCartOpen] =
-    useState(false);
-
-  const [searchQuery, setSearchQuery] =
-    useState('');
-
-  const [selectedCategory, setSelectedCategory] =
-    useState<string>(getInitialCategory);
-
-  const [toast, setToast] =
-    useState<Toast | null>(null);
-
-  // Pagination
-  const [hasMoreProducts, setHasMoreProducts] =
-    useState(true);
-
-  const [isFetchingMore, setIsFetchingMore] =
-    useState(false);
-
-  const lastProductCursorRef = useRef<{
-    displayOrder: number;
-    id: string;
-  } | null>(null);
-
-  // Core catalogue state
+  // Core catalogue state. Starts from the cache of previously fetched rows, or
+  // empty — never from the bundled demo catalogue. An empty database must show
+  // an empty storefront, not a fake one.
   const [products, setProducts] = useState<Product[]>(() =>
-    readCachedList<Product>(
-      CATALOG_CACHE_KEYS.products
-    ).map(ensureSellerItemCode)
+    readCachedList<Product>(CATALOG_CACHE_KEYS.products).map(ensureSellerItemCode)
   );
 
-  const [catalogStatus, setCatalogStatus] =
-    useState<'loading' | 'ready' | 'error'>('loading');
+  /**
+   * Whether the catalogue on screen has been confirmed against Supabase.
+   *
+   * 'loading' until the first read settles, so the storefront can say "loading"
+   * rather than "no products" while it waits; 'error' when the read failed, so
+   * it can say the catalogue could not be loaded instead of implying the shop
+   * is empty. These are three different things and the UI must not conflate
+   * them.
+   */
+  const [catalogStatus, setCatalogStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
-  const [catalogError, setCatalogError] =
-    useState<string | null>(null);
+  /**
+   * Who the cart/wishlist in localStorage belongs to: a Supabase user id, or
+   * 'guest'. Without this, signing out of account A and into account B on the
+   * same browser showed B account A's cart, because the local copy was adopted
+   * unconditionally. A local cart is now only adopted when it is the guest
+   * cart or already belongs to the signed-in user.
+   */
+  const LOCAL_CART_OWNER_KEY = 'yallalb_cart_owner';
+
+  /**
+   * Guest cart/wishlist storage keys.
+   *
+   * Namespaced so the local copy is unambiguously the *guest* one: an
+   * authenticated cart lives in public.carts and is never written here.
+   * `yallalb_cart` / `yallalb_wishlist` are the pre-migration keys and are
+   * migrated on first read so an existing browser does not lose its basket.
+   */
+  const GUEST_CART_KEY = 'yallalb_guest_cart';
+  const GUEST_WISHLIST_KEY = 'yallalb_guest_wishlist';
+  const LEGACY_CART_KEY = 'yallalb_cart';
+  const LEGACY_WISHLIST_KEY = 'yallalb_wishlist';
+
+  const getGuestStorage = (key: string, legacyKey?: string): string | null => {
+    try {
+      const current = localStorage.getItem(key);
+      if (current !== null) return current;
+      if (legacyKey) {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy !== null) {
+          localStorage.setItem(key, legacy);
+          localStorage.removeItem(legacyKey);
+          return legacy;
+        }
+      }
+    } catch {}
+    return null;
+  };
+
+  const readLocalCartOwner = (): string => {
+    try {
+      return localStorage.getItem(LOCAL_CART_OWNER_KEY) || 'guest';
+    } catch {
+      return 'guest';
+    }
+  };
+
+  const writeLocalCartOwner = (owner: string) => {
+    try {
+      localStorage.setItem(LOCAL_CART_OWNER_KEY, owner);
+    } catch {}
+  };
+
+  const [storedCart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = getGuestStorage(GUEST_CART_KEY, LEGACY_CART_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  /**
+   * The user id whose saved cart/wishlist has been loaded from Supabase.
+   *
+   * The persistence effects below refuse to write until this matches the
+   * signed-in user. Writing before the read completes — or after it fails —
+   * would upload the local (possibly empty) cart over the row the user actually
+   * saved, destroying it.
+   *
+   * Deliberately state and not a ref: opening the gate has to re-run the
+   * persistence effects. Otherwise a guest cart carried into a brand-new
+   * account (where the read returns "no row" and so changes no state) would sit
+   * unsaved until the user next touched the cart.
+   */
+  const [cartHydratedForUserId, setCartHydratedForUserId] = useState<string | null>(null);
+
+  /**
+   * Last value successfully written to (or read from) Supabase, so the
+   * persistence effects can skip a write that would change nothing — notably
+   * the one that would otherwise fire immediately after hydration, echoing the
+   * row straight back. Only updated on a successful write, so a failed one is
+   * retried by the next cart change instead of being considered saved.
+   */
+  const lastPersistedCartRef = useRef<string | null>(null);
+  const lastPersistedWishlistRef = useRef<string | null>(null);
+
+  // Live cart projection: always resolve fresh product properties from the live catalog
+  const cart = useMemo<CartItem[]>(() => {
+    if (storedCart.length === 0) return storedCart;
+    let changed = false;
+    const next = storedCart.map(item => {
+      const live = products.find(p => p.id === item.product.id);
+      if (!live || live === item.product) return item;
+      changed = true;
+      return { ...item, product: live };
+    });
+    return changed ? next : storedCart;
+  }, [storedCart, products]);
+
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      const saved = getGuestStorage(GUEST_WISHLIST_KEY, LEGACY_WISHLIST_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   // Orders are never seeded from localStorage: the cache is not scoped per
   // account, so restoring it would have shown one shopper another's orders.
   // The authoritative list is loaded from public.orders, where RLS decides
@@ -3371,7 +3160,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const verifyEmailOtp = async (email: string, token: string, type: 'email' | 'signup' | 'magiclink' | 'recovery' = 'email') => {
+  const verifyEmailOtp = async (email: string, token: string, type: EmailOtpType = 'email') => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanToken = token.trim();
     if (!cleanEmail || !cleanToken) {
