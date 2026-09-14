@@ -965,10 +965,10 @@ export const supabaseCatalogService = {
         options?.sellerId,
       );
 
-    const columns =
+    const columns: string =
       isAdmin || isSeller
-        ? ADMIN_PRODUCT_COLUMNS
-        : PUBLIC_PRODUCT_COLUMNS;
+        ? String(ADMIN_PRODUCT_COLUMNS)
+        : String(PUBLIC_PRODUCT_COLUMNS);
 
     let query: any =
       supabase

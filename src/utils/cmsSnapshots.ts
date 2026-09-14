@@ -108,7 +108,7 @@ export const getCmsSnapshotsRemote = async (): Promise<CmsSnapshot[] | null> => 
     const snap = await getDocs(q);
     if (snap.empty) return null;
     const remoteList: CmsSnapshot[] = [];
-    snap.forEach(docItem => {
+    snap.forEach((docItem: any) => {
       const data = docItem.data();
       remoteList.push({
         id: docItem.id,
