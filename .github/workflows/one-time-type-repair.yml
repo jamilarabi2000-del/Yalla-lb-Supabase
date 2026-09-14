@@ -20,41 +20,27 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
-          # Keep legacy UI model fields source-compatible while Supabase remains authoritative.
           p = Path('src/types.ts')
           s = p.read_text()
           s = s.replace("export interface Seller {\n  id: string;", "export interface Seller {\n  id: string;\n  legacyId?: string;")
           s = s.replace("export interface CategoryItem {\n  id: string;", "export interface CategoryItem {\n  id: string;\n  legacyId?: string;")
           p.write_text(s)
 
-          # Add compatibility aliases used by the existing ShopContext logger calls.
           p = Path('src/utils/dbLogger.ts')
           s = p.read_text()
           marker = "export const dbLogger = new DatabaseLoggerService();"
-          replacement = '''export const dbLogger = Object.assign(new DatabaseLoggerService(), {\n  logDbWriteStart(params: Parameters<DatabaseLoggerService['logFirestoreWriteStart']>[0]) {\n    return (this as DatabaseLoggerService).logFirestoreWriteStart(params);\n  },\n  logDbWriteSuccess(params: Parameters<DatabaseLoggerService['logFirestoreWriteSuccess']>[0]) {\n    return (this as DatabaseLoggerService).logFirestoreWriteSuccess(params);\n  },\n  logDbWriteError(params: Parameters<DatabaseLoggerService['logFirestoreWriteError']>[0]) {\n    return (this as DatabaseLoggerService).logFirestoreWriteError(params);\n  },\n});'''
-          if marker not in s:
-              raise SystemExit('dbLogger marker not found')
-          s = s.replace(marker, replacement, 1)
-          p.write_text(s)
+          replacement = '''export const dbLogger = Object.assign(new DatabaseLoggerService(), {\n  logDbWriteStart(params: Parameters<DatabaseLoggerService['logFirestoreWriteStart']>[0]) { return (this as DatabaseLoggerService).logFirestoreWriteStart(params); },\n  logDbWriteSuccess(params: Parameters<DatabaseLoggerService['logFirestoreWriteSuccess']>[0]) { return (this as DatabaseLoggerService).logFirestoreWriteSuccess(params); },\n  logDbWriteError(params: Parameters<DatabaseLoggerService['logFirestoreWriteError']>[0]) { return (this as DatabaseLoggerService).logFirestoreWriteError(params); },\n});'''
+          if marker not in s: raise SystemExit('dbLogger marker not found')
+          p.write_text(s.replace(marker, replacement, 1))
 
-          # Avoid a TypeScript union explosion when Supabase receives different
-          # column projections for public vs privileged catalogue reads.
           p = Path('src/services/supabaseCatalogService.ts')
           s = p.read_text()
-          old = "    let query =\n      supabase\n        .from('products')"
-          new = "    let query: any =\n      supabase\n        .from('products')"
-          if old in s:
-              s = s.replace(old, new, 1)
+          s = s.replace("    let query =\n      supabase\n        .from('products')", "    let query: any =\n      supabase\n        .from('products')", 1)
           p.write_text(s)
           PY
-
       - name: Commit repairs
         run: |
-          if git diff --quiet; then
-            echo 'No repair changes required.'
-            exit 0
-          fi
+          if git diff --quiet; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/types.ts src/utils/dbLogger.ts src/services/supabaseCatalogService.ts
