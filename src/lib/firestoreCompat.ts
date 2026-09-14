@@ -6,19 +6,9 @@ export type DocumentData = Record<string, any>;
 const mapTable = (path: string) => {
   const first = path.split('/').filter(Boolean)[0] || path;
   const aliases: Record<string, string> = {
-    users: 'profiles',
-    search_logs: 'search_logs',
-    reviews: 'reviews',
-    products: 'products',
-    orders: 'orders',
-    carts: 'carts',
-    wishlists: 'wishlists',
-    sellers: 'sellers',
-    categories: 'categories',
-    regions: 'regions',
-    discount_rules: 'discount_rules',
-    product_bundles: 'product_bundles',
-    cms_custom_blocks: 'cms_custom_blocks',
+    users: 'profiles', search_logs: 'search_logs', reviews: 'reviews', products: 'products', orders: 'orders',
+    carts: 'carts', wishlists: 'wishlists', sellers: 'sellers', categories: 'categories', regions: 'regions',
+    discount_rules: 'discount_rules', product_bundles: 'product_bundles', cms_custom_blocks: 'cms_custom_blocks',
   };
   return aliases[first] || first;
 };
@@ -70,6 +60,7 @@ export const getDoc = async (ref: any) => {
   if (error) throw error;
   return { id, exists: () => Boolean(data), data: () => data || {} };
 };
+export const getDocFromServer = getDoc;
 
 export const addDoc = async (ref: any, data: DocumentData) => {
   const table = mapTable(ref.path);
@@ -104,7 +95,7 @@ export const onSnapshot = (q: any, onNext: (snapshot: any) => void, onError?: (e
   let active = true;
   buildQuery(q).then(rows => { if (active) onNext(wrapSnapshot(rows)); }).catch(err => onError?.(err));
   const table = mapTable(q.path);
-  const channel = supabase.channel(`compat-${table}-${Math.random().toString(36).slice(2)}`)
+  const channel = supabase.channel(`compat-${table}-${crypto.randomUUID()}`)
     .on('postgres_changes', { event: '*', schema: 'public', table }, async () => {
       try { const rows = await buildQuery(q); if (active) onNext(wrapSnapshot(rows)); } catch (err) { onError?.(err); }
     })
