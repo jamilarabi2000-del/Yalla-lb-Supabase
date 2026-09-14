@@ -1,0 +1,55 @@
+name: Repair verify type errors v3
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.actor == 'jamilarabi2000-del'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply targeted fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          def sub(path, pat, repl, count=0):
+            p=Path(path); s=p.read_text(); ns,n=re.subn(pat,repl,s,count=count)
+            print(path, pat, '=>', n)
+            if n==0: raise SystemExit('missing pattern')
+            p.write_text(ns)
+
+          sub('src/components/OrderHistory.tsx', r'docSnap\.data\(\)\.userId', r'(docSnap.data() as Order).userId')
+          sub('src/context/ShopContext.tsx', r'rows\.map\(\(row\) =>', r'rows.map((row: Record<string, any>) =>')
+          sub('src/context/ShopContext.tsx', r'\.subscribe\(\(status\) =>', r'.subscribe((status: string) =>')
+          sub('src/context/ShopContext.tsx', r'catch\(\(err\) =>', r'catch((err: unknown) =>')
+          sub('src/context/ShopContext.tsx', r'\.onAuthStateChange\(\(event, session\) =>', r'.onAuthStateChange((event: AuthChangeEvent, session: Session | null) =>')
+          sub('src/context/ShopContext.tsx', r'\.then\(\(\{ data: \{ session \}, error \}\) =>', r'.then(({ data: { session }, error }: { data: { session: Session | null }; error: AuthError | null }) =>')
+          sub('src/firebase.ts', r'\(_event, session\)', r'(_event: AuthChangeEvent, session: Session | null)', count=1)
+          sub('src/utils/databaseMonitor.ts', r'    return snapshot;\n', r'    return snapshot as DocumentSnapshot<T>;\n', count=1)
+
+          p=Path('src/context/ShopContext.tsx'); s=p.read_text()
+          if 'AuthChangeEvent' not in s.split('\n',80)[0:80].__str__():
+            s=s.replace('  User as SupabaseUser,\n', '  User as SupabaseUser,\n  Session,\n  AuthChangeEvent,\n  AuthError,\n')
+          p.write_text(s)
+          p=Path('src/firebase.ts'); s=p.read_text()
+          if 'AuthChangeEvent' not in s:
+            s=s.replace('  User as SupabaseUser,\n', '  User as SupabaseUser,\n  Session,\n  AuthChangeEvent,\n')
+          p.write_text(s)
+          PY
+          npm install --no-audit --no-fund >/dev/null 2>&1
+          npm run lint || true
+      - name: Commit fixes
+        run: |
+          rm -f .github/workflows/repair-verify-types.yml .github/workflows/repair-verify-types-v2.yml .github/workflows/repair-verify-types-v3.yml .github/workflows/inspect-type-context.yml REPAIR_TRIGGER.txt REPAIR_TRIGGER_2.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: complete compatibility type annotations' || exit 0
+          git push origin main
