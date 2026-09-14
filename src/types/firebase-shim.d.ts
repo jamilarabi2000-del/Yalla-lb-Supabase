@@ -1,21 +1,17 @@
 declare module 'firebase/firestore' {
   export type DocumentData = Record<string, any>;
-  export type QueryConstraint = any;
-  export type Firestore = any;
+  export type SetOptions = { merge?: boolean };
+  export type FirestoreDataConverter<T> = { toFirestore(value: T): DocumentData; fromFirestore(snapshot: QueryDocumentSnapshot, options?: SnapshotOptions): T };
+  export type SnapshotOptions = { serverTimestamps?: 'estimate' | 'previous' | 'none' };
+  export type QueryDocumentSnapshot<T = DocumentData> = { id: string; data(options?: SnapshotOptions): T; exists(): true };
+  export type QuerySnapshot<T = DocumentData> = { docs: QueryDocumentSnapshot<T>[]; empty: boolean; size: number; forEach(callback: (doc: QueryDocumentSnapshot<T>) => void): void };
+  export type DocumentSnapshot<T = DocumentData> = { id: string; data(options?: SnapshotOptions): T | undefined; exists(): boolean };
   export type CollectionReference<T = DocumentData> = any;
   export type DocumentReference<T = DocumentData> = any;
   export type Query<T = DocumentData> = any;
-  export type QuerySnapshot<T = DocumentData> = {
-    docs: Array<{ id: string; data(): T; exists(): boolean }>;
-    empty: boolean;
-    size: number;
-    forEach(callback: (doc: { id: string; data(): T; exists(): boolean }) => void): void;
-  };
-  export type DocumentSnapshot<T = DocumentData> = {
-    id: string;
-    data(): T;
-    exists(): boolean;
-  };
+  export type QueryConstraint = any;
+  export type WriteBatch = any;
+  export type Firestore = any;
   export const collection: any;
   export const doc: any;
   export const query: any;
