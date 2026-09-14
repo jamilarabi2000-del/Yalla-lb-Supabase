@@ -1,0 +1,32 @@
+name: fix-ci-compat
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Apply compile compatibility fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/services/supabaseCatalogService.ts')
+          s=p.read_text()
+          s=s.replace("const columns =\n      isAdmin || isSeller\n        ? ADMIN_PRODUCT_COLUMNS\n        : PUBLIC_PRODUCT_COLUMNS;", "const columns: string =\n      isAdmin || isSeller\n        ? String(ADMIN_PRODUCT_COLUMNS)\n        : String(PUBLIC_PRODUCT_COLUMNS);")
+          p.write_text(s)
+          p=Path('src/utils/cmsSnapshots.ts')
+          s=p.read_text().replace('snap.forEach(docItem => {', 'snap.forEach((docItem: any) => {')
+          p.write_text(s)
+          PY
+      - name: Commit fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/services/supabaseCatalogService.ts src/utils/cmsSnapshots.ts
+          git diff --cached --quiet || git commit -m 'fix: resolve remaining Supabase migration type errors'
+          git push
