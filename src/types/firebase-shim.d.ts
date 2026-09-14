@@ -3,9 +3,9 @@ declare module 'firebase/firestore' {
   export type SetOptions = { merge?: boolean };
   export type FirestoreDataConverter<T> = { toFirestore(value: T): DocumentData; fromFirestore(snapshot: QueryDocumentSnapshot, options?: SnapshotOptions): T };
   export type SnapshotOptions = { serverTimestamps?: 'estimate' | 'previous' | 'none' };
-  export type QueryDocumentSnapshot<T = DocumentData> = { id: string; data(options?: SnapshotOptions): T; exists(): true };
+  export type QueryDocumentSnapshot<T = DocumentData> = { id: string; data(options?: SnapshotOptions): T; exists(): true; ref?: any };
   export type QuerySnapshot<T = DocumentData> = { docs: QueryDocumentSnapshot<T>[]; empty: boolean; size: number; forEach(callback: (doc: QueryDocumentSnapshot<T>) => void): void };
-  export type DocumentSnapshot<T = DocumentData> = { id: string; data(options?: SnapshotOptions): T | undefined; exists(): boolean };
+  export type DocumentSnapshot<T = DocumentData> = { id: string; data(options?: SnapshotOptions): T | undefined; exists(): boolean; ref?: any };
   export type CollectionReference<T = DocumentData> = any;
   export type DocumentReference<T = DocumentData> = any;
   export type Query<T = DocumentData> = any;
@@ -18,9 +18,9 @@ declare module 'firebase/firestore' {
   export const where: any;
   export const orderBy: any;
   export const limit: any;
-  export function getDocs<T = DocumentData>(q: any): Promise<QuerySnapshot<T>>;
-  export function getDoc<T = DocumentData>(q: any): Promise<DocumentSnapshot<T>>;
-  export function getDocFromServer<T = DocumentData>(q: any): Promise<DocumentSnapshot<T>>;
+  export const getDocs: any;
+  export const getDoc: any;
+  export const getDocFromServer: any;
   export const addDoc: any;
   export const setDoc: any;
   export const updateDoc: any;
