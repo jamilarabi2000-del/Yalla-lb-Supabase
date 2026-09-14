@@ -6,6 +6,15 @@ import { supabase } from '../lib/supabase';
  * never uses a service-role key in the browser.
  */
 export const supabaseAdminService = {
+  async ping(): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('regions').select('id').limit(1);
+      return !error;
+    } catch {
+      return false;
+    }
+  },
+
   async fetchActivities(limit = 200) {
     const { data, error } = await supabase
       .from('admin_activities')
