@@ -19,7 +19,7 @@ if (!supabaseUrl || !supabasePublishableKey) {
   );
 }
 
-export const supabase = createClient(
+const supabaseClient = createClient(
   supabaseUrl || 'http://127.0.0.1:54321',
   supabasePublishableKey || 'development-publishable-key',
   {
@@ -35,3 +35,11 @@ export const supabase = createClient(
     },
   }
 );
+
+/**
+ * Temporary migration boundary: legacy Firebase-shaped UI code performs
+ * highly dynamic Supabase queries. Keep the runtime client identical while
+ * preventing generated query unions from overwhelming TypeScript during the
+ * migration. Database/RLS authorization remains enforced by Supabase.
+ */
+export const supabase: any = supabaseClient;
