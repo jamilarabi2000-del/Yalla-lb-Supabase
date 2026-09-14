@@ -33,3 +33,5 @@ jobs:
           git add src/context/ShopContext.tsx
           git commit -m 'fix: restore complete Supabase ShopContext implementation'
           git push
+
+      # One-time repair workflow; delete this workflow after the restored commit lands.
