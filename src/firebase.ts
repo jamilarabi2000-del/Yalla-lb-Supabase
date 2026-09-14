@@ -4,6 +4,7 @@
  * Supabase Auth and PostgreSQL are the only backend used by this project.
  */
 import { supabase } from './lib/supabase';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export const IS_FIREBASE_ENABLED = false;
 export const firebaseConfig = {} as Record<string, unknown>;

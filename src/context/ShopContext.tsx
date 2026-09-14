@@ -2915,7 +2915,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // go into a uuid[] column. That is a migration state to fix, not a
           // server fault, and telling the shopper the server failed would be
           // wrong — so it is loud in the console and silent in the UI.
-          if (err?.name === 'NonUuidProductIdsError') return;
+          if (err instanceof Error && err.name === 'NonUuidProductIdsError') return;
 
           showToast(
             language === 'ar' ? 'تعذر حفظ قائمة رغباتك على الخادم.' : 'Could not save your wishlist to the server.',
@@ -3453,7 +3453,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithEmail = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     try {
-      const { data, error } = await executeWithRetry(() =>
+      const { data, error } = await executeWithRetry<{
+        data: { user: SupabaseUser | null; session: Session | null };
+        error: AuthError | null;
+      }>(() =>
         supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: pass,
