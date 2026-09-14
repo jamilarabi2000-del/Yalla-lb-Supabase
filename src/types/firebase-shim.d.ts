@@ -18,8 +18,9 @@ declare module 'firebase/firestore' {
   export const where: any;
   export const orderBy: any;
   export const limit: any;
-  export const getDocs: any;
-  export const getDoc: any;
+  export function getDocs<T = DocumentData>(q: any): Promise<QuerySnapshot<T>>;
+  export function getDoc<T = DocumentData>(q: any): Promise<DocumentSnapshot<T>>;
+  export function getDocFromServer<T = DocumentData>(q: any): Promise<DocumentSnapshot<T>>;
   export const addDoc: any;
   export const setDoc: any;
   export const updateDoc: any;
