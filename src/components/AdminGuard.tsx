@@ -46,11 +46,12 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         if (error) throw error;
         if (!data.session?.user) throw new Error('The administrator sign-in link is invalid or expired.');
 
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', data.session.user.id)
           .maybeSingle();
+        if (profileError) throw profileError;
 
         if (profile?.role !== 'admin') {
           await supabase.auth.signOut();
@@ -98,7 +99,10 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
     try {
       if (loginMethod === 'email_link') {
-        await verifyAdminEmailBeforeOtp(email.trim());
+        // Do not query profiles before authentication. That creates an unnecessary
+        // unauthenticated data-access path and can reveal whether an email belongs
+        // to an administrator. Supabase Auth handles the sign-in request; the role
+        // is checked only after the user has authenticated.
         const { error } = await supabase.auth.signInWithOtp({
           email: email.trim(),
           options: {
@@ -132,17 +136,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const verifyAdminEmailBeforeOtp = async (targetEmail: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('email', targetEmail)
-      .eq('role', 'admin')
-      .maybeSingle();
-    if (error) throw error;
-    if (!data?.id) throw new Error('This email is not registered as an administrator.');
   };
 
   const resendVerification = async () => {
