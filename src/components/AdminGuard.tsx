@@ -77,10 +77,16 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     if (userError) throw userError;
     if (!userData.user?.email) throw new Error('No administrator email is available for OTP verification.');
 
-    const { error } = await supabase.auth.reauthenticate();
+    const targetEmail = userData.user.email;
+    const { error } = await supabase.auth.signInWithOtp({
+      email: targetEmail,
+      options: {
+        shouldCreateUser: false,
+      },
+    });
     if (error) throw error;
 
-    setEmail(userData.user.email);
+    setEmail(targetEmail);
     setOtp('');
     setOtpError(null);
     setMode('otp');
@@ -134,8 +140,8 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     e.preventDefault();
     const cleanOtp = otp.replace(/\D/g, '');
 
-    if (cleanOtp.length !== 8) {
-      setOtpError('Enter the 8-digit verification code sent to your email.');
+    if (cleanOtp.length !== 6) {
+      setOtpError('Enter the 6-digit verification code sent to your email.');
       return;
     }
 
@@ -147,7 +153,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       const { data, error } = await supabase.auth.verifyOtp({
         email: targetEmail,
         token: cleanOtp,
-        type: 'reauthentication',
+        type: 'email',
       });
 
       if (error) throw error;
@@ -156,10 +162,11 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       await verifyAdminRole(data.user.id);
       setAdminMfaSession(data.user.id);
       setOtp('');
+      setPassword('');
       setMode('login');
     } catch (err: any) {
       const message = String(err?.message || '').toLowerCase();
-      if (message.includes('reauthentication') || message.includes('invalid') || message.includes('code')) {
+      if (message.includes('expired') || message.includes('invalid') || message.includes('otp')) {
         setOtpError('Invalid or expired verification code. Please request a new code and try again.');
       } else {
         setOtpError(err?.message || 'OTP verification failed.');
@@ -268,7 +275,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               <ShieldAlert className="w-7 h-7" />
             </div>
             <h1 className="text-2xl font-bold text-[#111111]">Verify Your Identity</h1>
-            <p className="text-sm text-[#666666]">An 8-digit security code was sent to your administrator email.</p>
+            <p className="text-sm text-[#666666]">A 6-digit security code was sent to your administrator email.</p>
             <p className="px-3 py-2 bg-[#F3E5AB] rounded-xl font-mono text-xs text-[#8F7137] break-all">{email}</p>
           </div>
 
@@ -277,11 +284,11 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={8}
+              maxLength={6}
               value={otp}
-              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
-              placeholder="Enter 8-digit code"
-              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono"
+              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit code"
+              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.4em] font-mono"
               autoFocus
             />
 
@@ -293,7 +300,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             )}
 
             <button
-              disabled={isSubmitting || otp.length !== 8}
+              disabled={isSubmitting || otp.length !== 6}
               className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}
@@ -312,6 +319,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               onClick={async () => {
                 await supabase.auth.signOut();
                 setOtp('');
+                setPassword('');
                 setMode('login');
               }}
               className="block w-full text-sm text-[#666666] hover:text-[#111111]"
