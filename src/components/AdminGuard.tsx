@@ -3,6 +3,8 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  Eye,
+  EyeOff,
   Loader2,
   Lock,
   Mail,
@@ -22,18 +24,22 @@ interface AdminGuardProps {
   children: React.ReactNode;
 }
 
-type AuthMode = 'login' | 'email_link_sent' | 'verify_email_notice';
+type AuthMode = 'login' | 'otp' | 'verify_email_notice';
 
 const ADMIN_REDIRECT_URL = 'https://yalla-lb-supabase.netlify.app/admin';
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { authStatus, authUser, signOutUser } = useShop();
   const [mode, setMode] = useState<AuthMode>('login');
-  const [loginMethod, setLoginMethod] = useState<'password' | 'email_link'>('email_link');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSent, setOtpSent] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [emailVerifSent, setEmailVerifSent] = useState(false);
   const [isSendingVerifEmail, setIsSendingVerifEmail] = useState(false);
   const [showStepUpModal, setShowStepUpModal] = useState(false);
@@ -58,34 +64,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     }
   };
 
-  // Supabase automatically restores the session from the Magic Link redirect.
-  // React to the resulting SIGNED_IN event, then perform the authoritative
-  // profile/role check before allowing the admin console to render.
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== 'SIGNED_IN' || !session?.user) return;
-
-      void (async () => {
-        setIsSubmitting(true);
-        setLoginError(null);
-        try {
-          await verifyAdminRole(session.user.id);
-          setAdminMfaSession(session.user.id);
-          setMode('login');
-        } catch (err: any) {
-          await supabase.auth.signOut();
-          setLoginError(err?.message || 'This account is not authorized for the admin console.');
-        } finally {
-          setIsSubmitting(false);
-        }
-      })();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   useEffect(() => {
     return registerMfaPromptHandler((resolve) => {
       resolverRef.current = resolve;
@@ -95,12 +73,34 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     });
   }, []);
 
+  const sendLoginOtp = async () => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    if (!userData.user?.email) throw new Error('No administrator email is available for OTP verification.');
+
+    // Supabase Auth's reauthentication flow sends a one-time verification code
+    // to the already authenticated user's email without creating a new session.
+    const { error } = await supabase.auth.reauthenticate();
+    if (error) throw error;
+
+    setEmail(userData.user.email);
+    setOtp('');
+    setOtpSent(true);
+    setOtpError(null);
+    setMode('otp');
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
       setLoginError('Please enter your administrator email address.');
+      return;
+    }
+
+    if (!password) {
+      setLoginError('Please enter your administrator password.');
       return;
     }
 
@@ -108,27 +108,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setLoginError(null);
 
     try {
-      if (loginMethod === 'email_link') {
-        // Supabase Auth sends the Magic Link. No Resend/custom domain is used.
-        // shouldCreateUser=false prevents an unknown address from creating a new account.
-        const { error } = await supabase.auth.signInWithOtp({
-          email: cleanEmail,
-          options: {
-            shouldCreateUser: false,
-            emailRedirectTo: ADMIN_REDIRECT_URL,
-          },
-        });
-
-        if (error) throw error;
-        setMode('email_link_sent');
-        return;
-      }
-
-      if (!password) {
-        setLoginError('Please enter your administrator password.');
-        return;
-      }
-
+      // First factor: email + password.
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password,
@@ -138,18 +118,75 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       if (!data.user) throw new Error('No authenticated administrator was returned.');
 
       await verifyAdminRole(data.user.id);
-      setAdminMfaSession(data.user.id);
+
+      // Second factor: send a Supabase Auth reauthentication OTP to the
+      // administrator's verified email. Admin access is not granted yet.
+      await sendLoginOtp();
     } catch (err: any) {
       const message = String(err?.message || '').toLowerCase();
       if (message.includes('invalid login credentials')) {
         setLoginError('Invalid administrator email or password.');
       } else if (message.includes('email not confirmed')) {
         setMode('verify_email_notice');
+      } else if (message.includes('rate limit') || message.includes('too many')) {
+        setLoginError('Too many authentication attempts. Please wait and try again.');
       } else {
         setLoginError(err?.message || 'Administrator authentication failed.');
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanOtp = otp.replace(/\D/g, '');
+
+    if (cleanOtp.length !== 6) {
+      setOtpError('Enter the 6-digit verification code sent to your email.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setOtpError(null);
+
+    try {
+      const targetEmail = email.trim().toLowerCase();
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: targetEmail,
+        token: cleanOtp,
+        type: 'reauthentication',
+      });
+
+      if (error) throw error;
+      if (!data.user) throw new Error('OTP verification did not return an authenticated administrator.');
+
+      await verifyAdminRole(data.user.id);
+      setAdminMfaSession(data.user.id);
+      setOtp('');
+      setOtpSent(false);
+      setMode('login');
+    } catch (err: any) {
+      const message = String(err?.message || '').toLowerCase();
+      if (message.includes('reauthentication') || message.includes('invalid') || message.includes('code')) {
+        setOtpError('Invalid or expired verification code. Please request a new code and try again.');
+      } else {
+        setOtpError(err?.message || 'OTP verification failed.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resendLoginOtp = async () => {
+    setIsResendingOtp(true);
+    setOtpError(null);
+    try {
+      await sendLoginOtp();
+    } catch (err: any) {
+      setOtpError(err?.message || 'Could not send a new verification code.');
+    } finally {
+      setIsResendingOtp(false);
     }
   };
 
@@ -182,7 +219,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     }
 
     await verifyAdminRole(data.user.id);
-    setAdminMfaSession(data.user.id);
+    await sendLoginOtp();
   };
 
   const handleStepUp = async (e: React.FormEvent) => {
@@ -231,21 +268,67 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     );
   }
 
-  if (mode === 'email_link_sent') {
+  if (mode === 'otp') {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-slate-200 p-8 rounded-3xl max-w-md w-full text-center space-y-6 shadow-sm">
-          <Mail className="mx-auto w-10 h-10 text-indigo-600" />
-          <h1 className="text-xl font-bold">Sign-In Link Sent</h1>
-          <p className="text-sm text-slate-600">A secure Supabase sign-in link was sent to:</p>
-          <p className="p-3 bg-indigo-50 rounded-xl font-mono text-sm">{email}</p>
-          <p className="text-xs text-slate-500">Open the email and click the link. You will be returned directly to the admin console.</p>
-          <button
-            onClick={() => setMode('login')}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold"
-          >
-            Back to Sign In
-          </button>
+        <div className="bg-white border border-slate-200 p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-sm">
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-16 h-16 rounded-[22px] bg-indigo-600 flex items-center justify-center text-white">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <h1 className="text-2xl font-bold">Verify Your Identity</h1>
+            <p className="text-sm text-slate-600">A 6-digit security code was sent to your administrator email.</p>
+            <p className="px-3 py-2 bg-indigo-50 rounded-xl font-mono text-xs text-indigo-700 break-all">{email}</p>
+          </div>
+
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter 6-digit code"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 text-center text-2xl tracking-[0.4em] font-mono"
+              autoFocus
+            />
+
+            {otpError && (
+              <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {otpError}
+              </div>
+            )}
+
+            <button
+              disabled={isSubmitting || otp.length !== 6}
+              className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}
+            </button>
+          </form>
+
+          <div className="space-y-3 text-center">
+            <button
+              onClick={resendLoginOtp}
+              disabled={isResendingOtp}
+              className="text-sm text-indigo-600 font-semibold disabled:opacity-50"
+            >
+              {isResendingOtp ? 'Sending new code…' : 'Resend security code'}
+            </button>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setOtp('');
+                setOtpSent(false);
+                setMode('login');
+              }}
+              className="block w-full text-sm text-slate-500"
+            >
+              Cancel and Sign Out
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -291,62 +374,65 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               <Lock className="w-7 h-7" />
             </div>
             <h1 className="text-2xl font-bold">Admin Console</h1>
-            <p className="text-xs text-slate-500">Secure administrator authentication via Supabase</p>
-          </div>
-
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            <button
-              onClick={() => setLoginMethod('password')}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg ${loginMethod === 'password' ? 'bg-white shadow-sm' : 'text-slate-500'}`}
-            >
-              Password
-            </button>
-            <button
-              onClick={() => setLoginMethod('email_link')}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg ${loginMethod === 'email_link' ? 'bg-white shadow-sm' : 'text-slate-500'}`}
-            >
-              Email Link
-            </button>
+            <p className="text-xs text-slate-500">Sign in with your administrator credentials</p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-4">
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="Administrator email"
-              required
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
-            />
-            {loginMethod === 'password' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Administrator Email</label>
               <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Password"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Enter administrator email"
+                autoComplete="username"
                 required
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
               />
-            )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Password</label>
+              <div className="relative">
+                <input
+                  type={isPasswordVisible ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter administrator password"
+                  autoComplete="current-password"
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordVisible(value => !value)}
+                  aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 px-4 text-slate-500 hover:text-slate-800"
+                >
+                  {isPasswordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
             {loginError && (
               <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {loginError}
               </div>
             )}
+
             <button
               disabled={isSubmitting}
               className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : loginMethod === 'email_link' ? (
-                <>Send Supabase Sign-In Link <ArrowRight className="w-4 h-4" /></>
-              ) : (
-                'Sign In'
-              )}
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
+
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 justify-center">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Password + email OTP verification required
+          </div>
         </div>
       </div>
     );
