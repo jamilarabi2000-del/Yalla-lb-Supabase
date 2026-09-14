@@ -12,4 +12,4 @@ jobs:
       - run: npm --version
       - run: npm install --no-audit --no-fund
       - run: npm run verify
-# Trigger verification after compatibility type repairs.
+# Final compatibility fixes applied; run full verification.
