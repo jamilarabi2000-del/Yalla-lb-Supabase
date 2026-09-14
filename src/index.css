@@ -6,6 +6,7 @@
   --bg-card: #FFFFFF;
   --text-main: #111111;
   --text-muted: #666666;
+  --text-soft: #888888;
   --gold: #B89753;
   --gold-light: #F3E5AB;
   --gold-dark: #8F7137;
@@ -57,6 +58,11 @@
 }
 
 @layer base {
+  html {
+    background-color: var(--bg-primary);
+    color: var(--text-main);
+  }
+
   body {
     background-color: var(--bg-primary);
     color: var(--text-main);
@@ -64,6 +70,45 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+  }
+
+  input,
+  select,
+  textarea {
+    color: var(--text-main);
+    background-color: var(--bg-surface);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-soft);
+    opacity: 1;
+  }
+
+  option {
+    color: var(--text-main);
+    background: var(--bg-surface);
+  }
+}
+
+/* Keep white text readable on light cards/forms while preserving intentional
+   white text on dark and gold surfaces. */
+@layer components {
+  :where(.bg-white, [class*="bg-[#F7F7F8]"], [class*="bg-[#FFFFFF]"], [class*="bg-white/"]) .text-white,
+  :where(.bg-white, [class*="bg-[#F7F7F8]"], [class*="bg-[#FFFFFF]"], [class*="bg-white/"]) [class*="text-white"] {
+    color: var(--text-main) !important;
+  }
+
+  :where(input, select, textarea).text-white,
+  :where(input, select, textarea)[class*="text-white"] {
+    color: var(--text-main) !important;
+  }
+
+  .gold-btn,
+  .gold-btn.text-white,
+  .gold-gradient-bg,
+  .gold-gradient-bg.text-white {
+    color: #FFFFFF !important;
   }
 }
 
@@ -116,7 +161,6 @@
   box-shadow: 0 0 8px rgba(22, 128, 60, 0.4);
 }
 
-/* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -163,26 +207,24 @@
   animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes slideInLeft { 
-  from { 
-    transform: translateX(-100%); 
-  } 
-  to { 
-    transform: translateX(0); 
-  } 
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
-[dir="rtl"] .animate-slideInRight { 
-  animation-name: slideInLeft; 
+[dir="rtl"] .animate-slideInRight {
+  animation-name: slideInLeft;
 }
 
-/* Arabic typography support */
 .font-arabic, [dir="rtl"] {
   font-family: 'Cairo', 'Tajawal', 'Plus Jakarta Sans', -apple-system, sans-serif;
   line-height: 1.7;
 }
 
-/* Explicit CMS custom-scrollbar styling */
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(184, 151, 83, 0.5) transparent;
@@ -199,7 +241,6 @@
   background: rgba(184, 151, 83, 0.75);
 }
 
-/* CMS draft indicator entrance bounce */
 @keyframes bounceShort {
   0%   { transform: translateY(12px); opacity: 0; }
   55%  { transform: translateY(-4px); opacity: 1; }
@@ -209,4 +250,3 @@
 .animate-bounce-short {
   animation: bounceShort 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-
