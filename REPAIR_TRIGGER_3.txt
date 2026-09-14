@@ -1,1 +1,2 @@
 Temporary trigger.
+Netlify rebuild after Supabase publishable key configuration.
