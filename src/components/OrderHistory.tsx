@@ -111,7 +111,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
         } else {
           const docRef = doc(db, 'orders', cleanInput);
           const docSnap = await getDoc(docRef);
-          if (docSnap.exists() && docSnap.data().userId === firebaseUser?.uid) {
+          if (docSnap.exists() && (docSnap.data() as Order).userId === firebaseUser?.uid) {
             setTrackedOrder(docSnap.data() as Order);
           } else {
             setTrackingError(language === 'ar' ? 'لم يتم العثور على طلب يخص حسابك بهذا الرمز' : 'No order found for your account with this ID or tracking number.');

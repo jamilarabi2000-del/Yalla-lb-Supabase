@@ -542,7 +542,7 @@ export async function monitoredGetDoc<T extends DocumentData>(
       payload: snapshot.data(),
       metadata: { exists: snapshot.exists(), id: snapshot.id }
     });
-    return snapshot;
+    return snapshot as DocumentSnapshot<T>;
   } catch (error: any) {
     dbMonitor.logOperationFailure(opId, error);
     throw error;

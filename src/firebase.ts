@@ -93,7 +93,7 @@ export const signInWithPopup = async (_auth: unknown, provider: GoogleAuthProvid
 
 export const signOut = (_auth: unknown = auth) => supabase.auth.signOut();
 export const onAuthStateChanged = (_auth: unknown, callback: (user: LegacyAuthUser | null) => void) => {
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(adaptUser(session?.user ?? null)));
+  const { data } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => callback(adaptUser(session?.user ?? null)));
   return () => data.subscription.unsubscribe();
 };
 export const onIdTokenChanged = onAuthStateChanged;

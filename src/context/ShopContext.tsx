@@ -71,6 +71,9 @@ import { supabase } from '../lib/supabase';
 
 import type {
   User as SupabaseUser,
+  Session,
+  AuthChangeEvent,
+  AuthError,
   EmailOtpType
 } from '@supabase/supabase-js';
 
@@ -1023,7 +1026,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then((rows) => {
         if (!isMounted) return;
         setRecentActivities(
-          rows.map((row) => ({
+          rows.map((row: Record<string, any>) => ({
             id: row.id,
             timestamp: row.createdAt,
             actionType: row.actionType as RecentActivity['actionType'],
@@ -1039,7 +1042,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }))
         );
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('[ShopContext] Failed to load recent activity:', err);
       });
 
@@ -1186,7 +1189,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then((rules) => {
         if (isMounted) setDiscountRules(rules);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('[ShopContext] Failed to load discount rules:', err);
       });
 
@@ -1298,7 +1301,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then((bundles) => {
         if (isMounted) setProductBundles(bundles);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('[ShopContext] Failed to load product bundles:', err);
       });
 
@@ -1574,7 +1577,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const channel = supabase
       .channel('yalla-categories')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, scheduleRefresh)
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error(`[ShopContext] Supabase realtime channel for categories: ${status}`);
         }
@@ -1605,7 +1608,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then((rows) => {
         if (isMounted && rows.length > 0) setRegions(rows);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('[ShopContext] Failed to load delivery regions:', err);
       });
 
@@ -2484,7 +2487,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .channel('yalla-products-catalog')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_images' }, scheduleRefresh)
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           // Not fatal: the catalogue still loads on mount and after each admin
           // write. Logged so a broken realtime connection is visible rather
@@ -2573,7 +2576,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const channel = supabase
       .channel('yalla-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error(`[ShopContext] Supabase realtime channel for orders: ${status}`);
         }
@@ -2825,18 +2828,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // 1. Initial Session Restoration
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }: { data: { session: Session | null }; error: AuthError | null }) => {
       if (error) {
         console.warn("[ShopContext] Error restoring Supabase session:", error);
       }
       handleAuthUser(session?.user ?? null);
-    }).catch((err) => {
+    }).catch((err: unknown) => {
       console.warn("[ShopContext] Supabase getSession catch:", err);
       handleAuthUser(null);
     });
 
     // 2. Auth State Change Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       console.log(`[ShopContext] Supabase Auth event: ${event}`, session?.user?.id ?? "None (Guest)");
       handleAuthUser(session?.user ?? null);
     });
@@ -2872,7 +2875,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then(() => {
           lastPersistedCartRef.current = payload;
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           // Surfaced, not swallowed: the user needs to know the cart they are
           // looking at is not saved.
           console.error('[ShopContext] Failed to save cart to Supabase:', err);
@@ -2905,7 +2908,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then(() => {
           lastPersistedWishlistRef.current = payload;
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error('[ShopContext] Failed to save wishlist to Supabase:', err);
 
           // The catalog is still serving bundled demo slugs, so the ids cannot
