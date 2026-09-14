@@ -253,23 +253,23 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   if (authStatus === 'loading' || isSubmitting) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[#F7F7F8] text-[#111111]">
+        <Loader2 className="w-6 h-6 animate-spin text-[#B89753]" />
       </div>
     );
   }
 
   if (mode === 'otp') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-slate-200 p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-sm">
+      <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
+        <div className="bg-white text-[#111111] border border-[#E5E5E5] p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
           <div className="text-center space-y-3">
-            <div className="mx-auto w-16 h-16 rounded-[22px] bg-indigo-600 flex items-center justify-center text-white">
+            <div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white">
               <ShieldAlert className="w-7 h-7" />
             </div>
-            <h1 className="text-2xl font-bold">Verify Your Identity</h1>
-            <p className="text-sm text-slate-600">A 6-digit security code was sent to your administrator email.</p>
-            <p className="px-3 py-2 bg-indigo-50 rounded-xl font-mono text-xs text-indigo-700 break-all">{email}</p>
+            <h1 className="text-2xl font-bold text-[#111111]">Verify Your Identity</h1>
+            <p className="text-sm text-[#666666]">A 6-digit security code was sent to your administrator email.</p>
+            <p className="px-3 py-2 bg-[#F3E5AB] rounded-xl font-mono text-xs text-[#8F7137] break-all">{email}</p>
           </div>
 
           <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -281,12 +281,12 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               value={otp}
               onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Enter 6-digit code"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 text-center text-2xl tracking-[0.4em] font-mono"
+              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.4em] font-mono"
               autoFocus
             />
 
             {otpError && (
-              <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex gap-2">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {otpError}
               </div>
@@ -294,7 +294,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
             <button
               disabled={isSubmitting || otp.length !== 6}
-              className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+              className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
@@ -304,7 +304,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             <button
               onClick={resendLoginOtp}
               disabled={isResendingOtp}
-              className="text-sm text-indigo-600 font-semibold disabled:opacity-50"
+              className="text-sm text-[#8F7137] hover:text-[#B89753] font-semibold disabled:opacity-50"
             >
               {isResendingOtp ? 'Sending new code…' : 'Resend security code'}
             </button>
@@ -314,7 +314,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                 setOtp('');
                 setMode('login');
               }}
-              className="block w-full text-sm text-slate-500"
+              className="block w-full text-sm text-[#666666] hover:text-[#111111]"
             >
               Cancel and Sign Out
             </button>
@@ -326,30 +326,30 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   if (mode === 'verify_email_notice') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-slate-200 p-8 rounded-3xl max-w-md w-full text-center space-y-5 shadow-sm">
-          <Mail className="mx-auto w-10 h-10 text-amber-600" />
-          <h1 className="text-xl font-bold">Email Verification Required</h1>
-          <p className="text-sm text-slate-600">Verify your administrator email before accessing the console.</p>
+      <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
+        <div className="bg-white text-[#111111] border border-[#E5E5E5] p-8 rounded-3xl max-w-md w-full text-center space-y-5 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
+          <Mail className="mx-auto w-10 h-10 text-[#B89753]" />
+          <h1 className="text-xl font-bold text-[#111111]">Email Verification Required</h1>
+          <p className="text-sm text-[#666666]">Verify your administrator email before accessing the console.</p>
           {emailVerifSent && (
-            <p className="text-sm text-emerald-700 flex items-center justify-center gap-2">
+            <p className="text-sm text-[#16803C] flex items-center justify-center gap-2">
               <CheckCircle2 className="w-4 h-4" /> Verification email sent.
             </p>
           )}
           <button
             onClick={resendVerification}
             disabled={isSendingVerifEmail}
-            className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold disabled:opacity-50"
+            className="gold-btn w-full py-3 rounded-xl font-bold disabled:opacity-50"
           >
             Send Verification Email
           </button>
           <button
             onClick={checkVerification}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+            className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2"
           >
             <RefreshCw className="w-4 h-4" /> Check Again
           </button>
-          <button onClick={signOutUser} className="text-sm text-slate-500">Sign Out</button>
+          <button onClick={signOutUser} className="text-sm text-[#666666] hover:text-[#111111]">Sign Out</button>
         </div>
       </div>
     );
@@ -357,19 +357,19 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   if (authStatus === 'unauthenticated' || !authUser) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white border border-slate-200 p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-sm">
+      <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
+        <div className="bg-white text-[#111111] border border-[#E5E5E5] p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
           <div className="text-center space-y-3">
-            <div className="mx-auto w-16 h-16 rounded-[22px] bg-slate-900 flex items-center justify-center text-white">
+            <div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white">
               <Lock className="w-7 h-7" />
             </div>
-            <h1 className="text-2xl font-bold">Admin Console</h1>
-            <p className="text-xs text-slate-500">Sign in with your administrator credentials</p>
+            <h1 className="text-2xl font-bold text-[#111111]">Admin Console</h1>
+            <p className="text-xs text-[#666666]">Sign in with your administrator credentials</p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Administrator Email</label>
+              <label className="block text-xs font-semibold text-[#111111] mb-2">Administrator Email</label>
               <input
                 type="email"
                 value={email}
@@ -377,12 +377,12 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                 placeholder="Enter administrator email"
                 autoComplete="username"
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
+                className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-3"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Password</label>
+              <label className="block text-xs font-semibold text-[#111111] mb-2">Password</label>
               <div className="relative">
                 <input
                   type={isPasswordVisible ? 'text' : 'password'}
@@ -391,13 +391,13 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                   placeholder="Enter administrator password"
                   autoComplete="current-password"
                   required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-12"
+                  className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-3 pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setIsPasswordVisible(value => !value)}
                   aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
-                  className="absolute inset-y-0 right-0 px-4 text-slate-500 hover:text-slate-800"
+                  className="absolute inset-y-0 right-0 px-4 text-[#666666] hover:text-[#8F7137]"
                 >
                   {isPasswordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -405,7 +405,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             </div>
 
             {loginError && (
-              <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-xs text-rose-700 flex gap-2">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {loginError}
               </div>
@@ -413,14 +413,14 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
             <button
               disabled={isSubmitting}
-              className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+              className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
 
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 justify-center">
-            <ShieldAlert className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 text-[11px] text-[#666666] justify-center">
+            <ShieldAlert className="w-3.5 h-3.5 text-[#B89753]" />
             Password + email OTP verification required
           </div>
         </div>
@@ -430,12 +430,12 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   if (authStatus === 'authenticated_non_admin') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <AlertCircle className="mx-auto w-10 h-10 text-rose-600" />
-          <h1 className="text-xl font-bold">Access Unavailable</h1>
-          <p className="text-sm text-slate-500">This account does not have administrator privileges.</p>
-          <button onClick={signOutUser} className="px-5 py-3 bg-slate-900 text-white rounded-xl font-bold">Sign Out</button>
+          <AlertCircle className="mx-auto w-10 h-10 text-[#C62828]" />
+          <h1 className="text-xl font-bold text-[#111111]">Access Unavailable</h1>
+          <p className="text-sm text-[#666666]">This account does not have administrator privileges.</p>
+          <button onClick={signOutUser} className="gold-btn px-5 py-3 rounded-xl font-bold">Sign Out</button>
         </div>
       </div>
     );
@@ -443,11 +443,11 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   if (authStatus === 'authenticated_admin' && !authUser.emailVerified) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <Mail className="mx-auto w-10 h-10 text-amber-600" />
-          <h1 className="text-xl font-bold">Email Verification Required</h1>
-          <button onClick={resendVerification} className="px-5 py-3 bg-amber-600 text-white rounded-xl font-bold">Send Verification Email</button>
+          <Mail className="mx-auto w-10 h-10 text-[#B89753]" />
+          <h1 className="text-xl font-bold text-[#111111]">Email Verification Required</h1>
+          <button onClick={resendVerification} className="gold-btn px-5 py-3 rounded-xl font-bold">Send Verification Email</button>
         </div>
       </div>
     );
@@ -457,32 +457,32 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     <>
       {children}
       {showStepUpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white p-7 rounded-3xl max-w-sm w-full space-y-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/60 backdrop-blur-sm">
+          <div className="bg-white text-[#111111] p-7 rounded-3xl max-w-sm w-full space-y-5 shadow-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <ShieldAlert className="w-6 h-6 text-amber-600" />
+                <ShieldAlert className="w-6 h-6 text-[#B89753]" />
                 <div>
-                  <h2 className="font-bold">Confirm Security Action</h2>
-                  <p className="text-xs text-slate-500">Administrator re-authentication</p>
+                  <h2 className="font-bold text-[#111111]">Confirm Security Action</h2>
+                  <p className="text-xs text-[#666666]">Administrator re-authentication</p>
                 </div>
               </div>
-              <button onClick={cancelStepUp}><X className="w-5 h-5" /></button>
+              <button onClick={cancelStepUp} className="text-[#666666] hover:text-[#111111]"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-sm text-slate-600">Re-enter your administrator password to continue.</p>
+            <p className="text-sm text-[#666666]">Re-enter your administrator password to continue.</p>
             <form onSubmit={handleStepUp} className="space-y-4">
-              {stepUpError && <div className="p-3 bg-rose-50 rounded-xl text-xs text-rose-700">{stepUpError}</div>}
+              {stepUpError && <div className="p-3 bg-red-50 rounded-xl text-xs text-[#C62828]">{stepUpError}</div>}
               <input
                 type="password"
                 value={stepUpPassword}
                 onChange={e => setStepUpPassword(e.target.value)}
                 placeholder="Administrator password"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl"
+                className="w-full px-4 py-3 bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl"
                 autoFocus
               />
               <div className="flex gap-2">
-                <button type="button" onClick={cancelStepUp} className="flex-1 py-3 border rounded-xl font-semibold">Cancel</button>
-                <button disabled={isStepUpVerifying} className="flex-1 py-3 bg-amber-600 text-white rounded-xl font-semibold">
+                <button type="button" onClick={cancelStepUp} className="flex-1 py-3 border border-[#E5E5E5] text-[#111111] rounded-xl font-semibold hover:bg-[#F7F7F8]">Cancel</button>
+                <button disabled={isStepUpVerifying} className="gold-btn flex-1 py-3 rounded-xl font-semibold disabled:opacity-50">
                   {isStepUpVerifying ? <Loader2 className="mx-auto w-4 h-4 animate-spin" /> : 'Confirm'}
                 </button>
               </div>
