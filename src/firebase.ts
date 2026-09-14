@@ -28,6 +28,50 @@ export interface ConfirmationResult {
   confirm(code: string): Promise<{ user: unknown }>;
 }
 
+export interface LegacyAuthUser {
+  uid: string;
+  id: string;
+  email: string | null;
+  emailVerified: boolean;
+  phoneNumber: string | null;
+  displayName: string | null;
+  user_metadata?: Record<string, any>;
+  app_metadata?: Record<string, any>;
+  getIdToken: (forceRefresh?: boolean) => Promise<string>;
+  getIdTokenResult: (forceRefresh?: boolean) => Promise<{ claims: Record<string, any> }>;
+}
+
+const adaptUser = (user: any): LegacyAuthUser | null => {
+  if (!user) return null;
+  return {
+    uid: user.id,
+    id: user.id,
+    email: user.email ?? null,
+    emailVerified: Boolean(user.email_confirmed_at),
+    phoneNumber: user.phone ?? null,
+    displayName: user.user_metadata?.name || user.user_metadata?.full_name || null,
+    user_metadata: user.user_metadata,
+    app_metadata: user.app_metadata,
+    getIdToken: async (_forceRefresh = false) => {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token || '';
+    },
+    getIdTokenResult: async (_forceRefresh = false) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData.session?.user?.id;
+      if (!uid) return { claims: {} };
+      const { data: profile } = await supabase.from('profiles').select('role,seller_id').eq('id', uid).maybeSingle();
+      return {
+        claims: {
+          admin: profile?.role === 'admin',
+          seller: profile?.role === 'seller',
+          ...(profile?.seller_id ? { sellerId: profile.seller_id } : {}),
+        },
+      };
+    },
+  };
+};
+
 export const signInWithPhoneNumber = async (_auth: unknown, phone: string, _verifier: unknown): Promise<ConfirmationResult> => {
   const { error } = await supabase.auth.signInWithOtp({ phone });
   if (error) throw error;
@@ -35,7 +79,7 @@ export const signInWithPhoneNumber = async (_auth: unknown, phone: string, _veri
     async confirm(code: string) {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
       if (verifyError) throw verifyError;
-      return { user: data.user };
+      return { user: adaptUser(data.user) };
     },
   };
 };
@@ -48,8 +92,8 @@ export const signInWithPopup = async (_auth: unknown, provider: GoogleAuthProvid
 };
 
 export const signOut = (_auth: unknown = auth) => supabase.auth.signOut();
-export const onAuthStateChanged = (_auth: unknown, callback: (user: any) => void) => {
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session?.user ?? null));
+export const onAuthStateChanged = (_auth: unknown, callback: (user: LegacyAuthUser | null) => void) => {
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(adaptUser(session?.user ?? null)));
   return () => data.subscription.unsubscribe();
 };
 export const onIdTokenChanged = onAuthStateChanged;
@@ -57,13 +101,13 @@ export const onIdTokenChanged = onAuthStateChanged;
 export const signInWithEmailAndPassword = async (_auth: unknown, email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
-  return { user: data.user };
+  return { user: adaptUser(data.user) as LegacyAuthUser };
 };
 
 export const createUserWithEmailAndPassword = async (_auth: unknown, email: string, password: string) => {
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
-  return { user: data.user };
+  return { user: adaptUser(data.user) };
 };
 
 export const sendPasswordResetEmail = async (_auth: unknown, email: string) => {
@@ -90,14 +134,15 @@ export const signInWithEmailLink = async (_auth: unknown, email: string, url: st
   if (tokenHash) {
     const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type || 'magiclink' });
     if (error) throw error;
-    return { user: data.user };
+    return { user: adaptUser(data.user) };
   }
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  return { user: data.session?.user ?? null };
+  return { user: adaptUser(data.session?.user ?? null) };
 };
 
-export const httpsCallable = (_functions: unknown, name: string) => async (data?: unknown) => {
+type HttpsCallableResult<T> = { data: T };
+export const httpsCallable = <Req = unknown, Res = unknown>(_functions: unknown, name: string) => async (data?: Req): Promise<HttpsCallableResult<Res>> => {
   const rpcMap: Record<string, string> = {
     checkPhoneAvailability: 'is_phone_available',
     isPhoneAvailable: 'is_phone_available',
@@ -106,7 +151,7 @@ export const httpsCallable = (_functions: unknown, name: string) => async (data?
   if (!rpc) throw new Error(`Legacy callable '${name}' is not available in the Supabase build.`);
   const { data: result, error } = await supabase.rpc(rpc, data as any);
   if (error) throw error;
-  return { data: result };
+  return { data: result as Res };
 };
 
-export type FirebaseUser = any;
+export type FirebaseUser = LegacyAuthUser;
