@@ -970,7 +970,7 @@ export const supabaseCatalogService = {
         ? ADMIN_PRODUCT_COLUMNS
         : PUBLIC_PRODUCT_COLUMNS;
 
-    let query =
+    let query: any =
       supabase
         .from('products')
         .select(columns)

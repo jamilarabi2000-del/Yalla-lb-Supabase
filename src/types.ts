@@ -59,7 +59,8 @@ export interface ProductPrivate {
 }
 
 export interface Seller {
-  id: string;                  // slug: 'chouf-eco-soap'
+  id: string;
+  legacyId?: string;                  // slug: 'chouf-eco-soap'
   sellerCode?: string;         // unique code e.g. 'SLR-001'
   nameEn: string;
   nameAr?: string;
@@ -86,6 +87,7 @@ export interface Seller {
 
 export interface CategoryItem {
   id: string;
+  legacyId?: string;
   nameEn: string;
   nameAr: string;
   icon: string;

@@ -311,7 +311,11 @@ class DatabaseLoggerService {
   }
 }
 
-export const dbLogger = new DatabaseLoggerService();
+export const dbLogger = Object.assign(new DatabaseLoggerService(), {
+  logDbWriteStart(params: Parameters<DatabaseLoggerService['logFirestoreWriteStart']>[0]) { return (this as DatabaseLoggerService).logFirestoreWriteStart(params); },
+  logDbWriteSuccess(params: Parameters<DatabaseLoggerService['logFirestoreWriteSuccess']>[0]) { return (this as DatabaseLoggerService).logFirestoreWriteSuccess(params); },
+  logDbWriteError(params: Parameters<DatabaseLoggerService['logFirestoreWriteError']>[0]) { return (this as DatabaseLoggerService).logFirestoreWriteError(params); },
+});
 
 /**
  * Recursively removes all `undefined` values and converts problematic types
