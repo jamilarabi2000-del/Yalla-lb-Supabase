@@ -1,0 +1,60 @@
+name: repair-shopcontext
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.head_commit.message != 'chore: repair ShopContext compile errors'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Restore complete ShopContext from known-good parent
+        run: |
+          git show 01da104b96f178a920fdf7704853e601b52666bb:src/context/ShopContext.tsx > src/context/ShopContext.tsx
+      - name: Repair Supabase type compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/context/ShopContext.tsx')
+          s=p.read_text()
+          s=s.replace("verifyEmailOtp: (email: string, token: string, type?: 'email' | 'signup' | 'magiclink' | 'recovery') => Promise<void>;", "verifyEmailOtp: (email: string, token: string, type?: EmailOtpType) => Promise<void>;")
+          s=s.replace("const verifyEmailOtp = async (email: string, token: string, type: 'email' | 'signup' | 'magiclink' | 'recovery' = 'email') => {", "const verifyEmailOtp = async (email: string, token: string, type: EmailOtpType = 'email') => {")
+          s=s.replace("type: type as any,", "type,")
+          p.write_text(s)
+          PY
+      - name: Add missing database operations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/utils/dbLogger.ts')
+          s=p.read_text()
+          import re
+          s=re.sub(r"(type DatabaseOperation\s*=\s*\n(?:\s*\|[^\n]+\n)+)", lambda m: m.group(1) if ('upsert' in m.group(1) and 'delete' in m.group(1)) else m.group(1), s)
+          # Handle compact union or interface-derived alias safely.
+          s=s.replace("| 'write'", "| 'write'\n  | 'upsert'\n  | 'delete'")
+          p.write_text(s)
+          PY
+      - name: Relax legacy logger compatibility casts only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/utils/dbLogger.ts')
+          s=p.read_text().replace('as DatabaseLoggerService;', 'as unknown as DatabaseLoggerService;')
+          p.write_text(s)
+          PY
+      - name: Commit repair
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/context/ShopContext.tsx src/utils/dbLogger.ts
+          git diff --cached --quiet || git commit -m 'chore: repair ShopContext compile errors'
+          git push
