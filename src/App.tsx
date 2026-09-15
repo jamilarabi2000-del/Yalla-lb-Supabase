@@ -15,7 +15,7 @@ import { Footer } from './components/Footer';
 import { AdminQuickEditor } from './components/AdminQuickEditor';
 import { CustomBlockModal } from './components/CustomBlockModal';
 import { syncDomHead } from './utils/domHeadSync';
-import { CheckCircle2, AlertCircle, Info, Sparkles, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>) {
   return lazy(async () => {
@@ -119,7 +119,6 @@ const MainAppContent: React.FC = () => {
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
-  // Keep URL routing consistent on initial load as well as browser back/forward.
   useEffect(() => {
     const syncRouteFromUrl = () => {
       isPopStateRef.current = true;
@@ -156,7 +155,6 @@ const MainAppContent: React.FC = () => {
       }
     };
 
-    // Critical: run this immediately so a direct /admin URL renders AdminGuard.
     syncRouteFromUrl();
     window.addEventListener('popstate', syncRouteFromUrl);
     return () => window.removeEventListener('popstate', syncRouteFromUrl);
@@ -182,7 +180,7 @@ const MainAppContent: React.FC = () => {
   }, [activeTab, selectedProductDetail, selectedCategory]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#1a1a2e] text-slate-100 selection:bg-[#c5a059] selection:text-[#1a1a2e] font-sans antialiased">
+    <div className="min-h-screen flex flex-col bg-[#F7F7F8] text-[#111111] selection:bg-[#F3E5AB] selection:text-[#111111] font-sans antialiased">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <div data-seo-source="builder" id="seo-snapshot" aria-hidden="true" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
         <div><header><h1>Yalla.lb</h1><p>A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern digital commerce for a seamless, hyper-local shopping experience.</p></header><nav aria-label="Pages"><h2>Pages</h2><ul><li><a href="/products">Products</a> — Products on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/checkout">Checkout</a> — Checkout on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/account">Account</a> — Account on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/seller">Artisan Portal</a> — Merchant and artisan login portal for authentic Lebanese workshops and producers.</li></ul></nav></div>
@@ -192,17 +190,17 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'home' && <HomeView />}
         {activeTab === 'products' && <ProductsView />}
         {activeTab === 'product_detail' && <ProductDetailView />}
-        {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#96783d]" /></div>}><CheckoutView /></Suspense>}
+        {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><CheckoutView /></Suspense>}
         {activeTab === 'account' && <AccountView />}
         {activeTab === 'favorites' && <FavoritesView />}
-        {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-slate-900 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-amber-400" /></div>}><SellerLoginView /></Suspense>}
-        {activeTab === 'admin' && <AdminErrorBoundary><Suspense fallback={<div className="min-h-screen bg-slate-900 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-amber-400" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminErrorBoundary>}
+        {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><SellerLoginView /></Suspense>}
+        {activeTab === 'admin' && <AdminErrorBoundary><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminErrorBoundary>}
       </main>
       <ProductModal />
       <CartDrawer />
       <AdminQuickEditor onOpenCustomBlockModal={(block) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} />
       <CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} />
-      {toast && <div className="fixed bottom-6 right-6 z-50 animate-fadeIn"><div className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border text-xs font-semibold ${toast.type === 'success' ? 'bg-[#1a2e24] border-emerald-500/40 text-emerald-200 shadow-emerald-950/50' : toast.type === 'warning' ? 'bg-[#2e241a] border-[#c5a059]/40 text-[#f1d592] shadow-amber-950/50' : 'bg-[#1a1a2e] border-[#c5a059]/30 text-slate-200 shadow-black/60'}`}>{toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" /> : toast.type === 'warning' ? <AlertCircle className="w-4 h-4 text-[#c5a059] flex-shrink-0" /> : <Info className="w-4 h-4 text-sky-400 flex-shrink-0" />}<span>{toast.message}</span></div></div>}
+      {toast && <div className="fixed bottom-6 right-6 z-50 animate-fadeIn"><div className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold ${toast.type === 'success' ? 'bg-white border-[#16803C]/30 text-[#16803C]' : toast.type === 'warning' ? 'bg-white border-[#B89753]/40 text-[#8F7137]' : 'bg-white border-[#E5E5E5] text-[#111111]'}`}>{toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-[#16803C] flex-shrink-0" /> : toast.type === 'warning' ? <AlertCircle className="w-4 h-4 text-[#B89753] flex-shrink-0" /> : <Info className="w-4 h-4 text-[#666666] flex-shrink-0" />}<span>{toast.message}</span></div></div>}
       {activeTab !== 'admin' && activeTab !== 'seller' && <Footer />}
     </div>
   );
