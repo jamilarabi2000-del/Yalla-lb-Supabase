@@ -23,4 +23,13 @@ describe('Atomic product creation', () => {
     expect(migration).toContain("revoke all on function private.create_product_atomic");
     expect(migration).toContain('grant execute on function private.create_product_atomic');
   });
+
+  it('wires the Admin Products Create draft action directly to the atomic service', () => {
+    const adminView = read('src/components/AdminView.tsx');
+    expect(adminView).toContain("import { supabaseProductService } from '../services/supabaseProductService';");
+    expect(adminView).toContain('await supabaseProductService.createProduct({');
+    expect(adminView).toContain("publish_status: 'draft'");
+    expect(adminView).toContain('await syncProducts();');
+    expect(adminView).not.toContain('const addProduct = shop.addProduct');
+  });
 });
