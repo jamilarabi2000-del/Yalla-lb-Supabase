@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Eye, EyeOff, GripVertical, Save, RotateCcw } from 'lucide-react';
+import { Eye, EyeOff, GripVertical, Save, RotateCcw, Monitor, Smartphone, Tablet } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import type { SectionVisibilityConfig } from '../../types';
 
@@ -27,6 +27,7 @@ export const StorefrontLayoutBuilder: React.FC = () => {
   const { siteContent, updateSiteContent, showToast } = useShop();
   const [saving, setSaving] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [draftOrder, setDraftOrder] = useState<string[]>(() => Array.from(new Set([...(siteContent.home?.sectionOrder || []), ...HOME_SECTIONS.map(([id]) => id)])));
   const [visibility, setVisibility] = useState<SectionVisibilityConfig>({ ...siteContent.visibility });
   const homeItems = useMemo(() => draftOrder.map(id => HOME_SECTIONS.find(([key]) => key === id)).filter(Boolean) as Array<[string, string]>, [draftOrder]);
@@ -55,19 +56,35 @@ export const StorefrontLayoutBuilder: React.FC = () => {
     } finally { setSaving(false); }
   };
 
+  const deviceWidth = previewDevice === 'mobile' ? 'max-w-[390px]' : previewDevice === 'tablet' ? 'max-w-[768px]' : 'max-w-[1180px]';
+
   return <section className="space-y-5">
     <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div><h2 className="text-xl font-black">Storefront Structure</h2><p className="text-sm text-slate-500 mt-1">Control the registered Yalla storefront sections. Drag Home sections to change their live order and toggle sections whose visibility is backed by the CMS configuration.</p></div>
-        <div className="flex gap-2"><button onClick={reset} type="button" className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-2"><RotateCcw className="w-4 h-4"/>Reset draft</button><button onClick={save} disabled={saving} type="button" className="px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-black flex items-center gap-2 disabled:opacity-50"><Save className="w-4 h-4"/>{saving ? 'Saving…' : 'Save layout'}</button></div>
+        <div><h2 className="text-xl font-black">Storefront Structure</h2><p className="text-sm text-slate-500 mt-1">Control the registered Yalla storefront sections. Drag Home sections to change their live order, toggle supported visibility controls, and preview the resulting structure before publishing.</p></div>
+        <div className="flex flex-wrap gap-2"><div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1"><button type="button" onClick={() => setPreviewDevice('desktop')} className={`p-2 rounded-lg ${previewDevice === 'desktop' ? 'bg-white shadow-sm' : ''}`} title="Desktop preview"><Monitor className="w-4 h-4"/></button><button type="button" onClick={() => setPreviewDevice('tablet')} className={`p-2 rounded-lg ${previewDevice === 'tablet' ? 'bg-white shadow-sm' : ''}`} title="Tablet preview"><Tablet className="w-4 h-4"/></button><button type="button" onClick={() => setPreviewDevice('mobile')} className={`p-2 rounded-lg ${previewDevice === 'mobile' ? 'bg-white shadow-sm' : ''}`} title="Mobile preview"><Smartphone className="w-4 h-4"/></button></div><button onClick={reset} type="button" className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-2"><RotateCcw className="w-4 h-4"/>Reset draft</button><button onClick={save} disabled={saving} type="button" className="px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-black flex items-center gap-2 disabled:opacity-50"><Save className="w-4 h-4"/>{saving ? 'Saving…' : 'Save layout'}</button></div>
       </div>
     </div>
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-      <div className="bg-white rounded-3xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4"><div><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Home</div><h3 className="text-lg font-black">Live section hierarchy</h3></div><span className="text-[10px] font-bold text-emerald-600">DRAG TO REORDER</span></div>
-        <div className="space-y-2">{homeItems.map(([id, label]) => { const visible = visibility[id as SectionKey] !== false; const canToggle = VISIBILITY_CONTROLLED.has(id); return <div key={id} draggable onDragStart={() => setDragId(id)} onDragOver={e => e.preventDefault()} onDrop={() => dropHome(id)} className={`flex items-center gap-3 p-3 rounded-2xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><GripVertical className="w-4 h-4 text-slate-400 shrink-0 cursor-grab"/><div className="min-w-0 flex-1"><div className="font-bold text-sm">{label}</div><div className="text-[10px] font-mono text-slate-400">{id}{!canToggle && ' · data-driven visibility'}</div></div>{canToggle ? <button type="button" onClick={() => toggle(id as SectionKey)} className="p-2 rounded-lg hover:bg-white" title={visible ? 'Hide section' : 'Show section'}>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</button> : <span title="Visibility is controlled by available storefront data" className="p-2 text-slate-300"><Eye className="w-4 h-4"/></span>}</div>; })}</div>
+
+    <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)] gap-5 items-start">
+      <div className="space-y-5">
+        <div className="bg-white rounded-3xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between mb-4"><div><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Home</div><h3 className="text-lg font-black">Live section hierarchy</h3></div><span className="text-[10px] font-bold text-emerald-600">DRAG TO REORDER</span></div>
+          <div className="space-y-2">{homeItems.map(([id, label]) => { const visible = visibility[id as SectionKey] !== false; const canToggle = VISIBILITY_CONTROLLED.has(id); return <div key={id} draggable onDragStart={() => setDragId(id)} onDragOver={e => e.preventDefault()} onDrop={() => dropHome(id)} className={`flex items-center gap-3 p-3 rounded-2xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><GripVertical className="w-4 h-4 text-slate-400 shrink-0 cursor-grab"/><div className="min-w-0 flex-1"><div className="font-bold text-sm">{label}</div><div className="text-[10px] font-mono text-slate-400">{id}{!canToggle && ' · data-driven visibility'}</div></div>{canToggle ? <button type="button" onClick={() => toggle(id as SectionKey)} className="p-2 rounded-lg hover:bg-white" title={visible ? 'Hide section' : 'Show section'}>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</button> : <span title="Visibility is controlled by available storefront data" className="p-2 text-slate-300"><Eye className="w-4 h-4"/></span>}</div>; })}</div>
+        </div>
+        <div className="space-y-5">{PAGE_SECTIONS.map(([pageId, pageLabel, sections]) => <div key={pageId} className="bg-white rounded-3xl border border-slate-200 p-5"><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">{pageId}</div><h3 className="text-lg font-black mb-3">{pageLabel} sections</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{sections.map(([key, label]) => { const visible = visibility[key as SectionKey] !== false; return <button key={key} type="button" onClick={() => toggle(key as SectionKey)} className={`flex items-center gap-3 text-left p-3 rounded-xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><span>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</span><span><span className="block text-sm font-bold">{label}</span><span className="block text-[10px] font-mono text-slate-400">{key}</span></span></button>; })}</div></div>)}</div>
       </div>
-      <div className="space-y-5">{PAGE_SECTIONS.map(([pageId, pageLabel, sections]) => <div key={pageId} className="bg-white rounded-3xl border border-slate-200 p-5"><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">{pageId}</div><h3 className="text-lg font-black mb-3">{pageLabel} sections</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{sections.map(([key, label]) => { const visible = visibility[key as SectionKey] !== false; return <button key={key} type="button" onClick={() => toggle(key as SectionKey)} className={`flex items-center gap-3 text-left p-3 rounded-xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><span>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</span><span><span className="block text-sm font-bold">{label}</span><span className="block text-[10px] font-mono text-slate-400">{key}</span></span></button>; })}</div></div>)}</div>
+
+      <div className="bg-slate-950 rounded-3xl p-4 sm:p-5 text-white sticky top-4">
+        <div className="flex items-center justify-between gap-3 mb-4"><div><div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Preview</div><h3 className="text-lg font-black">Storefront structure preview</h3></div><span className="text-[10px] font-bold text-emerald-400">DRAFT</span></div>
+        <div className="rounded-2xl bg-slate-800/70 p-2 overflow-auto">
+          <div className={`${deviceWidth} mx-auto bg-[#F7F7F8] text-[#171717] rounded-xl overflow-hidden shadow-2xl min-h-[680px] transition-all duration-200`}>
+            <div className="h-10 bg-white border-b border-slate-200 flex items-center justify-between px-4"><div className="h-2.5 w-20 rounded bg-slate-200"/><div className="flex gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-200"/><span className="w-2 h-2 rounded-full bg-slate-200"/><span className="w-2 h-2 rounded-full bg-slate-200"/></div></div>
+            <div className="p-3 space-y-2">{homeItems.map(([id, label]) => { const visible = visibility[id as SectionKey] !== false; return <div key={id} className={`rounded-lg border px-3 py-4 ${visible ? 'border-slate-200 bg-white' : 'border-dashed border-rose-300 bg-rose-50 opacity-60'}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-black">{label}</span>{visible ? <Eye className="w-3.5 h-3.5 text-emerald-600"/> : <EyeOff className="w-3.5 h-3.5 text-rose-500"/>}</div><div className="mt-2 h-2 w-2/3 rounded bg-slate-100"/><div className="mt-1 h-2 w-1/2 rounded bg-slate-100"/></div>; })}</div>
+            <div className="border-t border-slate-200 px-3 py-4 text-[10px] text-slate-400 text-center">Registered storefront layout • no product data is fabricated in preview</div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>;
 };
