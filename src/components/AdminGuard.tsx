@@ -15,6 +15,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useShop } from '../context/ShopContext';
 import {
+  clearAdminMfaSession,
   isMfaSessionValid,
   registerMfaPromptHandler,
   setAdminMfaSession,
@@ -27,6 +28,8 @@ interface AdminGuardProps {
 type AuthMode = 'login' | 'otp' | 'verify_email_notice';
 
 const ADMIN_REDIRECT_URL = 'https://yalla-lb-supabase.netlify.app/admin';
+const ADMIN_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+const ADMIN_ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { authStatus, authUser, signOutUser } = useShop();
@@ -46,6 +49,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const [stepUpError, setStepUpError] = useState<string | null>(null);
   const [isStepUpVerifying, setIsStepUpVerifying] = useState(false);
   const resolverRef = useRef<((success: boolean) => void) | null>(null);
+  const lastActivityRef = useRef(Date.now());
 
   const userId = authUser?.uid;
   const isMfaVerified = isMfaSessionValid(userId);
@@ -72,13 +76,55 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     });
   }, []);
 
-  const sendLoginOtp = async () => {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    if (!userData.user?.email) throw new Error('No administrator email is available for OTP verification.');
+  // Free-tier replacement for Supabase's paid inactivity timeout:
+  // after successful admin OTP verification, 30 minutes without activity
+  // signs the admin out and clears the client-side step-up state.
+  useEffect(() => {
+    if (authStatus !== 'authenticated_admin' || !userId || !isMfaVerified) return;
 
-    const targetEmail = userData.user.email;
-    const { error } = await supabase.auth.reauthenticate();
+    lastActivityRef.current = Date.now();
+    const markActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    ADMIN_ACTIVITY_EVENTS.forEach((event) => {
+      window.addEventListener(event, markActivity, { passive: true });
+    });
+
+    const timer = window.setInterval(async () => {
+      if (Date.now() - lastActivityRef.current < ADMIN_INACTIVITY_TIMEOUT_MS) return;
+
+      window.clearInterval(timer);
+      ADMIN_ACTIVITY_EVENTS.forEach((event) => {
+        window.removeEventListener(event, markActivity);
+      });
+
+      clearAdminMfaSession(userId);
+      setMode('login');
+      setOtp('');
+      setPassword('');
+      setLoginError('Your administrator session expired after 30 minutes of inactivity. Please sign in again.');
+      await signOutUser();
+    }, 30_000);
+
+    return () => {
+      window.clearInterval(timer);
+      ADMIN_ACTIVITY_EVENTS.forEach((event) => {
+        window.removeEventListener(event, markActivity);
+      });
+    };
+  }, [authStatus, userId, isMfaVerified, signOutUser]);
+
+  const sendLoginOtp = async () => {
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail) throw new Error('No administrator email is available for OTP verification.');
+
+    // Standard email OTP: this is intentionally NOT reauthenticate(), because
+    // reauthentication OTPs can use a different code format and purpose.
+    const { error } = await supabase.auth.signInWithOtp({
+      email: targetEmail,
+      options: { shouldCreateUser: false },
+    });
     if (error) throw error;
 
     setEmail(targetEmail);
@@ -114,6 +160,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       if (!data.user) throw new Error('No authenticated administrator was returned.');
 
       await verifyAdminRole(data.user.id);
+      setEmail(cleanEmail);
       await sendLoginOtp();
     } catch (err: any) {
       const message = String(err?.message || '').toLowerCase();
@@ -135,8 +182,8 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     e.preventDefault();
     const cleanOtp = otp.replace(/\D/g, '');
 
-    if (cleanOtp.length !== 6) {
-      setOtpError('Enter the 6-digit verification code sent to your email.');
+    if (cleanOtp.length < 6 || cleanOtp.length > 10) {
+      setOtpError('Enter the complete security code sent to your email.');
       return;
     }
 
@@ -148,7 +195,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       const { data, error } = await supabase.auth.verifyOtp({
         email: targetEmail,
         token: cleanOtp,
-        type: 'reauthentication',
+        type: 'email',
       });
 
       if (error) throw error;
@@ -212,6 +259,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     }
 
     await verifyAdminRole(data.user.id);
+    setEmail(data.user.email || '');
     await sendLoginOtp();
   };
 
@@ -233,6 +281,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
       await verifyAdminRole(data.user.id);
       setAdminMfaSession(data.user.id);
+      lastActivityRef.current = Date.now();
       setShowStepUpModal(false);
       resolverRef.current?.(true);
       resolverRef.current = null;
@@ -270,7 +319,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               <ShieldAlert className="w-7 h-7" />
             </div>
             <h1 className="text-2xl font-bold text-[#111111]">Verify Your Identity</h1>
-            <p className="text-sm text-[#666666]">Enter the 6-digit security code sent to your administrator email.</p>
+            <p className="text-sm text-[#666666]">Enter the security code sent to your administrator email.</p>
             <p className="px-3 py-2 bg-[#F3E5AB] rounded-xl font-mono text-xs text-[#8F7137] break-all">{email}</p>
           </div>
 
@@ -279,10 +328,10 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
+              maxLength={10}
               value={otp}
-              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="Enter 6-digit code"
+              onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="Enter security code"
               className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono"
               autoFocus
             />
@@ -295,7 +344,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             )}
 
             <button
-              disabled={isSubmitting || otp.length !== 6}
+              disabled={isSubmitting || otp.length < 6 || otp.length > 10}
               className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}
@@ -312,6 +361,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
             </button>
             <button
               onClick={async () => {
+                clearAdminMfaSession(userId);
                 await supabase.auth.signOut();
                 setOtp('');
                 setPassword('');
