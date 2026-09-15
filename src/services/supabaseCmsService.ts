@@ -83,8 +83,7 @@ export const supabaseCmsService = {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id ?? null;
 
-    // Keep an immutable admin snapshot before replacing the current CMS state.
-    // The table is RLS-protected so only an authorized admin can create snapshots.
+    // Snapshot the state being saved. RLS on cms_content_versions restricts this to authorized admins.
     const { error: versionError } = await supabase.from('cms_content_versions').insert({
       content,
       published: true,
@@ -93,6 +92,37 @@ export const supabaseCmsService = {
     if (versionError) throw versionError;
 
     const { error } = await supabase.from('cms_site_content').upsert({ id: 'main', content, published: true, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    if (error) throw error;
+  },
+
+  async restoreSiteContent(content: SiteContent): Promise<void> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id ?? null;
+    if (!userId) throw new Error('Authentication required.');
+
+    // Preserve the CURRENT live state first, so Restore is reversible.
+    const { data: current, error: currentError } = await supabase
+      .from('cms_site_content')
+      .select('content')
+      .eq('id', 'main')
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (current?.content) {
+      const { error: snapshotError } = await supabase.from('cms_content_versions').insert({
+        content: current.content,
+        published: true,
+        created_by: userId,
+      });
+      if (snapshotError) throw snapshotError;
+    }
+
+    const { error } = await supabase.from('cms_site_content').upsert({
+      id: 'main',
+      content,
+      published: true,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
     if (error) throw error;
   },
 
