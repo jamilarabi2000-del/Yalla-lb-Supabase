@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Image as ImageIcon, ShoppingBag, Star, Truck, ShieldCheck, RotateCcw, ChevronLeft, ChevronRight, Sparkles, Tag } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
+import { isProductVisibleOnStorefront, getFeaturedStorefrontProducts } from '../../lib/storefrontVisibility';
 import type { SectionVisibilityConfig } from '../../types';
 
 type Device = 'desktop' | 'tablet' | 'mobile';
@@ -24,7 +25,7 @@ const isActive = (item: any) => {
 };
 
 export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, device }) => {
-  const { siteContent, categories = [], products = [], productBundles = [], language, formatPrice } = useShop();
+  const { siteContent, categories = [], products = [], sellers = [], productBundles = [], language, formatPrice, isVisualEditMode = false } = useShop();
   const content: any = siteContent || {};
   const home: any = content.home || {};
   const hero: any = content.hero || {};
@@ -89,7 +90,18 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
   }, [promoSlides.length, promo.autoplay, promo.autoplayInterval, promo.loop]);
 
   const publishedCategories = categories.filter((x: any) => x?.isPublished !== false).sort((a: any, b: any) => (a?.displayOrder ?? 999) - (b?.displayOrder ?? 999)).slice(0, 6);
-  const liveProducts = products.filter((x: any) => x?.isPublished !== false).sort((a: any, b: any) => (a?.displayOrder ?? 999) - (b?.displayOrder ?? 999));
+  const visibleProducts = products.filter((x: any) => isProductVisibleOnStorefront(x, sellers, isVisualEditMode));
+  const liveProducts = visibleProducts.slice().sort((a: any, b: any) => (a?.displayOrder ?? 99999) - (b?.displayOrder ?? 99999));
+  const featuredProducts = getFeaturedStorefrontProducts(products, sellers, isVisualEditMode).slice(0, 12);
+  const todaysDeals = liveProducts.filter((p: any) => p.discountPercentage && p.discountPercentage > 0).slice(0, 12);
+  const newArrivals = liveProducts.slice().sort((a: any, b: any) => {
+    if (a.isNewArrival && !b.isNewArrival) return -1;
+    if (!a.isNewArrival && b.isNewArrival) return 1;
+    if (a.createdAt && b.createdAt) return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (a.createdAt) return -1;
+    if (b.createdAt) return 1;
+    return 0;
+  }).slice(0, 12);
   const liveBundles = productBundles.filter((x: any) => x?.isActive !== false && x?.showInSlider !== false).slice(0, 6);
   const publishedNews = (news.articles || []).filter((x: any) => x?.isPublished !== false).slice(0, 3);
 
@@ -106,7 +118,7 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
   const promoBadge = promoSlide ? (isAr ? (promoSlide.badgeArabic || promoSlide.badge) : (promoSlide.badge || promoSlide.badgeArabic)) : '';
   const promoCta = promoSlide ? (isAr ? (promoSlide.ctaTextArabic || promoSlide.ctaText) : (promoSlide.ctaText || promoSlide.ctaTextArabic)) : '';
   const selectedPromoProduct = promoSlide?.selectedProductId ? products.find((p: any) => p.id === promoSlide.selectedProductId && p.isPublished !== false) : null;
-  const promoCategory = promoSlide?.targetCategory ? categories.find((c: any) => c.id === promoSlide.targetCategory || c.name === promoSlide.targetCategory) : null;
+  const promoCategory = promoSlide?.targetCategory ? categories.find((c: any) => c.id === promoSlide.targetCategory || c.nameEn === promoSlide.targetCategory || c.nameAr === promoSlide.targetCategory) : null;
 
   const promoBg = (slide: any) => {
     switch (slide?.bgStyle) {
@@ -144,7 +156,7 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
         <div className="relative z-10">{promoBadge ? <span className={`inline-flex text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${darkPromo ? 'bg-white/10 text-[#F3E5AB] border border-white/15' : 'bg-black/5 text-[#737373] border border-black/10'}`}>{promoBadge}</span> : null}</div>
         <div className="relative z-10 my-auto py-3">{promoTitle ? <h3 className={`text-lg sm:text-xl font-bold leading-snug line-clamp-3 ${textColor}`}>{promoTitle}</h3> : null}{promoDescription ? <p className={`text-xs mt-2 leading-relaxed line-clamp-4 ${darkPromo ? 'text-white/70' : 'text-[#666]'}`}>{promoDescription}</p> : null}
           {isProduct && selectedPromoProduct ? <div className="mt-3 rounded-xl bg-black/5 border border-black/10 p-2.5 flex gap-2 items-center"><div className="w-12 h-12 rounded-lg bg-white/70 overflow-hidden">{selectedPromoProduct.image ? <img src={selectedPromoProduct.image} alt="" className="w-full h-full object-contain"/> : null}</div><div className="min-w-0"><div className={`text-[10px] font-bold line-clamp-2 ${textColor}`}>{isAr ? (selectedPromoProduct.arabicName || selectedPromoProduct.name) : selectedPromoProduct.name}</div><div className={`text-[10px] font-black mt-1 ${textColor}`}>{Number.isFinite(Number(selectedPromoProduct.priceUSD)) ? formatPrice(Number(selectedPromoProduct.priceUSD)) : '—'}</div></div></div> : null}
-          {isCategory && promoCategory ? <div className={`mt-3 text-xs font-bold ${textColor}`}>{isAr ? (promoCategory.arabicName || promoCategory.name) : promoCategory.name}</div> : null}
+          {isCategory && promoCategory ? <div className={`mt-3 text-xs font-bold ${textColor}`}>{isAr ? promoCategory.nameAr : promoCategory.nameEn}</div> : null}
         </div>
         <div className="relative z-10 flex items-center justify-between gap-2">{promoSlide.showCta !== false && (promoCta || promoSlide.ctaUrl || selectedPromoProduct || promoCategory) ? <span className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-bold ${darkPromo ? 'bg-white text-black' : 'bg-[#111] text-white'}`}>{promoCta || 'Explore'}<ChevronRight className="w-3 h-3"/></span> : <span/>}{promoSlides.length > 1 ? <div className="flex items-center gap-1.5">{promoSlides.map((_: any, i: number) => <span key={i} className={`h-1.5 rounded-full transition-all ${i === promoIndex ? 'w-5 bg-[#B89753]' : 'w-1.5 bg-current opacity-30'}`}/>)}</div> : null}</div>
       </div>}
@@ -159,10 +171,10 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
     if (visibility && (visibility as any)[key] === false) return null;
     switch (key) {
       case 'homeHero': return <div key={key} className="mb-5">{promoSlides.length > 0 && device === 'desktop' ? <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 sm:gap-5">{renderHero()}{renderPromo()}</div> : <>{renderHero()}{promoSlides.length > 0 ? <div className="mt-3 lg:hidden">{renderPromo()}</div> : null}</>}</div>;
-      case 'homeCategories': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.categoriesTitleArabic || home.categoriesTitle || 'التصنيفات') : (home.categoriesTitle || 'Categories'), isAr ? home.categoriesSubtitleArabic : home.categoriesSubtitle)}{publishedCategories.length ? <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">{publishedCategories.map((c: any) => <div key={c.id} className="rounded-xl border border-slate-200 bg-white p-4 text-center"><div className="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center">{c.imageUrl ? <img src={c.imageUrl} alt="" className="w-full h-full rounded-full object-cover"/> : <ImageIcon className="w-5 h-5 text-slate-300"/>}</div><div className="mt-2 text-[11px] font-bold line-clamp-2">{isAr ? (c.arabicName || c.name) : c.name}</div></div>)}</div> : empty('No published categories')}</section>;
-      case 'homeFeatured': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.featuredTitleArabic || home.featuredTitle || 'منتجات مميزة') : (home.featuredTitle || 'Featured Products'), isAr ? home.featuredSubtitleArabic : home.featuredSubtitle)}{cards(liveProducts.filter((p: any) => p.isFeatured === true))}</section>;
-      case 'homeDeals': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.dealsTitleArabic || home.dealsTitle || 'العروض') : (home.dealsTitle || 'Deals'), isAr ? home.dealsSubtitleArabic : home.dealsSubtitle)}{cards(liveProducts.filter((p: any) => Number(p.discountPercentage) > 0 || Number(p.originalPriceUSD) > Number(p.priceUSD)))}</section>;
-      case 'homeNewArrivals': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.newArrivalsTitleArabic || home.newArrivalsTitle || 'وصل حديثاً') : (home.newArrivalsTitle || 'New Arrivals'), isAr ? home.newArrivalsSubtitleArabic : home.newArrivalsSubtitle)}{cards(liveProducts.filter((p: any) => p.isNewArrival === true || p.isNew === true))}</section>;
+      case 'homeCategories': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.categoriesTitleArabic || home.categoriesTitle || 'التصنيفات') : (home.categoriesTitle || 'Categories'), isAr ? home.categoriesSubtitleArabic : home.categoriesSubtitle)}{publishedCategories.length ? <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">{publishedCategories.map((c: any) => <div key={c.id} className="rounded-xl border border-slate-200 bg-white p-4 text-center"><div className="w-12 h-12 mx-auto rounded-full bg-slate-100 flex items-center justify-center">{c.bannerUrl ? <img src={c.bannerUrl} alt="" className="w-full h-full rounded-full object-cover"/> : <ImageIcon className="w-5 h-5 text-slate-300"/>}</div><div className="mt-2 text-[11px] font-bold line-clamp-2">{isAr ? c.nameAr : c.nameEn}</div></div>)}</div> : empty('No published categories')}</section>;
+      case 'homeFeatured': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.featuredTitleArabic || home.featuredTitle || 'منتجات مميزة') : (home.featuredTitle || 'Featured Products'), isAr ? home.featuredSubtitleArabic : home.featuredSubtitle)}{cards(featuredProducts)}</section>;
+      case 'homeDeals': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.dealsTitleArabic || home.dealsTitle || 'العروض') : (home.dealsTitle || 'Deals'), isAr ? home.dealsSubtitleArabic : home.dealsSubtitle)}{cards(todaysDeals)}</section>;
+      case 'homeNewArrivals': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.newArrivalsTitleArabic || home.newArrivalsTitle || 'وصل حديثاً') : (home.newArrivalsTitle || 'New Arrivals'), isAr ? home.newArrivalsSubtitleArabic : home.newArrivalsSubtitle)}{cards(newArrivals)}</section>;
       case 'homeBundles': return <section key={key} className="mb-8">{sectionTitle(isAr ? (home.bundlesTitleArabic || home.bundlesTitle || 'الباقات') : (home.bundlesTitle || 'Bundles'), isAr ? home.bundlesSubtitleArabic : home.bundlesSubtitle)}{liveBundles.length ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{liveBundles.map((b: any) => <article key={b.id} className="rounded-xl overflow-hidden border border-slate-200 bg-white"><div className="aspect-[16/9] bg-slate-100">{b.imageUrl ? <img src={b.imageUrl} alt="" className="w-full h-full object-cover"/> : null}</div><div className="p-3"><div className="text-sm font-bold line-clamp-2">{isAr ? (b.nameAr || b.name) : b.name}</div>{b.description || b.descriptionAr ? <p className="mt-1 text-xs text-slate-500 line-clamp-2">{isAr ? (b.descriptionAr || b.description) : b.description}</p> : null}</div></article>)}</div> : empty('No published bundles')}</section>;
       case 'homeNews': return <section key={key} className="mb-8">{sectionTitle(isAr ? (news.titleArabic || news.title || 'الأخبار') : (news.title || 'News'), isAr ? news.subtitleArabic : news.subtitle)}{publishedNews.length ? <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{publishedNews.map((n: any) => <article key={n.id || n.title} className="rounded-xl border border-slate-200 bg-white overflow-hidden"><div className="aspect-[16/9] bg-slate-100">{n.imageUrl ? <img src={n.imageUrl} alt="" className="w-full h-full object-cover"/> : null}</div><div className="p-3"><h4 className="text-sm font-bold line-clamp-2">{isAr ? (n.titleArabic || n.title) : n.title}</h4>{n.excerpt || n.description ? <p className="mt-1 text-xs text-slate-500 line-clamp-3">{isAr ? (n.excerptArabic || n.excerpt || n.description) : (n.excerpt || n.description)}</p> : null}</div></article>)}</div> : empty('No published news articles')}</section>;
       case 'homeHeritage': return <section key={key} className="mb-8 rounded-2xl bg-slate-50 border border-slate-200 p-6">{sectionTitle(isAr ? (home.heritageTitleArabic || home.heritageTitle || 'قصتنا') : (home.heritageTitle || 'Our Story'), isAr ? home.heritageSubtitleArabic : home.heritageSubtitle)}<p className="text-sm text-slate-600 whitespace-pre-line">{isAr ? (home.heritageTextArabic || home.heritageText || '') : (home.heritageText || '') || 'No CMS heritage content configured.'}</p></section>;
