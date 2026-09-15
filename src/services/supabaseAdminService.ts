@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { toUserFacingError } from '../utils/userFacingError';
 
 /**
  * Admin-only data access helpers.
@@ -21,7 +22,7 @@ export const supabaseAdminService = {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) throw error;
+    if (error) throw toUserFacingError(error, 'Unable to load activity history right now.');
 
     return (data || []).map((row: any) => ({
       id: row.id,
@@ -42,6 +43,6 @@ export const supabaseAdminService = {
       origin,
       user_id: null,
     });
-    if (error) throw error;
+    if (error) throw toUserFacingError(error, 'Unable to save the search right now.');
   },
 };
