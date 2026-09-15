@@ -41,5 +41,35 @@ const supabaseClient = createClient(
  * highly dynamic Supabase queries. Keep the runtime client identical while
  * preventing generated query unions from overwhelming TypeScript during the
  * migration. Database/RLS authorization remains enforced by Supabase.
+ *
+ * Checkout is transparently routed through the inventory-audited gateway so
+ * every stock decrement is recorded as a sale in the same transaction.
  */
-export const supabase: any = supabaseClient;
+const supabaseRuntime = new Proxy(supabaseClient as any, {
+  get(target, property, receiver) {
+    if (property !== 'schema') return Reflect.get(target, property, receiver);
+
+    return (schemaName: string) => {
+      const schemaClient = target.schema(schemaName);
+      if (schemaName !== 'private') return schemaClient;
+
+      return new Proxy(schemaClient as any, {
+        get(schemaTarget, schemaProperty, schemaReceiver) {
+          if (schemaProperty !== 'rpc') {
+            return Reflect.get(schemaTarget, schemaProperty, schemaReceiver);
+          }
+
+          return (functionName: string, args?: Record<string, unknown>, options?: unknown) => {
+            const effectiveName =
+              functionName === 'checkout_create_order'
+                ? 'checkout_create_order_gateway'
+                : functionName;
+            return schemaTarget.rpc(effectiveName, args, options);
+          };
+        },
+      });
+    };
+  },
+});
+
+export const supabase: any = supabaseRuntime;
