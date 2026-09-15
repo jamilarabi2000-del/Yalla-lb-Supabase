@@ -1,7 +1,11 @@
 create extension if not exists pg_trgm;
 create extension if not exists unaccent;
 
-create type public.product_publish_status as enum ('draft','scheduled','published','unpublished','archived');
+do $$
+begin
+  create type public.product_publish_status as enum ('draft','scheduled','published','unpublished','archived');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.permissions (key text primary key, description text not null default '', created_at timestamptz not null default now());
 create table if not exists public.role_permissions (role public.app_role not null, permission_key text not null references public.permissions(key) on delete cascade, primary key(role,permission_key));
@@ -19,6 +23,10 @@ $$;
 alter table public.permissions enable row level security;
 alter table public.role_permissions enable row level security;
 alter table public.user_permissions enable row level security;
+drop policy if exists permissions_admin on public.permissions;
+drop policy if exists role_permissions_admin on public.role_permissions;
+drop policy if exists user_permissions_self on public.user_permissions;
+drop policy if exists user_permissions_admin on public.user_permissions;
 create policy permissions_admin on public.permissions for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy role_permissions_admin on public.role_permissions for all to authenticated using(public.is_admin()) with check(public.is_admin());
 create policy user_permissions_self on public.user_permissions for select to authenticated using(user_id=auth.uid() or public.is_admin());
@@ -35,18 +43,25 @@ update public.products set publish_status=case when is_published then 'published
 create table if not exists public.inventory_ledger(id uuid primary key default gen_random_uuid(),product_id uuid not null references public.products(id) on delete restrict,variant_id uuid references public.product_variants(id) on delete restrict,seller_id uuid references public.sellers(id) on delete set null,quantity_change integer not null check(quantity_change<>0),reason text not null check(reason in('opening','purchase','sale','return','damage','adjustment','transfer','reservation','release')),reference_type text,reference_id uuid,note text,actor_id uuid references auth.users(id) on delete set null,created_at timestamptz not null default now());
 create index if not exists inventory_ledger_product_idx on public.inventory_ledger(product_id,created_at desc);
 alter table public.inventory_ledger enable row level security;
+drop policy if exists inventory_admin_all on public.inventory_ledger;
+drop policy if exists inventory_seller_read_own on public.inventory_ledger;
 create policy inventory_admin_all on public.inventory_ledger for all to authenticated using(public.has_permission('inventory.manage')) with check(public.has_permission('inventory.manage'));
 create policy inventory_seller_read_own on public.inventory_ledger for select to authenticated using(public.has_permission('inventory.manage_own') and seller_id=(select seller_id from public.profiles where id=auth.uid()));
 
 create table if not exists public.order_events(id uuid primary key default gen_random_uuid(),order_id uuid not null references public.orders(id) on delete cascade,from_status public.order_status,to_status public.order_status not null,actor_id uuid references auth.users(id) on delete set null,note text,metadata jsonb not null default '{}'::jsonb,created_at timestamptz not null default now());
 create index if not exists order_events_order_idx on public.order_events(order_id,created_at desc);
 alter table public.order_events enable row level security;
+drop policy if exists order_events_admin on public.order_events;
+drop policy if exists order_events_customer_read_own on public.order_events;
 create policy order_events_admin on public.order_events for all to authenticated using(public.has_permission('orders.manage')) with check(public.has_permission('orders.manage'));
 create policy order_events_customer_read_own on public.order_events for select to authenticated using(exists(select 1 from public.orders o where o.id=order_id and o.user_id=auth.uid()));
 
 create table if not exists public.notifications(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,type text not null,title text not null,body text not null default '',entity_type text,entity_id uuid,read_at timestamptz,created_at timestamptz not null default now());
 create index if not exists notifications_user_idx on public.notifications(user_id,read_at,created_at desc);
 alter table public.notifications enable row level security;
+drop policy if exists notifications_own on public.notifications;
+drop policy if exists notifications_update_own on public.notifications;
+drop policy if exists notifications_admin on public.notifications;
 create policy notifications_own on public.notifications for select to authenticated using(user_id=auth.uid() or public.has_permission('notifications.manage'));
 create policy notifications_update_own on public.notifications for update to authenticated using(user_id=auth.uid()) with check(user_id=auth.uid());
 create policy notifications_admin on public.notifications for all to authenticated using(public.has_permission('notifications.manage')) with check(public.has_permission('notifications.manage'));
@@ -54,17 +69,24 @@ create policy notifications_admin on public.notifications for all to authenticat
 create table if not exists public.analytics_events(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id) on delete set null,session_id text,event_name text not null,entity_type text,entity_id uuid,properties jsonb not null default '{}'::jsonb,created_at timestamptz not null default now());
 create index if not exists analytics_events_name_idx on public.analytics_events(event_name,created_at desc);
 alter table public.analytics_events enable row level security;
+drop policy if exists analytics_insert_public on public.analytics_events;
+drop policy if exists analytics_admin_read on public.analytics_events;
+drop policy if exists analytics_own_read on public.analytics_events;
 create policy analytics_insert_public on public.analytics_events for insert to anon,authenticated with check(user_id is null or user_id=auth.uid());
 create policy analytics_admin_read on public.analytics_events for select to authenticated using(public.has_permission('analytics.view'));
 create policy analytics_own_read on public.analytics_events for select to authenticated using(user_id=auth.uid());
 
 create table if not exists public.search_synonyms(id uuid primary key default gen_random_uuid(),term text not null,synonym text not null,language text not null check(language in('en','ar','both')),is_active boolean not null default true,unique(term,synonym,language));
 alter table public.search_synonyms enable row level security;
+drop policy if exists search_synonyms_public_read on public.search_synonyms;
+drop policy if exists search_synonyms_admin_write on public.search_synonyms;
 create policy search_synonyms_public_read on public.search_synonyms for select to anon,authenticated using(is_active=true);
 create policy search_synonyms_admin_write on public.search_synonyms for all to authenticated using(public.has_permission('products.manage')) with check(public.has_permission('products.manage'));
 
 create table if not exists public.product_seo(product_id uuid primary key references public.products(id) on delete cascade,canonical_url text,og_title text,og_description text,og_image text,twitter_card text not null default 'summary_large_image',noindex boolean not null default false,updated_at timestamptz not null default now());
 alter table public.product_seo enable row level security;
+drop policy if exists product_seo_public_read on public.product_seo;
+drop policy if exists product_seo_admin_write on public.product_seo;
 create policy product_seo_public_read on public.product_seo for select to anon,authenticated using(noindex=false);
 create policy product_seo_admin_write on public.product_seo for all to authenticated using(public.has_permission('products.manage')) with check(public.has_permission('products.manage'));
 
@@ -91,4 +113,5 @@ grant execute on function public.record_inventory_change(uuid,integer,text,text,
 
 create or replace function public.record_order_event() returns trigger language plpgsql security definer set search_path=public as $$ begin if tg_op='INSERT' then insert into public.order_events(order_id,to_status,actor_id,note) values(new.id,new.status,auth.uid(),'order created'); elsif old.status is distinct from new.status then insert into public.order_events(order_id,from_status,to_status,actor_id) values(new.id,old.status,new.status,auth.uid()); end if; return new; end; $$;
 revoke all on function public.record_order_event() from public,anon,authenticated;
+drop trigger if exists trg_order_event_audit on public.orders;
 create trigger trg_order_event_audit after insert or update of status on public.orders for each row execute function public.record_order_event();
