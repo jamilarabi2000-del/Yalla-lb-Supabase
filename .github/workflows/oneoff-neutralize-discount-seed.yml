@@ -6,7 +6,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.sha == 'ab95e0a94395718ac302394dc9fdcf824a625d02'
+    if: contains(github.event.head_commit.message, 'arm one-off legacy seed cleanup')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
