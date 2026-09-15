@@ -18,6 +18,10 @@ const PAGE_SECTIONS = [
 ] as const;
 
 type SectionKey = keyof SectionVisibilityConfig;
+const VISIBILITY_CONTROLLED = new Set<string>([
+  'homeHero', 'homeCategories', 'homeFeatured', 'homeDeals', 'homeNews', 'homeNewArrivals',
+  'homeTrustBadges', 'homeHeritage', 'homeReviews', 'homeNewsletter',
+]);
 
 export const StorefrontLayoutBuilder: React.FC = () => {
   const { siteContent, updateSiteContent, showToast } = useShop();
@@ -54,14 +58,14 @@ export const StorefrontLayoutBuilder: React.FC = () => {
   return <section className="space-y-5">
     <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div><h2 className="text-xl font-black">Storefront Structure</h2><p className="text-sm text-slate-500 mt-1">Control the real Yalla storefront sections. Drag Home sections to change their live order and toggle registered sections without touching commerce logic.</p></div>
+        <div><h2 className="text-xl font-black">Storefront Structure</h2><p className="text-sm text-slate-500 mt-1">Control the registered Yalla storefront sections. Drag Home sections to change their live order and toggle sections whose visibility is backed by the CMS configuration.</p></div>
         <div className="flex gap-2"><button onClick={reset} type="button" className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-2"><RotateCcw className="w-4 h-4"/>Reset draft</button><button onClick={save} disabled={saving} type="button" className="px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-black flex items-center gap-2 disabled:opacity-50"><Save className="w-4 h-4"/>{saving ? 'Saving…' : 'Save layout'}</button></div>
       </div>
     </div>
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
       <div className="bg-white rounded-3xl border border-slate-200 p-5">
         <div className="flex items-center justify-between mb-4"><div><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Home</div><h3 className="text-lg font-black">Live section hierarchy</h3></div><span className="text-[10px] font-bold text-emerald-600">DRAG TO REORDER</span></div>
-        <div className="space-y-2">{homeItems.map(([id, label]) => { const visible = visibility[id as SectionKey] !== false; return <div key={id} draggable onDragStart={() => setDragId(id)} onDragOver={e => e.preventDefault()} onDrop={() => dropHome(id)} className={`flex items-center gap-3 p-3 rounded-2xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><GripVertical className="w-4 h-4 text-slate-400 shrink-0 cursor-grab"/><div className="min-w-0 flex-1"><div className="font-bold text-sm">{label}</div><div className="text-[10px] text-slate-400 font-mono">{id}</div></div><button type="button" onClick={() => toggle(id as SectionKey)} className="p-2 rounded-lg hover:bg-white" title={visible ? 'Hide section' : 'Show section'}>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</button></div>; })}</div>
+        <div className="space-y-2">{homeItems.map(([id, label]) => { const visible = visibility[id as SectionKey] !== false; const canToggle = VISIBILITY_CONTROLLED.has(id); return <div key={id} draggable onDragStart={() => setDragId(id)} onDragOver={e => e.preventDefault()} onDrop={() => dropHome(id)} className={`flex items-center gap-3 p-3 rounded-2xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><GripVertical className="w-4 h-4 text-slate-400 shrink-0 cursor-grab"/><div className="min-w-0 flex-1"><div className="font-bold text-sm">{label}</div><div className="text-[10px] font-mono text-slate-400">{id}{!canToggle && ' · data-driven visibility'}</div></div>{canToggle ? <button type="button" onClick={() => toggle(id as SectionKey)} className="p-2 rounded-lg hover:bg-white" title={visible ? 'Hide section' : 'Show section'}>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</button> : <span title="Visibility is controlled by available storefront data" className="p-2 text-slate-300"><Eye className="w-4 h-4"/></span>}</div>; })}</div>
       </div>
       <div className="space-y-5">{PAGE_SECTIONS.map(([pageId, pageLabel, sections]) => <div key={pageId} className="bg-white rounded-3xl border border-slate-200 p-5"><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-1">{pageId}</div><h3 className="text-lg font-black mb-3">{pageLabel} sections</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{sections.map(([key, label]) => { const visible = visibility[key as SectionKey] !== false; return <button key={key} type="button" onClick={() => toggle(key as SectionKey)} className={`flex items-center gap-3 text-left p-3 rounded-xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><span>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</span><span><span className="block text-sm font-bold">{label}</span><span className="block text-[10px] font-mono text-slate-400">{key}</span></span></button>; })}</div></div>)}</div>
     </div>
