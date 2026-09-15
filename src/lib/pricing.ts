@@ -13,36 +13,24 @@ export function computeDiscounts(params: {
   subtotalUSD?: number;
 }): { discountUSD: number; appliedCoupon?: string; finalSubtotalUSD: number; appliedRules: any[] } {
   const items: CartItem[] = params.lines.map(l => ({
-    product: {
-      ...l.product,
-      priceUSD: typeof l.unitPriceUSD === 'number' ? l.unitPriceUSD : l.product.priceUSD
-    },
+    product: { ...l.product, priceUSD: typeof l.unitPriceUSD === 'number' ? l.unitPriceUSD : l.product.priceUSD },
     quantity: l.quantity
   }));
-
   const res = applyDiscounts(items, params.discounts, {
     couponCode: params.couponCode,
     isNewUser: params.isNewCustomer,
     productBundles: params.bundles
   });
-
-  return {
-    discountUSD: res.discountUSD,
-    finalSubtotalUSD: res.finalSubtotalUSD,
-    appliedCoupon: params.couponCode || undefined,
-    appliedRules: res.appliedRules
-  };
+  return { discountUSD: res.discountUSD, finalSubtotalUSD: res.finalSubtotalUSD, appliedCoupon: res.appliedCoupon, appliedRules: res.appliedRules };
 }
 
 export interface DiscountCalculationResult {
   subtotalUSD: number;
   discountUSD: number;
   finalSubtotalUSD: number;
-  appliedRules: {
-    rule: DiscountRule;
-    savedUSD: number;
-  }[];
+  appliedRules: { rule: DiscountRule; savedUSD: number }[];
   appliedRuleIds: string[];
+  appliedCoupon?: string;
 }
 
 export interface DiscountOptions {
@@ -54,240 +42,112 @@ export interface DiscountOptions {
 
 export const MAX_TOTAL_DISCOUNT_PCT = 70;
 
+// Mirrors private.checkout_create_order. The RPC remains authoritative at checkout.
 function matchesTarget(product: Product, rule: DiscountRule): boolean {
   if (!rule.target || rule.target === 'checkout' || rule.target === 'all') return true;
-  if (!rule.targetValue || rule.targetValue.trim() === '') return false; // FAIL CLOSED
-
-  const targetVal = rule.targetValue.toLowerCase().trim();
-
-  if (rule.target === 'product') {
-    return product.id.toLowerCase() === targetVal;
-  }
-  if (rule.target === 'category') {
-    return product.category.toLowerCase() === targetVal;
-  }
-  if (rule.target === 'seller') {
-    return (
-      (product.artisan?.toLowerCase().includes(targetVal) ?? false) ||
-      (product.origin?.toLowerCase().includes(targetVal) ?? false)
-    );
-  }
-  if (rule.target === 'brand') {
-    return (
-      (product.artisan?.toLowerCase().includes(targetVal) ?? false) ||
-      (product.origin?.toLowerCase().includes(targetVal) ?? false) ||
-      (product.name?.toLowerCase().includes(targetVal) ?? false)
-    );
-  }
+  if (!rule.targetValue?.trim()) return false;
+  const target = rule.targetValue.toLowerCase().trim();
+  const productId = String(product.id || '').toLowerCase();
+  const categoryId = String((product as any).categoryId || '').toLowerCase();
+  const categoryName = String(product.category || '').toLowerCase();
+  const sellerId = String((product as any).sellerId || '').toLowerCase();
+  const sellerName = String((product as any).seller || '').toLowerCase();
+  const artisan = String(product.artisan || '').toLowerCase();
+  const origin = String(product.origin || '').toLowerCase();
+  const name = String(product.name || '').toLowerCase();
+  if (rule.target === 'product') return productId === target;
+  if (rule.target === 'category') return categoryId === target || categoryName === target;
+  if (rule.target === 'seller') return sellerId === target || sellerName === target;
+  if (rule.target === 'brand') return artisan.includes(target) || origin.includes(target) || name.includes(target);
   return false;
 }
 
-/**
- * Calculates cart discounts accurately based on active rules, promotion periods, audience filters, and optional entered coupon code.
- */
-export function applyDiscounts(
-  items: CartItem[],
-  rules: DiscountRule[],
-  options: DiscountOptions = {}
-): DiscountCalculationResult {
-  const subtotal = items.reduce((sum, item) => sum + item.product.priceUSD * item.quantity, 0);
-  if (subtotal <= 0 || items.length === 0) {
-    return {
-      subtotalUSD: 0,
-      discountUSD: 0,
-      finalSubtotalUSD: 0,
-      appliedRules: [],
-      appliedRuleIds: []
-    };
-  }
+function inWindow(rule: DiscountRule, now: Date): boolean {
+  if (rule.startDate) { const d = new Date(rule.startDate); if (!isNaN(d.getTime()) && now < d) return false; }
+  if (rule.endDate) { const d = new Date(rule.endDate); if (!isNaN(d.getTime()) && now > d) return false; }
+  return true;
+}
+
+export function applyDiscounts(items: CartItem[], rules: DiscountRule[], options: DiscountOptions = {}): DiscountCalculationResult {
+  const subtotal = round2(items.reduce((sum, item) => sum + item.product.priceUSD * item.quantity, 0));
+  if (subtotal <= 0 || items.length === 0) return { subtotalUSD: 0, discountUSD: 0, finalSubtotalUSD: 0, appliedRules: [], appliedRuleIds: [] };
 
   let totalDiscount = 0;
   const appliedRules: { rule: DiscountRule; savedUSD: number }[] = [];
-  const normalizedCoupon = options.couponCode ? options.couponCode.trim().toUpperCase() : '';
+  const normalizedCoupon = options.couponCode?.trim().toUpperCase() || '';
   const now = options.currentDate || new Date();
   const isNewUser = options.isNewUser ?? false;
 
-  // 1. Calculate Combo & Product Bundle automatic discounts first
-  if (options.productBundles && options.productBundles.length > 0) {
-    const availableQuantities: { [key: string]: number } = {};
-    for (const item of items) {
-      const pid = item.product.id;
-      availableQuantities[pid] = (availableQuantities[pid] || 0) + item.quantity;
-    }
-
-    const activeBundles = options.productBundles.filter(b => b.isActive !== false);
-    
-    // Sort bundles by unit savings descending to prioritize the best deal for the user
-    const bundlesWithSavings = activeBundles.map(bundle => {
-      // Find matching products in current items to calculate original prices
-      const bundleProducts = items
-        .map(item => item.product)
-        .filter(p => bundle.productIds.includes(p.id))
-        .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-      
-      const originalSum = bundleProducts.reduce((sum, p) => sum + p.priceUSD, 0);
-      const savingsPerSet = Math.max(0, originalSum - bundle.bundlePriceUSD);
-      return { bundle, savingsPerSet };
-    }).sort((a, b) => b.savingsPerSet - a.savingsPerSet);
-
-    for (const { bundle, savingsPerSet } of bundlesWithSavings) {
-      if (savingsPerSet <= 0 || bundle.productIds.length === 0) continue;
-
-      // Exclude if promotion periods don't match
-      if (bundle.startDate) {
-        const bStart = new Date(bundle.startDate);
-        if (!isNaN(bStart.getTime()) && now < bStart) continue;
-      }
-      if (bundle.endDate) {
-        const bEnd = new Date(bundle.endDate);
-        if (!isNaN(bEnd.getTime()) && now > bEnd) continue;
-      }
-
-      // Calculate complete sets we can form with the remaining items
-      let completeSets = Infinity;
+  // Match checkout_create_order: bundles are processed in display_order/id order and consume quantities.
+  if (options.productBundles?.length) {
+    const available: Record<string, number> = {};
+    for (const item of items) available[item.product.id] = (available[item.product.id] || 0) + item.quantity;
+    const bundles = options.productBundles.filter(b => b.isActive !== false).slice().sort((a: any, b: any) => (Number(a.displayOrder ?? 0) - Number(b.displayOrder ?? 0)) || String(a.id).localeCompare(String(b.id)));
+    for (const bundle of bundles) {
+      if (!bundle.productIds.length) continue;
+      let completeSets = Number.MAX_SAFE_INTEGER;
+      let originalSum = 0;
       for (const pid of bundle.productIds) {
-        const qty = availableQuantities[pid] || 0;
-        if (qty < completeSets) {
-          completeSets = qty;
-        }
+        const qty = available[pid] || 0;
+        completeSets = Math.min(completeSets, qty);
+        const product = items.find(i => i.product.id === pid)?.product;
+        if (!product) { completeSets = 0; break; }
+        originalSum += Math.max(0, product.priceUSD);
       }
-
-      if (completeSets > 0 && completeSets !== Infinity) {
-        // Consume items
-        for (const pid of bundle.productIds) {
-          availableQuantities[pid] -= completeSets;
-        }
-
-        const totalSaved = Math.round(savingsPerSet * completeSets * 100) / 100;
-        if (totalSaved > 0) {
-          totalDiscount += totalSaved;
-          const virtualRule: DiscountRule = {
-            id: `bundle-${bundle.id}`,
-            name: `${bundle.name} (Combo Offer)`,
-            nameAr: `${bundle.nameAr || bundle.name} (عرض كومبو)`,
-            type: 'fixed',
-            value: totalSaved,
-            target: 'checkout',
-            isActive: true
-          };
-          appliedRules.push({ rule: virtualRule, savedUSD: totalSaved });
-        }
+      const savingsPerSet = Math.max(0, originalSum - Math.max(0, bundle.bundlePriceUSD));
+      if (completeSets > 0 && completeSets !== Number.MAX_SAFE_INTEGER && savingsPerSet > 0) {
+        const saved = round2(savingsPerSet * completeSets);
+        totalDiscount += saved;
+        for (const pid of bundle.productIds) available[pid] = Math.max(0, (available[pid] || 0) - completeSets);
+        const virtualRule: DiscountRule = { id: `bundle-${bundle.id}`, name: `${bundle.name} (Combo Offer)`, nameAr: `${bundle.nameAr || bundle.name} (عرض كومبو)`, type: 'fixed', value: saved, target: 'checkout', isActive: true };
+        appliedRules.push({ rule: virtualRule, savedUSD: saved });
       }
     }
   }
 
   for (const rule of rules) {
-    if (!rule.isActive) continue;
-
-    // Promotion period validation
-    if (rule.startDate) {
-      const start = new Date(rule.startDate);
-      if (!isNaN(start.getTime()) && now < start) {
-        continue; // Promotion hasn't started yet
-      }
-    }
-    if (rule.endDate) {
-      const end = new Date(rule.endDate);
-      if (!isNaN(end.getTime()) && now > end) {
-        continue; // Promotion has expired
-      }
-    }
-
-    // New user exclusivity validation
-    if (rule.isNewUserOnly && !isNewUser) {
-      continue; // Exclude if rule is for new users only and customer is existing
-    }
-
-    // If rule has an associated coupon code, it must match the entered coupon
+    if (!rule.isActive || !inWindow(rule, now)) continue;
+    if (rule.isNewUserOnly && !isNewUser) continue;
     const ruleCoupon = (rule as any).couponCode;
-    if (ruleCoupon && typeof ruleCoupon === 'string' && ruleCoupon.trim() !== '') {
-      if (ruleCoupon.trim().toUpperCase() !== normalizedCoupon) {
-        continue;
-      }
-    }
+    if (ruleCoupon?.trim() && ruleCoupon.trim().toUpperCase() !== normalizedCoupon) continue;
+    if (rule.minPurchaseUSD && subtotal < rule.minPurchaseUSD) continue;
 
-    // Minimum purchase condition
-    if (rule.minPurchaseUSD && subtotal < rule.minPurchaseUSD) {
-      continue;
-    }
-
-    // Target calculation
-    let baseApplicableAmount = 0;
-    if (!rule.target || rule.target === 'checkout' || rule.target === 'all') {
-      baseApplicableAmount = subtotal;
-    } else {
-      const eligibleItems = items.filter(item => matchesTarget(item.product, rule));
-      baseApplicableAmount = eligibleItems.reduce((s, item) => s + item.product.priceUSD * item.quantity, 0);
-    }
-
-    if (baseApplicableAmount <= 0) continue;
+    const target = rule.target || 'all';
+    const eligible = target === 'checkout' || target === 'all' ? items : items.filter(i => matchesTarget(i.product, rule));
+    const base = round2(eligible.reduce((sum, item) => sum + item.product.priceUSD * item.quantity, 0));
+    if (base <= 0) continue;
 
     let ruleDiscount = 0;
     if (rule.type === 'bogo') {
       const buyX = Math.max(1, rule.buyQty || 1);
       const getY = Math.max(1, rule.getQty || 1);
-      const discountPct = Math.min(100, Math.max(1, rule.getDiscountPercent !== undefined ? rule.getDiscountPercent : (rule.value || 100)));
+      const pct = Math.min(100, Math.max(1, rule.getDiscountPercent !== undefined ? rule.getDiscountPercent : (rule.value || 100)));
       const groupSize = buyX + getY;
-
-      // Group eligible items into individual unit price list
-      const eligibleItems = !rule.target || rule.target === 'checkout' || rule.target === 'all'
-        ? items
-        : items.filter(item => matchesTarget(item.product, rule));
-
+      let groups = 0;
+      for (const item of eligible) groups += Math.floor(item.quantity / groupSize);
       if (rule.target === 'product') {
-        // Single product BOGO: calculate units per product
-        for (const item of eligibleItems) {
-          if (item.quantity >= groupSize) {
-            const fullGroups = Math.floor(item.quantity / groupSize);
-            const freeUnits = fullGroups * getY;
-            const savings = freeUnits * item.product.priceUSD * (discountPct / 100);
-            ruleDiscount += savings;
-          }
-        }
+        for (const item of eligible) ruleDiscount += Math.floor(item.quantity / groupSize) * getY * item.product.priceUSD * pct / 100;
       } else {
-        // Multi-product / Category / Brand / Storewide BOGO:
-        // Expand eligible items into individual price units, sort ascending (discount the cheapest eligible items in the set)
-        const unitPrices: number[] = [];
-        for (const item of eligibleItems) {
-          for (let i = 0; i < item.quantity; i++) {
-            unitPrices.push(item.product.priceUSD);
-          }
-        }
-        
-        if (unitPrices.length >= groupSize) {
-          unitPrices.sort((a, b) => a - b); // Ascending order
-          const fullGroups = Math.floor(unitPrices.length / groupSize);
-          const totalDiscountedUnits = fullGroups * getY;
-          // Discount the cheapest units
-          for (let i = 0; i < totalDiscountedUnits && i < unitPrices.length; i++) {
-            ruleDiscount += unitPrices[i] * (discountPct / 100);
-          }
-        }
+        for (const item of eligible) ruleDiscount += Math.min(item.quantity, groups * getY) * item.product.priceUSD * pct / 100;
       }
     } else if (rule.type === 'percentage') {
-      ruleDiscount = baseApplicableAmount * (Math.min(100, Math.max(0, rule.value)) / 100);
+      ruleDiscount = base * Math.min(100, Math.max(0, rule.value)) / 100;
     } else {
-      // Fixed discount cannot exceed eligible amount and cannot be negative
-      ruleDiscount = Math.max(0, Math.min(rule.value, baseApplicableAmount));
+      ruleDiscount = Math.min(base, Math.max(0, rule.value));
     }
-
-    ruleDiscount = Math.round(ruleDiscount * 100) / 100;
-    if (ruleDiscount > 0) {
-      totalDiscount += ruleDiscount;
-      appliedRules.push({ rule, savedUSD: ruleDiscount });
-    }
+    ruleDiscount = round2(ruleDiscount);
+    if (ruleDiscount > 0) { totalDiscount += ruleDiscount; appliedRules.push({ rule, savedUSD: ruleDiscount }); }
   }
 
-  // Enforce global maximum discount cap
-  const maxAllowedDiscount = Math.round(subtotal * (MAX_TOTAL_DISCOUNT_PCT / 100) * 100) / 100;
-  totalDiscount = Math.min(Math.round(totalDiscount * 100) / 100, maxAllowedDiscount);
-  const finalSubtotal = Math.max(0, Math.round((subtotal - totalDiscount) * 100) / 100);
-
+  // Coupon existence, usage limits and coupon-owned rule data are checked authoritatively by checkout_create_order.
+  const maxAllowed = round2(subtotal * MAX_TOTAL_DISCOUNT_PCT / 100);
+  totalDiscount = Math.min(round2(Math.max(0, totalDiscount)), maxAllowed);
   return {
     subtotalUSD: subtotal,
     discountUSD: totalDiscount,
-    finalSubtotalUSD: finalSubtotal,
+    finalSubtotalUSD: Math.max(0, round2(subtotal - totalDiscount)),
     appliedRules,
-    appliedRuleIds: appliedRules.map(a => a.rule.id)
+    appliedRuleIds: appliedRules.map(a => a.rule.id),
+    appliedCoupon: normalizedCoupon || undefined
   };
 }
