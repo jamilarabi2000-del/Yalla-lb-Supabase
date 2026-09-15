@@ -1,0 +1,2 @@
+-- Compatibility marker: this migration was already applied to the linked Supabase project.
+-- The private permission helper is retained in the current local migration chain.
