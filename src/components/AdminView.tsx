@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Box, ClipboardList, FileText, LayoutDashboard, Package, Search, ShieldCheck, Store, Users, Bell, Save, Eye, EyeOff, Trash2, Plus, RefreshCw, PanelsTopLeft, LayoutTemplate } from 'lucide-react';
+import { BarChart3, Box, ClipboardList, FileText, LayoutDashboard, Package, Search, ShieldCheck, Store, Users, Bell, Save, Eye, EyeOff, Trash2, Plus, RefreshCw, PanelsTopLeft } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { supabase } from '../lib/supabase';
 import { EcommerceOverview } from './admin/EcommerceOverview';
@@ -12,11 +12,10 @@ import { SearchAnalyticsView } from './admin/SearchAnalyticsView';
 import { DiscountsManager } from './admin/DiscountsManager';
 import { PageCMSManager } from './PageCMSManager';
 import { DatabaseActivityLogs } from './admin/DatabaseActivityLogs';
-import { VisualPageBuilder } from './admin/VisualPageBuilder';
-import { StorefrontLayoutBuilder } from './admin/StorefrontLayoutBuilder';
+import { UnifiedVisualBuilder } from './admin/UnifiedVisualBuilder';
 import { getInventoryLedger, hasPermission, recordInventoryChange } from '../services/platformService';
 
-export type AdminTab = 'dashboard'|'sales'|'products'|'inventory'|'orders'|'customers'|'sellers'|'discounts'|'reviews'|'search'|'cms'|'builder'|'layout'|'analytics'|'notifications'|'security';
+export type AdminTab = 'dashboard'|'sales'|'products'|'inventory'|'orders'|'customers'|'sellers'|'discounts'|'reviews'|'search'|'cms'|'builder'|'analytics'|'notifications'|'security';
 
 const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   {id:'dashboard',label:'Dashboard',icon:<LayoutDashboard/>},{id:'sales',label:'Sales',icon:<BarChart3/>},
@@ -24,7 +23,7 @@ const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   {id:'orders',label:'Orders',icon:<ClipboardList/>},{id:'customers',label:'Customers',icon:<Users/>},
   {id:'sellers',label:'Sellers',icon:<Store/>},{id:'discounts',label:'Coupons & Promos',icon:<FileText/>},
   {id:'reviews',label:'Reviews',icon:<Eye/>},{id:'search',label:'Search',icon:<Search/>},
-  {id:'cms',label:'Storefront CMS',icon:<Save/>},{id:'builder',label:'Visual Builder',icon:<PanelsTopLeft/>},{id:'layout',label:'Storefront Structure',icon:<LayoutTemplate/>},{id:'analytics',label:'Analytics',icon:<BarChart3/>},
+  {id:'cms',label:'Storefront CMS',icon:<Save/>},{id:'builder',label:'Visual Builder',icon:<PanelsTopLeft/>},{id:'analytics',label:'Analytics',icon:<BarChart3/>},
   {id:'notifications',label:'Notifications',icon:<Bell/>},{id:'security',label:'Security & Audit',icon:<ShieldCheck/>}
 ];
 
@@ -89,8 +88,7 @@ export const AdminView: React.FC = () => {
   case 'reviews':return <ReviewsManager products={shop.products||[]}/>;
   case 'search':return <SearchAnalyticsView/>;
   case 'cms':return <PageCMSManager initialTab="home"/>;
-  case 'builder':return <VisualPageBuilder/>;
-  case 'layout':return <StorefrontLayoutBuilder/>;
+  case 'builder':return <UnifiedVisualBuilder/>;
   case 'analytics':return <SalesAnalyticsView/>;
   case 'notifications':return <NotificationsManager/>;
   case 'security':return allowed?<DatabaseActivityLogs/>:<div className="p-8 bg-white rounded-2xl border text-center text-rose-600">Security logs require security.view permission.</div>;
