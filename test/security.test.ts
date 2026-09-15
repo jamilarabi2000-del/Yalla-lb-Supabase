@@ -5,8 +5,6 @@ import path from 'node:path';
 const read = (relativePath: string) =>
   fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf-8');
 
-// Remove comments before testing executable source patterns. Security assertions
-// must not fail because documentation describes a previously vulnerable pattern.
 const executableSource = (source: string) =>
   source
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -87,17 +85,26 @@ describe('Supabase Security Regression Suite', () => {
     expect(publicProjection).not.toContain('custom_stock_label');
   });
 
-  it('requires admin role checks before privileged admin-console access', () => {
+  it('requires server-side admin role verification and password + reauthentication OTP', () => {
     const guard = read('src/components/AdminGuard.tsx');
     expect(guard).toContain(".from('profiles')");
-    expect(guard).toContain("profile?.role !== 'admin'");
     expect(guard).toContain("data?.role !== 'admin'");
+    expect(guard).toContain('supabase.auth.reauthenticate()');
+    expect(guard).toContain("type: 'reauthentication'");
+    expect(guard).toContain('cleanOtp.length !== 8');
+    expect(guard).toContain('maxLength={8}');
   });
 
   it('does not use a hidden URL as authorization', () => {
     const guard = read('src/components/AdminGuard.tsx');
     expect(guard).not.toContain('portal-x9k2m7v8');
     expect(guard).not.toContain('claims.admin = true');
+  });
+
+  it('keeps the application root in the light theme', () => {
+    const app = read('src/App.tsx');
+    expect(app).toContain('bg-[#F7F7F8] text-[#111111]');
+    expect(app).not.toContain('bg-[#1a1a2e] text-slate-100');
   });
 
   it('sanitizes CSV formula injection', async () => {
