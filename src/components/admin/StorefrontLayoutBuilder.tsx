@@ -9,6 +9,14 @@ const HOME_SECTIONS = [
   ['homeTrustBadges', 'Trust Badges'], ['homeHeritage', 'Heritage / Story'], ['homeReviews', 'Customer Reviews'], ['homeNewsletter', 'Newsletter'],
 ] as const;
 
+const GLOBAL_CONTROLS = [
+  ['announcementTicker', 'Announcement Bar'],
+  ['phoneSupport', 'Phone Support'],
+  ['navbarSearch', 'Navbar Search'],
+  ['currencySwitcher', 'Currency Switcher'],
+  ['languageSwitcher', 'Language Switcher'],
+] as const;
+
 const PAGE_SECTIONS = [
   ['products', 'Catalog', [['productsHeader', 'Header'], ['productsSearchFilter', 'Search & Filters'], ['productsCategoryTabs', 'Category Tabs'], ['productsSort', 'Sort'], ['productsGrid', 'Product Grid']]],
   ['product_detail', 'Product Detail', [['detailBreadcrumbs', 'Breadcrumbs'], ['detailGallery', 'Product Gallery'], ['detailPriceBox', 'Price Box'], ['detailArtisanBio', 'Seller / Artisan'], ['detailCraftStory', 'Craft Story'], ['detailWhatsAppInquiry', 'WhatsApp Inquiry'], ['detailCustomerReviews', 'Reviews'], ['detailRelatedProducts', 'Related Products']]],
@@ -68,6 +76,11 @@ export const StorefrontLayoutBuilder: React.FC = () => {
 
     <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)] gap-5 items-start">
       <div className="space-y-5">
+        <div className="bg-white rounded-3xl border border-slate-200 p-5">
+          <div className="mb-4"><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Global / Navbar</div><h3 className="text-lg font-black">Global storefront controls</h3><p className="text-xs text-slate-500 mt-1">These controls are stored in the same CMS visibility model and are intended to govern the corresponding live storefront elements.</p></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{GLOBAL_CONTROLS.map(([key, label]) => { const visible = visibility[key as SectionKey] !== false; return <button key={key} type="button" onClick={() => toggle(key as SectionKey)} className={`flex items-center gap-3 text-left p-3 rounded-xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><span>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</span><span><span className="block text-sm font-bold">{label}</span><span className="block text-[10px] font-mono text-slate-400">{key}</span></span></button>; })}</div>
+        </div>
+
         <div className="bg-white rounded-3xl border border-slate-200 p-5">
           <div className="flex items-center justify-between mb-4"><div><div className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Home</div><h3 className="text-lg font-black">Live section hierarchy</h3></div><span className="text-[10px] font-bold text-emerald-600">DRAG TO REORDER</span></div>
           <div className="space-y-2">{homeItems.map(([id, label]) => { const visible = visibility[id as SectionKey] !== false; const canToggle = VISIBILITY_CONTROLLED.has(id); return <div key={id} draggable onDragStart={() => setDragId(id)} onDragOver={e => e.preventDefault()} onDrop={() => dropHome(id)} className={`flex items-center gap-3 p-3 rounded-2xl border ${visible ? 'border-slate-200 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50/50'}`}><GripVertical className="w-4 h-4 text-slate-400 shrink-0 cursor-grab"/><div className="min-w-0 flex-1"><div className="font-bold text-sm">{label}</div><div className="text-[10px] font-mono text-slate-400">{id}{!canToggle && ' · data-driven visibility'}</div></div>{canToggle ? <button type="button" onClick={() => toggle(id as SectionKey)} className="p-2 rounded-lg hover:bg-white" title={visible ? 'Hide section' : 'Show section'}>{visible ? <Eye className="w-4 h-4 text-emerald-600"/> : <EyeOff className="w-4 h-4 text-rose-500"/>}</button> : <span title="Visibility is controlled by available storefront data" className="p-2 text-slate-300"><Eye className="w-4 h-4"/></span>}</div>; })}</div>
