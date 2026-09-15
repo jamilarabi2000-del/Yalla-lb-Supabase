@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LayoutTemplate, Sparkles } from 'lucide-react';
 import { VisualPageBuilder } from './VisualPageBuilder';
 import { StorefrontLayoutBuilder } from './StorefrontLayoutBuilder';
+import { CmsVersionHistory } from './CmsVersionHistory';
 
 /**
  * Unified WordPress-style editing workspace.
@@ -47,6 +48,7 @@ export const UnifiedVisualBuilder: React.FC = () => {
       </div>
 
       {mode === 'structure' ? <StorefrontLayoutBuilder /> : <VisualPageBuilder />}
+      <CmsVersionHistory />
     </section>
   );
 };
