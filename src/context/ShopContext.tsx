@@ -1137,32 +1137,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasSeededDiscountsRef = useRef(false);
 
-  const [discountRules, setDiscountRules] = useState<DiscountRule[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_discount_rules');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'rule-1',
-        name: 'Koura Olive Oil Special (15% Off)',
-        type: 'percentage',
-        value: 15,
-        target: 'brand',
-        targetValue: 'Koura, North Lebanon',
-        isActive: true
-      },
-      {
-        id: 'rule-2',
-        name: 'Checkout Extra $5 Off',
-        type: 'fixed',
-        value: 5,
-        target: 'checkout',
-        isActive: true,
-        minPurchaseUSD: 30
-      }
-    ];
-  });
+  // Discount rules are authoritative Supabase data; never initialize bundled/demo rules.
+  const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
 
   useEffect(() => {
     try {
