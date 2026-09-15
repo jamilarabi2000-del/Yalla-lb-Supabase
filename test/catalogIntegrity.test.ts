@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { parseStock, parsePrice } from '../src/utils/importerResolvers';
 import { isProductVisibleOnStorefront } from '../src/lib/storefrontVisibility';
 import { Product, Seller } from '../src/types';
+import { INITIAL_PRODUCTS } from '../src/data/products';
+import { DEFAULT_SELLERS } from '../src/data/sellers';
 
 describe('Catalog Integrity - Stock Parsing & Importer Rules', () => {
   it('rejects unit strings like "500ml", "750g", "245 Pcs" by returning NaN instead of coercing to number', () => {
@@ -24,6 +26,13 @@ describe('Catalog Integrity - Stock Parsing & Importer Rules', () => {
     expect(parseStock(10)).toBe(10);
     expect(parseStock('25')).toBe(25);
     expect(parseStock('1,250')).toBe(1250);
+  });
+});
+
+describe('Production data ownership', () => {
+  it('does not ship bundled product or seller demo records', () => {
+    expect(INITIAL_PRODUCTS).toEqual([]);
+    expect(DEFAULT_SELLERS).toEqual([]);
   });
 });
 
