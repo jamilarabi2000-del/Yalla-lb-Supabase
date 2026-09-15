@@ -1,0 +1,44 @@
+# Yalla Supabase Security Audit — 2026-09-15
+
+## Scope
+
+Database/RLS, Data API grants, SECURITY DEFINER exposure, Storage policies, profile/order integrity, checkout/review abuse controls, frontend Supabase key usage, and admin authentication flow.
+
+## Completed
+
+- RLS is enabled on every public base table currently used by Yalla.
+- Public Data API write grants were removed from anonymous users except the two intentional anonymous insert paths: `search_logs` and `seller_applications`.
+- Direct authenticated deletes/inserts were removed from order/order-item paths that are server-controlled.
+- RLS-only privileged helpers were moved behind the `private` schema.
+- Public compatibility helpers (`is_admin`, `is_seller`, `current_seller_folder`, `can_review_product`, `is_phone_available`) are now SECURITY INVOKER wrappers; the privileged implementation is isolated in `private`.
+- Public policies that require privileged helpers were split from anonymous public-read policies.
+- `public_catalog` now uses `security_invoker=true`.
+- Profile security fields (`role`, `seller_id`, `email_verified`, `is_otp_verified`) are protected from end-user mutation.
+- Seller order updates cannot modify order ownership, seller/product arrays, shipping, payment method, currency, financial totals, discounts, coupon, idempotency, or creation timestamp.
+- Review inserts are rate-limited to 10/hour per authenticated user and duplicate user/product reviews are prevented with a unique index.
+- Checkout attempt inserts are rate-limited to 10/minute per authenticated user.
+- Storage buckets and policies were audited. `yalla-private` is private; `yalla-media` is public for storefront media and has restricted authenticated management policies. Upload policies restrict file extensions.
+- Direct execution of trigger-only helper functions was revoked.
+- Future functions in the public/private schemas no longer receive broad automatic EXECUTE grants.
+- Frontend Supabase client uses the publishable key only; no service-role/secret key reference was found in the reviewed frontend configuration.
+- Admin authentication now uses password sign-in followed by Supabase reauthentication email OTP verification, with the current 8-digit reauthentication code format enforced in the UI.
+
+## Verification performed
+
+- Confirmed no SECURITY DEFINER functions in `public` remain callable by `anon` or `authenticated` solely as exposed privileged RPCs. Remaining public SECURITY DEFINER functions are trigger/internal functions with client EXECUTE revoked.
+- Confirmed anonymous product access succeeds while anonymous product INSERT/UPDATE/DELETE grants are false.
+- Confirmed the admin helper returns true for the current admin test identity through the private helper and public invoker wrapper.
+- Transactional seller-isolation test confirmed a seller can update an allowed order status but cannot alter the order total; all test data was rolled back.
+- Transactional profile-security test confirmed a non-admin cannot change `email_verified`; all test data was rolled back.
+- Storage bucket configuration confirmed allowed MIME types and size limits.
+
+## Remaining production checks
+
+These require a real deployment/client session and cannot be truthfully marked complete from database-only tooling:
+
+1. Run the full frontend `npm run verify` suite after the latest commits.
+2. Deploy the latest GitHub main commit to Netlify staging and test the live admin OTP flow.
+3. Test cross-user IDOR with two real authenticated test accounts (customer A/customer B) for carts, wishlists, addresses, profiles, orders, and reviews.
+4. Run the Supabase Security Advisor after all migrations and review any remaining warnings individually.
+5. Confirm Supabase Auth dashboard rate limits/CAPTCHA/email OTP expiry settings before production launch.
+6. Confirm SSL enforcement, database network restrictions, and Supabase organization MFA in the production project settings.
