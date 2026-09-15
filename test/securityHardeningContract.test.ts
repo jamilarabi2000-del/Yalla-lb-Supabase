@@ -31,7 +31,6 @@ describe('Yalla production security hardening contracts', () => {
       'firebase/functions',
       'firebase/firestore',
     ];
-
     for (const file of sourceFiles()) {
       const content = read(file);
       for (const token of forbidden) expect(content, file).not.toContain(token);
@@ -56,29 +55,28 @@ describe('Yalla production security hardening contracts', () => {
 
   it('protects product operational fields from non-admin browser updates', () => {
     const migration = read(path.join(root, 'supabase/migrations/20260915040000_protect_product_operational_fields.sql'));
-    for (const field of [
-      'cost_price_usd',
-      'seller_item_code',
-      'low_stock_threshold',
-      'low_stock_notice',
-      'custom_stock_label',
-      'seller_id',
-      'reviews_count',
-      'rating',
-    ]) {
+    for (const field of ['cost_price_usd','seller_item_code','low_stock_threshold','low_stock_notice','custom_stock_label','seller_id','reviews_count','rating']) {
       expect(migration).toContain(field);
     }
     expect(migration).toContain("role = 'admin'::app_role");
     expect(migration).toContain("using errcode = '42501'");
   });
 
-  it('locks the admin MFA UI to a bounded lifetime and reauthentication OTP', () => {
+  it('locks the admin MFA UI to bounded lifetimes and reauthentication OTP', () => {
     const mfa = read(path.join(root, 'src/utils/adminMfa.ts'));
     const guard = read(path.join(root, 'src/components/AdminGuard.tsx'));
     expect(mfa).toContain('MFA_VALIDITY_MS = 30 * 60 * 1000');
     expect(mfa).toContain('HIGH_RISK_VALIDITY_MS = 15 * 60 * 1000');
     expect(guard).toContain('supabase.auth.reauthenticate()');
     expect(guard).toContain("type: 'reauthentication'");
+  });
+
+  it('enforces a 30-minute browser inactivity timeout', () => {
+    const guard = read(path.join(root, 'src/components/SessionSecurityGuard.tsx'));
+    expect(guard).toContain('SESSION_INACTIVITY_MS = 30 * 60 * 1000');
+    expect(guard).toContain("supabase.auth.signOut({ scope: 'local' })");
+    expect(guard).toContain("'mousemove'");
+    expect(guard).toContain("'keydown'");
   });
 
   it('keeps security-critical authorization in the database rather than sessionStorage', () => {
