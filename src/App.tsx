@@ -3,7 +3,7 @@ import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
 import { HomeView } from './components/HomeView';
 import { ProductsView } from './components/ProductsView';
-import { AccountView } from './components/AccountView';
+import { AccountViewController } from './components/AccountViewController';
 import { FavoritesView } from './components/FavoritesView';
 import { AdminErrorBoundary } from './components/AdminErrorBoundary';
 import { StorefrontErrorBoundary } from './components/StorefrontErrorBoundary';
@@ -191,7 +191,7 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'products' && <ProductsView />}
         {activeTab === 'product_detail' && <ProductDetailView />}
         {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><CheckoutView /></Suspense>}
-        {activeTab === 'account' && <AccountView />}
+        {activeTab === 'account' && <AccountViewController />}
         {activeTab === 'favorites' && <FavoritesView />}
         {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><SellerLoginView /></Suspense>}
         {activeTab === 'admin' && <AdminErrorBoundary><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminErrorBoundary>}
