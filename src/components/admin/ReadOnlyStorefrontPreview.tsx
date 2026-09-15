@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, EyeOff, Image as ImageIcon, ShoppingBag } from 'lucide-react';
+import { Eye, Image as ImageIcon, ShoppingBag } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import type { SectionVisibilityConfig } from '../../types';
 
@@ -38,7 +38,7 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
   const hero = content?.hero || {};
   const isAr = language === 'ar';
 
-  const media = ((hero.bgMediaItems || []).filter((item: any) => item?.isPublished !== false));
+  const media = (hero.bgMediaItems || []).filter((item: any) => item?.isPublished !== false);
   const heroImage = media[0]?.url || media[0]?.desktopImageUrl || hero.bgImageUrl || hero.desktopImageUrl;
   const heroMobileImage = media[0]?.mobileUrl || media[0]?.mobileImageUrl || hero.mobileImageUrl || heroImage;
   const heroTitle = isAr ? (media[0]?.customTitleArabic || hero.titleArabic || media[0]?.customTitle || hero.title) : (media[0]?.customTitle || hero.title);
@@ -50,7 +50,11 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
     .sort((a: any, b: any) => (a?.displayOrder ?? 999) - (b?.displayOrder ?? 999))
     .slice(0, 6);
 
-  const productCount = products.filter((product: any) => product?.isPublished !== false).length;
+  const liveProducts = products
+    .filter((product: any) => product?.isPublished !== false)
+    .sort((a: any, b: any) => (a?.displayOrder ?? 999) - (b?.displayOrder ?? 999));
+
+  const productCount = liveProducts.length;
 
   const renderEmptyData = (title: string) => (
     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
@@ -59,6 +63,36 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
       <p className="mt-1 text-xs text-slate-400">No live product data is available, so this preview does not fabricate products.</p>
     </div>
   );
+
+  const renderProductCards = (items: any[]) => {
+    if (!items.length) return renderEmptyData('No matching published products');
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {items.slice(0, 8).map((product: any) => {
+          const name = isAr ? (product.arabicName || product.name) : product.name;
+          const image = product.image || product.additionalImages?.[0];
+          const price = Number(product.priceUSD);
+          const original = Number(product.originalPriceUSD);
+          const hasDiscount = Number.isFinite(original) && original > price;
+          return (
+            <article key={product.id} className="rounded-xl overflow-hidden border border-slate-200 bg-white">
+              <div className="aspect-square bg-slate-100 flex items-center justify-center">
+                {image ? <img src={image} alt={name || 'Product'} loading="lazy" className="w-full h-full object-contain" /> : <ImageIcon className="w-8 h-8 text-slate-300" />}
+              </div>
+              <div className="p-3">
+                <div className="text-[11px] font-bold line-clamp-2 min-h-[2rem]">{name || 'Unnamed product'}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-sm font-black">{Number.isFinite(price) ? `$${price.toFixed(2)}` : '—'}</span>
+                  {hasDiscount ? <span className="text-[10px] text-slate-400 line-through">${original.toFixed(2)}</span> : null}
+                </div>
+                {product.stock <= 0 ? <div className="mt-1 text-[9px] font-bold text-rose-500">Out of stock</div> : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderSection = (id: string) => {
     if (visibility[id as keyof SectionVisibilityConfig] === false) return null;
@@ -74,9 +108,7 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
               </picture>
               <div className="absolute inset-0 bg-black/35" />
             </>
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-700" />
-          )}
+          ) : <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-700" />}
           <div className="relative z-10 p-7 sm:p-12 max-w-2xl text-white">
             {hero.badgeText || hero.badgeTextArabic ? <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-amber-200 mb-3">{isAr ? (hero.badgeTextArabic || hero.badgeText) : (hero.badgeText || hero.badgeTextArabic)}</div> : null}
             <h2 className="text-3xl sm:text-5xl font-black tracking-tight">{heroTitle || (isAr ? 'واجهة المتجر الرئيسية' : 'Your Storefront Hero')}</h2>
@@ -111,8 +143,20 @@ export const ReadOnlyStorefrontPreview: React.FC<Props> = ({ order, visibility, 
       );
     }
 
-    if (['homeFeatured', 'homeDeals', 'homeNewArrivals', 'homeBundles'].includes(id)) {
-      return <section key={id} className="px-4 sm:px-6 py-7"><div className="mb-4"><h2 className="text-xl font-black">{labels[id]}</h2></div>{renderEmptyData(`${labels[id]} — ${productCount} live products`)}</section>;
+    if (id === 'homeFeatured') {
+      return <section key={id} className="px-4 sm:px-6 py-7"><div className="mb-4"><h2 className="text-xl font-black">{labels[id]}</h2></div>{renderProductCards(liveProducts.filter((product: any) => product.isFeatured))}</section>;
+    }
+
+    if (id === 'homeDeals') {
+      return <section key={id} className="px-4 sm:px-6 py-7"><div className="mb-4"><h2 className="text-xl font-black">{labels[id]}</h2></div>{renderProductCards(liveProducts.filter((product: any) => Number(product.discountPercentage) > 0 || Number(product.originalPriceUSD) > Number(product.priceUSD)))}</section>;
+    }
+
+    if (id === 'homeNewArrivals') {
+      return <section key={id} className="px-4 sm:px-6 py-7"><div className="mb-4"><h2 className="text-xl font-black">{labels[id]}</h2></div>{renderProductCards(liveProducts.filter((product: any) => product.isNewArrival))}</section>;
+    }
+
+    if (id === 'homeBundles') {
+      return <section key={id} className="px-4 sm:px-6 py-7"><div className="mb-4"><h2 className="text-xl font-black">{labels[id]}</h2></div>{renderEmptyData(`Bundles use live bundle data · ${productCount} live products available`)}</section>;
     }
 
     if (id === 'homeNewsletter') {
