@@ -4,6 +4,7 @@
  */
 
 import { secureRandomString } from './uuid';
+import { diagnosticError, safeErrorMessage } from './errorSanitizer';
 
 export type DataFlowStage =
   | 'STAGE_1_FORM_INPUT'
@@ -13,15 +14,9 @@ export type DataFlowStage =
   | 'STAGE_4_FIRESTORE_ERROR'
   | 'STAGE_5_SNAPSHOT_SYNC';
 
-// Kept compatible with legacy UI call sites while the backend is Supabase.
 export type DatabaseOperation =
-  | 'setDoc'
-  | 'updateDoc'
-  | 'deleteDoc'
-  | 'writeBatch'
-  | 'onSnapshot'
-  | 'upsert'
-  | 'delete';
+  | 'setDoc' | 'updateDoc' | 'deleteDoc' | 'writeBatch'
+  | 'onSnapshot' | 'upsert' | 'delete';
 
 export interface DataFlowLogEntry {
   id: string;
@@ -87,65 +82,35 @@ class DatabaseLoggerService {
 
   public logFormInput(params: { sourceComponent: string; actionName: string; targetPath: string; summary: string; payload?: any; diff?: any }): DataFlowLogEntry {
     const now = new Date();
-    return this.push({
-      id: `log_${secureRandomString(12)}`,
-      timestamp: String(now.getTime()), isoTime: now.toISOString(),
-      stage: 'STAGE_1_FORM_INPUT', operation: 'setDoc',
-      targetPath: params.targetPath, sourceComponent: params.sourceComponent,
-      actionName: params.actionName, summary: params.summary,
-      payload: redactPII(params.payload), diff: params.diff, status: 'info'
-    });
+    return this.push({ id: `log_${secureRandomString(12)}`, timestamp: String(now.getTime()), isoTime: now.toISOString(), stage: 'STAGE_1_FORM_INPUT', operation: 'setDoc', targetPath: params.targetPath, sourceComponent: params.sourceComponent, actionName: params.actionName, summary: params.summary, payload: redactPII(params.payload), diff: params.diff, status: 'info' });
   }
 
   public logSanitization(params: { sourceComponent: string; actionName: string; targetPath: string; summary: string; cleanedPayload?: any }): DataFlowLogEntry {
     const now = new Date();
-    return this.push({
-      id: `log_${secureRandomString(12)}`,
-      timestamp: String(now.getTime()), isoTime: now.toISOString(),
-      stage: 'STAGE_2_SANITIZATION', operation: 'setDoc',
-      targetPath: params.targetPath, sourceComponent: params.sourceComponent,
-      actionName: params.actionName, summary: params.summary,
-      payload: redactPII(params.cleanedPayload), status: 'info'
-    });
+    return this.push({ id: `log_${secureRandomString(12)}`, timestamp: String(now.getTime()), isoTime: now.toISOString(), stage: 'STAGE_2_SANITIZATION', operation: 'setDoc', targetPath: params.targetPath, sourceComponent: params.sourceComponent, actionName: params.actionName, summary: params.summary, payload: redactPII(params.cleanedPayload), status: 'info' });
   }
 
   public logDbWriteStart(params: { operation: DatabaseOperation; targetPath: string; sourceComponent: string; actionName: string; summary: string; payload?: any }): { entry: DataFlowLogEntry; startTime: number } {
     const startTime = Date.now();
     const now = new Date(startTime);
-    const entry = this.push({
-      id: `log_${secureRandomString(12)}`,
-      timestamp: String(startTime), isoTime: now.toISOString(),
-      stage: 'STAGE_3_FIRESTORE_WRITE', operation: params.operation,
-      targetPath: params.targetPath, sourceComponent: params.sourceComponent,
-      actionName: params.actionName, summary: params.summary,
-      payload: redactPII(params.payload), status: 'info'
-    });
-    return { entry, startTime };
+    return { entry: this.push({ id: `log_${secureRandomString(12)}`, timestamp: String(startTime), isoTime: now.toISOString(), stage: 'STAGE_3_FIRESTORE_WRITE', operation: params.operation, targetPath: params.targetPath, sourceComponent: params.sourceComponent, actionName: params.actionName, summary: params.summary, payload: redactPII(params.payload), status: 'info' }), startTime };
   }
 
   public logDbWriteSuccess(params: { operation: DatabaseOperation; targetPath: string; sourceComponent: string; actionName: string; startTime: number; summary: string; payload?: any }): DataFlowLogEntry {
     const now = new Date();
-    return this.push({
-      id: `log_${secureRandomString(12)}`,
-      timestamp: String(now.getTime()), isoTime: now.toISOString(),
-      stage: 'STAGE_4_FIRESTORE_ACK', operation: params.operation,
-      targetPath: params.targetPath, sourceComponent: params.sourceComponent,
-      actionName: params.actionName, summary: params.summary,
-      payload: redactPII(params.payload), latencyMs: Math.max(0, Date.now() - params.startTime), status: 'success'
-    });
+    return this.push({ id: `log_${secureRandomString(12)}`, timestamp: String(now.getTime()), isoTime: now.toISOString(), stage: 'STAGE_4_FIRESTORE_ACK', operation: params.operation, targetPath: params.targetPath, sourceComponent: params.sourceComponent, actionName: params.actionName, summary: params.summary, payload: redactPII(params.payload), latencyMs: Math.max(0, Date.now() - params.startTime), status: 'success' });
   }
 
   public logDbWriteError(params: { operation: DatabaseOperation; targetPath: string; sourceComponent: string; actionName: string; startTime: number; summary: string; error: any }): DataFlowLogEntry {
     const now = new Date();
+    const diagnostic = diagnosticError(params.error);
+    if (import.meta.env?.DEV) console.error('[dbLogger]', diagnostic);
     return this.push({
-      id: `log_${secureRandomString(12)}`,
-      timestamp: String(now.getTime()), isoTime: now.toISOString(),
-      stage: 'STAGE_4_FIRESTORE_ERROR', operation: params.operation,
-      targetPath: params.targetPath, sourceComponent: params.sourceComponent,
-      actionName: params.actionName, summary: params.summary,
+      id: `log_${secureRandomString(12)}`, timestamp: String(now.getTime()), isoTime: now.toISOString(),
+      stage: 'STAGE_4_FIRESTORE_ERROR', operation: params.operation, targetPath: params.targetPath,
+      sourceComponent: params.sourceComponent, actionName: params.actionName, summary: params.summary,
       latencyMs: Math.max(0, Date.now() - params.startTime), status: 'error',
-      errorMessage: String(params.error?.message || params.error || ''),
-      errorCode: String(params.error?.code || '')
+      errorMessage: safeErrorMessage(params.error), errorCode: diagnostic.code
     });
   }
 }
@@ -155,10 +120,6 @@ export const dbLogger = new DatabaseLoggerService();
 export const calculateObjectDiff = (before: any, after: any): Record<string, { before: any; after: any }> => {
   const diff: Record<string, { before: any; after: any }> = {};
   const keys = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
-  keys.forEach(key => {
-    const a = before?.[key];
-    const b = after?.[key];
-    if (JSON.stringify(a) !== JSON.stringify(b)) diff[key] = { before: a, after: b };
-  });
+  keys.forEach(key => { const a = before?.[key]; const b = after?.[key]; if (JSON.stringify(a) !== JSON.stringify(b)) diff[key] = { before: a, after: b }; });
   return diff;
 };
