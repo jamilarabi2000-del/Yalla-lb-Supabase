@@ -81,7 +81,18 @@ export const supabaseCmsService = {
 
   async saveSiteContent(content: SiteContent): Promise<void> {
     const { data: userData } = await supabase.auth.getUser();
-    const { error } = await supabase.from('cms_site_content').upsert({ id: 'main', content, published: true, updated_by: userData.user?.id ?? null, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    const userId = userData.user?.id ?? null;
+
+    // Keep an immutable admin snapshot before replacing the current CMS state.
+    // The table is RLS-protected so only an authorized admin can create snapshots.
+    const { error: versionError } = await supabase.from('cms_content_versions').insert({
+      content,
+      published: true,
+      created_by: userId,
+    });
+    if (versionError) throw versionError;
+
+    const { error } = await supabase.from('cms_site_content').upsert({ id: 'main', content, published: true, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: 'id' });
     if (error) throw error;
   },
 
