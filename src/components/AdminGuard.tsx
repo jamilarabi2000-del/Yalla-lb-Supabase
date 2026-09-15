@@ -27,9 +27,19 @@ interface AdminGuardProps {
 
 type AuthMode = 'login' | 'otp' | 'verify_email_notice';
 
-const ADMIN_REDIRECT_URL = 'https://yalla-lb-supabase.netlify.app/admin';
 const ADMIN_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 const ADMIN_ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
+
+/**
+ * Always return the origin currently serving the application.
+ * This avoids hard-coding the production Netlify hostname, which breaks
+ * authentication redirects on deploy previews, branch deploys, localhost,
+ * and any future custom domain.
+ */
+const getAdminRedirectUrl = () => {
+  if (typeof window === 'undefined') return '/admin';
+  return `${window.location.origin}/admin`;
+};
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { authStatus, authUser, signOutUser } = useShop();
@@ -119,8 +129,9 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     const targetEmail = email.trim().toLowerCase();
     if (!targetEmail) throw new Error('No administrator email is available for OTP verification.');
 
-    // Standard email OTP: this is intentionally NOT reauthenticate(), because
-    // reauthentication OTPs can use a different code format and purpose.
+    // Standard Supabase email OTP. This is intentionally separate from
+    // password re-authentication so the administrator receives a normal
+    // sign-in verification code by email.
     const { error } = await supabase.auth.signInWithOtp({
       email: targetEmail,
       options: { shouldCreateUser: false },
@@ -239,7 +250,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: target,
-        options: { emailRedirectTo: ADMIN_REDIRECT_URL },
+        options: { emailRedirectTo: getAdminRedirectUrl() },
       });
       if (error) throw error;
       setEmailVerifSent(true);
@@ -402,60 +413,55 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           >
             <RefreshCw className="w-4 h-4" /> Check Again
           </button>
-          <button onClick={signOutUser} className="text-sm text-[#666666] hover:text-[#111111]">Sign Out</button>
         </div>
       </div>
     );
   }
 
-  if (authStatus === 'unauthenticated' || !authUser) {
+  if (authStatus !== 'authenticated_admin' || !isMfaVerified) {
     return (
       <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
-        <div className="bg-white text-[#111111] border border-[#E5E5E5] p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
+        <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-sm w-full space-y-6 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
           <div className="text-center space-y-3">
             <div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white">
               <Lock className="w-7 h-7" />
             </div>
-            <h1 className="text-2xl font-bold text-[#111111]">Admin Console</h1>
-            <p className="text-xs text-[#666666]">Sign in with your administrator credentials</p>
+            <h1 className="text-2xl font-bold">Administrator Access</h1>
+            <p className="text-sm text-[#666666]">Sign in with your administrator account, then verify the email OTP.</p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-[#111111] mb-2">Administrator Email</label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-[#666666]">Administrator email</span>
               <input
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="Enter administrator email"
-                autoComplete="username"
-                required
-                className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-3"
+                className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B89753]"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-xs font-semibold text-[#111111] mb-2">Password</label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-[#666666]">Password</span>
               <div className="relative">
                 <input
                   type={isPasswordVisible ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter administrator password"
-                  autoComplete="current-password"
-                  required
-                  className="w-full bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl px-4 py-3 pr-12"
+                  className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 pr-11 text-sm outline-none focus:border-[#B89753]"
                 />
                 <button
                   type="button"
-                  onClick={() => setIsPasswordVisible(value => !value)}
+                  onClick={() => setIsPasswordVisible(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666]"
                   aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
-                  className="absolute inset-y-0 right-0 px-4 text-[#666666] hover:text-[#8F7137]"
                 >
-                  {isPasswordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {isPasswordVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </div>
+            </label>
 
             {loginError && (
               <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2">
@@ -464,43 +470,10 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
               </div>
             )}
 
-            <button
-              disabled={isSubmitting}
-              className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none"
-            >
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
+            <button disabled={isSubmitting} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
-
-          <div className="flex items-center gap-2 text-[11px] text-[#666666] justify-center">
-            <ShieldAlert className="w-3.5 h-3.5 text-[#B89753]" />
-            Password + email OTP verification required
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (authStatus === 'authenticated_non_admin') {
-    return (
-      <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <AlertCircle className="mx-auto w-10 h-10 text-[#C62828]" />
-          <h1 className="text-xl font-bold text-[#111111]">Access Unavailable</h1>
-          <p className="text-sm text-[#666666]">This account does not have administrator privileges.</p>
-          <button onClick={signOutUser} className="gold-btn px-5 py-3 rounded-xl font-bold">Sign Out</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (authStatus === 'authenticated_admin' && !authUser.emailVerified) {
-    return (
-      <div className="min-h-screen bg-[#F7F7F8] text-[#111111] flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <Mail className="mx-auto w-10 h-10 text-[#B89753]" />
-          <h1 className="text-xl font-bold text-[#111111]">Email Verification Required</h1>
-          <button onClick={resendVerification} className="gold-btn px-5 py-3 rounded-xl font-bold">Send Verification Email</button>
         </div>
       </div>
     );
@@ -510,37 +483,32 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     <>
       {children}
       {showStepUpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111111]/60 backdrop-blur-sm">
-          <div className="bg-white text-[#111111] p-7 rounded-3xl max-w-sm w-full space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <ShieldAlert className="w-6 h-6 text-[#B89753]" />
-                <div>
-                  <h2 className="font-bold text-[#111111]">Confirm Security Action</h2>
-                  <p className="text-xs text-[#666666]">Administrator re-authentication</p>
-                </div>
+        <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
+          <form onSubmit={handleStepUp} className="bg-white rounded-3xl p-7 w-full max-w-sm space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold">Confirm administrator identity</h2>
+                <p className="text-xs text-[#666666] mt-1">Enter your password to continue this sensitive action.</p>
               </div>
-              <button onClick={cancelStepUp} className="text-[#666666] hover:text-[#111111]"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={cancelStepUp} aria-label="Close" className="text-[#666666]"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-sm text-[#666666]">Re-enter your administrator password to continue.</p>
-            <form onSubmit={handleStepUp} className="space-y-4">
-              {stepUpError && <div className="p-3 bg-red-50 rounded-xl text-xs text-[#C62828]">{stepUpError}</div>}
-              <input
-                type="password"
-                value={stepUpPassword}
-                onChange={e => setStepUpPassword(e.target.value)}
-                placeholder="Administrator password"
-                className="w-full px-4 py-3 bg-[#F7F7F8] border border-[#E5E5E5] text-[#111111] placeholder:text-[#666666] rounded-xl"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button type="button" onClick={cancelStepUp} className="flex-1 py-3 border border-[#E5E5E5] text-[#111111] rounded-xl font-semibold hover:bg-[#F7F7F8]">Cancel</button>
-                <button disabled={isStepUpVerifying} className="gold-btn flex-1 py-3 rounded-xl font-semibold disabled:opacity-50">
-                  {isStepUpVerifying ? <Loader2 className="mx-auto w-4 h-4 animate-spin" /> : 'Confirm'}
-                </button>
-              </div>
-            </form>
-          </div>
+            <input
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={stepUpPassword}
+              onChange={e => setStepUpPassword(e.target.value)}
+              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B89753]"
+              placeholder="Administrator password"
+            />
+            {stepUpError && <p className="text-xs text-[#C62828]">{stepUpError}</p>}
+            <div className="flex gap-3">
+              <button type="button" onClick={cancelStepUp} className="flex-1 py-3 rounded-xl border border-[#E5E5E5] font-semibold">Cancel</button>
+              <button disabled={isStepUpVerifying} className="gold-btn flex-1 py-3 rounded-xl font-bold disabled:opacity-50">
+                {isStepUpVerifying ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Verify'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </>
