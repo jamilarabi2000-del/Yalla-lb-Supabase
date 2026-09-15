@@ -1,0 +1,2 @@
+-- Compatibility marker: migration already applied to the linked Supabase project.
+-- Equivalent changes are retained in the current local migration chain.
