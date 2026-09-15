@@ -1,71 +1,78 @@
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
+import { createClient } from '@supabase/supabase-js';
 
-const serviceAccountJson = process.env.SERVICE_ACCOUNT_JSON;
-if (!serviceAccountJson) {
-  console.error('Error: SERVICE_ACCOUNT_JSON environment variable is required.');
-  console.error('Please run with: SERVICE_ACCOUNT_JSON="$(cat serviceAccount.json)" npm run revoke-admin -- email@example.com');
+const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const identifier = process.argv[2];
+
+if (!url || !serviceRoleKey) {
+  console.error('Set SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY in your local environment.');
   process.exit(1);
 }
 
-let serviceAccount;
-try {
-  serviceAccount = JSON.parse(serviceAccountJson);
-} catch (err) {
-  console.error('Failed to parse SERVICE_ACCOUNT_JSON as JSON.', err instanceof Error ? err.message : err);
+if (!identifier) {
+  console.error('Usage: npm run revoke-admin -- <email_or_uid>');
   process.exit(1);
 }
 
-const expectedProjectId = 'yalla-lb-2026';
-if (serviceAccount.project_id && serviceAccount.project_id !== expectedProjectId) {
-  console.error(`Error: Firebase project ID mismatch. Expected '${expectedProjectId}', but service account has '${serviceAccount.project_id}'.`);
-  process.exit(1);
-}
+const supabase = createClient(url, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 try {
-  initializeApp({ cert: cert(serviceAccount) });
-} catch (err) {
-  console.error('Failed to initialize Firebase Admin SDK.', err instanceof Error ? err.message : err);
-  process.exit(1);
-}
+  let userId = identifier;
+  let email = identifier.includes('@') ? identifier.toLowerCase() : null;
 
-const email = process.argv[2];
-if (!email) {
-  console.error('Usage: npm run revoke-admin -- <email>');
-  process.exit(1);
-}
-
-try {
-  console.log(`Firebase project: ${expectedProjectId}`);
-  const user = await getAuth().getUserByEmail(email);
-  console.log(`User email: ${user.email}`);
-  console.log(`UID: ${user.uid}`);
-
-  const existingClaims = user.customClaims || {};
-  console.log(`Existing custom claims:`, existingClaims);
-
-  const mergedClaims = { ...existingClaims };
-  delete mergedClaims.admin;
-
-  await getAuth().setCustomUserClaims(user.uid, mergedClaims);
-  await getAuth().revokeRefreshTokens(user.uid);
-  console.log('Revoked refresh tokens successfully.');
-
-  // Read user again to verify
-  const verifiedUser = await getAuth().getUser(user.uid);
-  const finalClaims = verifiedUser.customClaims || {};
-  console.log(`Final custom claims:`, finalClaims);
-
-  const isAdminTrue = finalClaims.admin === true;
-  console.log(`Admin claim: ${isAdminTrue ? 'TRUE' : 'FALSE'}`);
-
-  if (isAdminTrue) {
-    console.error('Error: Failed to confirm admin revocation in final custom claims.');
-    process.exit(1);
+  if (email) {
+    const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    if (error) throw error;
+    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === email);
+    if (!user) throw new Error(`No Supabase Auth user found for ${email}.`);
+    userId = user.id;
+    email = user.email || email;
+  } else {
+    const { data, error } = await supabase.auth.admin.getUserById(userId);
+    if (error) throw error;
+    email = data.user?.email || null;
   }
 
-  console.log(`Successfully and securely revoked admin privileges for ${user.email} (${user.uid}) on project ${expectedProjectId}`);
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, role')
+    .eq('id', userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile) throw new Error(`No profile exists for Supabase Auth user ${userId}.`);
+
+  if (profile.role !== 'admin') {
+    console.log(`User ${email || userId} is not an admin. Nothing to revoke.`);
+    process.exit(0);
+  }
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ role: 'customer' })
+    .eq('id', userId)
+    .eq('role', 'admin');
+  if (updateError) throw updateError;
+
+  const { error: signOutError } = await supabase.auth.admin.signOut(userId, 'global');
+  if (signOutError) throw signOutError;
+
+  const { data: verifiedProfile, error: verifyError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  if (verifyError) throw verifyError;
+  if (verifiedProfile?.role === 'admin') {
+    throw new Error('Admin role is still present after revocation.');
+  }
+
+  console.log(`Admin privileges revoked in public.profiles.`);
+  console.log(`Email: ${email || '(not available)'}`);
+  console.log(`UID: ${userId}`);
+  console.log('Role: customer');
 } catch (error) {
-  console.error(`Error revoking admin privileges for ${email}:`, error instanceof Error ? error.message : error);
+  console.error(`Error revoking admin privileges for ${identifier}:`, error instanceof Error ? error.message : error);
   process.exit(1);
 }
