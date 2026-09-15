@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Final verification contract: source and migration history must be auditable from this tree.
 const root = path.resolve(process.cwd());
 function walk(dir: string): string[] { const result: string[] = []; for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { if (['node_modules','.git','dist'].includes(entry.name)) continue; const full = path.join(dir,entry.name); if (entry.isDirectory()) result.push(...walk(full)); else result.push(full); } return result; }
 const sourceFiles = () => walk(path.join(root,'src')).filter(f => /\.(ts|tsx|js|jsx)$/.test(f));
