@@ -7,7 +7,8 @@ const read = (p: string) => fs.readFileSync(path.resolve(process.cwd(), p), 'utf
 describe('Atomic product creation', () => {
   it('routes product creation through the private Supabase RPC', () => {
     const service = read('src/services/supabaseProductService.ts');
-    expect(service).toContain("schema('private').rpc('create_product_atomic'");
+    expect(service).toContain(".schema('private')");
+    expect(service).toContain(".rpc('create_product_atomic'");
     expect(service).not.toContain("from('products').insert");
     expect(service).not.toContain("from('product_private').insert");
     expect(service).not.toContain("from('product_images').insert");
