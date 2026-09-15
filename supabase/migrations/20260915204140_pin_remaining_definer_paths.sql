@@ -1,0 +1,2 @@
+-- Compatibility marker: this migration was already applied to the linked Supabase project.
+-- The equivalent SECURITY DEFINER hardening is retained in the current local migration chain.
