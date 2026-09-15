@@ -42,13 +42,13 @@ export const CmsVersionHistory: React.FC = () => {
   }, [loadVersions]);
 
   const restore = async (version: CmsVersion) => {
-    const confirmed = window.confirm('Restore this CMS version? The current CMS state will first be preserved as a new version.');
+    const confirmed = window.confirm('Restore this CMS version? The current live CMS state will first be preserved so the restore can be reversed.');
     if (!confirmed) return;
 
     setRestoringId(version.id);
     setMessage(null);
     try {
-      await supabaseCmsService.saveSiteContent(version.content);
+      await supabaseCmsService.restoreSiteContent(version.content);
       setMessage('CMS version restored successfully.');
       await loadVersions();
     } catch (error) {
