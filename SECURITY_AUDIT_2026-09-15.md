@@ -24,8 +24,11 @@ Database/RLS, Data API grants, SECURITY DEFINER exposure, Storage policies, prof
 - Direct execution of trigger-only helper functions was revoked.
 - Future public tables, sequences, and functions no longer receive broad automatic Data API grants; access must be explicitly granted.
 - Frontend Supabase client uses the publishable key only; no service-role/secret key reference was found in the reviewed frontend configuration.
-- Admin authentication uses password sign-in followed by Supabase reauthentication email OTP verification, with the current 8-digit reauthentication code format enforced in the UI.
+- Admin authentication now uses administrator email + password followed by the standard Supabase email OTP flow (`signInWithOtp` → `verifyOtp({ type: 'email' })`). The UI accepts 6–10 digit codes so it matches the project's configured OTP length without assuming a fixed format.
+- Admin MFA state is treated as UI step-up state only and is not used as database authorization proof.
+- Admin inactivity timeout is implemented in the client for the free-tier setup: 30 minutes without mouse, keyboard, touch, or scroll activity signs the administrator out and clears the local MFA state.
 - The storefront/application root and legacy dark admin/CMS surfaces were normalized to the Yalla light theme with dark readable text on light surfaces; intentional gold-button white text remains preserved.
+- Legacy Firebase admin provisioning/verification scripts were replaced with Supabase-compatible local scripts. They require a local `SUPABASE_SERVICE_ROLE_KEY` and never expose that key to the frontend.
 
 ## Verification performed
 
@@ -38,14 +41,19 @@ Database/RLS, Data API grants, SECURITY DEFINER exposure, Storage policies, prof
 - Transactional seller-isolation test confirmed a seller can update an allowed order status but cannot alter the order total; all test data was rolled back.
 - Transactional profile-security test confirmed a non-admin cannot change `email_verified`; all test data was rolled back.
 - Storage bucket configuration confirmed allowed MIME types and size limits.
+- Confirmed the current Supabase Auth user has a matching `public.profiles` row with `role = admin`.
 
-## Remaining production checks
+## Remaining checks that do not require Netlify deployment
 
-These require a real deployment/client session and cannot be truthfully marked complete from database-only tooling:
+1. Run the full frontend `npm run verify` suite locally/through CI after the latest commits.
+2. Run the Supabase Security Advisor and review any remaining warnings individually.
+3. Confirm Supabase Auth dashboard rate limits/CAPTCHA/email OTP expiry settings.
+4. Confirm SSL enforcement, database network restrictions, and Supabase organization MFA in project settings.
+5. Run transactional two-user IDOR tests for carts, wishlists, addresses, profiles, orders, and reviews using real test identities.
+6. Review and replace any remaining legacy Firebase-specific scripts or documentation references.
 
-1. Run the full frontend `npm run verify` suite after the latest commits.
-2. Deploy the latest GitHub main commit to Netlify staging and test the live admin OTP flow.
-3. Test cross-user IDOR with two real authenticated test accounts (customer A/customer B) for carts, wishlists, addresses, profiles, orders, and reviews.
-4. Run the Supabase Security Advisor after all migrations and review any remaining warnings individually.
-5. Confirm Supabase Auth dashboard rate limits/CAPTCHA/email OTP expiry settings before production launch.
-6. Confirm SSL enforcement, database network restrictions, and Supabase organization MFA in the production project settings.
+## Requires deployment
+
+- Deploy the latest GitHub main commit to Netlify staging and test the live `/admin` route.
+- Test the live password → email OTP → admin dashboard flow.
+- Test the live 30-minute inactivity timeout and cross-tab/session behavior.
