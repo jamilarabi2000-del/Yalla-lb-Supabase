@@ -65,14 +65,25 @@ $$;
 
 revoke all on function private.audit_admin_change() from public, anon, authenticated;
 
+drop trigger if exists trg_audit_products on public.products;
 create trigger trg_audit_products after insert or update or delete on public.products for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_orders on public.orders;
 create trigger trg_audit_orders after insert or update or delete on public.orders for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_profiles on public.profiles;
 create trigger trg_audit_profiles after insert or update or delete on public.profiles for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_sellers on public.sellers;
 create trigger trg_audit_sellers after insert or update or delete on public.sellers for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_categories on public.categories;
 create trigger trg_audit_categories after insert or update or delete on public.categories for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_cms_site_content on public.cms_site_content;
 create trigger trg_audit_cms_site_content after insert or update or delete on public.cms_site_content for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_cms_custom_blocks on public.cms_custom_blocks;
 create trigger trg_audit_cms_custom_blocks after insert or update or delete on public.cms_custom_blocks for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_discount_rules on public.discount_rules;
 create trigger trg_audit_discount_rules after insert or update or delete on public.discount_rules for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_coupons on public.coupons;
 create trigger trg_audit_coupons after insert or update or delete on public.coupons for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_product_bundles on public.product_bundles;
 create trigger trg_audit_product_bundles after insert or update or delete on public.product_bundles for each row execute function private.audit_admin_change();
+drop trigger if exists trg_audit_regions on public.regions;
 create trigger trg_audit_regions after insert or update or delete on public.regions for each row execute function private.audit_admin_change();
