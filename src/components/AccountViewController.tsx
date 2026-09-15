@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
 import { AccountView } from './AccountView';
+import { AccountSupportCard } from './AccountSupportCard';
 
 /**
  * Keeps the existing AccountView/authentication implementation intact while
- * applying the CMS-owned account tab visibility and labels at the storefront
- * boundary. This avoids rewriting the sensitive auth/profile logic just to
- * connect the visual builder controls.
+ * applying CMS-owned account controls at the storefront boundary.
  */
 export const AccountViewController: React.FC = () => {
   const { siteContent, language } = useShop();
@@ -61,12 +60,8 @@ export const AccountViewController: React.FC = () => {
     });
 
     const visibleButtons = buttons.filter(item => item.element && item.visible);
-    const activeButton = buttons.find(item =>
-      item.element?.className.includes('bg-[#171717]')
-    );
+    const activeButton = buttons.find(item => item.element?.className.includes('bg-[#171717]'));
 
-    // If CMS hid the currently selected tab, move the existing AccountView
-    // state to the first visible tab instead of leaving hidden content active.
     if (activeButton && !activeButton.visible && visibleButtons[0]?.element) {
       visibleButtons[0].element.click();
     }
@@ -82,7 +77,12 @@ export const AccountViewController: React.FC = () => {
     };
   }, [visibility.accountOrders, visibility.accountWishlist, visibility.accountProfile, accountPage, language]);
 
-  return <AccountView />;
+  return (
+    <>
+      <AccountView />
+      <AccountSupportCard />
+    </>
+  );
 };
 
 export default AccountViewController;
