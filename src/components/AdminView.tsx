@@ -14,6 +14,7 @@ import { PageCMSManager } from './PageCMSManager';
 import { DatabaseActivityLogs } from './admin/DatabaseActivityLogs';
 import { UnifiedVisualBuilder } from './admin/UnifiedVisualBuilder';
 import { getInventoryLedger, hasPermission, recordInventoryChange } from '../services/platformService';
+import { supabaseProductService } from '../services/supabaseProductService';
 
 export type AdminTab = 'dashboard'|'sales'|'products'|'inventory'|'orders'|'customers'|'sellers'|'discounts'|'reviews'|'search'|'cms'|'builder'|'analytics'|'notifications'|'security';
 
@@ -34,14 +35,20 @@ function ProductsManager() {
   const products = shop.products ?? [];
   const updateProduct = shop.updateProduct ?? (async()=>{});
   const deleteProduct = shop.deleteProduct ?? (async()=>{});
-  const addProduct = shop.addProduct ?? (async()=>{});
   const showToast = shop.showToast ?? (()=>{});
+  const syncProducts = shop.syncAllProductsToDatabase ?? (async()=>{});
   const [query,setQuery] = useState('');
   const [editing,setEditing] = useState<string|null>(null);
   const [price,setPrice] = useState(0);
   const [stock,setStock] = useState(0);
   const [showAdd,setShowAdd] = useState(false);
+  const [creating,setCreating] = useState(false);
   const [name,setName] = useState('');
+  const [artisan,setArtisan] = useState('');
+  const [origin,setOrigin] = useState('Lebanon');
+  const [brand,setBrand] = useState('');
+  const [description,setDescription] = useState('');
+  const [craftStory,setCraftStory] = useState('');
   const [newPrice,setNewPrice] = useState(1);
   const [newStock,setNewStock] = useState(0);
   const [newImage,setNewImage] = useState('');
@@ -51,15 +58,67 @@ function ProductsManager() {
     return !q || [p.name,p.arabicName,p.brand,p.seller,p.artisan,p.sellerItemCode,p.id,...(p.keywords||[]),...(p.arabicKeywords||[])].filter(Boolean).some((v:any)=>String(v).toLowerCase().includes(q));
   }),[products,query]);
 
-  const save = async (id:string) => { if(price<=0 || stock<0 || !Number.isInteger(stock)){showToast('Enter a valid price and whole-number stock.','error');return;} await updateProduct(id,{priceUSD:price,stock}); setEditing(null); };
-  const create = async () => { if(!name.trim() || newPrice<=0 || newStock<0){showToast('Product name, price and stock are required.','error');return;} await addProduct({name:name.trim(),arabicName:'',category:'general',artisan:'',seller:'',priceUSD:newPrice,stock:newStock,rating:0,reviewsCount:0,image:newImage||'',description:'',craftStory:'',isNewArrival:true,isFeatured:false,isBestseller:false,isPublished:false,tags:[],keywords:[],arabicKeywords:[],seoTitle:name.trim(),seoDescription:'',sellerItemCode:''}); setShowAdd(false); setName(''); setNewImage(''); };
+  const save = async (id:string) => {
+    if(price<=0 || stock<0 || !Number.isInteger(stock)){showToast('Enter a valid price and whole-number stock.','error');return;}
+    try { await updateProduct(id,{priceUSD:price,stock}); setEditing(null); } catch { showToast('Unable to update the product.','error'); }
+  };
+
+  const resetCreateForm = () => {
+    setName(''); setArtisan(''); setOrigin('Lebanon'); setBrand(''); setDescription(''); setCraftStory(''); setNewPrice(1); setNewStock(0); setNewImage('');
+  };
+
+  const create = async () => {
+    if(!name.trim() || !artisan.trim() || !origin.trim() || !brand.trim() || !description.trim() || !craftStory.trim() || !newImage.trim() || newPrice<0 || newStock<0 || !Number.isInteger(newStock)){
+      showToast('Name, artisan, origin, brand, description, craft story, image, price and whole-number stock are required.','error');
+      return;
+    }
+    setCreating(true);
+    try {
+      await supabaseProductService.createProduct({
+        product: {
+          name: name.trim(),
+          arabic_name: '',
+          artisan: artisan.trim(),
+          origin: origin.trim(),
+          brand: brand.trim(),
+          description: description.trim(),
+          craft_story: craftStory.trim(),
+          image: newImage.trim(),
+          price_usd: newPrice,
+          stock: newStock,
+          rating: 0,
+          reviews_count: 0,
+          is_new_arrival: true,
+          is_featured: false,
+          is_bestseller: false,
+          is_published: false,
+          publish_status: 'draft',
+          tags: [],
+          keywords: [],
+          arabic_keywords: [],
+          seo_title: name.trim(),
+          seo_description: description.trim(),
+        },
+        privateData: {},
+        images: [{ url: newImage.trim(), media_type: 'image', display_order: 0 }],
+      });
+      await syncProducts();
+      showToast('Product draft created successfully.','success');
+      setShowAdd(false);
+      resetCreateForm();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Unable to create the product. No product changes were saved.','error');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return <section className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-black">Products</h2><p className="text-sm text-slate-500">Catalog, pricing, publishing, SEO and seller ownership.</p></div><button onClick={()=>setShowAdd(true)} className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold flex gap-2 items-center"><Plus className="w-4 h-4"/>Add product</button></div>
     <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search Arabic, English, SKU, barcode, brand, seller, keywords..." className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-white"/></div>
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{filtered.map((p:any)=><article key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3"><div className="flex gap-3"><div className="w-20 h-20 rounded-xl bg-slate-50 overflow-hidden shrink-0">{p.image&&<img src={p.image} alt={p.name} className="w-full h-full object-contain"/>}</div><div className="min-w-0"><h3 className="font-bold truncate">{p.name}</h3><p className="text-xs text-slate-500 truncate">{p.arabicName}</p><p className="text-xs text-indigo-600 truncate">{p.brand||p.seller||p.artisan||'Unassigned seller'}</p><p className="text-[10px] text-slate-400 font-mono truncate">{p.sellerItemCode||p.id}</p></div></div>
       {editing===p.id?<div className="grid grid-cols-2 gap-2"><input type="number" min="0.01" value={price} onChange={e=>setPrice(Number(e.target.value))} className="px-2 py-2 border rounded-lg"/><input type="number" min="0" value={stock} onChange={e=>setStock(Number(e.target.value))} className="px-2 py-2 border rounded-lg"/><button onClick={()=>save(p.id)} className="px-2 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold">Save</button><button onClick={()=>setEditing(null)} className="px-2 py-2 rounded-lg bg-slate-100 text-xs font-bold">Cancel</button></div>:<div className="flex items-center justify-between"><div><div className="font-black">${Number(p.priceUSD||0).toFixed(2)}</div><div className="text-xs text-slate-500">Stock: {p.stock}</div></div><div className="flex gap-1"><button title={p.isPublished===false?'Publish':'Unpublish'} onClick={()=>updateProduct(p.id,{isPublished:p.isPublished===false})} className="p-2 rounded-lg hover:bg-slate-100">{p.isPublished===false?<Eye className="w-4 h-4"/>:<EyeOff className="w-4 h-4"/>}</button><button onClick={()=>{setEditing(p.id);setPrice(Number(p.priceUSD||0));setStock(Number(p.stock||0));}} className="px-2 py-1 rounded-lg bg-slate-100 text-xs font-bold">Edit</button><button onClick={()=>deleteProduct(p.id)} className="p-2 rounded-lg text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4"/></button></div></div>}</article>)}</div>
-    {showAdd&&<div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 w-full max-w-lg space-y-4"><h3 className="text-xl font-black">Create product draft</h3><input value={name} onChange={e=>setName(e.target.value)} placeholder="Product name" className="w-full px-3 py-2 border rounded-xl"/><div className="grid grid-cols-2 gap-2"><input type="number" min="0.01" value={newPrice} onChange={e=>setNewPrice(Number(e.target.value))} className="px-3 py-2 border rounded-xl"/><input type="number" min="0" value={newStock} onChange={e=>setNewStock(Number(e.target.value))} className="px-3 py-2 border rounded-xl"/></div><input value={newImage} onChange={e=>setNewImage(e.target.value)} placeholder="Primary image URL" className="w-full px-3 py-2 border rounded-xl"/><div className="flex justify-end gap-2"><button onClick={()=>setShowAdd(false)} className="px-4 py-2 rounded-xl bg-slate-100">Cancel</button><button onClick={create} className="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold">Create draft</button></div></div></div>}
+    {showAdd&&<div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4"><h3 className="text-xl font-black">Create product draft</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><input value={name} onChange={e=>setName(e.target.value)} placeholder="Product name *" className="w-full px-3 py-2 border rounded-xl"/><input value={artisan} onChange={e=>setArtisan(e.target.value)} placeholder="Artisan / workshop *" className="w-full px-3 py-2 border rounded-xl"/><input value={origin} onChange={e=>setOrigin(e.target.value)} placeholder="Origin *" className="w-full px-3 py-2 border rounded-xl"/><input value={brand} onChange={e=>setBrand(e.target.value)} placeholder="Brand *" className="w-full px-3 py-2 border rounded-xl"/><input type="number" min="0" value={newPrice} onChange={e=>setNewPrice(Number(e.target.value))} placeholder="Price USD *" className="w-full px-3 py-2 border rounded-xl"/><input type="number" min="0" value={newStock} onChange={e=>setNewStock(Number(e.target.value))} placeholder="Stock *" className="w-full px-3 py-2 border rounded-xl"/></div><input value={newImage} onChange={e=>setNewImage(e.target.value)} placeholder="Primary image URL *" className="w-full px-3 py-2 border rounded-xl"/><textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Product description *" rows={3} className="w-full px-3 py-2 border rounded-xl"/><textarea value={craftStory} onChange={e=>setCraftStory(e.target.value)} placeholder="Craft story *" rows={3} className="w-full px-3 py-2 border rounded-xl"/><div className="flex justify-end gap-2"><button disabled={creating} onClick={()=>{setShowAdd(false);resetCreateForm();}} className="px-4 py-2 rounded-xl bg-slate-100 disabled:opacity-50">Cancel</button><button disabled={creating} onClick={create} className="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold disabled:opacity-50">{creating?'Creating…':'Create draft'}</button></div></div></div>}
   </section>;
 }
 
