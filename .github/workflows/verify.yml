@@ -1,15 +1,40 @@
 name: verify
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install -g npm@11.6.0
-      - run: npm --version
-      - run: npm install --no-audit --no-fund
-      - run: npm run verify
-# Final compatibility fixes applied; run full verification.
+          cache: npm
+
+      - name: Install dependencies from lockfile
+        run: npm ci --ignore-scripts
+
+      - name: Type check
+        run: npm run lint
+
+      - name: Unit and security tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high --omit=dev
