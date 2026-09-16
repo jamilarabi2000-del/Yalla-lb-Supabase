@@ -46,16 +46,16 @@ const clearPendingAdminOtpStage = () => {
   try { sessionStorage.removeItem(ADMIN_OTP_STAGE_KEY); } catch { /* no-op */ }
 };
 
-const pendingOtpStage = readPendingAdminOtpStage();
-
 const ADMIN_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 const OTP_SEND_TIMEOUT_MS = 15_000;
 const ADMIN_ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { authStatus, authUser, signOutUser } = useShop();
-  const [mode, setMode] = useState<AuthMode>(pendingOtpStage ? 'otp' : 'login');
-  const [email, setEmail] = useState(pendingOtpStage?.email || '');
+  // Always start at the credential screen. An OTP stage is created only after
+  // the current page's password authentication succeeds.
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -127,8 +127,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       ]);
       if (result.error) throw result.error;
     } catch (error: any) {
-      // Keep the OTP screen visible so the user gets the actual delivery/configuration
-      // error and can retry. Previously this reset the whole guard back to login.
       const message = String(error?.message || 'Could not send the security code. Please try again.');
       setOtpError(message);
       throw error;
@@ -156,7 +154,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       try {
         await sendLoginOtp(cleanEmail);
       } catch {
-        // sendLoginOtp keeps the OTP stage active and surfaces its error there.
         return;
       }
     } catch (err: any) {
@@ -181,9 +178,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       const { data, error } = await adminOtpClient.auth.verifyOtp({ email: email.trim().toLowerCase(), token: cleanOtp, type: 'email' });
       if (error) throw error;
       if (!data.user) throw new Error('OTP verification did not return an authenticated administrator.');
-
-      // The isolated OTP client proves possession of the mailbox. Keep the
-      // primary password-authenticated Supabase session untouched.
       await verifyAdminRole(data.user.id);
       const primarySession = await supabase.auth.getSession();
       if (!primarySession.data.session?.user?.id) {
