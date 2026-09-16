@@ -12,19 +12,54 @@ import {
 interface AdminGuardProps { children: React.ReactNode; }
 type AuthMode = 'login' | 'otp' | 'verify_email_notice';
 
+type PendingAdminOtpStage = { email: string; createdAt: number };
+const ADMIN_OTP_STAGE_KEY = 'yalla_admin_otp_stage';
+const ADMIN_OTP_STAGE_MAX_AGE_MS = 10 * 60 * 1000;
+
+const readPendingAdminOtpStage = (): PendingAdminOtpStage | null => {
+  try {
+    const raw = sessionStorage.getItem(ADMIN_OTP_STAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingAdminOtpStage>;
+    const targetEmail = String(parsed.email || '').trim().toLowerCase();
+    const createdAt = Number(parsed.createdAt);
+    if (!targetEmail || !Number.isFinite(createdAt) || Date.now() - createdAt > ADMIN_OTP_STAGE_MAX_AGE_MS) {
+      sessionStorage.removeItem(ADMIN_OTP_STAGE_KEY);
+      return null;
+    }
+    return { email: targetEmail, createdAt };
+  } catch {
+    return null;
+  }
+};
+
+const writePendingAdminOtpStage = (email: string) => {
+  try {
+    sessionStorage.setItem(ADMIN_OTP_STAGE_KEY, JSON.stringify({ email: email.trim().toLowerCase(), createdAt: Date.now() }));
+  } catch {
+    // sessionStorage can be unavailable in hardened/private browser contexts.
+  }
+};
+
+const clearPendingAdminOtpStage = () => {
+  try { sessionStorage.removeItem(ADMIN_OTP_STAGE_KEY); } catch { /* no-op */ }
+};
+
+const pendingOtpStage = readPendingAdminOtpStage();
+
 const ADMIN_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 const OTP_SEND_TIMEOUT_MS = 15_000;
 const ADMIN_ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { authStatus, authUser, signOutUser } = useShop();
-  const [mode, setMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<AuthMode>(pendingOtpStage ? 'otp' : 'login');
+  const [email, setEmail] = useState(pendingOtpStage?.email || '');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(Boolean(pendingOtpStage));
   const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -61,6 +96,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       window.clearInterval(timer);
       ADMIN_ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, markActivity));
       clearAdminMfaSession(userId);
+      clearPendingAdminOtpStage();
       setMode('login');
       setOtp('');
       setPassword('');
@@ -77,6 +113,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     const targetEmail = (target || email).trim().toLowerCase();
     if (!targetEmail) throw new Error('No administrator email is available for OTP verification.');
 
+    writePendingAdminOtpStage(targetEmail);
     setEmail(targetEmail);
     setOtp('');
     setOtpError(null);
@@ -89,6 +126,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       ]);
       if (result.error) throw result.error;
     } catch (error) {
+      clearPendingAdminOtpStage();
       setMode('login');
       throw error;
     } finally {
@@ -102,15 +140,21 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     if (!cleanEmail) return setLoginError('Please enter your administrator email address.');
     if (!password) return setLoginError('Please enter your administrator password.');
 
+    clearPendingAdminOtpStage();
     setIsSubmitting(true);
     setLoginError(null);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (error) throw error;
       if (!data.user) throw new Error('No authenticated administrator was returned.');
+
+      // Supabase auth state changes immediately after password sign-in. Persist the
+      // next step before the role query so a remount cannot return to the login form.
+      writePendingAdminOtpStage(cleanEmail);
       await verifyAdminRole(data.user.id);
       await sendLoginOtp(cleanEmail);
     } catch (err: any) {
+      clearPendingAdminOtpStage();
       const message = String(err?.message || '').toLowerCase();
       if (message.includes('invalid login credentials')) setLoginError('Invalid administrator email or password.');
       else if (message.includes('email not confirmed')) setMode('verify_email_notice');
@@ -133,6 +177,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       if (!data.user) throw new Error('OTP verification did not return an authenticated administrator.');
       await verifyAdminRole(data.user.id);
       setAdminMfaSession(data.user.id);
+      clearPendingAdminOtpStage();
       setOtp('');
       setPassword('');
       setMode('login');
@@ -199,7 +244,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         </form>
         <div className="space-y-3 text-center">
           <button onClick={resendLoginOtp} disabled={isResendingOtp || isSendingOtp} className="text-sm text-[#8F7137] font-semibold disabled:opacity-50">{isResendingOtp ? 'Sending new code…' : 'Resend security code'}</button>
-          <button onClick={async () => { clearAdminMfaSession(userId); await supabase.auth.signOut(); setOtp(''); setPassword(''); setMode('login'); }} className="block w-full text-sm text-[#666666]">Cancel and Sign Out</button>
+          <button onClick={async () => { clearPendingAdminOtpStage(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setOtp(''); setPassword(''); setMode('login'); }} className="block w-full text-sm text-[#666666]">Cancel and Sign Out</button>
         </div>
       </div>
     </div>
@@ -213,7 +258,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         <p className="text-sm text-[#666666]">Verify your administrator email before accessing the console.</p>
         <button onClick={async () => { const { data, error } = await supabase.auth.getUser(); if (error) return setLoginError(error.message); if (!data.user?.email_confirmed_at) return setLoginError('Email is still unverified. Please check your inbox.'); await verifyAdminRole(data.user.id); await sendLoginOtp(data.user.email || email); }} className="gold-btn w-full py-3 rounded-xl font-bold">I verified my email — continue</button>
         {loginError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828]">{loginError}</div>}
-        <button onClick={async () => { clearAdminMfaSession(userId); await supabase.auth.signOut(); setMode('login'); }} className="text-sm text-[#666666]">Back to login</button>
+        <button onClick={async () => { clearPendingAdminOtpStage(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setMode('login'); }} className="text-sm text-[#666666]">Back to login</button>
       </div>
     </div>
   );
