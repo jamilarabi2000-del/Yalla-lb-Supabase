@@ -60,7 +60,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const [otp, setOtp] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(Boolean(pendingOtpStage));
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -126,9 +126,11 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('The security-code request timed out. Please try again.')), OTP_SEND_TIMEOUT_MS)),
       ]);
       if (result.error) throw result.error;
-    } catch (error) {
-      clearPendingAdminOtpStage();
-      setMode('login');
+    } catch (error: any) {
+      // Keep the OTP screen visible so the user gets the actual delivery/configuration
+      // error and can retry. Previously this reset the whole guard back to login.
+      const message = String(error?.message || 'Could not send the security code. Please try again.');
+      setOtpError(message);
       throw error;
     } finally {
       setIsSendingOtp(false);
@@ -151,7 +153,12 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
       writePendingAdminOtpStage(cleanEmail);
       await verifyAdminRole(data.user.id);
-      await sendLoginOtp(cleanEmail);
+      try {
+        await sendLoginOtp(cleanEmail);
+      } catch {
+        // sendLoginOtp keeps the OTP stage active and surfaces its error there.
+        return;
+      }
     } catch (err: any) {
       clearPendingAdminOtpStage();
       const message = String(err?.message || '').toLowerCase();
