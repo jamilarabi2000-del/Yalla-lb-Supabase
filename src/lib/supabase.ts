@@ -47,6 +47,34 @@ const supabaseClient = createClient(
  */
 const supabaseRuntime = new Proxy(supabaseClient as any, {
   get(target, property, receiver) {
+    if (property === 'auth') {
+      const authClient = Reflect.get(target, property, receiver);
+      return new Proxy(authClient as any, {
+        get(authTarget, authProperty, authReceiver) {
+          if (authProperty !== 'signInWithOtp') {
+            return Reflect.get(authTarget, authProperty, authReceiver);
+          }
+
+          /**
+           * A password login followed by email OTP verification must use one
+           * clean OTP authentication flow. If an existing Supabase session is
+           * present, clear it before requesting the OTP. Otherwise the
+           * password-authenticated session can race with the passwordless OTP
+           * flow and leave the client in an inconsistent auth state.
+           */
+          return async (credentials: Record<string, unknown>) => {
+            const { data: sessionData } = await authTarget.getSession();
+            if (sessionData?.session) {
+              const { error: signOutError } = await authTarget.signOut();
+              if (signOutError) throw signOutError;
+            }
+
+            return authTarget.signInWithOtp(credentials);
+          };
+        },
+      });
+    }
+
     if (property !== 'schema') return Reflect.get(target, property, receiver);
 
     return (schemaName: string) => {
