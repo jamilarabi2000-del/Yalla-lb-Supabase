@@ -257,7 +257,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           <label htmlFor="admin-otp" className="block text-sm font-semibold text-[#333333]">Security code</label>
           <input id="admin-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} disabled={isSendingOtp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter security code" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" autoFocus={!isSendingOtp} />
           {otpError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{otpError}</div>}
-          <button disabled={isSubmitting || isSendingOtp || otp.length < 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></button>
+          <button disabled={isSubmitting || isSendingOtp || otp.length < 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}</button>
         </form>
         <div className="space-y-3 text-center">
           <button onClick={resendLoginOtp} disabled={isResendingOtp || isSendingOtp} className="text-sm text-[#8F7137] font-semibold disabled:opacity-50">{isResendingOtp ? 'Sending new code…' : 'Resend security code'}</button>
