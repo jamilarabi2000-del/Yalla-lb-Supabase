@@ -37,44 +37,18 @@ const supabaseClient = createClient(
 );
 
 /**
- * Temporary migration boundary: legacy Firebase-shaped UI code performs
- * highly dynamic Supabase queries. Keep the runtime client identical while
- * preventing generated query unions from overwhelming TypeScript during the
- * migration. Database/RLS authorization remains enforced by Supabase.
+ * Runtime compatibility boundary for the legacy Firebase-shaped UI.
+ * Database/RLS authorization remains enforced by Supabase.
  *
  * Checkout is transparently routed through the inventory-audited gateway so
  * every stock decrement is recorded as a sale in the same transaction.
+ *
+ * IMPORTANT: auth.signInWithOtp is deliberately NOT intercepted here.
+ * OTP behavior must remain scoped to the calling flow; a global wrapper that
+ * signs out an existing session can break normal login/signup verification.
  */
 const supabaseRuntime = new Proxy(supabaseClient as any, {
   get(target, property, receiver) {
-    if (property === 'auth') {
-      const authClient = Reflect.get(target, property, receiver);
-      return new Proxy(authClient as any, {
-        get(authTarget, authProperty, authReceiver) {
-          if (authProperty !== 'signInWithOtp') {
-            return Reflect.get(authTarget, authProperty, authReceiver);
-          }
-
-          /**
-           * A password login followed by email OTP verification must use one
-           * clean OTP authentication flow. If an existing Supabase session is
-           * present, clear it before requesting the OTP. Otherwise the
-           * password-authenticated session can race with the passwordless OTP
-           * flow and leave the client in an inconsistent auth state.
-           */
-          return async (credentials: Record<string, unknown>) => {
-            const { data: sessionData } = await authTarget.getSession();
-            if (sessionData?.session) {
-              const { error: signOutError } = await authTarget.signOut();
-              if (signOutError) throw signOutError;
-            }
-
-            return authTarget.signInWithOtp(credentials);
-          };
-        },
-      });
-    }
-
     if (property !== 'schema') return Reflect.get(target, property, receiver);
 
     return (schemaName: string) => {
