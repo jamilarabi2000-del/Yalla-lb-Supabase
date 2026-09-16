@@ -8,17 +8,21 @@ const supabasePublishableKey =
 /**
  * Isolated Auth client for the administrator email-code step.
  *
- * Supabase's signInWithOtp() is a sign-in flow. If it is called on the
- * application's primary client while a password session already exists,
- * Supabase can replace/sign out that primary session. The admin flow needs
- * the password session to remain untouched while the email code is sent and
- * verified, so this client deliberately has its own non-persistent session.
+ * Supabase's signInWithOtp() is a sign-in flow. It must never share the
+ * application's primary Auth client/session. This client therefore uses:
+ * - a separate storage namespace
+ * - non-persistent session storage
+ * - no URL/session detection
+ * - no token auto-refresh
+ *
+ * The primary password session remains owned exclusively by `supabase`.
  */
 export const adminOtpClient = createClient(
   supabaseUrl || 'http://127.0.0.1:54321',
   supabasePublishableKey || 'development-publishable-key',
   {
     auth: {
+      storageKey: 'yalla-admin-otp-auth',
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
