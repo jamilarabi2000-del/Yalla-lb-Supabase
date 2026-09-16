@@ -16,6 +16,8 @@ type AuthMode = 'login' | 'otp' | 'verify_email_notice';
 type PendingAdminOtpStage = { email: string; createdAt: number };
 const ADMIN_OTP_STAGE_KEY = 'yalla_admin_otp_stage';
 const ADMIN_OTP_STAGE_MAX_AGE_MS = 10 * 60 * 1000;
+const ADMIN_OTP_LAST_SENT_KEY = 'yalla_admin_otp_last_sent';
+const ADMIN_OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 
 const readPendingAdminOtpStage = (): PendingAdminOtpStage | null => {
   try {
@@ -46,6 +48,25 @@ const clearPendingAdminOtpStage = () => {
   try { sessionStorage.removeItem(ADMIN_OTP_STAGE_KEY); } catch { /* no-op */ }
 };
 
+const readOtpLastSentAt = () => {
+  try {
+    const value = Number(sessionStorage.getItem(ADMIN_OTP_LAST_SENT_KEY));
+    return Number.isFinite(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const writeOtpLastSentAt = (timestamp: number) => {
+  try { sessionStorage.setItem(ADMIN_OTP_LAST_SENT_KEY, String(timestamp)); } catch { /* no-op */ }
+};
+
+const clearOtpLastSentAt = () => {
+  try { sessionStorage.removeItem(ADMIN_OTP_LAST_SENT_KEY); } catch { /* no-op */ }
+};
+
+const getOtpCooldownSeconds = () => Math.max(0, Math.ceil((ADMIN_OTP_RESEND_COOLDOWN_MS - (Date.now() - readOtpLastSentAt())) / 1000));
+
 const ADMIN_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 const OTP_SEND_TIMEOUT_MS = 15_000;
 const ADMIN_ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
@@ -62,6 +83,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isResendingOtp, setIsResendingOtp] = useState(false);
+  const [otpCooldownSeconds, setOtpCooldownSeconds] = useState(getOtpCooldownSeconds());
   const [loginError, setLoginError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [showStepUpModal, setShowStepUpModal] = useState(false);
@@ -70,9 +92,15 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const [isStepUpVerifying, setIsStepUpVerifying] = useState(false);
   const resolverRef = useRef<((success: boolean) => void) | null>(null);
   const lastActivityRef = useRef(Date.now());
+  const otpSendLockRef = useRef(false);
 
   const userId = authUser?.uid;
   const isMfaVerified = isMfaSessionValid(userId);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setOtpCooldownSeconds(getOtpCooldownSeconds()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const verifyAdminRole = async (uid: string) => {
     const { data, error } = await supabase.from('profiles').select('role').eq('id', uid).maybeSingle();
@@ -98,6 +126,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       ADMIN_ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, markActivity));
       clearAdminMfaSession(userId);
       clearPendingAdminOtpStage();
+      clearOtpLastSentAt();
       setMode('login');
       setOtp('');
       setPassword('');
@@ -114,6 +143,16 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     const targetEmail = (target || email).trim().toLowerCase();
     if (!targetEmail) throw new Error('No administrator email is available for OTP verification.');
 
+    if (otpSendLockRef.current) {
+      throw new Error('A security-code request is already in progress. Please wait.');
+    }
+
+    const cooldownSeconds = getOtpCooldownSeconds();
+    if (cooldownSeconds > 0) {
+      throw new Error(`Please wait ${cooldownSeconds} seconds before requesting another security code.`);
+    }
+
+    otpSendLockRef.current = true;
     writePendingAdminOtpStage(targetEmail);
     setEmail(targetEmail);
     setOtp('');
@@ -126,17 +165,26 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('The security-code request timed out. Please try again.')), OTP_SEND_TIMEOUT_MS)),
       ]);
       if (result.error) throw result.error;
+      writeOtpLastSentAt(Date.now());
+      setOtpCooldownSeconds(Math.ceil(ADMIN_OTP_RESEND_COOLDOWN_MS / 1000));
     } catch (error: any) {
+      const code = String(error?.code || '').toLowerCase();
       const message = String(error?.message || 'Could not send the security code. Please try again.');
-      setOtpError(message);
+      if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || message.toLowerCase().includes('rate limit')) {
+        setOtpError('Supabase is temporarily rate-limiting security-code emails. Please wait before requesting another code.');
+      } else {
+        setOtpError(message);
+      }
       throw error;
     } finally {
+      otpSendLockRef.current = false;
       setIsSendingOtp(false);
     }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (otpSendLockRef.current || isSubmitting) return;
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) return setLoginError('Please enter your administrator email address.');
     if (!password) return setLoginError('Please enter your administrator password.');
@@ -151,18 +199,22 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
       writePendingAdminOtpStage(cleanEmail);
       await verifyAdminRole(data.user.id);
-      try {
-        await sendLoginOtp(cleanEmail);
-      } catch {
-        return;
-      }
+      await sendLoginOtp(cleanEmail);
     } catch (err: any) {
-      clearPendingAdminOtpStage();
       const message = String(err?.message || '').toLowerCase();
-      if (message.includes('invalid login credentials')) setLoginError('Invalid administrator email or password.');
-      else if (message.includes('email not confirmed')) setMode('verify_email_notice');
-      else if (message.includes('rate limit') || message.includes('too many')) setLoginError('Too many authentication attempts. Please wait and try again.');
-      else setLoginError(err?.message || 'Administrator authentication failed.');
+      if (message.includes('invalid login credentials')) {
+        clearPendingAdminOtpStage();
+        setLoginError('Invalid administrator email or password.');
+      } else if (message.includes('email not confirmed')) {
+        clearPendingAdminOtpStage();
+        setMode('verify_email_notice');
+      } else if (message.includes('rate limit') || message.includes('too many')) {
+        setOtpError('Supabase is temporarily rate-limiting security-code emails. Please wait before requesting another code.');
+      } else if (message.includes('already in progress')) {
+        setOtpError('A security-code request is already in progress. Please wait.');
+      } else {
+        setLoginError(err?.message || 'Administrator authentication failed.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -189,6 +241,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
       setAdminMfaSession(data.user.id);
       clearPendingAdminOtpStage();
+      clearOtpLastSentAt();
       setOtp('');
       setPassword('');
       setMode('login');
@@ -203,10 +256,14 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   };
 
   const resendLoginOtp = async () => {
+    if (isResendingOtp || isSendingOtp || otpCooldownSeconds > 0) return;
     setIsResendingOtp(true);
     setOtpError(null);
     try { await sendLoginOtp(); }
-    catch (err: any) { setOtpError(err?.message || 'Could not send a new verification code. Please wait before requesting another code.'); }
+    catch (err: any) {
+      const message = String(err?.message || 'Could not send a new verification code. Please wait before requesting another code.');
+      setOtpError(message);
+    }
     finally { setIsResendingOtp(false); }
   };
 
@@ -254,8 +311,10 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           <button disabled={isSubmitting || isSendingOtp || otp.length < 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}</button>
         </form>
         <div className="space-y-3 text-center">
-          <button onClick={resendLoginOtp} disabled={isResendingOtp || isSendingOtp} className="text-sm text-[#8F7137] font-semibold disabled:opacity-50">{isResendingOtp ? 'Sending new code…' : 'Resend security code'}</button>
-          <button onClick={async () => { clearPendingAdminOtpStage(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setOtp(''); setPassword(''); setMode('login'); }} className="block w-full text-sm text-[#666666]">Cancel and Sign Out</button>
+          <button onClick={resendLoginOtp} disabled={isResendingOtp || isSendingOtp || otpCooldownSeconds > 0} className="text-sm text-[#8F7137] font-semibold disabled:opacity-50">
+            {isResendingOtp ? 'Sending new code…' : otpCooldownSeconds > 0 ? `Resend security code (${otpCooldownSeconds}s)` : 'Resend security code'}
+          </button>
+          <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setOtp(''); setPassword(''); setMode('login'); }} className="block w-full text-sm text-[#666666]">Cancel and Sign Out</button>
         </div>
       </div>
     </div>
@@ -269,7 +328,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         <p className="text-sm text-[#666666]">Verify your administrator email before accessing the console.</p>
         <button onClick={async () => { const { data, error } = await supabase.auth.getUser(); if (error) return setLoginError(error.message); if (!data.user?.email_confirmed_at) return setLoginError('Email is still unverified. Please check your inbox.'); await verifyAdminRole(data.user.id); await sendLoginOtp(data.user.email || email); }} className="gold-btn w-full py-3 rounded-xl font-bold">I verified my email — continue</button>
         {loginError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828]">{loginError}</div>}
-        <button onClick={async () => { clearPendingAdminOtpStage(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setMode('login'); }} className="text-sm text-[#666666]">Back to login</button>
+        <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setMode('login'); }} className="text-sm text-[#666666]">Back to login</button>
       </div>
     </div>
   );
