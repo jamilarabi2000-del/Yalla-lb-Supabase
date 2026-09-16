@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useShop } from '../context/ShopContext';
 import {
@@ -80,7 +80,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setEmail(targetEmail);
     setOtp('');
     setOtpError(null);
-    // Critical UX fix: leave the credentials screen before waiting for email delivery.
     setMode('otp');
     setIsSendingOtp(true);
     try {
@@ -110,7 +109,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       if (error) throw error;
       if (!data.user) throw new Error('No authenticated administrator was returned.');
       await verifyAdminRole(data.user.id);
-      // The OTP screen now renders independently of the password-request spinner.
       await sendLoginOtp(cleanEmail);
     } catch (err: any) {
       const message = String(err?.message || '').toLowerCase();
@@ -183,10 +181,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     resolverRef.current = null;
   };
 
-  if (authStatus === 'loading') return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-6 h-6 animate-spin text-[#B89753]" /></div>
-  );
-
   if (mode === 'otp') return (
     <div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center p-4">
       <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
@@ -198,7 +192,8 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         </div>
         {isSendingOtp && <div className="p-3 rounded-xl bg-[#F7F7F8] border border-[#E5E5E5] text-sm text-[#666666] flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Sending security code…</div>}
         <form onSubmit={handleVerifyOtp} className="space-y-4">
-          <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} disabled={isSendingOtp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter security code" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" autoFocus={!isSendingOtp} />
+          <label htmlFor="admin-otp" className="block text-sm font-semibold text-[#333333]">Security code</label>
+          <input id="admin-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} disabled={isSendingOtp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter security code" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" autoFocus={!isSendingOtp} />
           {otpError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{otpError}</div>}
           <button disabled={isSubmitting || isSendingOtp || otp.length < 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}</button>
         </form>
@@ -223,6 +218,10 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     </div>
   );
 
+  if (authStatus === 'loading') return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-6 h-6 animate-spin text-[#B89753]" /></div>
+  );
+
   if (authStatus === 'authenticated_admin' && isMfaVerified) return <>{children}</>;
 
   return (
@@ -230,8 +229,14 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-md w-full space-y-7 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
         <div className="text-center space-y-3"><div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white"><Lock className="w-7 h-7" /></div><h1 className="text-2xl font-bold">Administrator Access</h1><p className="text-sm text-[#666666]">Enter your administrator credentials to continue.</p></div>
         <form onSubmit={handleSignIn} className="space-y-4">
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="Administrator email" disabled={isSubmitting} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 outline-none focus:border-[#B89753]" />
-          <div className="relative"><input type={isPasswordVisible ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Administrator password" disabled={isSubmitting} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 pr-12 outline-none focus:border-[#B89753]" /><button type="button" onClick={() => setIsPasswordVisible(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666]">{isPasswordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div>
+          <div className="space-y-2">
+            <label htmlFor="admin-email" className="block text-sm font-semibold text-[#333333]">Email</label>
+            <input id="admin-email" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="Enter administrator email" disabled={isSubmitting} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 outline-none focus:border-[#B89753]" />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="admin-password" className="block text-sm font-semibold text-[#333333]">Password</label>
+            <div className="relative"><input id="admin-password" type={isPasswordVisible ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Enter administrator password" disabled={isSubmitting} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 pr-12 outline-none focus:border-[#B89753]" /><button type="button" aria-label={isPasswordVisible ? 'Hide password' : 'Show password'} onClick={() => setIsPasswordVisible(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666]">{isPasswordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div>
+          </div>
           {loginError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{loginError}</div>}
           <button disabled={isSubmitting} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}</button>
         </form>
