@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { adminOtpClient } from '../lib/adminOtpClient';
 import { useShop } from '../context/ShopContext';
 import {
   clearAdminMfaSession,
@@ -121,7 +122,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setIsSendingOtp(true);
     try {
       const result = await Promise.race([
-        supabase.auth.signInWithOtp({ email: targetEmail, options: { shouldCreateUser: false } }),
+        adminOtpClient.auth.signInWithOtp({ email: targetEmail, options: { shouldCreateUser: false } }),
         new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('The security-code request timed out. Please try again.')), OTP_SEND_TIMEOUT_MS)),
       ]);
       if (result.error) throw result.error;
@@ -148,8 +149,6 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       if (error) throw error;
       if (!data.user) throw new Error('No authenticated administrator was returned.');
 
-      // Supabase auth state changes immediately after password sign-in. Persist the
-      // next step before the role query so a remount cannot return to the login form.
       writePendingAdminOtpStage(cleanEmail);
       await verifyAdminRole(data.user.id);
       await sendLoginOtp(cleanEmail);
@@ -172,10 +171,21 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setIsSubmitting(true);
     setOtpError(null);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: cleanOtp, type: 'email' });
+      const { data, error } = await adminOtpClient.auth.verifyOtp({ email: email.trim().toLowerCase(), token: cleanOtp, type: 'email' });
       if (error) throw error;
       if (!data.user) throw new Error('OTP verification did not return an authenticated administrator.');
+
+      // The isolated OTP client proves possession of the mailbox. Keep the
+      // primary password-authenticated Supabase session untouched.
       await verifyAdminRole(data.user.id);
+      const primarySession = await supabase.auth.getSession();
+      if (!primarySession.data.session?.user?.id) {
+        throw new Error('The administrator password session was lost. Please sign in again.');
+      }
+      if (primarySession.data.session.user.id !== data.user.id) {
+        throw new Error('The verification code does not belong to the signed-in administrator.');
+      }
+
       setAdminMfaSession(data.user.id);
       clearPendingAdminOtpStage();
       setOtp('');
@@ -240,7 +250,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           <label htmlFor="admin-otp" className="block text-sm font-semibold text-[#333333]">Security code</label>
           <input id="admin-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} disabled={isSendingOtp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter security code" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" autoFocus={!isSendingOtp} />
           {otpError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{otpError}</div>}
-          <button disabled={isSubmitting || isSendingOtp || otp.length < 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}</button>
+          <button disabled={isSubmitting || isSendingOtp || otp.length < 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></button>
         </form>
         <div className="space-y-3 text-center">
           <button onClick={resendLoginOtp} disabled={isResendingOtp || isSendingOtp} className="text-sm text-[#8F7137] font-semibold disabled:opacity-50">{isResendingOtp ? 'Sending new code…' : 'Resend security code'}</button>
