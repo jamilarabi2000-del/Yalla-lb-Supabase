@@ -35,7 +35,7 @@ export function validateAdminProductInput(input: Partial<Product>): {
   }
 
   // Stock is optional in the admin form. When supplied, it must represent units.
-  if (input.stock !== undefined && input.stock !== null && input.stock !== '') {
+  if (input.stock !== undefined && input.stock !== null) {
     const stock = Number(input.stock);
     if (!Number.isInteger(stock) || stock < 0) {
       return { valid: false, message: 'Stock quantity must be a whole number of units (0 or more).' };
@@ -49,7 +49,7 @@ export function normalizeAdminProductPayload(
   input: Partial<Product>,
   published: boolean,
 ): Omit<Product, 'id'> {
-  const stock = input.stock === undefined || input.stock === null || input.stock === ''
+  const stock = input.stock === undefined || input.stock === null
     ? ADMIN_PRODUCT_DEFAULTS.stock
     : Number(input.stock);
 
@@ -64,7 +64,7 @@ export function normalizeAdminProductPayload(
     origin: String(input.origin ?? ADMIN_PRODUCT_DEFAULTS.origin).trim() || ADMIN_PRODUCT_DEFAULTS.origin,
     priceUSD: Number(input.priceUSD),
     originalPriceUSD: Number(input.originalPriceUSD) > 0 ? Number(input.originalPriceUSD) : undefined,
-    discountPercentage: input.discountPercentage === undefined || input.discountPercentage === '' ? undefined : Number(input.discountPercentage),
+    discountPercentage: input.discountPercentage === undefined ? undefined : Number(input.discountPercentage),
     rating: Number(input.rating ?? 0),
     reviewsCount: Number(input.reviewsCount ?? 0),
     image: String(input.image ?? '').trim(),
@@ -79,7 +79,7 @@ export function normalizeAdminProductPayload(
     isFeatured: input.isFeatured ?? ADMIN_PRODUCT_DEFAULTS.isFeatured,
     isBestseller: input.isBestseller ?? ADMIN_PRODUCT_DEFAULTS.isBestseller,
     isPublished: published,
-    displayOrder: input.displayOrder === undefined || input.displayOrder === '' ? undefined : Number(input.displayOrder),
+    displayOrder: input.displayOrder === undefined ? undefined : Number(input.displayOrder),
     sellerItemCode: String(input.sellerItemCode ?? '').trim() || undefined,
     lowStockThreshold: Number(input.lowStockThreshold) >= 0 ? Number(input.lowStockThreshold) : ADMIN_PRODUCT_DEFAULTS.lowStockThreshold,
     lowStockNotice: String(input.lowStockNotice ?? '').trim() || undefined,
