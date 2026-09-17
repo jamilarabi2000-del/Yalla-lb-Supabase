@@ -50,6 +50,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const [sequence, setSequence] = useState<Product[]>([]);
   const [orderDirty, setOrderDirty] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<any>(emptyProduct());
   const [saving, setSaving] = useState(false);
   const [quickValues, setQuickValues] = useState<Record<string, { price: string; stock: string }>>({});
@@ -72,7 +73,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(filtered.map(p => p.id)));
   const toggle = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const openEdit = (p: Product) => setEditing(p);
+  const openEdit = (p: Product) => { setEditing(p); setModalOpen(true); };
   React.useEffect(() => {
     if (!editing) return;
     setForm({ ...emptyProduct(), ...editing,
@@ -110,7 +111,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     };
     setSaving(true);
     try {
-      if (editing) {
+      if (editing?.id) {
         await updateProduct(editing.id, payload);
       } else {
         await supabaseProductService.createProduct({
@@ -133,11 +134,15 @@ export const ProductsCatalogManagement: React.FC = () => {
             low_stock_notice: payload.lowStockNotice, custom_stock_label: payload.customStockLabel,
             cost_price_usd: payload.costPriceUSD, seller_id: payload.sellerId
           },
-          images: (payload.additionalImages || []).map((url: string, index: number) => ({ url, media_type: 'image', display_order: index + 1 }))
+          images: [
+            ...(payload.additionalImages || []).map((url: string, index: number) => ({ url, media_type: 'image', display_order: index + 1 })),
+            ...(payload.videos || []).map((url: string, index: number) => ({ url, media_type: 'video', display_order: (payload.additionalImages || []).length + index + 1 }))
+          ]
         });
       }
-      showToast(editing ? 'Product updated successfully.' : 'Product created successfully.', 'success');
+      showToast(editing?.id ? 'Product updated successfully.' : 'Product created successfully.', 'success');
       setEditing(null);
+      setModalOpen(false);
     } catch (e: any) { showToast(e?.message || 'Unable to save product.', 'error'); }
     finally { setSaving(false); }
   };
@@ -272,7 +277,119 @@ export const ProductsCatalogManagement: React.FC = () => {
     </article>;
   };
 
-  const Modal = () => <div className="fixed inset-0 z-[70] bg-slate-50/50 backdrop-blur-sm flex items-center justify-center p-4"><div className="bg-white rounded-3xl w-full max-w-5xl max-h-[94vh] overflow-y-auto p-6 shadow-2xl"><div className="flex items-center justify-between mb-5"><div><h3 className="text-2xl font-black">{editing ? 'Edit Product' : 'Add Product'}</h3><p className="text-xs text-slate-500 mt-1">All product data remains managed through the Supabase catalog.</p></div><button onClick={() => setEditing(null)} className="p-2 rounded-xl hover:bg-slate-100"><X/></button></div><div className="grid md:grid-cols-2 gap-4">{['name','arabicName','category','seller','arabicSeller','origin','sellerItemCode','priceUSD','originalPriceUSD','discountPercentage','stock','lowStockThreshold','lowStockNotice','customStockLabel','costPriceUSD','weightOrVolume','displayOrder','image'].map((k) => <label key={k} className="text-sm font-bold text-slate-700">{k}<input value={form[k] ?? ''} onChange={e => setForm((v:any) => ({...v, [k]: ['priceUSD','originalPriceUSD','discountPercentage','stock','lowStockThreshold','costPriceUSD','displayOrder'].includes(k) ? Number(e.target.value) : e.target.value}))} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200" /></label>)}</div><div className="grid md:grid-cols-2 gap-4 mt-4">{['description','craftStory','seoTitle','seoArabicTitle','seoDescription','seoArabicDescription'].map(k => <label key={k} className="text-sm font-bold text-slate-700">{k}<textarea value={form[k] ?? ''} onChange={e => setForm((v:any) => ({...v,[k]:e.target.value}))} rows={3} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>)}</div><div className="flex flex-wrap gap-4 mt-4 text-sm font-semibold">{[['isNewArrival','New Arrival'],['isFeatured','Featured'],['isBestseller','Bestseller']].map(([k,l]) => <label key={k}><input type="checkbox" checked={!!form[k]} onChange={e=>setForm((v:any)=>({...v,[k]:e.target.checked}))}/> <span className="ml-1">{l}</span></label>)}</div><div className="flex justify-end gap-2 mt-6 pt-4 border-t"><button onClick={()=>setEditing(null)} className="px-4 py-2.5 rounded-xl bg-slate-100 font-bold">Cancel</button><button disabled={saving} onClick={()=>saveProduct(false)} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-bold">Save Draft</button><button disabled={saving} onClick={()=>saveProduct(true)} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-slate-900 font-bold">{saving ? 'Saving…' : 'Save & Publish'}</button></div></div></div>;
+  const setField = (key: string, value: any) => setForm((v: any) => ({ ...v, [key]: value }));
+  const addMediaUrl = (key: 'additionalImages' | 'videos', value: string) => {
+    const url = value.trim();
+    if (!url) return;
+    setForm((v: any) => ({ ...v, [key]: [...(v[key] || []), url] }));
+  };
+  const removeMediaUrl = (key: 'additionalImages' | 'videos', index: number) => setForm((v: any) => ({ ...v, [key]: (v[key] || []).filter((_: string, i: number) => i !== index) }));
+  const discountFromPrices = (price: number, original: number) => original > price && original > 0 ? Math.round(((original - price) / original) * 100) : 0;
+  const imageLooksLikeWebPage = (url: string) => /\\.html?(?:[?#]|$)/i.test(url.trim());
+  const normalizeSeller = (seller: any) => seller ? { nameEn: seller.nameEn || '', nameAr: seller.nameAr || '', region: seller.region || seller.district || seller.governorate || 'Lebanon' } : null;
+
+  const Modal = () => {
+    const selectedSeller = normalizeSeller(sellers.find((s: any) => s.id === form.sellerId));
+    const selectedCategory = categories.find((cat: any) => cat.id === form.category);
+    const original = Number(form.originalPriceUSD || 0);
+    const activePrice = Number(form.priceUSD || 0);
+    const calculatedDiscount = discountFromPrices(activePrice, original);
+    const addImageRef = useRef<HTMLInputElement>(null);
+    const addVideoRef = useRef<HTMLInputElement>(null);
+    const [imageDraft, setImageDraft] = useState('');
+    const [videoDraft, setVideoDraft] = useState('');
+    const arabicQuickKeywords = ['مونة بلدية', 'زيت زيتون كورة', 'زعتر بلدي جبلي', 'عسل سدر', 'صناعة لبنانية', 'شحن مغتربين'];
+    const addArabicKeyword = (keyword: string) => {
+      const current = String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean);
+      if (!current.includes(keyword)) setField('arabicKeywordsInput', [...current, keyword].join(', '));
+    };
+    const removeArabicKeyword = (keyword: string) => setField('arabicKeywordsInput', String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter((x: string) => x && x !== keyword).join(', '));
+    const arabicKeywords = String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean);
+    const setSeller = (id: string) => {
+      const seller: any = sellers.find((s: any) => s.id === id);
+      const normalized = normalizeSeller(seller);
+      setForm((v: any) => ({ ...v, sellerId: id, seller: normalized?.nameEn || '', arabicSeller: normalized?.nameAr || '', artisan: normalized?.nameEn || '', origin: normalized?.region || v.origin || 'Lebanon' }));
+    };
+    const setPrice = (value: string) => {
+      const n = Number(value);
+      const discount = discountFromPrices(n, Number(form.originalPriceUSD || 0));
+      setForm((v: any) => ({ ...v, priceUSD: Number.isFinite(n) ? n : 0, discountPercentage: discount || '' }));
+    };
+    const setOriginalPrice = (value: string) => {
+      const n = Number(value);
+      const discount = discountFromPrices(Number(form.priceUSD || 0), n);
+      setForm((v: any) => ({ ...v, originalPriceUSD: Number.isFinite(n) ? n : '', discountPercentage: discount || '' }));
+    };
+    const close = () => { setModalOpen(false); setEditing(null); };
+    return <div className="fixed inset-0 z-[70] bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+      <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[96vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col">
+        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 px-5 py-4 sm:px-7">
+          <div className="flex items-start justify-between gap-4">
+            <div><div className="flex items-center gap-2"><span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wide">Lebanese Catalog</span><span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">Supabase</span></div><h3 className="text-2xl font-black tracking-tight mt-2">{editing?.id ? 'Edit Lebanese Item' : 'List New Lebanese Item'}</h3><p className="text-xs text-slate-500 mt-1">Catalog authentic Lebanese artisanal goods, mouneh and local crafts with bilingual merchandising and live storefront controls.</p></div>
+            <button onClick={close} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-500"><X className="w-5 h-5"/></button>
+          </div>
+        </div>
+        <div className="overflow-y-auto p-5 sm:p-7 space-y-7">
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">1</span><div><h4 className="font-black text-slate-900">Bilingual Product Identity</h4><p className="text-[11px] text-slate-500">The commercial identity used across the international and Arabic catalog.</p></div></div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <label className="text-xs font-black text-slate-600">Product Title (English) *<input value={form.name || ''} onChange={e=>setField('name',e.target.value)} placeholder="Mountain Wild Zaatar Blend" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label dir="rtl" className="text-xs font-black text-slate-600">Product Title (Arabic)<input value={form.arabicName || ''} onChange={e=>setField('arabicName',e.target.value)} placeholder="خلطة الزعتر الجبلي البلدي" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right font-sans"/></label>
+              <label className="text-xs font-black text-slate-600 md:col-span-2">Category Selection *<select value={form.category || ''} onChange={e=>setField('category',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white">{!form.category && <option value="">Select a bilingual catalog category…</option>}{categories.map((cat:any)=><option key={cat.id} value={cat.id}>{cat.icon ? cat.icon+' ' : ''}{cat.nameEn} {cat.nameAr ? '— '+cat.nameAr : ''}</option>)}</select>{selectedCategory && <span className="block mt-1.5 text-[10px] text-indigo-600 font-bold">{selectedCategory.icon} {selectedCategory.nameEn} · {selectedCategory.nameAr}</span>}</label>
+            </div>
+          </section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-xs font-black">2</span><div><h4 className="font-black">Artisan &amp; Terroir Origin Linkage</h4><p className="text-[11px] text-slate-500">Select a registered Lebanese seller to automatically link producer identity and terroir.</p></div></div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <label className="text-xs font-black text-slate-600 md:col-span-2">Registered Seller / Artisan<select value={form.sellerId || ''} onChange={e=>setSeller(e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white"><option value="">Independent / select later</option>{sellers.filter((s:any)=>s.isActive !== false).map((s:any)=><option key={s.id} value={s.id}>{s.nameEn}{s.nameAr ? ' — '+s.nameAr : ''}{s.region ? ' · '+s.region : ''}</option>)}</select>{selectedSeller && <div className="mt-2 flex flex-wrap gap-1.5"><span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black">{selectedSeller.nameEn}</span><span dir="rtl" className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px]">{selectedSeller.nameAr || 'Arabic name not registered'}</span><span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px]">Terroir: {selectedSeller.region}</span></div>}</label>
+              <label className="text-xs font-black text-slate-600">Seller Name (English) *<input list="yalla-seller-names" value={form.seller || ''} onChange={e=>setField('seller',e.target.value)} placeholder="Registered producer / cooperative" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/><datalist id="yalla-seller-names">{sellers.map((s:any)=><option key={s.id} value={s.nameEn}/>)}</datalist></label>
+              <label dir="rtl" className="text-xs font-black text-slate-600">Seller Name (Arabic)<input value={form.arabicSeller || ''} onChange={e=>setField('arabicSeller',e.target.value)} placeholder="اسم المنتج بالعربية" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right"/></label>
+              <label className="text-xs font-black text-slate-600">Terroir / Origin<input value={form.origin || 'Lebanon'} onChange={e=>setField('origin',e.target.value)} placeholder="Koura, Chouf, Bekaa, Jezzine, Beirut" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+            </div>
+          </section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">USD is the catalog price; LBP display is handled by the storefront exchange-rate layer.</p></div></div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <label className="text-xs font-black text-slate-600">Price (USD) *<input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>setPrice(e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label className="text-xs font-black text-slate-600">Stock Quantity *<input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>setField('stock',e.target.value === '' ? '' : Number(e.target.value))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label className="text-xs font-black text-slate-600">Seller Item Code (SKU) *<input value={form.sellerItemCode || ''} onChange={e=>setField('sellerItemCode',e.target.value)} placeholder="SIC-12930" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
+              <label className="text-xs font-black text-slate-600">Package / Unit Size<input value={form.weightOrVolume || ''} onChange={e=>setField('weightOrVolume',e.target.value)} placeholder="500ml Glass Bottle / Set of 6 / Medium 38–44" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+            </div>
+          </section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Compare-at pricing calculates the discount badge automatically.</p></div></div>
+            <div className="grid sm:grid-cols-3 gap-4">
+              <label className="text-xs font-black text-slate-600">Original / Compare-at Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setOriginalPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" type="number" value={form.discountPercentage ?? ''} onChange={e=>setField('discountPercentage',e.target.value === '' ? '' : Number(e.target.value))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from compare-at price' : 'Enter a higher compare-at price'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
+            </div>
+          </section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-xs font-black">5</span><div><h4 className="font-black">Scarcity Alert &amp; Low-Stock Notices</h4><p className="text-[11px] text-slate-500">Control when and how urgency messaging appears to shoppers.</p></div></div>
+            <div className="grid sm:grid-cols-2 gap-4"><label className="text-xs font-black text-slate-600">Low Stock Threshold<input min="0" step="1" type="number" value={form.lowStockThreshold ?? 5} onChange={e=>setField('lowStockThreshold',Number(e.target.value))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label className="text-xs font-black text-slate-600">Shopper Notice / Urgency Label<input value={form.lowStockNotice || ''} onChange={e=>setField('lowStockNotice',e.target.value)} placeholder="Limited Stock" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/><div className="flex flex-wrap gap-1.5 mt-2">{['Limited Stock','Last piece','Few units left','Handmade batch ending','Order soon'].map(v=><button type="button" key={v} onClick={()=>setField('lowStockNotice',v)} className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[9px] font-bold">{v}</button>)}</div></label><label className="text-xs font-black text-slate-600 sm:col-span-2">Custom Stock Label<input value={form.customStockLabel || ''} onChange={e=>setField('customStockLabel',e.target.value)} placeholder="Optional label shown beside the quantity selector" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></div>
+          </section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">6</span><div><h4 className="font-black">Packaging &amp; Specifications</h4><p className="text-[11px] text-slate-500">Use tags for storefront filters and search chips.</p></div></div><label className="text-xs font-black text-slate-600">Search &amp; Filter Tags<textarea rows={2} value={form.tagsInput || ''} onChange={e=>setField('tagsInput',e.target.value)} placeholder="Artisanal, Mouneh, Cold Pressed, Organic, Vegan, Cedar Terroir" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">7</span><div><h4 className="font-black">Multi-Asset Media Gallery</h4><p className="text-[11px] text-slate-500">Add product photos and YouTube, Vimeo or direct MP4 videos.</p></div></div>
+            <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5"><div><label className="text-xs font-black text-slate-600">Primary Image URL *<input value={form.image || ''} onChange={e=>setField('image',e.target.value)} placeholder="https://…" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>{form.image && <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-2"><img src={form.image} alt="Primary product preview" className="w-full h-48 object-contain rounded-xl" onError={e=>{(e.currentTarget as HTMLImageElement).style.display='none';}}/>{imageLooksLikeWebPage(form.image) && <p className="text-[10px] text-rose-600 font-bold mt-2">This looks like an .html webpage URL, not a direct image file. Use a direct image URL.</p>}</div>}
+              <div className="mt-3 flex gap-2"><input ref={addImageRef} value={imageDraft} onChange={e=>setImageDraft(e.target.value)} placeholder="Additional image URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('additionalImages',imageDraft);setImageDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Photo</button></div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">{(form.additionalImages || []).map((url:string,i:number)=><div key={url+i} className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src={url} alt={`Gallery ${i+1}`} className="w-full h-24 object-contain"/><button type="button" onClick={()=>removeMediaUrl('additionalImages',i)} className="absolute top-1 right-1 p-1 rounded-full bg-white shadow text-rose-600"><X className="w-3 h-3"/></button></div>)}</div></div>
+              <div><label className="text-xs font-black text-slate-600">Product Video Integration<input value={form.videoUrl || ''} onChange={e=>setField('videoUrl',e.target.value)} placeholder="https://youtube.com/... / Vimeo / .mp4" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><div className="mt-3 flex gap-2"><input ref={addVideoRef} value={videoDraft} onChange={e=>setVideoDraft(e.target.value)} placeholder="Additional video URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('videos',videoDraft);setVideoDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Video</button></div><div className="mt-3 space-y-2">{(form.videos || []).map((url:string,i:number)=><div key={url+i} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs"><span className="px-2 py-1 rounded-full bg-slate-100 font-black">VIDEO {i+1}</span><span className="truncate flex-1">{url}</span><button type="button" onClick={()=>removeMediaUrl('videos',i)} className="text-rose-600"><X className="w-4 h-4"/></button></div>)}</div></div></div>
+          </section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">8</span><div><h4 className="font-black">Bilingual Search Engine Optimization (SEO)</h4><p className="text-[11px] text-slate-500">Keywords support Google metadata and storefront search indexing.</p></div></div>
+            <div className="grid lg:grid-cols-2 gap-4"><div><label className="text-xs font-black text-slate-600">Arabic SEO Keywords (الكلمات الدلالية لمحركات البحث)</label><div className="mt-1.5 min-h-12 rounded-xl border border-slate-200 p-2 flex flex-wrap gap-1.5">{arabicKeywords.map(k=><span dir="rtl" key={k} className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">{k}<button type="button" onClick={()=>removeArabicKeyword(k)} className="ml-1 text-emerald-600">×</button></span>)}<input dir="rtl" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();const v=e.currentTarget.value.trim();if(v)addArabicKeyword(v);e.currentTarget.value='';}}} placeholder="اكتب كلمة واضغط Enter" className="flex-1 min-w-36 outline-none text-xs text-right"/></div><div className="flex flex-wrap gap-1.5 mt-2">{arabicQuickKeywords.map(k=><button type="button" key={k} onClick={()=>addArabicKeyword(k)} className="px-2 py-1 rounded-full bg-slate-50 text-slate-600 text-[9px] font-bold">{k}</button>)}</div></div><label className="text-xs font-black text-slate-600">English SEO Keywords<textarea rows={3} value={form.keywordsInput || ''} onChange={e=>setField('keywordsInput',e.target.value)} placeholder="lebanese zaatar, mouneh, cold pressed olive oil, handmade" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></div>
+            <div className="grid lg:grid-cols-2 gap-4 mt-4"><label className="text-xs font-black text-slate-600">SEO Title<input value={form.seoTitle || ''} onChange={e=>setField('seoTitle',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label dir="rtl" className="text-xs font-black text-slate-600">SEO Arabic Title<input value={form.seoArabicTitle || ''} onChange={e=>setField('seoArabicTitle',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right"/></label></div>
+            <div className="grid lg:grid-cols-2 gap-4 mt-4"><label className="text-xs font-black text-slate-600">Description &amp; Heritage Story<textarea rows={5} value={form.description || ''} onChange={e=>setField('description',e.target.value)} placeholder="Describe the artisan history, regional origin, traditional Lebanese production methods and ingredients…" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label className="text-xs font-black text-slate-600">Craft / Heritage Story<textarea rows={5} value={form.craftStory || ''} onChange={e=>setField('craftStory',e.target.value)} placeholder="Extended heritage narrative…" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></div>
+            <div className="grid lg:grid-cols-2 gap-4 mt-4"><label className="text-xs font-black text-slate-600">SEO Description<textarea rows={3} value={form.seoDescription || ''} onChange={e=>setField('seoDescription',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label dir="rtl" className="text-xs font-black text-slate-600">SEO Arabic Description<textarea rows={3} value={form.seoArabicDescription || ''} onChange={e=>setField('seoArabicDescription',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right"/></label></div>
+          </section>
+
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">9</span><div><h4 className="font-black">Publishing Controls</h4><p className="text-[11px] text-slate-500">Draft remains hidden; Publish Live makes the item available to the storefront.</p></div></div><div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isNewArrival} onChange={e=>setField('isNewArrival',e.target.checked)} className="mr-2"/>New Arrival</label><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isFeatured} onChange={e=>setField('isFeatured',e.target.checked)} className="mr-2"/>Featured</label><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isBestseller} onChange={e=>setField('isBestseller',e.target.checked)} className="mr-2"/>Bestseller</label></div></section>
+        </div>
+        <div className="border-t border-slate-200 bg-white px-5 py-4 sm:px-7 flex flex-wrap justify-end gap-2"><button onClick={close} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold">Cancel</button><button disabled={saving} onClick={()=>saveProduct(false)} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-black border border-slate-200">Save (Draft)</button><button disabled={saving} onClick={()=>saveProduct(true)} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-black shadow-sm">{saving ? 'Saving…' : 'Public (Publish Live)'}</button></div>
+      </div>
+    </div>;
+  };
 
   return <section className="space-y-4 text-slate-900">
     <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm">
@@ -284,7 +401,7 @@ export const ProductsCatalogManagement: React.FC = () => {
         <button onClick={()=>fileRef.current?.click()} className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-black flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/>Bulk Upload CSV</button>
         <button onClick={()=>bulkPublish(false)} disabled={!selected.size} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><Save className="w-3.5 h-3.5"/>Save Drafts</button>
         <button onClick={()=>bulkPublish(true)} disabled={!selected.size} className="px-3 py-2 rounded-xl bg-emerald-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5"/>Public Publish Live</button>
-        <button onClick={()=>{setForm(emptyProduct());setEditing({} as Product);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
+        <button onClick={()=>{setForm(emptyProduct());setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
       </div>
     </div>
 
@@ -302,7 +419,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     {viewMode === 'sequence' && <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3 text-[10px] text-indigo-800 font-semibold">Sequence mode uses the filtered products above. Reorder with arrows, Make #1, or type an exact rank and press Go. Save Products Order writes the sequence to the catalog.</div>}
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{sequence.map((p,i)=><ProductCard key={p.id} p={p} index={i}/>)}</div>
     {!sequence.length && <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center"><AlertTriangle className="w-7 h-7 mx-auto text-slate-600"/><p className="mt-2 text-sm font-bold text-slate-500">No products match the current filters.</p></div>}
-    {editing && <Modal/>}
+    {modalOpen && <Modal/>}
   </section>;
 };
 
