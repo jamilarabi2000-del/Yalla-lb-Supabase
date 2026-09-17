@@ -427,3 +427,304 @@ The current build is unusually security-hardened for its size — roughly 60 of 
 - **P4** — optional / reconsider
 
 **Risk legend** — *High*: no direct WooCommerce equivalent, or complex re-implementation with real failure modes. *Medium*: equivalent exists but needs adaptation. *Low*: direct mapping or WordPress improves on it.
+
+---
+
+# 16. FEATURE CLASSIFICATION
+
+Every feature classified into the four required buckets, with an explicit evidence grade on each finding.
+
+## Classification buckets
+
+| Bucket | Meaning |
+|---|---|
+| **REUSE DESIGN** | The existing visual design and UX is kept and ported to PHP templates. The *look* survives; only the rendering engine changes. |
+| **REBUILD IN WP/WOO** | A native WordPress or WooCommerce feature replaces the custom implementation. Custom code is deleted, not ported. |
+| **CUSTOM DEV REQUIRED** | No native equivalent exists. Must be built in the Yalla Core plugin. |
+| **REQUIRES DECISION** | A business or architecture decision is needed before this can be classified or built. |
+
+Many features carry **two** buckets: typically REUSE DESIGN (the front end) + REBUILD IN WP/WOO (the engine behind it). That combination is the core thesis of this migration.
+
+## Evidence grades
+
+| Grade | Meaning |
+|---|---|
+| **[C] CONFIRMED** | Verified by reading repository source, or by read-only query against the live Supabase project `yjmpjuskgbbshrvhgmys` on 2026-09-17. |
+| **[A] ASSUMPTION** | Reasoned inference from the code. Not directly verified. Treat as a working hypothesis. |
+| **[U] UNVERIFIED** | Depends on an external party, a vendor confirmation, or a live test not yet performed. Must not be planned around as fact. |
+
+**Rule applied throughout:** per the audit constraint *"do not assume a WooCommerce plugin automatically covers existing custom functionality"*, nothing is classified REBUILD IN WP/WOO unless the native capability was checked against the *actual current behaviour* recorded in §1–§14. Where WooCommerce covers only part of a feature, it is split across two rows.
+
+---
+
+## 16.1 Storefront pages and routing
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Home page layout and section order | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `HomeView.tsx`, `sectionOrder` in `SiteContent` | Design ports; the admin-ordered section engine has no native equivalent |
+| Catalogue page (search, tabs, sort, grid) | REUSE DESIGN + REBUILD IN WP/WOO | **[C]** `ProductsView.tsx` | Woo archive replaces the query engine |
+| Product detail page | REUSE DESIGN + REBUILD IN WP/WOO | **[C]** `ProductDetailView.tsx` | Woo single-product template |
+| Product URL scheme (`/product/{uuid}`) | REQUIRES DECISION | **[C]** `App.tsx` router; `products.slug` exists but is unused | Recommend slugs. Zero live traffic to migrate, so no 301s needed |
+| Quick-view modal | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `ProductModal.tsx` | Not native; small AJAX endpoint |
+| Cart as a slide-in drawer | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `CartDrawer.tsx` | Woo ships a cart *page*; the drawer must be rebuilt on the Store API |
+| Checkout (multi-step) | REUSE DESIGN + REBUILD IN WP/WOO | **[C]** `CheckoutView.tsx`, 1,756 lines | Woo checkout + template overrides |
+| Account area (orders/profile/wishlist/support) | REUSE DESIGN + REBUILD IN WP/WOO | **[C]** `AccountView.tsx` | Woo My Account endpoints |
+| Favourites page | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `FavoritesView.tsx` | Wishlist is not native to Woo |
+| Seller portal | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `SellerDashboard.tsx` | See §16.9 |
+| Admin SPA (`/admin`) | REBUILD IN WP/WOO | **[C]** `AdminView.tsx` + `src/components/admin/**` | Replaced wholesale by `/wp-admin` per the stated decision |
+| Client-side history router | REBUILD IN WP/WOO | **[C]** `App.tsx` `syncRouteFromUrl` | WordPress rewrite rules; the custom router is deleted |
+
+## 16.2 Storefront shell
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Announcement ticker | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `Navbar.tsx:65-71` | Content model is Yalla-specific |
+| Sticky header, blur, responsive heights | REUSE DESIGN | **[C]** `Navbar.tsx:64,74` | Pure presentation |
+| Logo with animated live dot | REUSE DESIGN | **[C]** `Navbar.tsx:78` | |
+| Product search | REUSE DESIGN + REBUILD IN WP/WOO | **[C]** `Navbar.tsx:84-89` | Woo search replaces the engine |
+| Search ranking (`search_rank`) | CUSTOM DEV REQUIRED | **[C]** `public.search_products()` returns a ranked `search_rank` | WP core search has no comparable ranking |
+| Search query logging | CUSTOM DEV REQUIRED | **[C]** `search_logs` table, `logSearchQuery` | No Woo equivalent |
+| Search synonyms | CUSTOM DEV REQUIRED | **[C]** `search_synonyms` table (0 rows) | Never exercised in production |
+| Category dropdown with emoji icons | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `categories.icon` holds emoji | Term meta needed |
+| Language switcher EN/AR + RTL | REQUIRES DECISION | **[C]** `translations.ts`, sibling `*Arabic` fields everywhere | See §10 — Option A/B/C is unresolved |
+| Currency switcher USD/LBP | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `LBP_USD_RATE` is a source constant | Rate must become configurable |
+| Footer | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `Footer.tsx` | Content from settings |
+| Toasts, loading, empty and error states | REUSE DESIGN | **[C]** `App.tsx`, error boundaries | |
+| Skip link, gold focus ring, reduced-motion, 16px inputs | REUSE DESIGN | **[C]** `index.css:21-52` | **Accessibility — must not be dropped** |
+
+## 16.3 Responsiveness
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Tailwind breakpoints (sm 640 / md 768 / lg 1024 / xl 1280 / 2xl 1536) | REUSE DESIGN | **[C]** Tailwind v4 defaults, used throughout | |
+| Container `max-w-screen-2xl` + `px-4 sm:px-6 lg:px-8` | REUSE DESIGN | **[C]** every page wrapper | |
+| Header height steps `h-14 → sm:h-16 → lg:h-18` | REUSE DESIGN | **[C]** `Navbar.tsx:74` | |
+| Mobile menu and mobile search panel | REUSE DESIGN | **[C]** `Navbar.tsx:106,114` | |
+| Per-device banner art direction (desktop/mobile) | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `CMSHeroMediaItem`, `CMSOfferSlide` | See §16.4 |
+| **Tablet-specific banner asset** | CUSTOM DEV REQUIRED | **[C]** no tablet field exists in any banner type today | **Net-new**, not a port. Only desktop + mobile exist |
+| RTL mirroring of animations and arrows | REUSE DESIGN | **[C]** `index.css` `[dir="rtl"]`, `rotate-180` on arrows | |
+| Verified rendering at each breakpoint | **[U] UNVERIFIED** | `PROJECT_STATUS.md` lists the responsive pass as outstanding | No evidence the current site was ever verified across breakpoints |
+
+## 16.4 Banners and sliders
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Hero media carousel (mixed image/video) | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `HeroBanner.tsx`, 760 lines | |
+| Offer slider | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `CMSOfferSlide` | |
+| Promo slider + slider config | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `CMSPromoSliderConfig` | autoplay/arrows/dots/loop/transition |
+| Per-device zoom, object-position, fit, aspect ratio | CUSTOM DEV REQUIRED | **[C]** independent desktop and mobile control sets on every slide type | No slider plugin expresses this — see PLUGIN-BOM §5 |
+| Banner scheduling (start/end, active flag) | CUSTOM DEV REQUIRED | **[C]** `scheduleActive`/`startDate`/`endDate` on all three types | Currently filtered client-side |
+| Explicit device targeting | CUSTOM DEV REQUIRED | **[A]** implicit today via separate assets | Net-new as an explicit control |
+| CTA / product link / category link | CUSTOM DEV REQUIRED | **[C]** `ctaUrl`, `selectedProductId`, `targetCategory` | |
+| Custom blocks (`targetPage` × `position`) | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `cms_custom_blocks`, 27 columns | |
+| Three bespoke hero layouts (school / crayola / global) | REQUIRES DECISION | **[C]** `isCustomSchoolLayout` etc. in `types.ts` | Look like one-off campaigns. Confirm before porting |
+
+## 16.5 Products, stock, prices
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Product record, categories, tags, images, gallery | REBUILD IN WP/WOO | **[C]** live `products` schema | Native |
+| Regular / sale price | REBUILD IN WP/WOO | **[C]** `price_usd`, `original_price_usd` | **Mapping is inverted** — see DATA-MAPPING §1 |
+| `discount_percentage` stored column | REBUILD IN WP/WOO | **[C]** live column | Drop it; Woo derives it |
+| Stock, low-stock threshold | REBUILD IN WP/WOO | **[C]** `_low_stock_amount` is native | |
+| Custom stock label / low-stock notice text | CUSTOM DEV REQUIRED | **[C]** `custom_stock_label`, `low_stock_notice` | No Woo equivalent; drives the amber badge |
+| Product badges (new / featured / bestseller) | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `ProductCard.tsx:79-100` | `featured` is native; bestseller is not |
+| Badge priority order | REUSE DESIGN | **[C]** out-of-stock → low-stock → discount → bestseller | Exact order matters |
+| Mobile-specific product image | CUSTOM DEV REQUIRED | **[C]** `products.mobile_image`, `product_images.mobile_url` | Woo has no per-device product image |
+| Product video | CUSTOM DEV REQUIRED | **[C]** `video_url`, `additionalVideos` | |
+| Merchandising display order | REBUILD IN WP/WOO + CUSTOM DEV REQUIRED | **[C]** `display_order`; drag-drop UI in 3 admin components | `menu_order` is native; the drag-drop UI is not |
+| Cost price (admin-only) | CUSTOM DEV REQUIRED | **[C]** column-protected by migrations `20260915011351`/`011403`/`012216` | Postgres enforced this at column level; PHP must now enforce it |
+| Variants | REBUILD IN WP/WOO | **[C]** `product_variants` exists but has **0 rows** | Never used in production — model fresh in Woo |
+| Arabic attribute labels | CUSTOM DEV REQUIRED | **[C]** `option_name_ar`, `option_value_ar` | |
+| Craft story, artisan, origin | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `craft_story`, `artisan`, `origin` | Yalla brand identity |
+| Publish state | REQUIRES DECISION | **[C]** `is_published` boolean **and** `publish_status` enum coexist | Two overlapping mechanisms; collapse to one |
+| CSV bulk import | REBUILD IN WP/WOO | **[C]** `bulkImportProducts`, `importerResolvers.ts` | Woo's native importer is strong |
+| Reviews | REBUILD IN WP/WOO | **[C]** `reviews` table, 0 rows | Native Woo reviews |
+| Review eligibility (must have a delivered order) | CUSTOM DEV REQUIRED | **[C]** `private.can_review_product()` | Stricter than Woo's verified-owner flag |
+| Server-owned rating aggregation | CUSTOM DEV REQUIRED | **[C]** `refresh_product_rating`, `prevent_client_rating_manipulation` | Woo recalculates natively but without the anti-tamper trigger |
+
+## 16.6 Cart, checkout, orders
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Cart persistence | REBUILD IN WP/WOO | **[C]** `carts` table | Woo persistent cart |
+| Cart drawer UX | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `CartDrawer.tsx` | |
+| Lebanese address form (governorate → city → village → street → building → floor) | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `ShippingDetails` in `types.ts` | Lebanon has no built-in Woo state list |
+| Delivery speed selector | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `standard \| express_beirut \| diaspora_air` | |
+| Delivery fees, free-shipping threshold, express surcharge | REBUILD IN WP/WOO + REQUIRES DECISION | **[C]** all **hard-coded** in `lib/delivery.ts` | Woo shipping zones cover it, but the values must become editable |
+| Payment method selection UI | REUSE DESIGN | **[C]** `CheckoutView.tsx:1382-1448` | |
+| COD (USD and LBP) | REBUILD IN WP/WOO | **[C]** `cod_usd` is the default and the only working method | Native Woo COD |
+| Card payment | CUSTOM DEV REQUIRED + REQUIRES DECISION | **[C]** no gateway integrated; only a 47-line webhook scaffold | See PAYMENTS-LEBANON |
+| Server-authoritative pricing | REBUILD IN WP/WOO | **[C]** `checkout_create_order` re-prices every line | Woo is server-side by default |
+| **Checkout idempotency** | CUSTOM DEV REQUIRED | **[C]** `idempotency_key` + `checkout_attempts` + rate-limit trigger | **No WooCommerce equivalent exists.** P1 |
+| Stock reservation / oversell protection | CUSTOM DEV REQUIRED | **[C]** `reserve_checkout_stock`, `validate_checkout_stock`, row-lock query | Multiple migrations were spent on this race |
+| Inventory ledger | CUSTOM DEV REQUIRED | **[C]** `inventory_ledger` + trigger protection | Better than Woo native stock logging |
+| Order statuses `crafting`, `courier_assigned`, `in_transit` | CUSTOM DEV REQUIRED | **[C]** live `order_status` enum | `register_post_status()` |
+| Order statuses `pending`/`delivered`/`cancelled`/`returned` | REBUILD IN WP/WOO | **[C]** map to native Woo statuses | |
+| Order event timeline | CUSTOM DEV REQUIRED | **[C]** `order_events` + `record_order_event` trigger | Woo order notes are less structured |
+| Tracking number | REQUIRES DECISION | **[C]** `set_order_tracking_number` generates one locally | Should become a real courier reference |
+| Order integrity protection | CUSTOM DEV REQUIRED | **[C]** `protect_order_integrity` trigger | Becomes PHP capability checks |
+
+## 16.7 Discounts, promotions, bundles
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Coupon codes, usage limits, expiry | REBUILD IN WP/WOO | **[C]** `coupons` table maps cleanly | Woo covers this well |
+| Coupon **start** date | CUSTOM DEV REQUIRED | **[C]** `startDate` on rules | Woo has expiry only, no start date |
+| Percentage / fixed discounts | REBUILD IN WP/WOO | **[C]** `DiscountRule.type` | |
+| **Automatic (codeless) promotions** | CUSTOM DEV REQUIRED | **[C]** `applyDiscounts` applies any active rule with no code | **Woo coupons require a code.** Core requirement |
+| Spend-threshold progress message | CUSTOM DEV REQUIRED | **[C]** `minPurchaseUSD` known client-side | "Add $18.50 more to unlock 10% OFF" |
+| BOGO / Buy X Get Y | CUSTOM DEV REQUIRED | **[C]** `buyQty`/`getQty`/`getDiscountPercent` | No native Woo BOGO |
+| Bundles (fixed bundle price) | CUSTOM DEV REQUIRED | **[C]** `product_bundles`, set-consuming math in `pricing.ts` | |
+| First-order / new-user discount | CUSTOM DEV REQUIRED | **[C]** `isNewUserOnly` | |
+| Seller and brand targeting | CUSTOM DEV REQUIRED | **[C]** `target: 'seller' \| 'brand'`; brand does substring matching | |
+| Category / product targeting | REBUILD IN WP/WOO | **[C]** Woo coupon restrictions cover this | |
+| **70% total discount cap** | CUSTOM DEV REQUIRED | **[C]** `MAX_TOTAL_DISCOUNT_PCT = 70` in `pricing.ts:41` | Important safety rail; no Woo equivalent |
+| Free-shipping threshold | REBUILD IN WP/WOO | **[C]** `$50` constant | Native Woo free-shipping method |
+| **Duplicated discount logic (TS + PL/pgSQL)** | REBUILD IN WP/WOO | **[C]** `lib/pricing.ts` + `checkout_create_order`, kept aligned by `pricingParity.test.ts` | **Do not port the duplication.** One PHP implementation only |
+
+## 16.8 Accounts, authentication, permissions
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Email + password login/registration | REBUILD IN WP/WOO | **[C]** `signInWithEmail`, `signUpWithEmail` | WP native |
+| Password reset | REBUILD IN WP/WOO | **[C]** `resetPasswordForEmail` | WP native |
+| Password strength policy | CUSTOM DEV REQUIRED | **[C]** `lib/passwordPolicy.ts` | |
+| **Email OTP** | CUSTOM DEV REQUIRED | **[C]** `signInWithOtp`/`verifyOtp`, `OTPModal.tsx`, 60s resend | **Not native to WordPress** |
+| Magic link | CUSTOM DEV REQUIRED | **[C]** `sendEmailSignInLink` | |
+| Google / Apple OAuth | REBUILD IN WP/WOO | **[C]** `signInWithOAuth` | Social-login plugin |
+| Phone OTP | REQUIRES DECISION | **[C]** **explicitly disabled** — `OTPModal.tsx:11` throws | Not an existing feature. Do not plan as a port |
+| Global phone uniqueness | CUSTOM DEV REQUIRED | **[C]** `phone_registry` + `is_phone_available()` | WP allows duplicate phone meta |
+| Lebanese phone normalisation | CUSTOM DEV REQUIRED | **[C]** `utils/phoneUtils.ts` | |
+| **Admin step-up MFA (15-min high-risk window)** | CUSTOM DEV REQUIRED | **[C]** `record_admin_step_up`, `has_recent_step_up` server-side | No native equivalent |
+| Admin inactivity timeout | CUSTOM DEV REQUIRED | **[C]** `AdminGuard.tsx` | |
+| Roles `customer` / `seller` / `admin` | REBUILD IN WP/WOO | **[C]** `app_role` enum | WP roles |
+| 19-permission matrix + per-user overrides | REBUILD IN WP/WOO + CUSTOM DEV REQUIRED | **[C]** `permissions`, `role_permissions` (27 grants), `user_permissions` | WP capabilities cover most; per-user `effect` overrides need `user_has_cap` |
+| Role-escalation guards | CUSTOM DEV REQUIRED | **[C]** `protect_profile_role`, `protect_profile_security_fields` | |
+| Multiple saved addresses | REQUIRES DECISION | **[C]** `user_addresses` supports many; Woo supports one billing + one shipping | 0 rows today |
+| Wishlist | CUSTOM DEV REQUIRED | **[C]** `wishlists` table | Not native to Woo |
+| Order history + status timeline | REUSE DESIGN + REBUILD IN WP/WOO | **[C]** `OrderHistory.tsx` | |
+| **Password migration** | REQUIRES DECISION | **[C]** GoTrue bcrypt hashes are not exportable via the client API | Only **1 user** exists, so this is trivial today |
+
+## 16.9 Sellers and marketplace
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Seller records, bio, logo, banner, location | CUSTOM DEV REQUIRED | **[C]** `sellers` table, 1 row | Taxonomy + role model |
+| Seller active master switch | CUSTOM DEV REQUIRED | **[C]** `lib/storefrontVisibility.ts` — deactivating hides all their products | |
+| Seller product ownership | CUSTOM DEV REQUIRED | **[C]** `products.seller_id` + RLS | |
+| Seller dashboard | REUSE DESIGN + CUSTOM DEV REQUIRED | **[C]** `SellerDashboard.tsx` | |
+| Seller applications | CUSTOM DEV REQUIRED | **[C]** `seller_applications`, status trigger-protected | |
+| Commission model | CUSTOM DEV REQUIRED | **[C]** `commission_pct` column exists | Not exercised — **no payout logic exists** |
+| Payouts / settlements | REQUIRES DECISION | **[C]** nothing exists in the codebase | Master task says prepare architecture, do not build |
+| Full marketplace plugin (Dokan/WCFM) | REQUIRES DECISION | **[A]** not needed at current single-vendor scale | Do not install at launch |
+
+## 16.10 Content management
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| `cms_site_content` JSON document | CUSTOM DEV REQUIRED | **[C]** 1 live row — the entire storefront copy deck | **Export before any cutover** |
+| 53 section-visibility flags | CUSTOM DEV REQUIRED | **[C]** `SectionVisibilityConfig` | |
+| Homepage section ordering | CUSTOM DEV REQUIRED | **[C]** `home.sectionOrder` | |
+| Per-page copy (products/detail/checkout/account/success) | CUSTOM DEV REQUIRED | **[C]** `SiteContent` sub-documents | |
+| Theme tokens editable from admin | CUSTOM DEV REQUIRED | **[C]** `CMSThemeConfig`; `App.tsx` writes `--gold` at runtime | Must not be lost |
+| News / editorial articles | REBUILD IN WP/WOO | **[C]** `newsSection.articles` | **Native WP posts** — a clear win |
+| CMS version history + rollback | CUSTOM DEV REQUIRED + REBUILD IN WP/WOO | **[C]** `cms_content_versions`, 2 rows | Post revisions cover CPTs; settings snapshots need custom |
+| Admin activity log **with snapshot undo** | CUSTOM DEV REQUIRED | **[C]** `admin_activities`, 16 rows, `snapshot_before`/`after`, mutation-protected | **No WordPress plugin offers undo** |
+
+## 16.11 Storage and images
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Media library | REBUILD IN WP/WOO | **[C]** `yalla-media` bucket, **0 objects** | Nothing to migrate |
+| MIME allow-list (jpeg/png/webp/avif) | CUSTOM DEV REQUIRED | **[C]** bucket config | `upload_mimes` + `wp_check_filetype_and_ext` |
+| Size caps (8 MB public / 10 MB private) | CUSTOM DEV REQUIRED | **[C]** bucket config | `wp_handle_upload_prefilter` |
+| Per-seller folder isolation | CUSTOM DEV REQUIRED | **[C]** `private.current_seller_folder()` | `upload_dir` filter + ownership checks |
+| Media object validation trigger | CUSTOM DEV REQUIRED | **[C]** `validate_yalla_media_object` | |
+| **Private bucket (seller docs, PDFs)** | CUSTOM DEV REQUIRED | **[C]** `yalla-private`, not public | `wp-content/uploads` is world-readable by default — needs a capability-checked delivery endpoint |
+| Client-side image optimisation | REBUILD IN WP/WOO | **[C]** `utils/imageOptimizer.ts` | WP generates sizes natively |
+
+## 16.12 Integrations — all net-new
+
+**Finding [C]: none of these exist in the current codebase.** They are new product development, not migration.
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Payment gateway | CUSTOM DEV REQUIRED + REQUIRES DECISION | **[C]** 47-line webhook scaffold only; no SDK, no 3DS, no refunds | Provider **[U] UNVERIFIED** |
+| Courier API integration | CUSTOM DEV REQUIRED + REQUIRES DECISION | **[C]** no carrier, no API, no dispatch anywhere in the code | Carrier API availability **[U] UNVERIFIED** |
+| Courier via WhatsApp Business | CUSTOM DEV REQUIRED | **[C]** only `wa.me` deep links exist | BSP required; personal-account automation is forbidden |
+| Courier manual fallback | CUSTOM DEV REQUIRED | **[C]** nothing exists | The failure-mode floor for every courier |
+| WhatsApp customer/seller/admin notifications | CUSTOM DEV REQUIRED | **[C]** no automation of any kind | Meta template approval **[U] UNVERIFIED** |
+| **Transactional order email** | REBUILD IN WP/WOO | **[C]** **no order emails are sent today** — only Supabase Auth mails | Woo native emails are a straight win |
+| Yalla-branded email templates | REUSE DESIGN + CUSTOM DEV REQUIRED | **[A]** branding will be wanted | |
+| Newsletter signup | CUSTOM DEV REQUIRED | **[C]** `HomeView.tsx:661-696` form has **no backend** | |
+| Analytics | REQUIRES DECISION | **[C]** `analytics_events` + `trackEvent()`, 0 rows, no external provider | Recommend an external tool, not a rebuild |
+
+## 16.13 SEO
+
+| Feature | Classification | Evidence | Note |
+|---|---|---|---|
+| Meta titles/descriptions (bilingual) | REBUILD IN WP/WOO | **[C]** `siteContent.seo` | SEO plugin |
+| Per-product SEO + canonical + OG + noindex | REBUILD IN WP/WOO | **[C]** `product_seo` table | SEO plugin |
+| Sitemap | REBUILD IN WP/WOO | **[C]** **does not exist today** | Net gain |
+| robots.txt | REBUILD IN WP/WOO | **[C]** **does not exist today** | Net gain |
+| Product structured data | REBUILD IN WP/WOO | **[C]** **not implemented today** | Woo emits it natively |
+| Breadcrumbs | REBUILD IN WP/WOO | **[C]** `detailBreadcrumbs` visibility flag exists | |
+| Hidden SEO snapshot div | REBUILD IN WP/WOO | **[C]** `App.tsx` `data-seo-source="builder"` | A SPA workaround WordPress makes obsolete |
+| Arabic SEO | REQUIRES DECISION | **[A]** depends on the i18n decision | Option A gives no `/ar/` URLs or `hreflang` |
+
+## 16.14 Security
+
+Every row here is a control that **exists today and must not regress**. See §13 for detail.
+
+| Control | Classification | Evidence | Note |
+|---|---|---|---|
+| **88 RLS policies** | CUSTOM DEV REQUIRED | **[C]** `pg_policies` across 39 relations | **WordPress has no row-level security.** Each becomes a PHP check — the single largest risk |
+| Column-level cost protection | CUSTOM DEV REQUIRED | **[C]** 3 dedicated migrations + `public_catalog` view omissions | |
+| Checkout idempotency + attempt log | CUSTOM DEV REQUIRED | **[C]** `checkout_attempts` + rate-limit trigger | |
+| Rate limiting (anonymous inserts, reviews, checkout) | CUSTOM DEV REQUIRED | **[C]** 3 dedicated triggers | Partly covered by a security plugin for login only |
+| Immutable audit log | CUSTOM DEV REQUIRED | **[C]** `prevent_admin_audit_mutation` | |
+| Review integrity | CUSTOM DEV REQUIRED | **[C]** `can_review_product`, `protect_review_mutation` | |
+| Storage MIME/size/ownership rules | CUSTOM DEV REQUIRED | **[C]** bucket config + trigger | |
+| `SECURITY DEFINER` search-path pinning | REBUILD IN WP/WOO | **[C]** 5 migrations | Postgres-specific; no PHP analogue needed |
+| Admin step-up enforcement | CUSTOM DEV REQUIRED | **[C]** server-side `has_recent_step_up` | |
+| Webhook HMAC constant-time verification | REUSE DESIGN | **[C]** `safeEqual` in the payment webhook | Good pattern — **port the approach verbatim** |
+| Secret hygiene (Gitleaks, CodeQL, npm audit) | REBUILD IN WP/WOO | **[C]** 3 CI workflows | Adapt to PHP |
+
+## 16.15 Known bugs and incomplete functionality
+
+Findings recorded during the audit. **All [C] CONFIRMED** unless marked.
+
+| # | Finding | Impact | Classification |
+|---|---|---|---|
+| 1 | **`main` cannot typecheck.** `AdminView.tsx:96` uses `p.brand`; `Product` never declared it. Introduced by `8a0b539` | CI red on every branch | Fix exists — PR #4 |
+| 2 | **`brand` never read from the database.** `supabaseCatalogService` did not request the column, so `product.brand` was always `undefined` — admin brand search and the PDP brand line were silently dead | Two features non-functional | Fix exists — PR #4 |
+| 3 | **5 source-contract tests failing on `main`**, hidden because the lint step short-circuited the job | Admin auth + product-creation contracts unverified | REQUIRES DECISION |
+| 4 | **`supabaseProductService` is dead code.** Product creation goes `AdminView → shop.addProduct → supabaseCatalogService.upsertProduct`, bypassing the `create_product_atomic` RPC | Partial writes possible on failure — atomicity regression | REQUIRES DECISION |
+| 5 | Homepage testimonials are **hard-coded**, not real reviews | Misleading social proof | REBUILD IN WP/WOO |
+| 6 | Newsletter form has **no backend** | Silently discards signups | CUSTOM DEV REQUIRED |
+| 7 | **Global error suppression** swallows anything containing `closing`/`hidden`/`abort`/`indexeddb` (`main.tsx`, `index.html`) | Masks real errors | Do not port |
+| 8 | Delivery fees, free-shipping threshold, LBP rate are **hard-coded constants** | Cannot be changed without a deploy | REBUILD IN WP/WOO |
+| 9 | `is_published` and `publish_status` are **overlapping** publish mechanisms | Ambiguous source of truth | REQUIRES DECISION |
+| 10 | `ShopContext.tsx` is a **4,923-line god object** | Unmaintainable | Do not port structure |
+| 11 | Discount logic **duplicated** in TypeScript and PL/pgSQL | Drift risk between preview and checkout | REBUILD IN WP/WOO — one implementation |
+| 12 | 90 migrations, ~25 are 2-line no-op markers; several filenames duplicated with different timestamps | History is not a reliable schema record | Use the live schema as the spec |
+| 13 | Admin sidebar branded **"PlainAdmin PRO"** with a hard-coded **"Firestore Connected"** badge | Dead branding from a pre-Supabase build | Drop |
+| 14 | `main` was **force-pushed** — local `origin/main` had a divergent history with no common ancestor | Stale checkouts elsewhere | Informational |
+| 15 | `.gitignore` says `# dist/ is included for deployment artifact packaging`, but `dist/` has **never** been committed and both hosts build from source | Stale comment; produces spurious untracked-file warnings | Cosmetic |
+| 16 | `product_variants`, `product_attributes`, `product_specifications`, `product_related` all have **0 rows** | Never exercised in production | Model fresh in Woo |
+| 17 | **[U]** Live RLS matrix, oversell race, storage rules and admin OTP delivery were **never verified against a live environment** | Per `PROJECT_STATUS.md`, verified in source only | Transfers as a test requirement |
+| 18 | **[U]** Responsive UI pass across breakpoints **never completed** | Per `PROJECT_STATUS.md` | Cannot assume current responsiveness is correct |
+
+## 16.16 Classification totals
+
+| Bucket | Approx. count | Share |
+|---|---|---|
+| CUSTOM DEV REQUIRED | ~78 | ~52% |
+| REBUILD IN WP/WOO | ~38 | ~25% |
+| REUSE DESIGN | ~22 | ~15% |
+| REQUIRES DECISION | ~13 | ~8% |
+
+Rows carrying two buckets are counted once per bucket, so the total exceeds the number of features.
+
+**What this distribution means:** the common assumption that "WooCommerce covers most of it" does **not** hold for this codebase. Just over half of all catalogued behaviour has no native WordPress or WooCommerce equivalent. The weight sits in five areas: the promotions engine, the banner/slider content model, the checkout integrity controls (idempotency, oversell, ledger), the authorization model replacing 88 RLS policies, and the four integrations that do not exist yet at all.
