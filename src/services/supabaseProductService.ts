@@ -10,7 +10,6 @@ export interface AtomicProductCreateInput {
 export const supabaseProductService = {
   async createProduct(input: AtomicProductCreateInput): Promise<string> {
     const { data, error } = await supabase
-      .schema('private')
       .rpc('create_product_atomic', {
         p_product: input.product,
         p_private: input.privateData ?? {},
