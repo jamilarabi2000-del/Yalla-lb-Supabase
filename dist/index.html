@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f59e0b'%3E%3Cpath d='M12 2l9 4.9v9.8L12 22l-9-4.9V6.9z'/%3E%3C/svg%3E" rel="icon" type="image/svg+xml" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yalla — Lebanese Craftsmanship & Commerce</title>
+    <meta name="description" content="A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern digital commerce for a seamless, hyper-local shopping experience." />
+    <meta name="theme-color" content="#F8F8F6" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Yalla.lb" />
+    <meta property="og:description" content="A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern digital commerce for a seamless, hyper-local shopping experience." />
+    <meta property="og:site_name" content="Yalla.lb" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Yalla.lb" />
+    <meta name="twitter:description" content="A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern digital commerce for a seamless, hyper-local shopping experience." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=Cairo:wght@400;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        function isIgnorable(err) {
+          if (!err) return false;
+          var msg = (err.message || err.name || String(err)).toLowerCase();
+          return (
+            msg.indexOf('database is closing') !== -1 ||
+            msg.indexOf('database connection is closing') !== -1 ||
+            msg.indexOf('closing/hidden') !== -1 ||
+            msg.indexOf('closing') !== -1 ||
+            msg.indexOf('hidden') !== -1 ||
+            msg.indexOf('client is offline') !== -1 ||
+            msg.indexOf('the database connection was closed') !== -1 ||
+            msg.indexOf('indexeddb') !== -1 ||
+            msg.indexOf('aborterror') !== -1 ||
+            msg.indexOf('quotaexceedederror') !== -1
+          );
+        }
+        window.addEventListener('unhandledrejection', function(event) {
+          if (isIgnorable(event.reason)) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          }
+        }, true);
+        window.addEventListener('error', function(event) {
+          if (isIgnorable(event.error) || isIgnorable(event.message)) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/main-DyQ4BF75.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/main-D1Ggz-vk.css">
+  </head>
+  <body class="bg-[#F8F8F6] text-[#171717] antialiased selection:bg-[#B89753] selection:text-white">
+    <div id="root"></div>
+  </body>
+</html>
+

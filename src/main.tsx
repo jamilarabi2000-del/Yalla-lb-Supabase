@@ -6,18 +6,23 @@ import './index.css';
 
 // Gracefully absorb transient browser database errors caused by iframe/tab backgrounding.
 if (typeof window !== 'undefined') {
+  /**
+   * Narrowly matches the browser-storage teardown noise that a backgrounded tab
+   * produces, and nothing else.
+   *
+   * This used to match any message containing 'abort', 'closing', 'hidden' or
+   * 'indexeddb'. AbortError is what a cancelled or failed fetch throws, so real
+   * Supabase network failures were being silently absorbed and downgraded to a
+   * console warning -- the application looked healthy while requests failed.
+   */
   const isIgnorableDbError = (err: any) => {
     const msg = (err?.message || err?.name || String(err || '')).toLowerCase();
     return (
       msg.includes('database is closing') ||
       msg.includes('database connection is closing') ||
-      msg.includes('closing/hidden') ||
-      msg.includes('closing') ||
-      msg.includes('hidden') ||
-      msg.includes('client is offline') ||
       msg.includes('the database connection was closed') ||
-      msg.includes('indexeddb') ||
-      msg.includes('abort')
+      msg.includes('closing/hidden') ||
+      msg.includes('a mutation operation was attempted on a database that did not allow mutations')
     );
   };
 

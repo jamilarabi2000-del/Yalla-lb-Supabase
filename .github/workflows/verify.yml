@@ -2,9 +2,7 @@ name: verify
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -32,6 +30,11 @@ jobs:
 
       - name: Unit and security tests
         run: npm test
+        env:
+          # Both values are public (they ship in the browser bundle). Setting
+          # them turns on the live RLS regression suite, which otherwise skips.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Production build
         run: npm run build

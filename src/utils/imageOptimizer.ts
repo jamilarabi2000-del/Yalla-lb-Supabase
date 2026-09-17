@@ -2,7 +2,7 @@
  * Client-Side Image Optimizer
  * Resizes and compresses image files using an off-screen HTML5 Canvas.
  * Ensures image payloads are web-optimized (typically 50KB - 150KB) and
- * easily fit within Firestore's 1MB document quota without quality degradation.
+ * are small enough to serve quickly from Supabase Storage without visible quality loss.
  */
 
 export interface ImageOptimizationOptions {
@@ -29,7 +29,10 @@ export async function optimizeImageFile(
   const maxWidth = options.maxWidth || 1440;
   const maxHeight = options.maxHeight || 900;
   let quality = options.quality || 0.78;
-  const maxSizeBytes = options.maxSizeBytes || 85 * 1024; // 85 KB max ensures multiple slides fit well under Firestore's 1MB limit
+  // The yalla-media bucket allows 8 MB per object. The previous 85 KB cap was
+  // sized for Firestore's 1 MB document quota, which no longer applies, and was
+  // visibly degrading product photography.
+  const maxSizeBytes = options.maxSizeBytes || 1536 * 1024; // 1.5 MB
   const originalSizeBytes = file.size;
 
   return new Promise((resolve, reject) => {

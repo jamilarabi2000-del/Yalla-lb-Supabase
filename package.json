@@ -22,7 +22,9 @@
     "revoke-admin": "node scripts/revoke-admin.mjs",
     "grant-seller": "node scripts/grant-seller.mjs",
     "revoke-seller": "node scripts/revoke-seller.mjs",
-    "verify-admin": "node scripts/verify-admin.mjs"
+    "verify-admin": "node scripts/verify-admin.mjs",
+    "test:rls": "vitest run test/rlsAnonymousAccess.test.ts",
+    "test:product": "vitest run test/adminProductContract.test.ts test/commerceMapping.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

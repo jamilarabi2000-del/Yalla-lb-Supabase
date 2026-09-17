@@ -8,7 +8,6 @@ import { FavoritesView } from './components/FavoritesView';
 import { AdminErrorBoundary } from './components/AdminErrorBoundary';
 import { StorefrontErrorBoundary } from './components/StorefrontErrorBoundary';
 import { AdminGuard } from './components/AdminGuard';
-import { AdminSessionGate } from './components/AdminSessionGate';
 import { ProductDetailView } from './components/ProductDetailView';
 import { ProductModal } from './components/ProductModal';
 import { CartDrawer } from './components/CartDrawer';
@@ -196,7 +195,7 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'account' && <AccountViewController />}
         {activeTab === 'favorites' && <FavoritesView />}
         {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><SellerLoginView /></Suspense>}
-        {activeTab === 'admin' && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
+        {activeTab === 'admin' && <AdminErrorBoundary><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminErrorBoundary>}
       </main>
       <ProductModal />
       <CartDrawer />

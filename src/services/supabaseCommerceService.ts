@@ -37,7 +37,7 @@ function toNumberOrUndefined(value: unknown): number | undefined {
 }
 
 /** Build the `rule` jsonb exactly as private.checkout_create_order reads it. */
-function buildRuleJson(rule: Partial<DiscountRule>): Record<string, unknown> {
+export function buildRuleJson(rule: Partial<DiscountRule>): Record<string, unknown> {
   return compact({
     type: rule.type,
     value: toNumberOrUndefined(rule.value),
@@ -54,7 +54,7 @@ function buildRuleJson(rule: Partial<DiscountRule>): Record<string, unknown> {
   });
 }
 
-function mapDiscountRow(row: any): DiscountRule {
+export function mapDiscountRow(row: any): DiscountRule {
   const rule = (row.rule || {}) as Record<string, any>;
   const coupon = Array.isArray(row.coupons) ? row.coupons[0] : row.coupons;
 
@@ -80,7 +80,7 @@ function mapDiscountRow(row: any): DiscountRule {
   };
 }
 
-function mapBundleRow(row: any): ProductBundle {
+export function mapBundleRow(row: any): ProductBundle {
   return {
     id: row.id,
     name: row.name,
@@ -104,7 +104,7 @@ function mapBundleRow(row: any): ProductBundle {
   };
 }
 
-function mapRegionRow(row: any): TerroirRegion {
+export function mapRegionRow(row: any): TerroirRegion {
   return {
     id: String(row.id),
     nameEn: String(row.name_en || ''),
