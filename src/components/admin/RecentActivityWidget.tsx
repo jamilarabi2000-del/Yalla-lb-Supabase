@@ -131,10 +131,10 @@ export const RecentActivityWidget: React.FC = () => {
       <div className="space-y-3">
         {displayedActivities.length === 0 ? (
           <div className="py-8 text-center space-y-2">
-            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mx-auto">
+            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 mx-auto">
               <Clock className="w-5 h-5" />
             </div>
-            <p className="text-xs text-slate-400 font-medium">No recent activities recorded.</p>
+            <p className="text-xs text-slate-500 font-medium">No recent activities recorded.</p>
           </div>
         ) : (
           displayedActivities.map((act) => {
@@ -160,7 +160,7 @@ export const RecentActivityWidget: React.FC = () => {
                     <span className="font-bold text-slate-800 truncate text-[11px] leading-snug">
                       {act.summary}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-semibold shrink-0 flex items-center gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-semibold shrink-0 flex items-center gap-0.5">
                       <Clock className="w-3 h-3" />
                       {formatTimeAgo(act.timestamp)}
                     </span>
@@ -171,15 +171,15 @@ export const RecentActivityWidget: React.FC = () => {
                   </p>
 
                   <div className="flex items-center justify-between gap-2 pt-1">
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                      <User className="w-3 h-3 text-slate-300" />
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                      <User className="w-3 h-3 text-slate-600" />
                       <span className="truncate max-w-[120px]">{act.adminEmail}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       {act.isUndone && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                          <CheckCircle2 className="w-3 h-3 text-slate-400" />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          <CheckCircle2 className="w-3 h-3 text-slate-500" />
                           Undone
                         </span>
                       )}
@@ -229,7 +229,7 @@ export const RecentActivityWidget: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedActivityForDiff(null)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -292,7 +292,7 @@ export const RecentActivityWidget: React.FC = () => {
                       setSelectedActivityForDiff(null);
                       handleUndo(act);
                     }}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-slate-900 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Undo & Restore Previous State</span>
@@ -324,7 +324,7 @@ export const RecentActivityWidget: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsAllLogsModalOpen(false)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-700"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -351,7 +351,7 @@ export const RecentActivityWidget: React.FC = () => {
                         <div>
                           <h4 className="font-bold text-slate-900 text-xs">{act.summary}</h4>
                           <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">{act.details}</p>
-                          <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
+                          <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">
                             <span>Admin: <strong className="text-slate-600">{act.adminEmail}</strong></span>
                             <span>•</span>
                             <span>{new Date(act.timestamp).toLocaleString()}</span>
@@ -397,7 +397,7 @@ export const RecentActivityWidget: React.FC = () => {
             <div className="pt-3 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setIsAllLogsModalOpen(false)}
-                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer"
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-50 text-slate-900 font-bold text-xs rounded-xl cursor-pointer"
               >
                 Done
               </button>
