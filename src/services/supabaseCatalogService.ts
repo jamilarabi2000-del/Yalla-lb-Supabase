@@ -125,6 +125,15 @@ export function mapSupabaseProduct(
       ),
 
     /**
+     * products.brand is NOT NULL and defaults to an empty string, so it is
+     * normalised to undefined rather than carrying '' into the UI. Consumers
+     * fall back with `brand || seller || artisan`.
+     */
+    brand: row.brand
+      ? String(row.brand)
+      : undefined,
+
+    /**
      * Product.category intentionally contains
      * the Supabase category UUID.
      */
@@ -614,6 +623,7 @@ const PUBLIC_PRODUCT_COLUMNS = `
   artisan,
   seller_id,
   origin,
+  brand,
   category_id,
   price_usd,
   original_price_usd,
@@ -667,6 +677,7 @@ const ADMIN_PRODUCT_COLUMNS = `
   artisan,
   seller_id,
   origin,
+  brand,
   category_id,
   price_usd,
   original_price_usd,
