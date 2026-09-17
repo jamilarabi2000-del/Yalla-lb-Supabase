@@ -215,15 +215,15 @@ export const ProductBundlesManager: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <PackageCheck className="w-5 h-5" />
             </span>
-            <h2 className="text-xl font-bold text-white tracking-tight">Combo & Bundle Deals Creator</h2>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Combo & Bundle Deals Creator</h2>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Create professional product bundles, combo packages, and special multi-item discounts for your customers.
           </p>
         </div>
@@ -238,9 +238,9 @@ export const ProductBundlesManager: React.FC = () => {
 
       {/* Bundles Grid */}
       {productBundles.length === 0 ? (
-        <div className="text-center py-12 bg-slate-900/50 border border-dashed border-slate-800 rounded-2xl">
+        <div className="text-center py-12 bg-white/50 border border-dashed border-slate-200 rounded-2xl">
           <Layers className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-slate-300">No Combo Deals Created Yet</h3>
+          <h3 className="text-base font-semibold text-slate-600">No Combo Deals Created Yet</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
             Group complementary products together (e.g., Breakfast Set, School Kit) and offer exclusive bundle pricing.
           </p>
@@ -262,8 +262,8 @@ export const ProductBundlesManager: React.FC = () => {
             return (
               <div 
                 key={bundle.id} 
-                className={`bg-slate-900/90 border rounded-2xl p-5 shadow-lg relative flex flex-col justify-between transition-all ${
-                  bundle.isActive ? 'border-amber-500/30' : 'border-slate-800 opacity-60'
+                className={`bg-white/90 border rounded-2xl p-5 shadow-lg relative flex flex-col justify-between transition-all ${
+                  bundle.isActive ? 'border-amber-500/30' : 'border-slate-200 opacity-60'
                 }`}
               >
                 <div>
@@ -276,7 +276,7 @@ export const ProductBundlesManager: React.FC = () => {
                         </span>
                       )}
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        bundle.isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
+                        bundle.isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'
                       }`}>
                         {bundle.isActive ? 'Active' : 'Draft'}
                       </span>
@@ -288,7 +288,7 @@ export const ProductBundlesManager: React.FC = () => {
                         className={`p-1.5 rounded-lg text-xs font-medium border transition-colors ${
                           bundle.showInSlider !== false 
                             ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' 
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                            : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-900'
                         }`}
                         title={bundle.showInSlider !== false ? 'Hide from hero slider' : 'Show in hero slider'}
                       >
@@ -299,7 +299,7 @@ export const ProductBundlesManager: React.FC = () => {
                         className={`p-1.5 rounded-lg text-xs font-medium border transition-colors ${
                           bundle.isActive 
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' 
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                            : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-900'
                         }`}
                         title={bundle.isActive ? 'Deactivate' : 'Publish'}
                       >
@@ -307,7 +307,7 @@ export const ProductBundlesManager: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleOpenEdit(bundle)}
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-200 text-slate-600 border border-slate-700 transition-colors"
                         title="Edit Bundle"
                       >
                         <Edit3 className="w-4 h-4" />
@@ -323,16 +323,16 @@ export const ProductBundlesManager: React.FC = () => {
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="text-lg font-bold text-white mb-1">{bundle.name}</h3>
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">{bundle.name}</h3>
                   {bundle.nameAr && <p className="text-xs text-amber-400/80 mb-2 font-arabic" dir="rtl">{bundle.nameAr}</p>}
-                  {bundle.description && <p className="text-xs text-slate-400 mb-3 line-clamp-2">{bundle.description}</p>}
+                  {bundle.description && <p className="text-xs text-slate-500 mb-3 line-clamp-2">{bundle.description}</p>}
 
                   {/* Slider & Cover Status Pills */}
                   <div className="flex items-center gap-2 flex-wrap mb-3">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                       bundle.showInSlider !== false 
                         ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' 
-                        : 'bg-slate-800/80 text-slate-400 border border-slate-750'
+                        : 'bg-slate-800/80 text-slate-500 border border-slate-750'
                     }`}>
                       {bundle.showInSlider !== false ? <Eye className="w-3 h-3 text-amber-400" /> : <EyeOff className="w-3 h-3 text-slate-500" />}
                       <span>{bundle.showInSlider !== false ? 'Hero Slider: Visible' : 'Hero Slider: Hidden'}</span>
@@ -344,7 +344,7 @@ export const ProductBundlesManager: React.FC = () => {
                         <span>Custom Cover Image</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-500">
                         <span>Auto 1st Product Photo</span>
                       </span>
                     )}
@@ -357,19 +357,19 @@ export const ProductBundlesManager: React.FC = () => {
                   </div>
 
                   {/* Bundled Items Thumbnails */}
-                  <div className="bg-slate-950/60 p-3 rounded-xl border border-white/5 mb-4">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-2">
+                  <div className="bg-slate-50/60 p-3 rounded-xl border border-white/5 mb-4">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block mb-2">
                       Included Items ({bundledProducts.length}):
                     </span>
                     <div className="grid grid-cols-2 gap-2">
                       {bundledProducts.map(prod => (
-                        <div key={prod.id} className="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-lg border border-white/5">
-                          <div className="w-8 h-8 rounded-md bg-slate-950 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
+                        <div key={prod.id} className="flex items-center gap-2 bg-white/80 p-1.5 rounded-lg border border-white/5">
+                          <div className="w-8 h-8 rounded-md bg-slate-50 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
                             <img src={prod.image} alt={prod.name} className="w-full h-full object-contain" />
                           </div>
                           <div className="overflow-hidden min-w-0">
                             <p className="text-[11px] font-medium text-slate-200 truncate">{prod.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">${prod.priceUSD.toFixed(2)}</p>
+                            <p className="text-[10px] text-slate-500 font-mono">${prod.priceUSD.toFixed(2)}</p>
                           </div>
                         </div>
                       ))}
@@ -378,9 +378,9 @@ export const ProductBundlesManager: React.FC = () => {
                 </div>
 
                 {/* Pricing & Customer Savings Bar */}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+                <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Combo Price</span>
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block">Combo Price</span>
                     <div className="flex items-baseline gap-2">
                       <span className="text-xl font-extrabold text-amber-400 font-mono">${bundle.bundlePriceUSD.toFixed(2)}</span>
                       {originalSum > bundle.bundlePriceUSD && (
@@ -411,19 +411,19 @@ export const ProductBundlesManager: React.FC = () => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="bundle-modal-title"
-            className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6"
+            className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6"
           >
             
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-amber-400" />
-                <h3 id="bundle-modal-title" className="text-lg font-bold text-white">
+                <h3 id="bundle-modal-title" className="text-lg font-bold text-slate-900">
                   {editingId ? 'Edit Combo Deal' : 'Create New Combo Deal'}
                 </h3>
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -434,7 +434,7 @@ export const ProductBundlesManager: React.FC = () => {
               {/* Basic Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
                     Combo Deal Name (English) *
                   </label>
                   <input
@@ -443,12 +443,12 @@ export const ProductBundlesManager: React.FC = () => {
                     placeholder="e.g. Gourmet Breakfast Set"
                     value={form.name}
                     onChange={e => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
                     Combo Deal Name (Arabic)
                   </label>
                   <input
@@ -457,14 +457,14 @@ export const ProductBundlesManager: React.FC = () => {
                     placeholder="مثال: باقة الفطور اللبناني الفاخر"
                     value={form.nameAr}
                     onChange={e => setForm({ ...form, nameAr: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none font-arabic"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-arabic"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
                     Badge Tag (English)
                   </label>
                   <input
@@ -472,12 +472,12 @@ export const ProductBundlesManager: React.FC = () => {
                     placeholder="e.g. COMBO DEAL - SAVE 20%"
                     value={form.badgeText}
                     onChange={e => setForm({ ...form, badgeText: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
                     Badge Tag (Arabic)
                   </label>
                   <input
@@ -486,14 +486,14 @@ export const ProductBundlesManager: React.FC = () => {
                     placeholder="مثال: صفقة كومبو - خصم ٢٠٪"
                     value={form.badgeTextAr}
                     onChange={e => setForm({ ...form, badgeTextAr: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none font-arabic"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-arabic"
                   />
                 </div>
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
+                <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
                   Description / Offer Highlights
                 </label>
                 <textarea
@@ -501,7 +501,7 @@ export const ProductBundlesManager: React.FC = () => {
                   placeholder="Describe what makes this combo special..."
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
@@ -516,11 +516,11 @@ export const ProductBundlesManager: React.FC = () => {
                     placeholder="Filter products..."
                     value={productSearch}
                     onChange={e => setProductSearch(e.target.value)}
-                    className="px-2.5 py-1 text-[11px] bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-amber-400"
+                    className="px-2.5 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
-                <div className="max-h-48 overflow-y-auto bg-slate-950 rounded-xl border border-slate-800 p-2 space-y-1">
+                <div className="max-h-48 overflow-y-auto bg-slate-50 rounded-xl border border-slate-200 p-2 space-y-1">
                   {filteredProductsForSelector.map(p => {
                     const isSelected = form.productIds.includes(p.id);
                     return (
@@ -528,7 +528,7 @@ export const ProductBundlesManager: React.FC = () => {
                         key={p.id}
                         onClick={() => handleToggleProduct(p.id)}
                         className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
-                          isSelected ? 'bg-amber-500/20 border border-amber-500/40 text-white' : 'hover:bg-slate-900 text-slate-300'
+                          isSelected ? 'bg-amber-500/20 border border-amber-500/40 text-slate-900' : 'hover:bg-white text-slate-600'
                         }`}
                       >
                         <div className="flex items-center gap-2 overflow-hidden min-w-0">
@@ -538,7 +538,7 @@ export const ProductBundlesManager: React.FC = () => {
                             onChange={() => {}} // handled by parent div
                             className="accent-amber-500"
                           />
-                          <div className="w-7 h-7 rounded bg-slate-950 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
+                          <div className="w-7 h-7 rounded bg-slate-50 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
                             <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
                           </div>
                           <span className="text-xs font-medium truncate">{p.name}</span>
@@ -552,10 +552,10 @@ export const ProductBundlesManager: React.FC = () => {
 
               {/* Pricing Calculation Summary */}
               {selectedFormProducts.length > 0 && (
-                <div className="bg-slate-950 p-4 rounded-xl border border-amber-500/30 space-y-3">
-                  <div className="flex justify-between text-xs text-slate-300">
+                <div className="bg-slate-50 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                  <div className="flex justify-between text-xs text-slate-600">
                     <span>Original Combined Total:</span>
-                    <span className="font-mono text-white font-bold">${formOriginalSumUSD.toFixed(2)}</span>
+                    <span className="font-mono text-slate-900 font-bold">${formOriginalSumUSD.toFixed(2)}</span>
                   </div>
 
                   <div>
@@ -563,19 +563,19 @@ export const ProductBundlesManager: React.FC = () => {
                       Special Combo Price (USD) *
                     </label>
                     <div className="relative">
-                      <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                      <DollarSign className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                       <input
                         type="number"
                         step="0.01"
                         required
                         value={form.bundlePriceUSD}
                         onChange={e => setForm({ ...form, bundlePriceUSD: parseFloat(e.target.value) || 0 })}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-amber-500/50 rounded-xl text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-400"
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-amber-500/50 rounded-xl text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-xs">
                     <span className="text-emerald-400 font-bold">Total Customer Savings:</span>
                     <span className="font-mono text-emerald-400 font-extrabold text-sm">
                       ${formSavedUSD.toFixed(2)} ({formSavedPercent}% OFF)
@@ -585,13 +585,13 @@ export const ProductBundlesManager: React.FC = () => {
               )}
 
               {/* Homepage Slider & Presentation Settings */}
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal className="w-4 h-4 text-amber-400" />
                     <div>
-                      <h4 className="text-xs font-bold uppercase text-white">Homepage Slider Presentation</h4>
-                      <p className="text-[11px] text-slate-400">Control if and how this combo deal appears in the hero carousel</p>
+                      <h4 className="text-xs font-bold uppercase text-slate-900">Homepage Slider Presentation</h4>
+                      <p className="text-[11px] text-slate-500">Control if and how this combo deal appears in the hero carousel</p>
                     </div>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -601,8 +601,8 @@ export const ProductBundlesManager: React.FC = () => {
                       onChange={e => setForm({ ...form, showInSlider: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
-                    <span className="ml-2 text-xs font-semibold text-slate-300">
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <span className="ml-2 text-xs font-semibold text-slate-600">
                       {form.showInSlider ? 'Show in Slider' : 'Hidden from Slider'}
                     </span>
                   </label>
@@ -623,13 +623,13 @@ export const ProductBundlesManager: React.FC = () => {
                     </div>
 
                     {/* Show Direct Add to Cart Button */}
-                    <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                    <div className="p-3 bg-white/90 rounded-xl border border-slate-200 space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <label className="text-xs font-bold text-white block">
+                          <label className="text-xs font-bold text-slate-900 block">
                             Show "Add Entire Combo to Cart" Button on Slide
                           </label>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[10px] text-slate-500">
                             When enabled, customers can instantly add all products in this bundle to their cart from the homepage hero slide.
                           </p>
                         </div>
@@ -645,9 +645,9 @@ export const ProductBundlesManager: React.FC = () => {
                       </div>
 
                       {form.showButtonInSlider && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/80">
                           <div>
-                            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
                               Slide Button Text (English)
                             </label>
                             <input
@@ -655,11 +655,11 @@ export const ProductBundlesManager: React.FC = () => {
                               placeholder="Add Entire Combo to Cart"
                               value={form.sliderButtonText}
                               onChange={e => setForm({ ...form, sliderButtonText: e.target.value })}
-                              className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none"
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
                               Slide Button Text (Arabic)
                             </label>
                             <input
@@ -668,7 +668,7 @@ export const ProductBundlesManager: React.FC = () => {
                               placeholder="إضافة الكومبو كاملاً للسلة"
                               value={form.sliderButtonTextAr}
                               onChange={e => setForm({ ...form, sliderButtonTextAr: e.target.value })}
-                              className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:border-amber-400 focus:outline-none font-arabic"
+                              className="w-full px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-arabic"
                             />
                           </div>
                         </div>
@@ -679,11 +679,11 @@ export const ProductBundlesManager: React.FC = () => {
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-200 text-slate-600 text-xs font-bold"
                 >
                   Cancel
                 </button>
@@ -705,24 +705,24 @@ export const ProductBundlesManager: React.FC = () => {
       {bundleToDelete && (
         <div 
           id="modal-delete-bundle-confirm"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-50/80 backdrop-blur-sm animate-in fade-in duration-200"
         >
           <div 
             ref={deleteConfirmModalRef}
-            className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-4"
+            className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl relative space-y-4"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 flex-shrink-0">
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Delete Combo Deal</h3>
-                <p className="text-xs text-slate-400">This action cannot be undone</p>
+                <h3 className="text-base font-bold text-slate-900">Delete Combo Deal</h3>
+                <p className="text-xs text-slate-500">This action cannot be undone</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-white/5">
-              Are you sure you want to permanently delete <strong className="text-white">"{bundleToDelete.name}"</strong>? This will immediately remove it from your store, promotions, and home slider.
+            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50/60 p-3 rounded-xl border border-white/5">
+              Are you sure you want to permanently delete <strong className="text-slate-900">"{bundleToDelete.name}"</strong>? This will immediately remove it from your store, promotions, and home slider.
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -730,7 +730,7 @@ export const ProductBundlesManager: React.FC = () => {
                 type="button"
                 onClick={() => setBundleToDelete(null)}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -738,7 +738,7 @@ export const ProductBundlesManager: React.FC = () => {
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-slate-900 text-xs font-bold transition-all shadow-lg cursor-pointer disabled:opacity-50"
               >
                 {isDeleting ? (
                   <span>Deleting...</span>
