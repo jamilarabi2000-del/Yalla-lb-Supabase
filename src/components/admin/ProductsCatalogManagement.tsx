@@ -88,14 +88,17 @@ export const ProductsCatalogManagement: React.FC = () => {
   const saveProduct = async (published: boolean) => {
     const stock = Number(form.stock);
     const price = Number(form.priceUSD);
-    if (!String(form.name || '').trim() || !String(form.category || '').trim() || !Number.isFinite(price) || price <= 0) return showToast('Product name, category and a price greater than 0 are required.', 'warning');
+    if (!String(form.name || '').trim() || !String(form.category || '').trim() || !Number.isFinite(price) || price < 1) return showToast('Product title, category and a price of at least $1.00 are required.', 'warning');
     if (!Number.isInteger(stock) || stock < 0) return showToast('Stock quantity must be a whole number of units (0 or more).', 'warning');
     const dup = form.sellerItemCode ? checkDuplicateProductNumber(form.sellerItemCode, editing?.id || null, products, form.sellerId || undefined, form.seller || form.artisan) : { isDuplicate: false };
     if (dup.isDuplicate) return showToast(`Duplicate seller item code: ${form.sellerItemCode}`, 'error');
-    if (!String(form.brand || '').trim()) return showToast('Brand is required for product creation.', 'warning');
+    if (!String(form.seller || '').trim()) return showToast('Seller Name (English) is required.', 'warning');
+    if (!String(form.sellerItemCode || '').trim()) return showToast('Seller Item Code (SKU) is required.', 'warning');
+    if (!String(form.image || '').trim()) return showToast('Primary Image URL is required.', 'warning');
+    if (imageLooksLikeWebPage(String(form.image || ''))) return showToast('Primary Image URL must point directly to an image, not an .html webpage.', 'warning');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(form.category || ''))) return showToast('Select a valid catalog category.', 'warning');
     const payload: any = {
-      name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || '').trim(),
+      name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || 'Lebanon').trim() || 'Lebanon', priceUSD: price,
       originalPriceUSD: Number(form.originalPriceUSD) > 0 ? Number(form.originalPriceUSD) : undefined, discountPercentage: String(form.discountPercentage) === '' ? undefined : Number(form.discountPercentage),
