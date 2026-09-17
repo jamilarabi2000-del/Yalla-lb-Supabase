@@ -36,7 +36,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
     {
       title: 'Global & Navigation Bar',
       icon: Navigation,
-      color: 'text-amber-400',
+      color: 'text-indigo-600',
       items: [
         { key: 'announcementTicker' as const, label: 'Top Announcement Ticker', desc: 'Displays live LBP rate & express delivery updates' },
         { key: 'phoneSupport' as const, label: 'Phone Support Header Contact', desc: 'Displays WhatsApp concierge hotline in header' },
@@ -93,7 +93,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
     {
       title: 'Checkout Flow',
       icon: CreditCard,
-      color: 'text-amber-300',
+      color: 'text-indigo-600',
       items: [
         { key: 'checkoutSteps' as const, label: 'Checkout Progress Indicator', desc: 'Step indicator (Shipping → Payment → Review)' },
         { key: 'checkoutAddressForm' as const, label: 'Lebanese Shipping Address Form', desc: 'Governorate, city, street, and WhatsApp inputs' },
@@ -135,19 +135,19 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Overview & Quick Actions */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers className="w-5 h-5 text-amber-400" />
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-indigo-600" />
             <span>Storefront Section Visibility Master Controls</span>
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Toggle any storefront module on or off in real-time. Disabled sections are instantly hidden from customers.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-white/10 text-xs font-bold text-slate-300">
+          <div className="px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-600">
             <span className="text-emerald-400">{activeCount}</span> of {allKeys.length} Visible
           </div>
           <button
@@ -184,17 +184,17 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
         {sections.map((section, sIdx) => (
           <div 
             key={sIdx}
-            className="bg-[#121222] border border-white/10 rounded-3xl p-5 space-y-4 flex flex-col justify-between"
+            className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 flex flex-col justify-between"
           >
             <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center">
                     <section.icon className={`w-4 h-4 ${section.color}`} />
                   </div>
-                  <h4 className="text-sm font-bold text-white">{section.title}</h4>
+                  <h4 className="text-sm font-bold text-slate-900">{section.title}</h4>
                 </div>
-                <span className="text-[11px] font-mono text-slate-400">
+                <span className="text-[11px] font-mono text-slate-500">
                   {section.items.filter(i => visibility[i.key] !== false).length}/{section.items.length} Active
                 </span>
               </div>
@@ -207,29 +207,29 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
                       key={item.key}
                       className={`flex items-center justify-between p-3 rounded-2xl transition-all border ${
                         isVisible 
-                          ? 'bg-slate-900/80 border-white/10 hover:border-white/20' 
-                          : 'bg-slate-950/60 border-white/5 opacity-60'
+                          ? 'bg-slate-50 border-slate-200 hover:border-slate-300' 
+                          : 'bg-slate-50 border-slate-200 opacity-60'
                       }`}
                     >
                       <div className="pr-3 flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs font-bold ${isVisible ? 'text-white' : 'text-slate-400'}`}>
+                          <span className={`text-xs font-bold ${isVisible ? 'text-slate-900' : 'text-slate-500'}`}>
                             {item.label}
                           </span>
                           <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
-                            isVisible ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'
+                            isVisible ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-100 text-slate-500'
                           }`}>
                             {isVisible ? 'On' : 'Off'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 truncate mt-0.5">{item.desc}</p>
+                        <p className="text-[11px] text-slate-500 truncate mt-0.5">{item.desc}</p>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => onChange(item.key, !isVisible)}
                         className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          isVisible ? 'bg-emerald-500' : 'bg-slate-800'
+                          isVisible ? 'bg-emerald-500' : 'bg-slate-100'
                         }`}
                         role="switch"
                         aria-checked={isVisible}
