@@ -271,6 +271,7 @@ return (
       </main>
     </div>
   </div>
+);
 };
 
 export default AdminView;
