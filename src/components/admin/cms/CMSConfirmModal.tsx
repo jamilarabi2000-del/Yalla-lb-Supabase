@@ -27,23 +27,23 @@ export const CMSConfirmModal: React.FC<CMSConfirmModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
       <div 
-        className="bg-[#121222] border border-white/10 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative"
+        className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative"
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-modal-title"
       >
         <div className="flex items-start gap-4">
           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-            isDanger ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+            isDanger ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-indigo-600 border border-amber-500/30'
           }`}>
             <AlertTriangle className="w-6 h-6" />
           </div>
 
           <div className="space-y-1 min-w-0 flex-1">
-            <h3 id="confirm-modal-title" className="text-base font-bold text-white tracking-tight">
+            <h3 id="confirm-modal-title" className="text-base font-bold text-slate-900 tracking-tight">
               {title}
             </h3>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               {message}
             </p>
           </div>
@@ -51,7 +51,7 @@ export const CMSConfirmModal: React.FC<CMSConfirmModalProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -61,7 +61,7 @@ export const CMSConfirmModal: React.FC<CMSConfirmModalProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold transition-all border border-white/10 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all border border-slate-200 cursor-pointer"
           >
             {cancelLabel}
           </button>
@@ -70,8 +70,8 @@ export const CMSConfirmModal: React.FC<CMSConfirmModalProps> = ({
             onClick={onConfirm}
             className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
               isDanger
-                ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                ? 'bg-rose-600 hover:bg-rose-500 text-slate-900'
+                : 'bg-amber-500 hover:bg-indigo-700 text-slate-950'
             }`}
           >
             {confirmLabel}
