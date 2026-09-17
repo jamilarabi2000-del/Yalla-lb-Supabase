@@ -50,10 +50,7 @@ const fetchBlocks = async (publishedOnly: boolean): Promise<CMSCustomBlock[]> =>
 
 export const supabaseCmsService = {
   async getPublicCmsBlocks(): Promise<CMSCustomBlock[]> {
-    try { return await fetchBlocks(true); } catch (error) {
-      console.warn('[supabaseCmsService] getPublicCmsBlocks:', error);
-      return DEFAULT_SITE_CONTENT.customBlocks || [];
-    }
+    return fetchBlocks(true);
   },
 
   async fetchAllPublicCmsBlocks(): Promise<CMSCustomBlock[]> {
@@ -61,22 +58,21 @@ export const supabaseCmsService = {
   },
 
   async fetchAllCmsBlocks(): Promise<CMSCustomBlock[]> {
-    try { return await fetchBlocks(false); } catch (error) {
-      console.warn('[supabaseCmsService] fetchAllCmsBlocks:', error);
-      return DEFAULT_SITE_CONTENT.customBlocks || [];
-    }
+    return fetchBlocks(false);
   },
 
   async fetchSiteContent(): Promise<SiteContent> {
     const { data, error } = await supabase.from('cms_site_content').select(PUBLIC_SITE_CONTENT_SELECT).eq('id', 'main').eq('published', true).maybeSingle();
-    if (error || !data?.content) return DEFAULT_SITE_CONTENT;
-    return { ...DEFAULT_SITE_CONTENT, ...data.content, customBlocks: Array.isArray(data.content.customBlocks) ? data.content.customBlocks : DEFAULT_SITE_CONTENT.customBlocks };
+    if (error) throw error;
+    if (!data?.content) throw new Error('Published CMS content is not available.');
+    return { ...DEFAULT_SITE_CONTENT, ...data.content, customBlocks: Array.isArray(data.content.customBlocks) ? data.content.customBlocks : [] };
   },
 
   async fetchAdminSiteContent(): Promise<SiteContent> {
     const { data, error } = await supabase.from('cms_site_content').select('content, published, updated_at, updated_by').eq('id', 'main').maybeSingle();
-    if (error || !data?.content) return DEFAULT_SITE_CONTENT;
-    return { ...DEFAULT_SITE_CONTENT, ...data.content, customBlocks: Array.isArray(data.content.customBlocks) ? data.content.customBlocks : DEFAULT_SITE_CONTENT.customBlocks };
+    if (error) throw error;
+    if (!data?.content) throw new Error('CMS content has not been configured.');
+    return { ...DEFAULT_SITE_CONTENT, ...data.content, customBlocks: Array.isArray(data.content.customBlocks) ? data.content.customBlocks : [] };
   },
 
   async saveSiteContent(content: SiteContent): Promise<void> {
