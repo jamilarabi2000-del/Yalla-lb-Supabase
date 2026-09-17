@@ -86,12 +86,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
         id="checkout-headings-group"
         title="Checkout Screen Headings & Subtitles"
         description="Configure the main hero heading and descriptive subtitle on the checkout view"
-        icon={<CreditCard className="w-5 h-5 text-amber-400 shrink-0" aria-hidden="true" />}
+        icon={<CreditCard className="w-5 h-5 text-indigo-600 shrink-0" aria-hidden="true" />}
         defaultExpanded={true}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="chk-title-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="chk-title-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Checkout Main Heading (English)
             </label>
             <input
@@ -99,11 +99,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutData.title || ''}
               onChange={(e) => onChangeCheckoutField('title', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="chk-title-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="chk-title-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               عنوان صفحة إتمام الطلب (عربي)
             </label>
             <input
@@ -112,12 +112,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutData.titleArabic || ''}
               onChange={(e) => onChangeCheckoutField('titleArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="chk-sub-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="chk-sub-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Checkout Subtitle (English)
             </label>
             <textarea
@@ -125,11 +125,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               rows={2}
               value={checkoutData.subtitle || ''}
               onChange={(e) => onChangeCheckoutField('subtitle', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
             />
           </div>
           <div>
-            <label htmlFor="chk-sub-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="chk-sub-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               وصف صفحة إتمام الطلب (عربي)
             </label>
             <textarea
@@ -138,7 +138,7 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutData.subtitleArabic || ''}
               onChange={(e) => onChangeCheckoutField('subtitleArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed text-right font-arabic"
             />
           </div>
         </div>
@@ -154,7 +154,7 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="chk-ship-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="chk-ship-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Step 1: Address Heading (English)
             </label>
             <input
@@ -162,11 +162,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutData.shippingHeading || ''}
               onChange={(e) => onChangeCheckoutField('shippingHeading', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="chk-ship-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="chk-ship-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               الخطوة 1: عنوان التوصيل والشحن (عربي)
             </label>
             <input
@@ -175,12 +175,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutData.shippingHeadingArabic || ''}
               onChange={(e) => onChangeCheckoutField('shippingHeadingArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="chk-pay-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="chk-pay-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Step 2: Payment Heading (English)
             </label>
             <input
@@ -188,11 +188,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutData.paymentHeading || ''}
               onChange={(e) => onChangeCheckoutField('paymentHeading', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="chk-pay-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="chk-pay-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               الخطوة 2: طريقة الدفع والتسوية (عربي)
             </label>
             <input
@@ -201,12 +201,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutData.paymentHeadingArabic || ''}
               onChange={(e) => onChangeCheckoutField('paymentHeadingArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="chk-sum-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="chk-sum-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Summary Card Heading (English)
             </label>
             <input
@@ -214,11 +214,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutData.summaryHeading || ''}
               onChange={(e) => onChangeCheckoutField('summaryHeading', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="chk-sum-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="chk-sum-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               عنوان بطاقة ملخص السلة والطلب (عربي)
             </label>
             <input
@@ -227,12 +227,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutData.summaryHeadingArabic || ''}
               onChange={(e) => onChangeCheckoutField('summaryHeadingArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="chk-btn-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="chk-btn-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Place Order Button (English)
             </label>
             <input
@@ -240,11 +240,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutData.orderButtonText || ''}
               onChange={(e) => onChangeCheckoutField('orderButtonText', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="chk-btn-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="chk-btn-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               نص زر تأكيد وإرسال الطلب (عربي)
             </label>
             <input
@@ -253,14 +253,14 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutData.orderButtonTextArabic || ''}
               onChange={(e) => onChangeCheckoutField('orderButtonTextArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div className="md:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="chk-badge-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+                <label htmlFor="chk-badge-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
                   Trust Badge Line (English)
                 </label>
                 <input
@@ -268,11 +268,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
                   type="text"
                   value={checkoutData.guaranteeBadgeText || ''}
                   onChange={(e) => onChangeCheckoutField('guaranteeBadgeText', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="chk-badge-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+                <label htmlFor="chk-badge-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
                   شارة الثقة والأمان (عربي)
                 </label>
                 <input
@@ -281,7 +281,7 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
                   dir="rtl"
                   value={checkoutData.guaranteeBadgeTextArabic || ''}
                   onChange={(e) => onChangeCheckoutField('guaranteeBadgeTextArabic', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
                 />
               </div>
             </div>
@@ -299,7 +299,7 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="succ-badge-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="succ-badge-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Success Badge (English)
             </label>
             <input
@@ -307,11 +307,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutSuccessData.successBadge || ''}
               onChange={(e) => onChangeSuccessField('successBadge', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="succ-badge-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="succ-badge-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               شارة التأكيد الناجح (عربي)
             </label>
             <input
@@ -320,12 +320,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutSuccessData.successBadgeArabic || ''}
               onChange={(e) => onChangeSuccessField('successBadgeArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="succ-title-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="succ-title-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Thank You Title Prefix (English)
             </label>
             <input
@@ -333,11 +333,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutSuccessData.successTitle || ''}
               onChange={(e) => onChangeSuccessField('successTitle', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="succ-title-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="succ-title-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               عنوان الشكر الرئيسي (عربي)
             </label>
             <input
@@ -346,14 +346,14 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutSuccessData.successTitleArabic || ''}
               onChange={(e) => onChangeSuccessField('successTitleArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div className="md:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="succ-steps-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+                <label htmlFor="succ-steps-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
                   Next Steps Section Heading (English)
                 </label>
                 <input
@@ -361,11 +361,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
                   type="text"
                   value={checkoutSuccessData.nextStepsHeading || ''}
                   onChange={(e) => onChangeSuccessField('nextStepsHeading', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="succ-steps-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+                <label htmlFor="succ-steps-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
                   عنوان خطوات ما بعد تأكيد الطلب (عربي)
                 </label>
                 <input
@@ -374,14 +374,14 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
                   dir="rtl"
                   value={checkoutSuccessData.nextStepsHeadingArabic || ''}
                   onChange={(e) => onChangeSuccessField('nextStepsHeadingArabic', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
                 />
               </div>
             </div>
           </div>
 
           <div>
-            <label htmlFor="succ-s1-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="succ-s1-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Step 1 Text (English)
             </label>
             <textarea
@@ -389,11 +389,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               rows={2}
               value={checkoutSuccessData.step1Text || ''}
               onChange={(e) => onChangeSuccessField('step1Text', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
             />
           </div>
           <div>
-            <label htmlFor="succ-s1-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="succ-s1-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               الخطوة 1: توجيه الطلب للمستودع (عربي)
             </label>
             <textarea
@@ -402,12 +402,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutSuccessData.step1TextArabic || ''}
               onChange={(e) => onChangeSuccessField('step1TextArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="succ-s2-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="succ-s2-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Step 2 Text (English)
             </label>
             <textarea
@@ -415,11 +415,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               rows={2}
               value={checkoutSuccessData.step2Text || ''}
               onChange={(e) => onChangeSuccessField('step2Text', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
             />
           </div>
           <div>
-            <label htmlFor="succ-s2-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="succ-s2-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               الخطوة 2: تواصل السائق عبر واتساب (عربي)
             </label>
             <textarea
@@ -428,12 +428,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutSuccessData.step2TextArabic || ''}
               onChange={(e) => onChangeSuccessField('step2TextArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="succ-s3-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="succ-s3-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Step 3 Text (English)
             </label>
             <textarea
@@ -441,11 +441,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               rows={2}
               value={checkoutSuccessData.step3Text || ''}
               onChange={(e) => onChangeSuccessField('step3Text', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
             />
           </div>
           <div>
-            <label htmlFor="succ-s3-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="succ-s3-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               الخطوة 3: التسليم والدفع عند الاستلام (عربي)
             </label>
             <textarea
@@ -454,12 +454,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutSuccessData.step3TextArabic || ''}
               onChange={(e) => onChangeSuccessField('step3TextArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="succ-btn-track-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="succ-btn-track-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Track Order Button (English)
             </label>
             <input
@@ -467,11 +467,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutSuccessData.buttonTrackText || ''}
               onChange={(e) => onChangeSuccessField('buttonTrackText', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="succ-btn-track-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="succ-btn-track-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               نص زر متابعة الطلب (عربي)
             </label>
             <input
@@ -480,12 +480,12 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutSuccessData.buttonTrackTextArabic || ''}
               onChange={(e) => onChangeSuccessField('buttonTrackTextArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
 
           <div>
-            <label htmlFor="succ-btn-cont-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="succ-btn-cont-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Continue Shopping Button (English)
             </label>
             <input
@@ -493,11 +493,11 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               type="text"
               value={checkoutSuccessData.buttonContinueText || ''}
               onChange={(e) => onChangeSuccessField('buttonContinueText', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="succ-btn-cont-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
+            <label htmlFor="succ-btn-cont-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer font-arabic text-right" dir="rtl">
               نص زر مواصلة التسوق (عربي)
             </label>
             <input
@@ -506,7 +506,7 @@ export const CMSCheckoutTab: React.FC<CMSCheckoutTabProps> = ({
               dir="rtl"
               value={checkoutSuccessData.buttonContinueTextArabic || ''}
               onChange={(e) => onChangeSuccessField('buttonContinueTextArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
             />
           </div>
         </div>
