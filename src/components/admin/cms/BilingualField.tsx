@@ -181,10 +181,10 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
         <div>
           <span className="block text-xs font-bold text-slate-200 uppercase tracking-wide">
             {displayLabel}
-            {labelAr && <span className="ml-2 text-amber-400/80 font-normal normal-case font-arabic">({labelAr})</span>}
+            {labelAr && <span className="ml-2 text-indigo-600/80 font-normal normal-case font-arabic">({labelAr})</span>}
           </span>
           {subLabel && (
-            <p id={hintId} className="text-[11px] text-slate-400 mt-0.5">{subLabel}</p>
+            <p id={hintId} className="text-[11px] text-slate-500 mt-0.5">{subLabel}</p>
           )}
         </div>
 
@@ -198,7 +198,7 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
               aria-expanded={showSuggestions}
               aria-controls={presetsId}
               onClick={() => setShowSuggestions(prev => !prev)}
-              className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-indigo-600 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Sparkles className="w-3 h-3" aria-hidden="true" />
               <span>Presets</span>
@@ -213,11 +213,11 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
                 aria-labelledby={`${presetsId}-label`}
                 aria-activedescendant={activeIndex >= 0 ? `${presetsId}-opt-${activeIndex}` : undefined}
                 tabIndex={-1}
-                className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 bg-slate-900/98 backdrop-blur-md border border-amber-500/30 rounded-2xl shadow-2xl p-2 space-y-1.5 max-h-72 overflow-y-auto custom-scrollbar"
+                className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 bg-slate-50/98 backdrop-blur-md border border-amber-500/30 rounded-2xl shadow-2xl p-2 space-y-1.5 max-h-72 overflow-y-auto custom-scrollbar"
               >
-                <div id={`${presetsId}-label`} className="px-3 py-1.5 text-[11px] font-bold text-amber-400 border-b border-white/10 uppercase tracking-wider flex items-center justify-between">
+                <div id={`${presetsId}-label`} className="px-3 py-1.5 text-[11px] font-bold text-indigo-600 border-b border-slate-200 uppercase tracking-wider flex items-center justify-between">
                   <span>Copy Presets</span>
-                  <span className="text-[10px] text-slate-400">↑↓ to navigate • Enter to select • Esc</span>
+                  <span className="text-[10px] text-slate-500">↑↓ to navigate • Enter to select • Esc</span>
                 </div>
                 {availableSuggestions.map((item, idx) => {
                   const isSelected = activeIndex === idx;
@@ -233,19 +233,19 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
                       onMouseEnter={() => setActiveIndex(idx)}
                       className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer group ${
                         isSelected
-                          ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 ring-1 ring-amber-400/30'
+                          ? 'bg-amber-500/20 border-amber-500/40 text-indigo-600 ring-1 ring-amber-400/30'
                           : 'border-transparent hover:bg-amber-500/15 hover:border-amber-500/30'
                       }`}
                     >
                       {item.category && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/80 block mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600/80 block mb-1">
                           {item.category}
                         </span>
                       )}
-                      <p className={`text-xs font-medium line-clamp-1 ${isSelected ? 'text-amber-200 font-bold' : 'text-white group-hover:text-amber-300'}`}>
+                      <p className={`text-xs font-medium line-clamp-1 ${isSelected ? 'text-amber-200 font-bold' : 'text-slate-900 group-hover:text-indigo-600'}`}>
                         {item.en}
                       </p>
-                      <p className="text-[11px] text-slate-400 font-arabic text-right line-clamp-1 mt-0.5" dir="rtl">
+                      <p className="text-[11px] text-slate-500 font-arabic text-right line-clamp-1 mt-0.5" dir="rtl">
                         {item.ar}
                       </p>
                     </button>
@@ -261,14 +261,14 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* English Column */}
         <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-            <label htmlFor={enId} className="flex items-center gap-1 text-slate-300 cursor-pointer">
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+            <label htmlFor={enId} className="flex items-center gap-1 text-slate-600 cursor-pointer">
               <span className="text-xs" aria-hidden="true">🇺🇸</span> English (LTR)
             </label>
             <button
               type="button"
               onClick={() => handleCopy('en', valueEn)}
-              className="text-slate-500 hover:text-slate-300 flex items-center gap-1 text-[10px] cursor-pointer"
+              className="text-slate-500 hover:text-slate-600 flex items-center gap-1 text-[10px] cursor-pointer"
               aria-label="Copy English text to clipboard"
             >
               {copiedField === 'en' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -284,7 +284,7 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
               onChange={(e) => onChangeEn(e.target.value)}
               placeholder={placeholderEn}
               rows={rows}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all resize-y leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all resize-y leading-relaxed"
             />
           ) : (
             <input
@@ -294,24 +294,24 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
               value={valueEn || ''}
               onChange={(e) => onChangeEn(e.target.value)}
               placeholder={placeholderEn}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all"
             />
           )}
         </div>
 
         {/* Arabic Column */}
         <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+          <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
             <button
               type="button"
               onClick={() => handleCopy('ar', valueAr)}
-              className="text-slate-500 hover:text-slate-300 flex items-center gap-1 text-[10px] cursor-pointer"
+              className="text-slate-500 hover:text-slate-600 flex items-center gap-1 text-[10px] cursor-pointer"
               aria-label="نسخ النص العربي للحافظة"
             >
               {copiedField === 'ar' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
               <span>{copiedField === 'ar' ? 'تم النسخ' : 'نسخ'}</span>
             </button>
-            <label htmlFor={arId} className="flex items-center gap-1 text-slate-300 cursor-pointer font-arabic">
+            <label htmlFor={arId} className="flex items-center gap-1 text-slate-600 cursor-pointer font-arabic">
               العربية (RTL) <span className="text-xs" aria-hidden="true">🇱🇧</span>
             </label>
           </div>
@@ -325,7 +325,7 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
               placeholder={placeholderAr}
               dir="rtl"
               rows={rows}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all resize-y text-right font-arabic leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all resize-y text-right font-arabic leading-relaxed"
             />
           ) : (
             <input
@@ -336,7 +336,7 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
               onChange={(e) => onChangeAr(e.target.value)}
               placeholder={placeholderAr}
               dir="rtl"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all text-right font-arabic"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-500 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition-all text-right font-arabic"
             />
           )}
         </div>
