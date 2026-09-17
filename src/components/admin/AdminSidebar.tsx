@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ArrowLeft, Eye, LogOut, Zap, PanelsTopLeft, Box, BarChart3, Bell, Database } from 'lucide-react';
+import { useShop } from '../../context/ShopContext';
 
 export type AdminMenuTab = 
   | 'ecommerce' 
