@@ -684,7 +684,7 @@ export const SalesAnalyticsView: React.FC = () => {
       {/* 1. TOP HEADER & TITLE */}
       <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-slate-900 flex items-center justify-center shadow-sm">
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
@@ -714,7 +714,7 @@ export const SalesAnalyticsView: React.FC = () => {
 
           <button
             onClick={handleExportFilteredSalesCSV}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs hover:shadow-md active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-slate-900 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs hover:shadow-md active:scale-95"
             title="Export currently filtered dataset to CSV"
           >
             <Download className="w-3.5 h-3.5" />
@@ -729,7 +729,7 @@ export const SalesAnalyticsView: React.FC = () => {
         {/* Date Range Presets */}
         <div>
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-indigo-600" />
               <span>Select Sales Period:</span>
             </span>
@@ -758,7 +758,7 @@ export const SalesAnalyticsView: React.FC = () => {
                 onClick={() => setDatePreset(preset.id as DateRangePreset)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   datePreset === preset.id
-                    ? 'bg-indigo-600 text-white shadow-xs'
+                    ? 'bg-indigo-600 text-slate-900 shadow-xs'
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
@@ -795,7 +795,7 @@ export const SalesAnalyticsView: React.FC = () => {
 
         {/* Dimension & Entity Specifications (Product, Seller, Customer, Status, Category) */}
         <div className="pt-4 border-t border-slate-100">
-          <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+          <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5 text-indigo-600" />
             <span>Specify Breakdown & Filters:</span>
           </div>
@@ -874,7 +874,7 @@ export const SalesAnalyticsView: React.FC = () => {
             <div>
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Customer / Phone</label>
               <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   type="text"
                   placeholder="Filter name or phone..."
@@ -895,9 +895,9 @@ export const SalesAnalyticsView: React.FC = () => {
         
         {/* Gross Sales */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Gross Sales Revenue</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">Gross Sales Revenue</span>
           <div className="text-xl sm:text-2xl font-black text-slate-900">{formatPrice(kpis.grossRevenueUSD)}</div>
-          <span className="text-[10px] text-slate-400 font-semibold mt-0.5 block">
+          <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
             {(kpis.grossRevenueUSD * LBP_USD_RATE).toLocaleString('en-US')} LBP
           </span>
         </div>
@@ -913,36 +913,36 @@ export const SalesAnalyticsView: React.FC = () => {
 
         {/* Orders in Period */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Orders in Period</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">Orders in Period</span>
           <div className="text-xl sm:text-2xl font-black text-indigo-700">{kpis.ordersCount}</div>
-          <span className="text-[10px] text-slate-400 font-semibold mt-0.5 block">
+          <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
             {kpis.uniqueBuyers} active customer{kpis.uniqueBuyers === 1 ? '' : 's'}
           </span>
         </div>
 
         {/* Units Sold */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Total Units Sold</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">Total Units Sold</span>
           <div className="text-xl sm:text-2xl font-black text-slate-900">{kpis.totalUnitsSold}</div>
-          <span className="text-[10px] text-slate-400 font-semibold mt-0.5 block">
+          <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
             Across {productSales.length} unique SKUs
           </span>
         </div>
 
         {/* Average Order Value (AOV) */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Average Order Value</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">Average Order Value</span>
           <div className="text-xl sm:text-2xl font-black text-slate-900">{formatPrice(kpis.avgOrderValue)}</div>
-          <span className="text-[10px] text-slate-400 font-semibold mt-0.5 block">
+          <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
             Per completed checkout
           </span>
         </div>
 
         {/* Total Discounts */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Discounts Applied</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">Discounts Applied</span>
           <div className="text-xl sm:text-2xl font-black text-rose-600">-{formatPrice(kpis.totalDiscountUSD)}</div>
-          <span className="text-[10px] text-slate-400 font-semibold mt-0.5 block">
+          <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
             + {formatPrice(kpis.totalDeliveryFeesUSD)} shipping fees
           </span>
         </div>
@@ -971,7 +971,7 @@ export const SalesAnalyticsView: React.FC = () => {
                   onClick={() => setActiveTab(tab.id as SalesTab)}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-xs'
+                      ? 'bg-indigo-600 text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
                 >
@@ -1039,7 +1039,7 @@ export const SalesAnalyticsView: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="py-12 text-center text-xs text-slate-400 font-semibold">
+                  <div className="py-12 text-center text-xs text-slate-500 font-semibold">
                     No sales recorded for the selected date range. Try broadening the period or resetting filters.
                   </div>
                 )}
@@ -1071,12 +1071,12 @@ export const SalesAnalyticsView: React.FC = () => {
                         </div>
                         <div className="text-right shrink-0">
                           <span className="font-black text-slate-900">{formatPrice(item.revenueUSD)}</span>
-                          <span className="text-[10px] text-slate-400 block">{item.unitsSold} sold</span>
+                          <span className="text-[10px] text-slate-500 block">{item.unitsSold} sold</span>
                         </div>
                       </div>
                     ))}
                     {productSales.length === 0 && (
-                      <div className="text-xs text-slate-400 text-center py-4">No products sold in period</div>
+                      <div className="text-xs text-slate-500 text-center py-4">No products sold in period</div>
                     )}
                   </div>
                 </div>
@@ -1104,12 +1104,12 @@ export const SalesAnalyticsView: React.FC = () => {
                         </div>
                         <div className="text-right shrink-0">
                           <span className="font-black text-emerald-700">{formatPrice(item.grossRevenueUSD)}</span>
-                          <span className="text-[10px] text-slate-400 block">{item.unitsSold} units</span>
+                          <span className="text-[10px] text-slate-500 block">{item.unitsSold} units</span>
                         </div>
                       </div>
                     ))}
                     {sellerSales.length === 0 && (
-                      <div className="text-xs text-slate-400 text-center py-4">No seller sales in period</div>
+                      <div className="text-xs text-slate-500 text-center py-4">No seller sales in period</div>
                     )}
                   </div>
                 </div>
@@ -1135,17 +1135,17 @@ export const SalesAnalyticsView: React.FC = () => {
                           </span>
                           <div className="truncate">
                             <span className="font-bold text-slate-800 truncate block">{item.customerName}</span>
-                            <span className="text-[10px] text-slate-400 font-mono truncate">{item.phone || item.city}</span>
+                            <span className="text-[10px] text-slate-500 font-mono truncate">{item.phone || item.city}</span>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
                           <span className="font-black text-slate-900">{formatPrice(item.totalSpentUSD)}</span>
-                          <span className="text-[10px] text-slate-400 block">{item.ordersCount} orders</span>
+                          <span className="text-[10px] text-slate-500 block">{item.ordersCount} orders</span>
                         </div>
                       </div>
                     ))}
                     {customerSales.length === 0 && (
-                      <div className="text-xs text-slate-400 text-center py-4">No customer orders in period</div>
+                      <div className="text-xs text-slate-500 text-center py-4">No customer orders in period</div>
                     )}
                   </div>
                 </div>
@@ -1177,7 +1177,7 @@ export const SalesAnalyticsView: React.FC = () => {
                       <tr key={item.product.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-3">
                           <div className="font-bold text-slate-900">{item.product.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono flex items-center gap-2">
+                          <div className="text-[10px] text-slate-500 font-mono flex items-center gap-2">
                             <span>ID: {item.product.id}</span>
                             {item.product.sellerItemCode && (
                               <>
@@ -1220,7 +1220,7 @@ export const SalesAnalyticsView: React.FC = () => {
                     ))}
                     {productSales.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
+                        <td colSpan={8} className="py-8 text-center text-slate-500 font-semibold">
                           No product sales match your selected filters.
                         </td>
                       </tr>
@@ -1273,7 +1273,7 @@ export const SalesAnalyticsView: React.FC = () => {
                               <span>{item.sellerObj.contactPhone}</span>
                             </a>
                           ) : (
-                            <span className="text-slate-400 italic">No phone</span>
+                            <span className="text-slate-500 italic">No phone</span>
                           )}
                         </td>
                         <td className="py-3 px-3 text-center font-bold text-slate-700">
@@ -1300,7 +1300,7 @@ export const SalesAnalyticsView: React.FC = () => {
                     ))}
                     {sellerSales.length === 0 && (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-slate-400 font-semibold">
+                        <td colSpan={9} className="py-8 text-center text-slate-500 font-semibold">
                           No seller records found for this period.
                         </td>
                       </tr>
@@ -1348,7 +1348,7 @@ export const SalesAnalyticsView: React.FC = () => {
                               </a>
                             </div>
                           ) : (
-                            <span className="text-slate-400">No phone</span>
+                            <span className="text-slate-500">No phone</span>
                           )}
                         </td>
                         <td className="py-3 px-3 text-slate-600">
@@ -1375,7 +1375,7 @@ export const SalesAnalyticsView: React.FC = () => {
                     ))}
                     {customerSales.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400 font-semibold">
+                        <td colSpan={8} className="py-8 text-center text-slate-500 font-semibold">
                           No customer purchases recorded for this period.
                         </td>
                       </tr>
@@ -1431,7 +1431,7 @@ export const SalesAnalyticsView: React.FC = () => {
                     ))}
                     {categorySales.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-400 font-semibold">
+                        <td colSpan={6} className="py-8 text-center text-slate-500 font-semibold">
                           No category sales recorded for this period.
                         </td>
                       </tr>
@@ -1463,19 +1463,19 @@ export const SalesAnalyticsView: React.FC = () => {
                       <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-3">
                           <span className="font-mono font-bold text-slate-900">#{ord.id.slice(-6).toUpperCase()}</span>
-                          <span className="text-[10px] text-slate-400 block">
+                          <span className="text-[10px] text-slate-500 block">
                             {new Date(ord.date || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
                         </td>
                         <td className="py-3 px-3">
                           <div className="font-bold text-slate-900">{ord.shipping?.fullName || 'Customer'}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">{ord.shipping?.phone || 'No phone'}</div>
+                          <div className="text-[10px] text-slate-500 font-mono">{ord.shipping?.phone || 'No phone'}</div>
                         </td>
                         <td className="py-3 px-3 max-w-xs">
                           <span className="text-slate-700 truncate block text-[11px]">
                             {ord.items.map(i => `${i.quantity}x ${i.product.name}`).join(', ')}
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-500">
                             {ord.items.reduce((s, i) => s + i.quantity, 0)} total items
                           </span>
                         </td>
@@ -1510,7 +1510,7 @@ export const SalesAnalyticsView: React.FC = () => {
                     ))}
                     {filteredOrders.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400 font-semibold">
+                        <td colSpan={7} className="py-8 text-center text-slate-500 font-semibold">
                           No orders found matching the filter parameters.
                         </td>
                       </tr>
@@ -1526,14 +1526,14 @@ export const SalesAnalyticsView: React.FC = () => {
 
       {/* INSPECT ORDER DETAILS MODAL */}
       {inspectingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-50 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white w-full max-w-lg rounded-3xl border border-slate-200 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="font-extrabold text-slate-900 text-base">
                   Order Details #{inspectingOrder.id.slice(-6).toUpperCase()}
                 </h3>
-                <span className="text-xs text-slate-400 font-mono">
+                <span className="text-xs text-slate-500 font-mono">
                   {new Date(inspectingOrder.date || Date.now()).toLocaleString('en-US')}
                 </span>
               </div>
@@ -1561,7 +1561,7 @@ export const SalesAnalyticsView: React.FC = () => {
                   <div key={idx} className="flex justify-between items-center text-xs py-1 border-b border-slate-100">
                     <div>
                       <span className="font-bold text-slate-900">{item.product.name}</span>
-                      <span className="text-slate-400 block text-[10px]">
+                      <span className="text-slate-500 block text-[10px]">
                         Seller: {item.product.seller || item.product.artisan || 'Local Producer'} • Qty: {item.quantity}
                       </span>
                     </div>
@@ -1581,7 +1581,7 @@ export const SalesAnalyticsView: React.FC = () => {
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setInspectingOrder(null)}
-                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+                className="px-4 py-2 bg-slate-50 text-slate-900 rounded-xl text-xs font-bold"
               >
                 Close
               </button>
