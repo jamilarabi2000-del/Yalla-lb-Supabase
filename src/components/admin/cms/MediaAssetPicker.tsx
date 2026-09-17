@@ -200,18 +200,18 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
             {label}
           </label>
           {subLabel && (
-            <p className="text-[11px] text-slate-400 mt-0.5">{subLabel}</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{subLabel}</p>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/10 text-[10px] font-mono text-amber-300">
+          <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-mono text-indigo-600">
             {recommendedRatio} ({recommendedDimensions})
           </span>
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+            className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-indigo-600 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Asset Gallery</span>
@@ -223,9 +223,9 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
       <div className="space-y-1.5">
         <div className="flex items-center gap-3">
           {/* Live Thumbnail Preview */}
-          <div className="w-16 h-12 rounded-xl bg-slate-900 border border-white/15 overflow-hidden flex-shrink-0 relative group flex items-center justify-center">
+          <div className="w-16 h-12 rounded-xl bg-slate-50 border border-white/15 overflow-hidden flex-shrink-0 relative group flex items-center justify-center">
             {isOptimizing ? (
-              <div className="flex flex-col items-center justify-center text-amber-400">
+              <div className="flex flex-col items-center justify-center text-indigo-600">
                 <Loader2 className="w-5 h-5 animate-spin" />
               </div>
             ) : value ? (
@@ -273,12 +273,12 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                 setOptimizeStats(null);
               }}
               placeholder="Paste image URL (https://...) or upload file"
-              className="w-full pl-3.5 pr-20 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+              className="w-full pl-3.5 pr-20 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-500 focus:border-amber-400 focus:outline-none"
             />
             <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
               <label 
-                className={`p-1.5 rounded-lg text-slate-300 hover:text-white cursor-pointer transition-colors ${
-                  isOptimizing ? 'bg-amber-500/30 text-amber-300 animate-pulse' : 'bg-slate-800 hover:bg-slate-700'
+                className={`p-1.5 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer transition-colors ${
+                  isOptimizing ? 'bg-amber-500/30 text-indigo-600 animate-pulse' : 'bg-slate-100 hover:bg-slate-100'
                 }`} 
                 title="Upload & optimize local image file"
               >
@@ -300,7 +300,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                   href={safeHref(value)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white cursor-pointer transition-colors"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-600 hover:text-slate-900 cursor-pointer transition-colors"
                   title="Open image in new tab"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -321,7 +321,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
         )}
 
         {isOptimizing && (
-          <div className="flex items-center gap-2 text-[11px] text-amber-300 bg-amber-950/30 border border-amber-500/20 px-3 py-1 rounded-lg animate-pulse">
+          <div className="flex items-center gap-2 text-[11px] text-indigo-600 bg-amber-950/30 border border-amber-500/20 px-3 py-1 rounded-lg animate-pulse">
             <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
             <span>Optimizing image resolution & compressing for web...</span>
           </div>
@@ -338,15 +338,15 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
       {/* Asset Gallery & Heritage Preset Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-white/15 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fadeIn">
+          <div className="bg-slate-50 border border-white/15 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fadeIn">
             {/* Modal Header */}
-            <div className="p-5 border-b border-white/10 flex items-center justify-between gap-4">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between gap-4">
               <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5 text-amber-400" />
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-indigo-600" />
                   <span>Media Asset Library & Lebanese Presets</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Select a curated Lebanese artisanal asset or upload your own high-resolution photography.
                 </p>
               </div>
@@ -354,7 +354,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-100 text-slate-600 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer"
               >
                 ✕
               </button>
@@ -370,7 +370,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                 className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
                   dragActive 
                     ? 'border-amber-400 bg-amber-500/10' 
-                    : 'border-white/15 bg-slate-950/50 hover:border-amber-400/50 hover:bg-slate-800/40'
+                    : 'border-white/15 bg-slate-50/50 hover:border-amber-400/50 hover:bg-slate-100/40'
                 }`}
                 onClick={() => {
                   const input = document.createElement('input');
@@ -384,20 +384,20 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                   input.click();
                 }}
               >
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-indigo-600 flex items-center justify-center mx-auto mb-3">
                   <Upload className="w-6 h-6" />
                 </div>
-                <p className="text-sm font-bold text-white">
+                <p className="text-sm font-bold text-slate-900">
                   Drop image here or click to browse
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Supports JPG, PNG, WebP, SVG • Recommended: {recommendedRatio} ({recommendedDimensions})
                 </p>
               </div>
 
               {/* Category Filter Pills */}
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
                   Curated Presets:
                 </span>
                 {[
@@ -413,8 +413,8 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                     onClick={() => setSelectedCategory(cat.id as any)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       selectedCategory === cat.id
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
                     {cat.label}
@@ -433,13 +433,13 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                         onChange(preset.url);
                         setIsOpen(false);
                       }}
-                      className={`group relative rounded-2xl overflow-hidden border bg-slate-950 cursor-pointer transition-all hover:scale-[1.02] ${
+                      className={`group relative rounded-2xl overflow-hidden border bg-slate-50 cursor-pointer transition-all hover:scale-[1.02] ${
                         isSelected 
                           ? 'border-amber-400 ring-2 ring-amber-400/40 shadow-lg' 
-                          : 'border-white/10 hover:border-amber-400/60'
+                          : 'border-slate-200 hover:border-amber-400/60'
                       }`}
                     >
-                      <div className="aspect-video w-full overflow-hidden bg-slate-800 relative">
+                      <div className="aspect-video w-full overflow-hidden bg-slate-100 relative">
                         <img
                           src={preset.url}
                           alt={preset.title}
@@ -448,22 +448,22 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                           referrerPolicy="no-referrer"
                         />
                         <div className="absolute top-2 left-2">
-                          <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-[10px] font-mono text-amber-300 border border-white/10">
+                          <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-xs text-[10px] font-mono text-indigo-600 border border-slate-200">
                             {preset.aspect}
                           </span>
                         </div>
                         {isSelected && (
-                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shadow-md">
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md">
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </div>
                         )}
                       </div>
 
-                      <div className="p-3 bg-slate-900/95 space-y-1">
-                        <p className="text-xs font-bold text-white truncate">
+                      <div className="p-3 bg-white/95 space-y-1">
+                        <p className="text-xs font-bold text-slate-900 truncate">
                           {preset.title}
                         </p>
-                        <p className="text-[11px] text-slate-400 font-arabic truncate text-right" dir="rtl">
+                        <p className="text-[11px] text-slate-500 font-arabic truncate text-right" dir="rtl">
                           {preset.titleAr}
                         </p>
                       </div>
@@ -474,14 +474,14 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 bg-slate-950 border-t border-white/10 flex items-center justify-between">
-              <span className="text-xs text-slate-400">
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
                 Click any preset or drop a file to immediately apply to this field.
               </span>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-100 text-slate-900 text-xs font-bold transition-colors cursor-pointer"
               >
                 Done
               </button>
