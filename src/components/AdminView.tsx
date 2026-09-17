@@ -138,9 +138,62 @@ function InventoryManager(){const shop=useShop() as any;const products=shop.prod
 function NotificationsManager(){const[items,setItems]=useState<any[]>([]);const refresh=async()=>{const{data,error}=await supabase.from('notifications').select('*').order('created_at',{ascending:false}).limit(100);if(error)throw error;setItems(data||[])};useEffect(()=>{refresh().catch(console.error)},[]);return <section className="space-y-4"><h2 className="text-2xl font-black">Notifications</h2><div className="bg-white border rounded-2xl divide-y">{items.map(n=><div key={n.id} className="p-4"><b>{n.title}</b><p className="text-sm text-slate-600">{n.body}</p></div>)}{!items.length&&<div className="p-8 text-center text-slate-500">No notifications yet.</div>}</div></section>}
 
 const cmsMap: Record<string,string>={pages_cms:'home',page_home:'home',page_products:'productsPage',page_detail:'productDetailPage',page_checkout:'checkoutPage',page_account:'accountPage',page_news:'newsSection',page_navbar:'navbar',page_footer:'footer',page_custom_blocks:'customBlocks',page_visibility:'visibility',page_seo:'seo'};
-function CMSSection({tab}:{tab:AdminTab}){return <section className="space-y-4"><div className="bg-white border rounded-2xl p-5"><h2 className="text-2xl font-black">{tabs.find(t=>t.id===tab)?.label}</h2><p className="text-sm text-slate-500 mt-1">Firebase-compatible CMS editor backed by Supabase.</p></div><PageCMSManager initialTab={cmsMap[tab]||'home'}/></section>}
+function CMSSection({tab}:{tab:AdminTab}){return <section className="space-y-4"><div className="bg-white border rounded-2xl p-5"><h2 className="text-2xl font-black">{tabs.find(t=>t.id===tab)?.label}</h2><p className="text-sm text-slate-500 mt-1">Supabase-backed CMS editor.</p></div><PageCMSManager initialTab={cmsMap[tab]||'home'}/></section>}
 
-export const AdminView:React.FC=()=>{const shop=useShop() as any;const[tab,setTab]=useState<AdminTab>('dashboard');const[allowed,setAllowed]=useState(true);useEffect(()=>{hasPermission('security.view').then(v=>setAllowed(v||!!shop.isAdminUser)).catch(()=>setAllowed(!!shop.isAdminUser))},[shop.isAdminUser]);const counts={orders:(shop.orders||[]).length,products:(shop.products||[]).length,categories:(shop.categories||[]).length};const [isMobileSidebarOpen,setIsMobileSidebarOpen]=useState(false);const content=()=>{switch(tab){case'dashboard':return <EcommerceOverview onNavigateToTab={(t:any)=>setTab(t==='ecommerce'?'dashboard':t)}/>;case'sales':case'analytics':return <SalesAnalyticsView/>;case'orders':return <OrdersRoute/>;case'products':return <ProductsCatalogManagement/>;case'categories':return <CategoriesDetailsView/>;case'inventory':return <InventoryManager/>;case'customers':return <CustomersView dbUsers={shop.dbUsers||shop.userProfiles||[]}/>;case'sellers':return <SellersView/>;case'discounts':return <DiscountsManager initialTab="rules"/>;case'bundles':return <ProductBundlesManager/>;case'active_carts':return <ActiveCartsView/>;case'reviews':return <ReviewsManager products={shop.products||[]}/>;case'search':return <SearchAnalyticsView/>;case'pages_cms':case'page_home':case'page_products':case'page_detail':case'page_checkout':case'page_account':case'page_news':case'page_navbar':case'page_footer':case'page_custom_blocks':case'page_visibility':case'page_seo':return <CMSSection tab={tab}/>;case'builder':return <UnifiedVisualBuilder/>;case'notifications':return <NotificationsManager/>;case'security':return allowed?<DatabaseActivityLogs/>:<div className="p-8 bg-white rounded-2xl border text-center text-rose-600">Security logs require security.view permission.</div>}};const sidebarTab: AdminMenuTab =
+export const AdminView:React.FC=()=>{const shop=useShop() as any;const[tab,setTab]=useState<AdminTab>('dashboard');const[allowed,setAllowed]=useState(true);useEffect(()=>{hasPermission('security.view').then(v=>setAllowed(v||!!shop.isAdminUser)).catch(()=>setAllowed(!!shop.isAdminUser))},[shop.isAdminUser]);const counts={orders:(shop.orders||[]).length,products:(shop.products||[]).length,categories:(shop.categories||[]).length};const [isMobileSidebarOpen,setIsMobileSidebarOpen]=useState(false);const content = () => {
+  switch (tab) {
+    case 'dashboard':
+      return <EcommerceOverview onNavigateToTab={(t: any) => setTab(t === 'ecommerce' ? 'dashboard' : t)} />;
+    case 'sales':
+    case 'analytics':
+      return <SalesAnalyticsView />;
+    case 'orders':
+      return <OrdersRoute />;
+    case 'products':
+      return <ProductsCatalogManagement />;
+    case 'categories':
+      return <CategoriesDetailsView />;
+    case 'inventory':
+      return <InventoryManager />;
+    case 'customers':
+      return <CustomersView dbUsers={shop.dbUsers || shop.userProfiles || []} />;
+    case 'sellers':
+      return <SellersView />;
+    case 'discounts':
+      return <DiscountsManager initialTab="rules" />;
+    case 'bundles':
+      return <ProductBundlesManager />;
+    case 'active_carts':
+      return <ActiveCartsView />;
+    case 'reviews':
+      return <ReviewsManager products={shop.products || []} />;
+    case 'search':
+      return <SearchAnalyticsView />;
+    case 'pages_cms':
+    case 'page_home':
+    case 'page_products':
+    case 'page_detail':
+    case 'page_checkout':
+    case 'page_account':
+    case 'page_news':
+    case 'page_navbar':
+    case 'page_footer':
+    case 'page_custom_blocks':
+    case 'page_visibility':
+    case 'page_seo':
+      return <CMSSection tab={tab} />;
+    case 'builder':
+      return <UnifiedVisualBuilder />;
+    case 'notifications':
+      return <NotificationsManager />;
+    case 'security':
+      return allowed
+        ? <DatabaseActivityLogs />
+        : <div className="p-8 bg-white rounded-2xl border text-center text-rose-600">Security logs require security.view permission.</div>;
+    default:
+      return <EcommerceOverview onNavigateToTab={(t: any) => setTab(t === 'ecommerce' ? 'dashboard' : t)} />;
+  }
+};const sidebarTab: AdminMenuTab =
   tab === 'dashboard' ? 'ecommerce' :
   tab === 'search' ? 'search_analytics' :
   tab === 'security' ? 'db_logs' :
