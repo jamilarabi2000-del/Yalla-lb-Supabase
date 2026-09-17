@@ -287,11 +287,18 @@ export const CheckoutView: React.FC = () => {
     'Saida, South'
   ];
 
-  // Region & Delivery fee calculation
-  const matchedRegion = LEBANON_REGIONS.find(r => 
+  // Region & Delivery fee calculation.
+  //
+  // resolvedRegion is null when the typed city matches no delivery zone. It used
+  // to fall back to LEBANON_REGIONS[0] and the order was then submitted with
+  // `governorate: 'Beirut'`, so a customer outside any known zone was silently
+  // shipped to -- and priced for -- Beirut. The fee preview still uses a default
+  // so the UI has something to show, but submission is blocked below.
+  const resolvedRegion = LEBANON_REGIONS.find(r =>
     r.id === user?.defaultGovernorate ||
     r.majorCities.some(c => (formData.city || '').toLowerCase().includes(c.toLowerCase().split(' ')[0]))
-  ) || LEBANON_REGIONS[0];
+  ) || null;
+  const matchedRegion = resolvedRegion || LEBANON_REGIONS[0];
 
   const deliveryFeeUSD = calcDeliveryFeeUSD({
     speed: deliverySpeed,
@@ -482,6 +489,18 @@ export const CheckoutView: React.FC = () => {
       return;
     }
 
+    // Never guess the delivery zone: the region decides both the delivery fee
+    // the server charges and where the order is physically sent.
+    if (!resolvedRegion) {
+      showToast(
+        isArabic
+          ? 'تعذّر تحديد منطقة التوصيل من المدينة المُدخلة. يرجى اختيار مدينة ضمن مناطق التوصيل.'
+          : 'We could not match your city to a delivery zone. Please enter a city we deliver to.',
+        'warning'
+      );
+      return;
+    }
+
     const fullName = `${fName} ${lName}`.trim();
     const idempotencyKey = checkoutIdempotencyKey || generateIdempotencyKey();
     if (!checkoutIdempotencyKey) {
@@ -498,7 +517,7 @@ export const CheckoutView: React.FC = () => {
           lastName: lName,
           phone: finalPhone,
           email: finalEmail,
-          governorate: matchedRegion?.nameEn || 'Beirut',
+          governorate: resolvedRegion.nameEn,
           city: finalCity,
           street: finalStreet,
           building: formData.building.trim() || 'N/A',

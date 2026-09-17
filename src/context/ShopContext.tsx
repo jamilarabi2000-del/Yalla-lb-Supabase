@@ -65,7 +65,7 @@ import {
 } from '../lib/productValidation';
 
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
-import { assertHighRiskAuthorization } from '../utils/adminMfa';
+import { assertHighRiskAuthorization, clearAdminMfaSession } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
 
@@ -86,6 +86,8 @@ import {
 
 import { CheckoutError } from '../services/supabaseOrderService';
 import { supabaseAdminService } from '../services/supabaseAdminService';
+import { supabaseProductService } from '../services/supabaseProductService';
+import { adminStepUpService } from '../services/adminStepUpService';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
 
 import {
@@ -93,10 +95,7 @@ import {
   calculateObjectDiff
 } from '../utils/dbLogger';
 
-import {
-  dbMonitor,
-  sanitizeDocumentData
-} from '../utils/databaseMonitor';
+import { sanitizeDocumentData } from '../utils/databaseMonitor';
 
 
 // -----------------------------------------------------------------------------
@@ -1175,20 +1174,28 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAdminUser]);
 
   const addDiscountRule = async (ruleData: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const id = 'rule-' + secureRandomString(7);
+    // discount_rules.id is a uuid column: a 'rule-xxxxxxx' string can never be
+    // stored, so the write silently had to be skipped for this to appear to work.
+    const id = generateUuidV4();
     const newRule: DiscountRule = {
       ...ruleData,
       id
     };
-    try {
-    } catch (err) {
-      console.error("[ShopContext] Error saving discount rule to Supabase:", err);
-      showToast('Failed to save discount rule to database', 'warning');
-      throw err;
-    }
-    const ruleWithMeta = { ...newRule, couponCode, maxTotalUses, maxUsesPerUser };
-    setDiscountRules(prev => [ruleWithMeta, ...prev]);
+
+    // Authoritative write first. Local state and the audit entry follow only
+    // when Supabase has accepted the rule -- private.checkout_create_order
+    // reads discount_rules, so a rule that never lands there discounts nothing.
+    const saved = await supabaseCommerceService
+      .upsertDiscountRule(newRule, { couponCode, maxTotalUses, maxUsesPerUser })
+      .catch((err: any) => {
+        console.error("[ShopContext] Error saving discount rule to Supabase:", err);
+        showToast(`Could not save discount rule: ${err?.message || 'unknown error'}`, 'error');
+        throw err;
+      });
+
+    setDiscountRules(prev => [saved as DiscountRule, ...prev]);
     await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${newRule.name}`);
+    showToast(`Discount rule "${newRule.name}" saved.`, 'success');
   };
 
   const updateDiscountRule = async (id: string, updates: Partial<DiscountRule>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
@@ -1196,25 +1203,31 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!target) return;
     const updatedRule: DiscountRule = { ...target, ...updates };
 
-    try {
-      const ruleWithMeta = { ...updatedRule, ...(couponCode !== undefined ? { couponCode } : {}), ...(maxTotalUses !== undefined ? { maxTotalUses } : {}), ...(maxUsesPerUser !== undefined ? { maxUsesPerUser } : {}) };
-      setDiscountRules(prev => prev.map(r => r.id === id ? ruleWithMeta : r));
-    } catch (err) {
-      console.error("[ShopContext] Error updating discount rule in Supabase:", err);
-      showToast('Failed to update discount rule in database', 'warning');
-      throw err;
-    }
+    const existingMeta = target;
+    const saved = await supabaseCommerceService
+      .upsertDiscountRule(updatedRule, {
+        couponCode: couponCode !== undefined ? couponCode : existingMeta.couponCode,
+        maxTotalUses: maxTotalUses !== undefined ? maxTotalUses : existingMeta.maxTotalUses,
+        maxUsesPerUser: maxUsesPerUser !== undefined ? maxUsesPerUser : existingMeta.maxUsesPerUser,
+      })
+      .catch((err: any) => {
+        console.error("[ShopContext] Error updating discount rule in Supabase:", err);
+        showToast(`Could not update discount rule: ${err?.message || 'unknown error'}`, 'error');
+        throw err;
+      });
+
+    setDiscountRules(prev => prev.map(r => r.id === id ? (saved as DiscountRule) : r));
     await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
   };
 
   const deleteDiscountRule = async (id: string) => {
-    try {
-      setDiscountRules(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
+    await supabaseCommerceService.deleteDiscountRule(id).catch((err: any) => {
       console.error("[ShopContext] Error deleting discount rule from Supabase:", err);
-      showToast('Failed to delete discount rule from database', 'warning');
+      showToast(`Could not delete discount rule: ${err?.message || 'unknown error'}`, 'error');
       throw err;
-    }
+    });
+
+    setDiscountRules(prev => prev.filter(r => r.id !== id));
     await logAdminActivity('meta_change', 'Deleted Discount Rule', `Deleted discount ID: ${id}`);
   };
 
@@ -1287,23 +1300,25 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAdminUser]);
 
   const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const id = 'bundle-' + secureRandomString(7);
+    // product_bundles.id is a uuid column; a 'bundle-xxxxxxx' string cannot be stored.
+    const id = generateUuidV4();
     const newBundle: ProductBundle = {
       ...bundleData,
       id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    localStorage.setItem('yallalb_bundles_initialized', 'true');
-    setProductBundles(prev => [newBundle, ...prev]);
 
-    try {
-    } catch (err) {
+    const saved = await supabaseCommerceService.upsertProductBundle(newBundle).catch((err: any) => {
       console.error("[ShopContext] Error saving bundle to Supabase:", err);
-      showToast('Failed to create combo deal in database', 'warning');
+      showToast(`Could not create combo deal: ${err?.message || 'unknown error'}`, 'error');
       throw err;
-    }
+    });
+
+    localStorage.setItem('yallalb_bundles_initialized', 'true');
+    setProductBundles(prev => [saved, ...prev]);
     await logAdminActivity('meta_change', 'Created Combo Deal', `Created bundle: ${newBundle.name}`);
+    showToast(`Combo deal "${newBundle.name}" saved.`, 'success');
   };
 
   const updateProductBundle = async (id: string, updates: Partial<ProductBundle>) => {
@@ -1311,18 +1326,23 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!target) return;
     const updatedBundle: ProductBundle = { ...target, ...updates, updatedAt: new Date().toISOString() };
 
-    setProductBundles(prev => prev.map(b => b.id === id ? updatedBundle : b));
-
-    try {
-    } catch (err) {
+    const saved = await supabaseCommerceService.upsertProductBundle(updatedBundle).catch((err: any) => {
       console.error("[ShopContext] Error updating bundle in Supabase:", err);
-      showToast('Failed to update combo deal in database', 'warning');
+      showToast(`Could not update combo deal: ${err?.message || 'unknown error'}`, 'error');
       throw err;
-    }
+    });
+
+    setProductBundles(prev => prev.map(b => b.id === id ? saved : b));
     await logAdminActivity('meta_change', 'Updated Combo Deal', `Updated bundle ID: ${id}`);
   };
 
   const deleteProductBundle = async (id: string) => {
+    await supabaseCommerceService.deleteProductBundle(id).catch((err: any) => {
+      console.error("[ShopContext] Error deleting bundle from Supabase:", err);
+      showToast(`Could not delete combo deal: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    });
+
     setProductBundles(prev => {
       const next = prev.filter(b => b.id !== id);
       try {
@@ -1332,10 +1352,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return next;
     });
 
-    try {
-    } catch (err) {
-      console.error("[ShopContext] Error deleting bundle from Supabase:", err);
-    }
     await logAdminActivity('meta_change', 'Deleted Combo Deal', `Deleted bundle ID: ${id}`);
   };
 
@@ -1719,6 +1735,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const reorderCategories = async (newOrder: CategoryItem[]) => {
     const normalized = newOrder.map((cat, idx) => ({ ...cat, displayOrder: idx + 1 }));
+    const previous = [...categories];
+
+    await supabaseCommerceService
+      .saveCategoryOrder(normalized.map(c => ({ id: c.id, displayOrder: c.displayOrder ?? 0 })))
+      .catch((err: any) => {
+        console.error('[ShopContext] reorderCategories Supabase write failed:', err);
+        showToast(`Could not save category order: ${err?.message || 'unknown error'}`, 'error');
+        throw err;
+      });
+
     setCategories(normalized);
 
     try {
@@ -1727,7 +1753,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch {}
 
-
+    void previous;
     await logAdminActivity('category_update', 'Categories reordered', `Admin reordered ${newOrder.length} categories.`);
   };
 
@@ -1748,6 +1774,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return orderA - orderB;
     });
 
+    // Authoritative write first: display_order drives catalogue ordering for
+    // every visitor, so an order that only exists in this browser is not saved.
+    await supabaseCommerceService
+      .saveProductOrder(orderedProducts.map((p, idx) => ({ id: p.id, displayOrder: idx + 1 })))
+      .catch((err: any) => {
+        console.error('[ShopContext] reorderProducts Supabase write failed:', err);
+        showToast(`Could not save product order: ${err?.message || 'unknown error'}`, 'error');
+        throw err;
+      });
+
     setProducts(updatedProducts);
 
     try {
@@ -1756,36 +1792,46 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch {}
 
-
     await logAdminActivity('product_update', 'Products reordered', `Admin reordered ${orderedProducts.length} products.`);
   };
 
   const updateRegion = async (id: string, updates: Partial<TerroirRegion>) => {
     const existing = regions.find(r => r.id === id);
-    const previous = [...regions];
-    const nextRegions = regions.map(r => r.id === id ? { ...r, ...updates } : r);
-    setRegions(nextRegions);
+    if (!existing) return;
 
+    // regions.base_delivery_usd is read by private.checkout_create_order, so a
+    // fee edited only in local state keeps charging customers the stored value.
+    await supabaseCommerceService.upsertRegion({ ...existing, ...updates, id }).catch((err: any) => {
+      console.error('[ShopContext] updateRegion Supabase write failed:', err);
+      showToast(`Could not save delivery zone: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    });
 
+    setRegions(regions.map(r => r.id === id ? { ...r, ...updates } : r));
     await logAdminActivity('region_update', `Region "${existing?.nameEn || id}" updated`, `Updated regional logistics and delivery fees.`);
   };
 
   const addRegion = async (newReg: TerroirRegion) => {
-    const previous = [...regions];
-    const nextRegions = [...regions, newReg];
-    setRegions(nextRegions);
+    const saved = await supabaseCommerceService.upsertRegion(newReg).catch((err: any) => {
+      console.error('[ShopContext] addRegion Supabase write failed:', err);
+      showToast(`Could not add delivery zone: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    });
 
-
+    setRegions([...regions, saved]);
     await logAdminActivity('region_update', `Region zone "${newReg.nameEn}" added`, `Added delivery zone with base fee $${newReg.baseDeliveryUSD}.`);
   };
 
   const deleteRegion = async (id: string) => {
     const target = regions.find(r => r.id === id);
-    const previous = [...regions];
-    const nextRegions = regions.filter(r => r.id !== id);
-    setRegions(nextRegions);
 
+    await supabaseCommerceService.deleteRegion(id).catch((err: any) => {
+      console.error('[ShopContext] deleteRegion Supabase delete failed:', err);
+      showToast(`Could not delete delivery zone: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    });
 
+    setRegions(regions.filter(r => r.id !== id));
     await logAdminActivity('region_update', `Region zone "${target?.nameEn || id}" deleted`, `Removed shipping zone ${id}.`);
   };
 
@@ -1882,10 +1928,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
-    const previousSellers = [...sellers];
-    const nextSellers = sellers.map(s => s.id === sellerId ? { ...s, isActive, updatedAt: new Date().toISOString() } : s);
-    setSellers(nextSellers);
+    // sellers.is_active gates public_catalog and the checkout RPC's product
+    // eligibility check, so this must reach the database to mean anything.
+    await supabaseCatalogService.upsertSeller({ id: sellerId, isActive }).catch((err: any) => {
+      console.error('[ShopContext] toggleSellerActive Supabase write failed:', err);
+      showToast(`Could not update seller status: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    });
 
+    setSellers(sellers.map(s => s.id === sellerId ? { ...s, isActive, updatedAt: new Date().toISOString() } : s));
     await logAdminActivity('meta_change', `Seller "${sellerId}" active status toggled to ${isActive}`, '');
   };
 
@@ -3474,6 +3525,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOutUser = async () => {
     try {
+      // End the server-recorded step-up first: signing out and back in with
+      // only the password must not land inside a still-valid second factor.
+      await adminStepUpService.clear();
+      clearAdminMfaSession();
       await supabase.auth.signOut();
       setAuthUser(null);
       setUser(INITIAL_USER);
@@ -3485,6 +3540,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         localStorage.removeItem('yallalb_orders');
         localStorage.removeItem('yallalb_saved_checkout_data');
+        sessionStorage.removeItem('yalla_admin_otp_stage');
+        sessionStorage.removeItem('yalla_admin_otp_last_sent');
       } catch {}
       showToast('Signed out successfully', 'info');
     } catch (error: any) {
@@ -4081,6 +4138,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return next;
     });
 
+    // ── Authoritative write: Supabase ─────────────────────────────────────
+    // Fulfilment status is what the customer sees and what order_events
+    // records. Without this write the change lived only in this browser and
+    // reverted on reload, while the audit log claimed it had been applied.
+    try {
+      await supabaseOrderService.updateOrderStatus(orderId, status as any);
+    } catch (supaErr: any) {
+      setOrders(previousOrders);
+      try {
+        localStorage.setItem('yallalb_orders', JSON.stringify(previousOrders));
+      } catch {}
+      console.error('[ShopContext] updateOrderStatus Supabase write failed:', supaErr);
+      showToast(`Could not update order status: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
+    }
+
     await logAdminActivity(
       'order_status',
       `Order #${orderId} status updated`,
@@ -4182,6 +4255,57 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(errorMsg);
       }
       newProdData.sellerId = sellerId;
+
+      // Sellers create through the atomic RPC rather than the three unbatched
+      // writes below, so a partial product can never be left behind. The
+      // server derives seller_id from the caller and forces a draft.
+      const createdId = await supabaseProductService.createProductAsSeller({
+        product: {
+          name: newProdData.name,
+          arabic_name: newProdData.arabicName,
+          artisan: newProdData.artisan,
+          origin: newProdData.origin,
+          brand: (newProdData as any).brand,
+          category_id: newProdData.category,
+          price_usd: newProdData.priceUSD,
+          original_price_usd: newProdData.originalPriceUSD,
+          discount_percentage: newProdData.discountPercentage,
+          image: newProdData.image,
+          video_url: newProdData.videoUrl,
+          description: newProdData.description,
+          craft_story: newProdData.craftStory,
+          stock: newProdData.stock,
+          is_new_arrival: newProdData.isNewArrival,
+          seller_item_code: newProdData.sellerItemCode,
+          low_stock_threshold: newProdData.lowStockThreshold,
+          low_stock_notice: newProdData.lowStockNotice,
+          custom_stock_label: newProdData.customStockLabel,
+          weight_or_volume: newProdData.weightOrVolume,
+          tags: newProdData.tags,
+          keywords: newProdData.keywords,
+          arabic_keywords: newProdData.arabicKeywords,
+        },
+        images: (newProdData.additionalImages || []).map((url, index) => ({
+          url,
+          media_type: 'image',
+          display_order: index + 1,
+        })),
+      }).catch((err: any) => {
+        showToast(err?.message || 'Could not create the product.', 'error');
+        throw err;
+      });
+
+      await syncAllProductsToDatabase().catch(() => undefined);
+      await logAdminActivity(
+        'product_add',
+        `Product "${newProdData.name}" created`,
+        `Seller created catalog item ${createdId}.`,
+        createdId,
+        null,
+        newProdData as any,
+      );
+      showToast(`Product "${newProdData.name}" submitted for review!`);
+      return;
     }
 
     // 1. Validation: Duplicate Product Number (sellerItemCode or custom ID)
@@ -4526,6 +4650,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       summary: `Deleting ${ids.length} rows from products...`
     });
 
+    // Bulk deletion is a high-risk destructive action and must clear the same
+    // step-up gate as single-product deletion, which it previously skipped.
+    if (isAdminUser) {
+      const authorized = await assertHighRiskAuthorization(authUser?.uid);
+      if (!authorized) {
+        showToast('High-risk action cancelled or verification expired.', 'error');
+        throw new Error('High-risk authorization failed');
+      }
+    }
+
+    const previousProducts = [...products];
+
     setProducts(prev => {
       const next = prev.filter(p => !ids.includes(p.id));
       try {
@@ -4533,6 +4669,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {}
       return next;
     });
+
+    // ── Authoritative delete: Supabase ────────────────────────────────────
+    // This call did not exist. The products were removed from local state and
+    // an audit entry recorded "Permanently removed N products", while every
+    // row remained in the database and back on the storefront after a reload.
+    try {
+      await supabaseCatalogService.deleteProducts(ids);
+    } catch (supaErr: any) {
+      setProducts(previousProducts);
+      try {
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(previousProducts));
+      } catch {}
+      console.error('[ShopContext] deleteMultipleProducts Supabase delete failed:', supaErr);
+      showToast(`Could not delete products: ${supaErr?.message || 'unknown error'}`, 'error');
+      throw supaErr;
+    }
 
     await logAdminActivity(
       'product_delete',

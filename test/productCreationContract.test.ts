@@ -14,23 +14,26 @@ describe('Atomic product creation', () => {
     expect(service).not.toContain("from('product_images').insert");
   });
 
-  it('requires administrator authorization and validates core product fields in the RPC', () => {
-    const migration = read('supabase/migrations/20260916010000_create_product_atomic_rpc.sql');
+  it('requires administrator authorization and enforces only the admin form required fields in the RPC', () => {
+    const migration = read('supabase/migrations/20260917010000_fix_product_atomic_optional_fields.sql');
     expect(migration).toContain('if not private.is_admin()');
     expect(migration).toContain("set search_path = ''");
-    for (const field of ['name','artisan','origin','brand','description','craft_story','image','price_usd','stock']) {
-      expect(migration).toContain(`p_product->>'${field}'`);
-    }
+    expect(migration).toContain("p_product->>'name'");
+    expect(migration).toContain("p_product->>'category'");
+    expect(migration).toContain("p_product->>'price_usd'");
     expect(migration).toContain("revoke all on function private.create_product_atomic");
     expect(migration).toContain('grant execute on function private.create_product_atomic');
+    expect(migration).not.toContain("Product artisan is required");
+    expect(migration).not.toContain("Product description is required");
+    expect(migration).not.toContain("Product image is required");
   });
 
   it('wires the Admin Products Create draft action directly to the atomic service', () => {
-    const adminView = read('src/components/AdminView.tsx');
-    expect(adminView).toContain("import { supabaseProductService } from '../services/supabaseProductService';");
-    expect(adminView).toContain('await supabaseProductService.createProduct({');
-    expect(adminView).toContain("publish_status: 'draft'");
-    expect(adminView).toContain('await syncProducts();');
-    expect(adminView).not.toContain('const addProduct = shop.addProduct');
+    const adminProducts = read('src/components/admin/AdminProductManager.tsx');
+    expect(adminProducts).toContain("import { supabaseProductService } from '../../services/supabaseProductService';");
+    expect(adminProducts).toContain('await supabaseProductService.createProduct({');
+    expect(adminProducts).toContain("publish_status: published ? 'published' : 'draft'");
+    expect(adminProducts).toContain('await reload();');
+    expect(adminProducts).not.toContain('const add=s.addProduct');
   });
 });

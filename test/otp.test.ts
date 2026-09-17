@@ -17,7 +17,10 @@ describe('Supabase Email Authentication & Step-Up Security', () => {
   it('uses password login plus standard Supabase email OTP and no third-party dispatch', () => {
     const guard = read('src/components/AdminGuard.tsx');
     expect(guard).toContain('supabase.auth.signInWithPassword');
-    expect(guard).toContain('supabase.auth.signInWithOtp');
+    // The OTP step must run on the isolated admin client, never on the primary
+    // session client, or verifying a code would replace the password session.
+    expect(guard).toContain('adminOtpClient.auth.signInWithOtp');
+    expect(guard).toContain('adminOtpClient.auth.verifyOtp');
     expect(guard).toContain("type: 'email'");
     expect(guard).toContain('verifyOtp');
     expect(guard).toContain('shouldCreateUser: false');

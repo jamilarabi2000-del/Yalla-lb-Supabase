@@ -30,7 +30,11 @@ import {
   BarChart3,
   ShieldCheck
 } from 'lucide-react';
-import { AdminMenuTab } from './AdminSidebar';
+// AdminView owns the single tab union. A second, unrendered AdminSidebar used
+// to declare a competing one whose ids did not match (ecommerce/search_analytics
+// vs dashboard/search); it has been removed. This is a type-only import, so it
+// erases at compile time and creates no runtime cycle with AdminView.
+import type { AdminTab } from '../AdminView';
 import { RecentActivityWidget } from './RecentActivityWidget';
 import { 
   downloadFullMasterReport,
@@ -39,7 +43,7 @@ import {
 } from '../../utils/exportMasterReport';
 
 interface EcommerceOverviewProps {
-  onNavigateToTab: (tab: AdminMenuTab) => void;
+  onNavigateToTab: (tab: AdminTab) => void;
 }
 
 export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigateToTab }) => {

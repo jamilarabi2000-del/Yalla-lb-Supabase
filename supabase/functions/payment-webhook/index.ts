@@ -34,13 +34,65 @@ serve(async (req) => {
   // Provider adapters should normalize into this contract before this boundary.
   const orderId = String(payload.order_id || '');
   const paymentStatus = String(payload.payment_status || '').toLowerCase();
-  if (!orderId || !['paid', 'failed', 'refunded', 'pending'].includes(paymentStatus)) return new Response('Invalid payment event', { status: 422 });
+  const eventId = payload.event_id ? String(payload.event_id) : null;
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(orderId)) return new Response('Invalid order id', { status: 422 });
+  if (!['paid', 'failed', 'refunded', 'pending'].includes(paymentStatus)) {
+    return new Response('Invalid payment event', { status: 422 });
+  }
+
+  // Replay protection. provider_event_id was recorded but never checked, so the
+  // same signed body could be posted indefinitely, each time appending another
+  // order_events row and re-applying the status change.
+  if (eventId) {
+    const { data: seen, error: seenError } = await supabase
+      .from('order_events')
+      .select('id')
+      .eq('order_id', orderId)
+      .contains('metadata', { provider_event_id: eventId })
+      .limit(1);
+    if (seenError) return new Response('Webhook lookup failed', { status: 500 });
+    if (seen && seen.length > 0) return Response.json({ ok: true, deduplicated: true });
+  }
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, status')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (orderError) return new Response('Webhook lookup failed', { status: 500 });
+  if (!order) return new Response('Unknown order', { status: 422 });
+
+  /**
+   * Map to real order_status enum members.
+   *
+   * 'refunded' and 'pending' previously mapped to 'new', which is not a member
+   * of order_status, so those events failed the insert, returned 500, and the
+   * provider retried them forever.
+   */
+  const nextStatus: string | null =
+    paymentStatus === 'paid' ? 'confirmed'
+    : paymentStatus === 'failed' ? 'cancelled'
+    : paymentStatus === 'refunded' ? 'returned'
+    : null; // 'pending' is informational and leaves the order where it is.
+
+  // The webhook used to append an event and never touch the order, so a paid
+  // order stayed 'pending' forever. Updating orders also fires
+  // record_order_event, which writes the timeline row.
+  if (nextStatus && nextStatus !== order.status) {
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({ status: nextStatus })
+      .eq('id', orderId);
+    if (updateError) return new Response('Webhook persistence failed', { status: 500 });
+  }
 
   const { error } = await supabase.from('order_events').insert({
     order_id: orderId,
-    to_status: paymentStatus === 'paid' ? 'confirmed' : paymentStatus === 'failed' ? 'cancelled' : 'new',
+    to_status: nextStatus ?? order.status,
     note: `Payment webhook: ${paymentStatus}`,
-    metadata: { source: 'payment-webhook', provider_event_id: payload.event_id ?? null },
+    metadata: { source: 'payment-webhook', provider_event_id: eventId },
   });
   if (error) return new Response('Webhook persistence failed', { status: 500 });
 

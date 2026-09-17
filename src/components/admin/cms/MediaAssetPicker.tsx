@@ -337,7 +337,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
 
       {/* Asset Gallery & Heritage Preset Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-white/15 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fadeIn">
             {/* Modal Header */}
             <div className="p-5 border-b border-white/10 flex items-center justify-between gap-4">

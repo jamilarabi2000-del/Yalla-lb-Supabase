@@ -7,8 +7,16 @@ export type PlatformPermission =
   | 'profile.manage_own' | 'inventory.manage' | 'inventory.manage_own' | 'coupons.manage'
   | 'security.view' | 'roles.manage' | 'notifications.manage';
 
+/**
+ * public.has_permission is SECURITY DEFINER but granted only to postgres and
+ * service_role, so calling it from the browser always failed with
+ * "permission denied for function has_permission". private.has_permission is
+ * the copy that IS granted to `authenticated`.
+ */
 export async function hasPermission(permission: PlatformPermission, userId?: string | null) {
-  const { data, error } = await supabase.rpc('has_permission', { p_permission: permission, p_user_id: userId ?? undefined });
+  const { data, error } = await supabase
+    .schema('private')
+    .rpc('has_permission', { p_permission: permission, p_user_id: userId ?? undefined });
   if (error) throw error;
   return data === true;
 }
@@ -17,7 +25,10 @@ export async function recordInventoryChange(input: {
   productId: string; quantityChange: number; reason: string;
   referenceType?: string; referenceId?: string; note?: string;
 }) {
-  const { data, error } = await supabase.rpc('record_inventory_change', {
+  // Lives in the `private` schema alongside the other authorization-bearing
+  // SECURITY DEFINER RPCs; it performs its own permission and seller-ownership
+  // checks internally.
+  const { data, error } = await supabase.schema('private').rpc('record_inventory_change', {
     p_product_id: input.productId,
     p_quantity_change: input.quantityChange,
     p_reason: input.reason,

@@ -10,6 +10,7 @@ export interface Product {
   sellerId?: string;
   sellerActive?: boolean;
   origin: string; // e.g. "Beirut Central", "Tripoli", "Koura", "Batroun"
+  brand?: string;
   category: string;
   priceUSD: number;
   originalPriceUSD?: number;
@@ -702,6 +703,7 @@ export interface DiscountRule {
   id: string;
   name: string;
   nameAr?: string;
+  description?: string;
   type: 'percentage' | 'fixed' | 'bogo';
   value: number; // e.g. 15 for 15%, 5 for $5, or 100 for 100% free BOGO / 50 for 50% off second item
   target: 'all' | 'checkout' | 'product' | 'category' | 'seller' | 'brand';
@@ -715,6 +717,14 @@ export interface DiscountRule {
   buyQty?: number; // e.g. 1 in Buy 1 Get 1, or 2 in Buy 2 Get 1
   getQty?: number; // e.g. 1 in Buy 1 Get 1 or Buy 2 Get 1
   getDiscountPercent?: number; // discount on the Y items (e.g. 100 for 100% Free, or 50 for 50% off)
+  /**
+   * Coupon metadata. The code is stored inside discount_rules.rule (which is
+   * what private.checkout_create_order reads) and mirrored into the `coupons`
+   * table, which owns the usage limits the RPC locks and increments.
+   */
+  couponCode?: string;
+  maxTotalUses?: number;
+  maxUsesPerUser?: number;
 }
 
 export interface Coupon {
