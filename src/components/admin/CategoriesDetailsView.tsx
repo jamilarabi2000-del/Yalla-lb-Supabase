@@ -481,7 +481,7 @@ export const CategoriesDetailsView: React.FC = () => {
           {activeTab === 'categories' ? (
             <button
               onClick={handleOpenCreateCategory}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#4f46e5] hover:bg-[#4338ca] text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Create New Category</span>
@@ -489,7 +489,7 @@ export const CategoriesDetailsView: React.FC = () => {
           ) : (
             <button
               onClick={handleOpenCreateRegion}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#c5a059] hover:bg-[#b08d46] text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#c5a059] hover:bg-[#b08d46] text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Add Regional Zone</span>
@@ -545,7 +545,7 @@ export const CategoriesDetailsView: React.FC = () => {
                 onClick={() => setCategoryViewMode('reorder')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                   categoryViewMode === 'reorder' 
-                    ? 'bg-[#4f46e5] text-white shadow-xs' 
+                    ? 'bg-[#4f46e5] text-slate-900 shadow-xs' 
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
                 title="Organize Category & Product Order"
@@ -557,7 +557,7 @@ export const CategoriesDetailsView: React.FC = () => {
 
             {/* Quick Sort Presets for Categories */}
             <div className="hidden lg:flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase px-1.5 flex items-center gap-1">
+              <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5 flex items-center gap-1">
                 <ArrowUpDown className="w-3 h-3 text-indigo-500" />
                 <span>Sort:</span>
               </span>
@@ -608,7 +608,7 @@ export const CategoriesDetailsView: React.FC = () => {
 
             {/* Search */}
             <div className="relative min-w-[220px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search categories..."
@@ -619,7 +619,7 @@ export const CategoriesDetailsView: React.FC = () => {
               {searchQuery && (
                 <button 
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -630,7 +630,7 @@ export const CategoriesDetailsView: React.FC = () => {
           <div className="flex items-center gap-3">
             {/* Search Delivery Zones */}
             <div className="relative min-w-[240px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search delivery zones & hubs..."
@@ -641,7 +641,7 @@ export const CategoriesDetailsView: React.FC = () => {
               {searchQuery && (
                 <button 
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -656,10 +656,10 @@ export const CategoriesDetailsView: React.FC = () => {
 
       {/* Live Storefront Navigation Sequence Strip */}
       {activeTab === 'categories' && categories.length > 0 && (
-        <div className="bg-gradient-to-r from-indigo-900/90 via-slate-900 to-slate-900 text-white p-3.5 sm:p-4 rounded-2xl border border-indigo-500/20 shadow-sm space-y-2">
+        <div className="bg-gradient-to-r from-indigo-900/90 via-slate-900 to-slate-900 text-slate-900 p-3.5 sm:p-4 rounded-2xl border border-indigo-500/20 shadow-sm space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400" />
+              <Sparkles className="w-4 h-4 text-indigo-600" />
               <span className="text-xs font-bold text-slate-200">
                 Live Storefront Customer Navigation Bar & Category Flow:
               </span>
@@ -681,8 +681,8 @@ export const CategoriesDetailsView: React.FC = () => {
                   {idx + 1}
                 </span>
                 <span>{cat.icon}</span>
-                <span className="font-semibold text-white truncate max-w-[120px]">{cat.nameEn}</span>
-                <span className="text-[10px] text-amber-300 font-serif">({getProductCountForCategory(cat.id)})</span>
+                <span className="font-semibold text-slate-900 truncate max-w-[120px]">{cat.nameEn}</span>
+                <span className="text-[10px] text-indigo-600 font-serif">({getProductCountForCategory(cat.id)})</span>
               </div>
             ))}
           </div>
@@ -750,11 +750,11 @@ export const CategoriesDetailsView: React.FC = () => {
                         {/* Position input / badge */}
                         <div className="flex flex-col items-center justify-center">
                           <div className={`w-9 h-9 rounded-xl font-mono font-black text-xs flex items-center justify-center shadow-xs ${
-                            isFirst ? 'bg-amber-500 text-white ring-2 ring-amber-300' : 'bg-slate-900 text-white'
+                            isFirst ? 'bg-amber-500 text-slate-900 ring-2 ring-amber-300' : 'bg-slate-50 text-slate-900'
                           }`}>
                             #{index + 1}
                           </div>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Rank</span>
+                          <span className="text-[9px] text-slate-500 font-bold uppercase mt-0.5">Rank</span>
                         </div>
 
                         {/* Step Controls */}
@@ -785,7 +785,7 @@ export const CategoriesDetailsView: React.FC = () => {
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-black text-xs transition-all cursor-pointer shadow-xs ${
                             isFirst 
                               ? 'bg-amber-100 text-amber-800 opacity-60 cursor-default' 
-                              : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white hover:scale-105 active:scale-95'
+                              : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-900 hover:scale-105 active:scale-95'
                           }`}
                         >
                           <Sparkles className="w-3.5 h-3.5 fill-current" />
@@ -817,7 +817,7 @@ export const CategoriesDetailsView: React.FC = () => {
                             <span className="text-xs text-[#c5a059] font-serif font-bold truncate">
                               {cat.nameAr}
                             </span>
-                            <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                            <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                               {cat.id}
                             </span>
                           </div>
@@ -836,7 +836,7 @@ export const CategoriesDetailsView: React.FC = () => {
                       <div className="flex items-center gap-2 shrink-0 flex-wrap">
                         {/* Direct Position Rank Changer */}
                         <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 text-xs">
-                          <span className="text-[10px] text-slate-400 font-bold pl-1">Move to:</span>
+                          <span className="text-[10px] text-slate-500 font-bold pl-1">Move to:</span>
                           <input
                             type="number"
                             min="1"
@@ -858,7 +858,7 @@ export const CategoriesDetailsView: React.FC = () => {
                               const input = document.getElementById(`cat-rank-input-${cat.id}`) as HTMLInputElement;
                               if (input) handleSetCategoryRank(index, input.value);
                             }}
-                            className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                            className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-slate-900 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
                             title="Apply target position immediately"
                           >
                             Go
@@ -920,7 +920,7 @@ export const CategoriesDetailsView: React.FC = () => {
                   >
                     {/* Header Image / Pattern banner */}
                     {cat.bannerUrl && (
-                      <div className="h-28 w-full rounded-t-3xl relative overflow-hidden bg-slate-900">
+                      <div className="h-28 w-full rounded-t-3xl relative overflow-hidden bg-slate-50">
                         <img 
                           src={cat.bannerUrl} 
                           alt={cat.nameEn} 
@@ -931,13 +931,13 @@ export const CategoriesDetailsView: React.FC = () => {
                         
                         {/* Top quick badges & reordering controls */}
                         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-                          <span className={`px-2.5 py-1 rounded-lg text-white text-[11px] font-mono font-bold border backdrop-blur-xs ${
-                            isFirst ? 'bg-amber-500/90 border-amber-300 ring-2 ring-amber-400/50' : 'bg-black/70 border-white/10'
+                          <span className={`px-2.5 py-1 rounded-lg text-slate-900 text-[11px] font-mono font-bold border backdrop-blur-xs ${
+                            isFirst ? 'bg-amber-500/90 border-amber-300 ring-2 ring-amber-400/50' : 'bg-black/70 border-slate-200'
                           }`}>
                             #{index + 1}
                           </span>
 
-                          <div className="flex items-center gap-1 bg-black/60 backdrop-blur-xs p-1 rounded-xl border border-white/10">
+                          <div className="flex items-center gap-1 bg-black/60 backdrop-blur-xs p-1 rounded-xl border border-slate-200">
                             {/* Make #1 Button */}
                             <button
                               onClick={() => handleMoveCategory(index, 'top')}
@@ -946,7 +946,7 @@ export const CategoriesDetailsView: React.FC = () => {
                               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
                                 isFirst 
                                   ? 'bg-amber-400/30 text-amber-200 opacity-60 cursor-default' 
-                                  : 'bg-amber-500 hover:bg-amber-400 text-white shadow-xs'
+                                  : 'bg-amber-500 hover:bg-indigo-700 text-slate-900 shadow-xs'
                               }`}
                             >
                               <Sparkles className="w-3 h-3 fill-current" />
@@ -958,7 +958,7 @@ export const CategoriesDetailsView: React.FC = () => {
                               onClick={() => handleMoveCategory(index, 'up')}
                               disabled={isFirst}
                               title="Move Up 1 spot"
-                              className="p-1 rounded-lg text-white hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
+                              className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
                             >
                               <MoveUp className="w-3.5 h-3.5" />
                             </button>
@@ -966,7 +966,7 @@ export const CategoriesDetailsView: React.FC = () => {
                               onClick={() => handleMoveCategory(index, 'down')}
                               disabled={isLast}
                               title="Move Down 1 spot"
-                              className="p-1 rounded-lg text-white hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
+                              className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
                             >
                               <MoveDown className="w-3.5 h-3.5" />
                             </button>
@@ -979,8 +979,8 @@ export const CategoriesDetailsView: React.FC = () => {
                             {cat.icon}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <h4 className="text-xs font-bold text-white truncate drop-shadow-xs">{cat.nameEn}</h4>
-                            <p className="text-[11px] text-amber-300 font-serif font-bold truncate drop-shadow-xs">{cat.nameAr}</p>
+                            <h4 className="text-xs font-bold text-slate-900 truncate drop-shadow-xs">{cat.nameEn}</h4>
+                            <p className="text-[11px] text-indigo-600 font-serif font-bold truncate drop-shadow-xs">{cat.nameAr}</p>
                           </div>
                         </div>
                       </div>
@@ -994,7 +994,7 @@ export const CategoriesDetailsView: React.FC = () => {
                             {/* Top ranking bar for cards without banner */}
                             <div className="flex items-center justify-between gap-2">
                               <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-mono font-bold border ${
-                                isFirst ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-900 text-white border-slate-800'
+                                isFirst ? 'bg-amber-500 text-slate-900 border-amber-400' : 'bg-slate-50 text-slate-900 border-slate-800'
                               }`}>
                                 #{index + 1}
                               </span>
@@ -1007,7 +1007,7 @@ export const CategoriesDetailsView: React.FC = () => {
                                   className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
                                     isFirst 
                                       ? 'bg-amber-200 text-amber-900 opacity-60 cursor-default' 
-                                      : 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'
+                                      : 'bg-amber-500 hover:bg-amber-600 text-slate-900 shadow-xs'
                                   }`}
                                 >
                                   <Sparkles className="w-3 h-3 fill-current" />
@@ -1052,7 +1052,7 @@ export const CategoriesDetailsView: React.FC = () => {
 
                         {cat.bannerUrl && (
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-mono text-[11px] text-slate-400">
+                            <span className="font-mono text-[11px] text-slate-500">
                               slug: <strong className="text-slate-700">{cat.id}</strong>
                             </span>
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 text-[#4f46e5]">
@@ -1081,14 +1081,14 @@ export const CategoriesDetailsView: React.FC = () => {
                                 </span>
                               ))
                             ) : (
-                              <span className="text-[10px] text-slate-400 italic">No Arabic SEO keywords added yet</span>
+                              <span className="text-[10px] text-slate-500 italic">No Arabic SEO keywords added yet</span>
                             )}
                           </div>
                         </div>
 
                         {/* Subcategories tags */}
                         <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                             Subcategories & Guilds ({cat.subcategories?.length || 0}):
                           </span>
                           <div className="flex flex-wrap gap-1">
@@ -1099,7 +1099,7 @@ export const CategoriesDetailsView: React.FC = () => {
                                 </span>
                               ))
                             ) : (
-                              <span className="text-[10px] text-slate-400">None</span>
+                              <span className="text-[10px] text-slate-500">None</span>
                             )}
                           </div>
                         </div>
@@ -1122,7 +1122,7 @@ export const CategoriesDetailsView: React.FC = () => {
                           {!isFirst && (
                             <button
                               onClick={() => handleMoveCategory(index, 'top')}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold transition-all cursor-pointer shadow-2xs"
                               title="Instantly make this category #1 on the store homepage"
                             >
                               <Sparkles className="w-3 h-3 fill-white" />
@@ -1213,13 +1213,13 @@ export const CategoriesDetailsView: React.FC = () => {
                         </div>
                       </div>
 
-                      <span className="px-2.5 py-1 rounded-full text-xs font-black bg-slate-900 text-white">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-black bg-slate-50 text-slate-900">
                         ${reg.baseDeliveryUSD.toFixed(2)}
                       </span>
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                         Major Artisan Villages & Delivery Hubs ({reg.majorCities?.length || 0}):
                       </span>
                       <div className="flex flex-wrap gap-1.5">
@@ -1240,14 +1240,14 @@ export const CategoriesDetailsView: React.FC = () => {
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                       <span className="text-slate-500">Express Delivery:</span>
-                      <span className={`font-bold ${reg.expressAvailable ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <span className={`font-bold ${reg.expressAvailable ? 'text-emerald-600' : 'text-slate-500'}`}>
                         {reg.expressAvailable ? '✓ Available (Same Day)' : 'Standard (24-48h)'}
                       </span>
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-                    <span className="font-mono text-[10px] text-slate-400">id: {reg.id}</span>
+                    <span className="font-mono text-[10px] text-slate-500">id: {reg.id}</span>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleOpenEditRegion(reg)}
@@ -1293,7 +1293,7 @@ export const CategoriesDetailsView: React.FC = () => {
               </div>
               <button 
                 onClick={() => setIsCategoryModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-xl font-bold cursor-pointer p-1"
+                className="text-slate-500 hover:text-slate-700 text-xl font-bold cursor-pointer p-1"
               >
                 ✕
               </button>
@@ -1358,7 +1358,7 @@ export const CategoriesDetailsView: React.FC = () => {
 
                 <div className="sm:col-span-2">
                   <label className="block font-bold text-slate-700 mb-1">
-                    Category Slug / Identifier {!editingCategory && <span className="text-slate-400 font-normal">(Leave blank to auto-generate)</span>}
+                    Category Slug / Identifier {!editingCategory && <span className="text-slate-500 font-normal">(Leave blank to auto-generate)</span>}
                   </label>
                   <input
                     type="text"
@@ -1369,7 +1369,7 @@ export const CategoriesDetailsView: React.FC = () => {
                     className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none font-mono disabled:opacity-60 disabled:bg-slate-100"
                   />
                   {editingCategory && (
-                    <p className="text-[10px] text-slate-400 mt-1">Slug is locked during edits to protect existing product links.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Slug is locked during edits to protect existing product links.</p>
                   )}
                 </div>
               </div>
@@ -1423,7 +1423,7 @@ export const CategoriesDetailsView: React.FC = () => {
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
-                    <span className="absolute bottom-1 right-2 px-2 py-0.5 bg-black/60 text-white rounded text-[10px] font-bold">
+                    <span className="absolute bottom-1 right-2 px-2 py-0.5 bg-black/60 text-slate-900 rounded text-[10px] font-bold">
                       Banner Preview
                     </span>
                   </div>
@@ -1470,7 +1470,7 @@ export const CategoriesDetailsView: React.FC = () => {
                         });
                       }
                     }}
-                    className="px-4 py-2 bg-slate-800 hover:bg-black text-white font-bold rounded-xl cursor-pointer"
+                    className="px-4 py-2 bg-slate-100 hover:bg-black text-slate-900 font-bold rounded-xl cursor-pointer"
                   >
                     Add
                   </button>
@@ -1486,7 +1486,7 @@ export const CategoriesDetailsView: React.FC = () => {
                           ...catForm,
                           subcategories: catForm.subcategories.filter((_, i) => i !== sIdx)
                         })}
-                        className="text-slate-400 hover:text-rose-600 ml-1 cursor-pointer font-bold"
+                        className="text-slate-500 hover:text-rose-600 ml-1 cursor-pointer font-bold"
                       >
                         ×
                       </button>
@@ -1544,7 +1544,7 @@ export const CategoriesDetailsView: React.FC = () => {
                         });
                       }
                     }}
-                    className="px-4 py-2 bg-[#c5a059] hover:bg-[#b08d46] text-white font-bold rounded-xl cursor-pointer font-serif"
+                    className="px-4 py-2 bg-[#c5a059] hover:bg-[#b08d46] text-slate-900 font-bold rounded-xl cursor-pointer font-serif"
                   >
                     إضافة
                   </button>
@@ -1595,7 +1595,7 @@ export const CategoriesDetailsView: React.FC = () => {
                           ...catForm,
                           arabicKeywords: catForm.arabicKeywords.filter((_, i) => i !== kIdx)
                         })}
-                        className="text-amber-400 hover:text-rose-600 cursor-pointer font-bold ml-1"
+                        className="text-indigo-600 hover:text-rose-600 cursor-pointer font-bold ml-1"
                       >
                         ×
                       </button>
@@ -1638,7 +1638,7 @@ export const CategoriesDetailsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={(e) => handleSaveCategory(e, false)}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-50 text-slate-900 font-bold text-xs rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all"
                     title="Save category as private draft"
                   >
                     <Save className="w-3.5 h-3.5" />
@@ -1647,7 +1647,7 @@ export const CategoriesDetailsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={(e) => handleSaveCategory(e, true)}
-                    className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#4f46e5] to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-xs cursor-pointer shadow-md active:scale-95 transition-all"
+                    className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#4f46e5] to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-slate-900 font-bold text-xs cursor-pointer shadow-md active:scale-95 transition-all"
                     title="Save and publish live to public storefront"
                   >
                     <Globe className="w-3.5 h-3.5" />
@@ -1707,7 +1707,7 @@ export const CategoriesDetailsView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleConfirmDeleteCategory}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer"
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-slate-900 rounded-xl text-xs font-bold shadow-md cursor-pointer"
               >
                 Confirm Delete
               </button>
@@ -1726,7 +1726,7 @@ export const CategoriesDetailsView: React.FC = () => {
               </h3>
               <button 
                 onClick={() => setIsRegionModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold cursor-pointer"
+                className="text-slate-500 hover:text-slate-700 text-lg font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -1817,7 +1817,7 @@ export const CategoriesDetailsView: React.FC = () => {
                         });
                       }
                     }}
-                    className="px-3 py-1.5 bg-slate-800 text-white font-bold rounded-xl"
+                    className="px-3 py-1.5 bg-slate-100 text-slate-900 font-bold rounded-xl"
                   >
                     Add
                   </button>
@@ -1833,7 +1833,7 @@ export const CategoriesDetailsView: React.FC = () => {
                           ...regionForm,
                           majorCities: regionForm.majorCities.filter((_, i) => i !== cIdx)
                         })}
-                        className="text-slate-400 hover:text-rose-600 font-bold ml-1"
+                        className="text-slate-500 hover:text-rose-600 font-bold ml-1"
                       >
                         ×
                       </button>
@@ -1880,7 +1880,7 @@ export const CategoriesDetailsView: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl bg-[#c5a059] hover:bg-[#b08d46] text-white font-bold text-xs shadow-md cursor-pointer transition-all active:scale-95"
+                    className="px-5 py-2 rounded-xl bg-[#c5a059] hover:bg-[#b08d46] text-slate-900 font-bold text-xs shadow-md cursor-pointer transition-all active:scale-95"
                   >
                     Save Region
                   </button>
@@ -1941,7 +1941,7 @@ export const CategoriesDetailsView: React.FC = () => {
                     showToast(err.message || 'Could not delete delivery zone.', 'warning');
                   }
                 }}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer active:scale-95 transition-all"
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-slate-900 rounded-xl text-xs font-bold shadow-md cursor-pointer active:scale-95 transition-all"
               >
                 Confirm Delete
               </button>
