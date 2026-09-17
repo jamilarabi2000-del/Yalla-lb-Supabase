@@ -5,12 +5,13 @@ import { useShop } from '../../context/ShopContext';
 import { downloadFullMasterReport } from '../../utils/exportMasterReport';
 import { checkDuplicateProductNumber } from '../../lib/productValidation';
 import { secureRandomInt } from '../../utils/uuid';
+import { supabaseProductService } from '../../services/supabaseProductService';
 import type { Product } from '../../types';
 
 type ViewMode = 'grid' | 'sequence';
 
 const emptyProduct = () => ({
-  name: '', arabicName: '', category: 'grocery', artisan: '', seller: '', arabicSeller: '', sellerId: '', origin: 'Lebanon',
+  name: '', arabicName: '', category: '', brand: '', artisan: '', seller: '', arabicSeller: '', sellerId: '', origin: 'Lebanon',
   priceUSD: 15, originalPriceUSD: '', discountPercentage: '', stock: 25, lowStockThreshold: 5, lowStockNotice: '', customStockLabel: '', costPriceUSD: '',
   image: '', additionalImages: [] as string[], videoUrl: '', videos: [] as string[], weightOrVolume: '', tagsInput: 'Artisanal, Lebanese Terroir, Handmade', keywordsInput: 'lebanese, artisanal, authentic, gourmet', arabicKeywordsInput: 'مونة بلدية, منتجات لبنانية أصيلة', sellerItemCode: 'SIC-' + secureRandomInt(100000, 1000000),
   description: '', craftStory: '', seoTitle: '', seoArabicTitle: '', seoDescription: '', seoArabicDescription: '', isNewArrival: true, isFeatured: false, isBestseller: false, isPublished: false, displayOrder: ''
@@ -33,7 +34,6 @@ export const ProductsCatalogManagement: React.FC = () => {
   const sellers = shop.sellers ?? [];
   const categories = shop.categories ?? [];
   const orders = shop.orders ?? [];
-  const addProduct = shop.addProduct ?? (async () => {});
   const updateProduct = shop.updateProduct ?? (async () => {});
   const deleteProduct = shop.deleteProduct ?? (async () => {});
   const deleteMultipleProducts = shop.deleteMultipleProducts ?? (async () => {});
@@ -91,8 +91,10 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!Number.isInteger(stock) || stock < 0) return showToast('Stock quantity must be a whole number of units (0 or more).', 'warning');
     const dup = form.sellerItemCode ? checkDuplicateProductNumber(form.sellerItemCode, editing?.id || null, products, form.sellerId || undefined, form.seller || form.artisan) : { isDuplicate: false };
     if (dup.isDuplicate) return showToast(`Duplicate seller item code: ${form.sellerItemCode}`, 'error');
+    if (!String(form.brand || '').trim()) return showToast('Brand is required for product creation.', 'warning');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(form.category || ''))) return showToast('Select a valid catalog category.', 'warning');
     const payload: any = {
-      name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category || 'grocery',
+      name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || '').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || 'Lebanon').trim() || 'Lebanon', priceUSD: price,
       originalPriceUSD: Number(form.originalPriceUSD) > 0 ? Number(form.originalPriceUSD) : undefined, discountPercentage: String(form.discountPercentage) === '' ? undefined : Number(form.discountPercentage),
@@ -108,7 +110,32 @@ export const ProductsCatalogManagement: React.FC = () => {
     };
     setSaving(true);
     try {
-      if (editing) await updateProduct(editing.id, payload); else await addProduct(payload);
+      if (editing) {
+        await updateProduct(editing.id, payload);
+      } else {
+        await supabaseProductService.createProduct({
+          product: {
+            name: payload.name, arabic_name: payload.arabicName, artisan: payload.artisan, origin: payload.origin,
+            brand: payload.brand, description: payload.description, craft_story: payload.craftStory, image: payload.image,
+            price_usd: payload.priceUSD, stock: payload.stock, category_id: payload.category, seller_id: payload.sellerId,
+            original_price_usd: payload.originalPriceUSD, discount_percentage: payload.discountPercentage,
+            video_url: payload.videoUrl, is_new_arrival: payload.isNewArrival, is_featured: payload.isFeatured,
+            is_bestseller: payload.isBestseller, is_published: published, display_order: payload.displayOrder,
+            seller_item_code: payload.sellerItemCode, low_stock_threshold: payload.lowStockThreshold,
+            low_stock_notice: payload.lowStockNotice, custom_stock_label: payload.customStockLabel,
+            cost_price_usd: payload.costPriceUSD, tags: payload.tags, keywords: payload.keywords,
+            arabic_keywords: payload.arabicKeywords, seo_title: payload.seoTitle, seo_arabic_title: payload.seoArabicTitle,
+            seo_description: payload.seoDescription, seo_arabic_description: payload.seoArabicDescription,
+            weight_or_volume: payload.weightOrVolume, publish_status: published ? 'published' : 'draft'
+          },
+          privateData: {
+            seller_item_code: payload.sellerItemCode, low_stock_threshold: payload.lowStockThreshold,
+            low_stock_notice: payload.lowStockNotice, custom_stock_label: payload.customStockLabel,
+            cost_price_usd: payload.costPriceUSD, seller_id: payload.sellerId
+          },
+          images: (payload.additionalImages || []).map((url: string, index: number) => ({ url, media_type: 'image', display_order: index + 1 }))
+        });
+      }
       showToast(editing ? 'Product updated successfully.' : 'Product created successfully.', 'success');
       setEditing(null);
     } catch (e: any) { showToast(e?.message || 'Unable to save product.', 'error'); }
