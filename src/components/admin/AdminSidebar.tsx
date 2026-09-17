@@ -1,24 +1,48 @@
 import React, { useRef, useEffect } from 'react';
 import { useShop } from '../../context/ShopContext';
-import { 
+import {
   ArrowLeft,
   Eye,
   LogOut,
-  Sparkles,
-  Database
+  BarChart3,
+  TrendingUp,
+  Package,
+  Tag,
+  FolderOpen,
+  Store,
+  BadgePercent,
+  Gift,
+  Users,
+  ShoppingCart,
+  Star,
+  Search,
+  PanelsTopLeft,
+  Home,
+  ShoppingBag,
+  FileSearch,
+  CreditCard,
+  UserCircle,
+  Newspaper,
+  Navigation,
+  Footprints,
+  Blocks,
+  EyeOff,
+  Globe,
+  Zap,
+  type LucideIcon
 } from 'lucide-react';
 
-export type AdminMenuTab = 
-  | 'ecommerce' 
+export type AdminMenuTab =
+  | 'ecommerce'
   | 'sales'
-  | 'orders' 
-  | 'products' 
-  | 'categories' 
+  | 'orders'
+  | 'products'
+  | 'categories'
   | 'sellers'
   | 'discounts'
   | 'bundles'
-  | 'customers' 
-  | 'active_carts' 
+  | 'customers'
+  | 'active_carts'
   | 'reviews'
   | 'search_analytics'
   | 'pages_cms'
@@ -47,6 +71,15 @@ interface AdminSidebarProps {
   onCloseMobile?: () => void;
 }
 
+type NavItem = {
+  id: AdminMenuTab;
+  label: string;
+  icon: LucideIcon;
+  color: string;
+  badge?: number;
+  tag?: string;
+};
+
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   currentTab,
   onSelectTab,
@@ -68,38 +101,40 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     }
   }, [currentTab]);
 
-  const storeOperationsItems: { id: AdminMenuTab; label: string; icon: string; badge?: number }[] = [
-    { id: 'ecommerce', label: 'eCommerce', icon: '📊' },
-    { id: 'sales', label: 'Sales Analytics', icon: '📈' },
-    { id: 'orders', label: 'Orders', icon: '📦', badge: ordersCount },
-    { id: 'products', label: 'Products', icon: '🏷️', badge: productsCount },
-    { id: 'categories', label: 'Categories & Details', icon: '📁', badge: categoriesCount },
-    { id: 'sellers', label: 'Sellers & Bulk Import', icon: '🏪' },
-    { id: 'discounts', label: 'Discounts & Promos', icon: '🏷️' },
-    { id: 'bundles', label: 'Bundles & Combo Deals', icon: '🎁' },
-    { id: 'customers', label: 'Customers', icon: '👥', badge: customersCount },
-    { id: 'active_carts', label: 'Active Carts', icon: '🛒', badge: activeCartsCount },
-    { id: 'reviews', label: 'Customer Reviews', icon: '⭐' },
-    { id: 'search_analytics', label: 'Search Trends', icon: '🔍' }
+  const storeOperationsItems: NavItem[] = [
+    { id: 'ecommerce', label: 'eCommerce', icon: BarChart3, color: 'text-indigo-500' },
+    { id: 'sales', label: 'Sales Analytics', icon: TrendingUp, color: 'text-emerald-500' },
+    { id: 'orders', label: 'Orders', icon: Package, color: 'text-orange-500', badge: ordersCount },
+    { id: 'products', label: 'Products', icon: Tag, color: 'text-blue-500', badge: productsCount },
+    { id: 'categories', label: 'Categories & Details', icon: FolderOpen, color: 'text-amber-500', badge: categoriesCount },
+    { id: 'sellers', label: 'Sellers & Bulk Import', icon: Store, color: 'text-violet-500' },
+    { id: 'discounts', label: 'Discounts & Promos', icon: BadgePercent, color: 'text-rose-500' },
+    { id: 'bundles', label: 'Bundles & Combo Deals', icon: Gift, color: 'text-pink-500' },
+    { id: 'customers', label: 'Customers', icon: Users, color: 'text-cyan-500', badge: customersCount },
+    { id: 'active_carts', label: 'Active Carts', icon: ShoppingCart, color: 'text-sky-500', badge: activeCartsCount },
+    { id: 'reviews', label: 'Customer Reviews', icon: Star, color: 'text-yellow-500' },
+    { id: 'search_analytics', label: 'Search Trends', icon: Search, color: 'text-purple-500' }
   ];
 
-  const pageContentItems: { id: AdminMenuTab; label: string; icon: string; tag?: string }[] = [
-    { id: 'pages_cms', label: 'All Pages CMS Studio', icon: '🎛️', tag: 'Studio' },
-    { id: 'page_home', label: 'Home Page', icon: '🏠' },
-    { id: 'page_products', label: 'Catalog Page', icon: '🛍️' },
-    { id: 'page_detail', label: 'Product Details', icon: '🔍' },
-    { id: 'page_checkout', label: 'Checkout Page', icon: '💳' },
-    { id: 'page_account', label: 'Account Page', icon: '👤' },
-    { id: 'page_news', label: 'News & Stories', icon: '📰' },
-    { id: 'page_navbar', label: 'Navbar & Header', icon: '🧭' },
-    { id: 'page_footer', label: 'Footer & Contact', icon: '🦶' },
-    { id: 'page_custom_blocks', label: 'Custom Divs & Banners', icon: '🧱' },
-    { id: 'page_visibility', label: 'Section Visibility', icon: '👁️' },
-    { id: 'page_seo', label: 'Global SEO', icon: '🔍' }
+  const pageContentItems: NavItem[] = [
+    { id: 'pages_cms', label: 'All Pages CMS Studio', icon: PanelsTopLeft, color: 'text-indigo-500', tag: 'Studio' },
+    { id: 'page_home', label: 'Home Page', icon: Home, color: 'text-emerald-500' },
+    { id: 'page_products', label: 'Catalog Page', icon: ShoppingBag, color: 'text-blue-500' },
+    { id: 'page_detail', label: 'Product Details', icon: FileSearch, color: 'text-violet-500' },
+    { id: 'page_checkout', label: 'Checkout Page', icon: CreditCard, color: 'text-green-500' },
+    { id: 'page_account', label: 'Account Page', icon: UserCircle, color: 'text-cyan-500' },
+    { id: 'page_news', label: 'News & Stories', icon: Newspaper, color: 'text-orange-500' },
+    { id: 'page_navbar', label: 'Navbar & Header', icon: Navigation, color: 'text-indigo-500' },
+    { id: 'page_footer', label: 'Footer & Contact', icon: Footprints, color: 'text-slate-500' },
+    { id: 'page_custom_blocks', label: 'Custom Divs & Banners', icon: Blocks, color: 'text-fuchsia-500' },
+    { id: 'page_visibility', label: 'Section Visibility', icon: EyeOff, color: 'text-amber-500' },
+    { id: 'page_seo', label: 'Global SEO', icon: Globe, color: 'text-teal-500' }
   ];
 
-  const renderNavButton = (item: { id: AdminMenuTab; label: string; icon: string; badge?: number; tag?: string }, compact = false) => {
+  const renderNavButton = (item: NavItem, compact = false) => {
     const isActive = currentTab === item.id;
+    const Icon = item.icon;
+
     return (
       <button
         key={item.id}
@@ -108,7 +143,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         className={`w-full flex items-center justify-between px-3 ${compact ? 'py-2' : 'py-2.5'} rounded-xl text-[13px] font-medium transition-all cursor-pointer group text-left ${isActive ? 'bg-indigo-50/90 text-indigo-700 font-bold shadow-xs border-l-3 border-indigo-600' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-base select-none shrink-0">{item.icon}</span>
+          <Icon className={`w-4 h-4 shrink-0 ${item.color} ${isActive ? 'drop-shadow-sm' : ''}`} strokeWidth={2.2} />
           <span className={`truncate ${isActive ? 'text-indigo-900 font-bold' : 'text-slate-700 group-hover:text-slate-900'}`}>{item.label}</span>
         </div>
         {item.badge !== undefined && <span className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors shrink-0 ${isActive ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'}`}>{item.badge}</span>}
@@ -133,11 +168,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <div ref={navScrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-4.5 pr-1.5 -mr-1.5 overscroll-contain focus:outline-none scroll-smooth pb-4" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
             <div className="space-y-1"><div className="px-3 pb-1 text-[10px] font-black tracking-widest text-slate-400 uppercase">Store Operations</div><nav className="space-y-0.5">{storeOperationsItems.map(item => renderNavButton(item))}</nav></div>
             <div className="space-y-1 pt-2 border-t border-slate-100"><div className="flex items-center justify-between px-3 pb-1"><span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Page Content & CMS</span><span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100/60">Live</span></div><nav className="space-y-0.5">{pageContentItems.map(item => renderNavButton(item, true))}</nav></div>
-            <div className="space-y-1 pt-2 border-t border-slate-100"><div className="flex items-center justify-between px-3 pb-1"><span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">System & Diagnostics</span><span className="flex items-center gap-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100/60"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active</span></div><nav className="space-y-0.5">{renderNavButton({ id: 'db_logs', label: 'Database Sync & Logs', icon: '⚡', tag: 'Stream' })}</nav></div>
+            <div className="space-y-1 pt-2 border-t border-slate-100"><div className="flex items-center justify-between px-3 pb-1"><span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">System & Diagnostics</span><span className="flex items-center gap-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100/60"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active</span></div><nav className="space-y-0.5">{renderNavButton({ id: 'db_logs', label: 'Database Sync & Logs', icon: Zap, color: 'text-amber-500', tag: 'Stream' }, true)}</nav></div>
           </div>
         </div>
         <div className="pt-3.5 border-t border-slate-100 space-y-2 flex-shrink-0">
-          <button onClick={() => setIsVisualEditMode(!isVisualEditMode)} className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${isVisualEditMode ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400/80 shadow-amber-500/20' : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/60'}`}><div className="flex items-center gap-2"><Eye className="w-3.5 h-3.5" /><span>Visual Edit Mode</span></div><span className={`text-[9px] px-1.5 py-0.5 rounded font-black tracking-wider uppercase ${isVisualEditMode ? 'bg-slate-950 text-amber-300' : 'bg-slate-200 text-slate-600'}`}>{isVisualEditMode ? 'ON' : 'OFF'}</span></button>
+          <button onClick={() => setIsVisualEditMode(!isVisualEditMode)} className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${isVisualEditMode ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400/80 shadow-amber-500/20' : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/60'}`}><div className="flex items-center gap-2"><Eye className="w-3.5 h-3.5 text-amber-500" /><span>Visual Edit Mode</span></div><span className={`text-[9px] px-1.5 py-0.5 rounded font-black tracking-wider uppercase ${isVisualEditMode ? 'bg-slate-950 text-amber-300' : 'bg-slate-200 text-slate-600'}`}>{isVisualEditMode ? 'ON' : 'OFF'}</span></button>
           <button onClick={goBack} className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold tracking-wide transition-all cursor-pointer shadow-xs"><ArrowLeft className="w-3.5 h-3.5" /><span>Dashboard</span></button>
           <button onClick={() => setIsAdminUnlocked(false)} className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 text-[11px] font-semibold transition-colors cursor-pointer"><LogOut className="w-3 h-3" /><span>Lock Admin Portal</span></button>
         </div>
