@@ -100,13 +100,13 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Header & Overview */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Blocks className="w-5 h-5 text-amber-400" />
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Blocks className="w-5 h-5 text-indigo-600" />
             <span>Storefront Custom Visual Blocks</span>
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Inject custom marketing banners, announcements, or promotional callouts dynamically across any storefront page.
           </p>
         </div>
@@ -125,16 +125,16 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
 
       {/* Block Create / Edit Form */}
       {(isCreating || editingBlock) && (
-        <form onSubmit={handleSaveBlock} className="bg-[#121222] border border-amber-500/50 rounded-3xl p-6 space-y-5">
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
-            <h4 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+        <form onSubmit={handleSaveBlock} className="bg-white border border-amber-500/50 rounded-3xl p-6 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+            <h4 className="text-sm font-bold text-indigo-600 flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
               <span>{editingBlock ? 'Edit Custom Block' : 'Create New Custom Block'}</span>
             </h4>
             <button
               type="button"
               onClick={() => { setIsCreating(false); setEditingBlock(null); }}
-              className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400"
+              className="p-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500"
             >
               <X className="w-4 h-4" />
             </button>
@@ -142,11 +142,11 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Target Page</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Target Page</label>
               <select
                 value={formState.targetPage}
                 onChange={(e) => setFormState({ ...formState, targetPage: e.target.value as any })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               >
                 <option value="all">Everywhere (All Pages)</option>
                 <option value="home">Home Page</option>
@@ -158,11 +158,11 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Page Position</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Page Position</label>
               <select
                 value={formState.position}
                 onChange={(e) => setFormState({ ...formState, position: e.target.value as any })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               >
                 <option value="top">Top (Above content)</option>
                 <option value="middle">Middle (Embedded in feed)</option>
@@ -171,11 +171,11 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Visual Theme / Background</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Visual Theme / Background</label>
               <select
                 value={formState.bgStyle}
                 onChange={(e) => setFormState({ ...formState, bgStyle: e.target.value as any })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               >
                 <option value="gold_gradient">Levantine Gold Gradient</option>
                 <option value="emerald_gradient">Cedars Emerald Gradient</option>
@@ -187,69 +187,69 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Block Title</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Block Title</label>
               <input
                 type="text"
                 required
                 value={formState.title}
                 onChange={(e) => setFormState({ ...formState, title: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 placeholder="e.g. Free Olive Oil Tasting at our Byblos Atelier"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Eyebrow Badge</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Eyebrow Badge</label>
               <input
                 type="text"
                 value={formState.badge || ''}
                 onChange={(e) => setFormState({ ...formState, badge: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 placeholder="e.g. LIMITED ATELIER EVENT"
               />
             </div>
 
             <div className="md:col-span-3">
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Subtitle / Supporting Lead</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Subtitle / Supporting Lead</label>
               <input
                 type="text"
                 value={formState.subtitle || ''}
                 onChange={(e) => setFormState({ ...formState, subtitle: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 placeholder="Supporting description of the promotion or feature"
               />
             </div>
 
             <div className="md:col-span-3">
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Full Content / Narrative Text</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Full Content / Narrative Text</label>
               <textarea
                 rows={3}
                 value={formState.content || ''}
                 onChange={(e) => setFormState({ ...formState, content: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
                 placeholder="Rich details, terms, artisan workshop notes..."
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase mb-1">CTA Button Label (EN)</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">CTA Button Label (EN)</label>
                 <input
                   type="text"
                   value={formState.buttonText || ''}
                   onChange={(e) => setFormState({ ...formState, buttonText: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   placeholder="e.g. Reserve Workshop Slot"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase mb-1">CTA Button Label (AR)</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">CTA Button Label (AR)</label>
                 <input
                   type="text"
                   value={formState.buttonTextArabic || ''}
                   onChange={(e) => setFormState({ ...formState, buttonTextArabic: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   placeholder="مثال: احجز مكانك في الورشة"
                   dir="rtl"
                 />
@@ -257,33 +257,33 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">CTA Button URL / Target</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">CTA Button URL / Target</label>
               <input
                 type="text"
                 value={formState.buttonUrl || ''}
                 onChange={(e) => setFormState({ ...formState, buttonUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-mono"
                 placeholder="/products or https://..."
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Image / Asset URL (Optional)</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Image / Asset URL (Optional)</label>
               <input
                 type="url"
                 value={formState.imageUrl || ''}
                 onChange={(e) => setFormState({ ...formState, imageUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-mono"
                 placeholder="https://images.unsplash.com/..."
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={() => { setIsCreating(false); setEditingBlock(null); }}
-              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold transition-all"
+              className="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all"
             >
               Cancel
             </button>
@@ -300,9 +300,9 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
 
       {/* Blocks List */}
       {customBlocks.length === 0 ? (
-        <div className="bg-[#121222] border border-white/10 rounded-3xl p-12 text-center">
+        <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center">
           <Blocks className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h4 className="text-sm font-bold text-slate-300">No Custom Blocks Created Yet</h4>
+          <h4 className="text-sm font-bold text-slate-600">No Custom Blocks Created Yet</h4>
           <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
             Use custom blocks to highlight seasonal announcements, artisan partnerships, or promotional banners anywhere in your store.
           </p>
@@ -320,50 +320,50 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
           {customBlocks.map((block) => (
             <div
               key={block.id}
-              className={`bg-slate-900 border rounded-2xl p-5 flex flex-col justify-between transition-all ${
-                block.isPublished ? 'border-white/10 hover:border-white/20' : 'border-white/5 opacity-60'
+              className={`bg-slate-50 border rounded-2xl p-5 flex flex-col justify-between transition-all ${
+                block.isPublished ? 'border-slate-200 hover:border-slate-300' : 'border-slate-200 opacity-60'
               }`}
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-indigo-600 border border-amber-500/30">
                       {block.targetPage}
                     </span>
-                    <span className="text-[10px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">
                       {block.position} position
                     </span>
                   </div>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    block.isPublished ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'
+                    block.isPublished ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-100 text-slate-500'
                   }`}>
                     {block.isPublished ? 'Active' : 'Disabled'}
                   </span>
                 </div>
 
                 {block.badge && (
-                  <p className="text-[10px] font-bold tracking-wider uppercase text-amber-400">{block.badge}</p>
+                  <p className="text-[10px] font-bold tracking-wider uppercase text-indigo-600">{block.badge}</p>
                 )}
 
-                <h4 className="text-sm font-bold text-white">{block.title}</h4>
-                {block.subtitle && <p className="text-xs text-slate-400">{block.subtitle}</p>}
-                {block.content && <p className="text-xs text-slate-300/80 line-clamp-2 leading-relaxed">{block.content}</p>}
+                <h4 className="text-sm font-bold text-slate-900">{block.title}</h4>
+                {block.subtitle && <p className="text-xs text-slate-500">{block.subtitle}</p>}
+                {block.content && <p className="text-xs text-slate-600/80 line-clamp-2 leading-relaxed">{block.content}</p>}
 
                 {block.buttonText && (
-                  <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                  <div className="pt-2 flex items-center gap-1.5 text-xs font-bold text-indigo-600">
                     <span>{block.buttonText}</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </div>
                 )}
               </div>
 
-              <div className="pt-4 mt-4 border-t border-white/10 flex items-center justify-between">
+              <div className="pt-4 mt-4 border-t border-slate-200 flex items-center justify-between">
                 <span className="text-[10px] font-mono text-slate-500">Theme: {block.bgStyle}</span>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => handleTogglePublish(block.id)}
-                    className="p-1.5 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-slate-850 hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
                     title={block.isPublished ? 'Disable' : 'Enable'}
                   >
                     {block.isPublished ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
@@ -371,7 +371,7 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
                   <button
                     type="button"
                     onClick={() => handleStartEdit(block)}
-                    className="p-1.5 rounded-lg bg-slate-850 hover:bg-slate-800 text-amber-400 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-slate-850 hover:bg-slate-100 text-indigo-600 transition-colors cursor-pointer"
                     title="Edit block"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
