@@ -1763,29 +1763,41 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateRegion = async (id: string, updates: Partial<TerroirRegion>) => {
     const existing = regions.find(r => r.id === id);
     const previous = [...regions];
-    const nextRegions = regions.map(r => r.id === id ? { ...r, ...updates } : r);
-    setRegions(nextRegions);
-
-
-    await logAdminActivity('region_update', `Region "${existing?.nameEn || id}" updated`, `Updated regional logistics and delivery fees.`);
+    setRegions(regions.map(r => r.id === id ? { ...r, ...updates } : r));
+    try {
+      await supabaseCatalogService.upsertRegion({ ...updates, id });
+    } catch (err: any) {
+      setRegions(previous);
+      showToast(`Could not save region: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+    await logAdminActivity('region_update', `Region "${existing?.nameEn || id}" updated`, 'Updated regional logistics and delivery fees.');
   };
 
   const addRegion = async (newReg: TerroirRegion) => {
     const previous = [...regions];
-    const nextRegions = [...regions, newReg];
-    setRegions(nextRegions);
-
-
-    await logAdminActivity('region_update', `Region zone "${newReg.nameEn}" added`, `Added delivery zone with base fee $${newReg.baseDeliveryUSD}.`);
+    setRegions([...regions, newReg]);
+    try {
+      await supabaseCatalogService.upsertRegion(newReg);
+    } catch (err: any) {
+      setRegions(previous);
+      showToast(`Could not save region: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+    await logAdminActivity('region_update', `Region zone "${newReg.nameEn}" added`, `Added delivery zone with base fee ${newReg.baseDeliveryUSD}.`);
   };
 
   const deleteRegion = async (id: string) => {
     const target = regions.find(r => r.id === id);
     const previous = [...regions];
-    const nextRegions = regions.filter(r => r.id !== id);
-    setRegions(nextRegions);
-
-
+    setRegions(regions.filter(r => r.id !== id));
+    try {
+      await supabaseCatalogService.deleteRegion(id);
+    } catch (err: any) {
+      setRegions(previous);
+      showToast(`Could not delete region: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
     await logAdminActivity('region_update', `Region zone "${target?.nameEn || id}" deleted`, `Removed shipping zone ${id}.`);
   };
 
