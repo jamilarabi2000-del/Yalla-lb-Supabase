@@ -1634,6 +1634,30 @@ export const supabaseCatalogService = {
     }
   },
 
+  /** Create or update a delivery region. */
+  async upsertRegion(region: Partial<TerroirRegion> & { id: string }): Promise<void> {
+    if (!region.id) throw new Error('Region ID is required.');
+    const payload = removeUndefined({
+      id: region.id,
+      name_en: region.nameEn ?? '',
+      name_ar: region.nameAr ?? '',
+      major_cities: region.majorCities ?? [],
+      express_available: region.expressAvailable ?? false,
+      base_delivery_usd: region.baseDeliveryUSD ?? 0,
+      estimated_time_en: region.estimatedTimeEn,
+      estimated_time_ar: region.estimatedTimeAr,
+    });
+    const { error } = await supabase.from('regions').upsert(payload, { onConflict: 'id' });
+    if (error) throw error;
+  },
+
+  /** Delete a delivery region. */
+  async deleteRegion(id: string): Promise<void> {
+    if (!id) throw new Error('Region ID is required.');
+    const { error } = await supabase.from('regions').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   /**
    * Create or update a seller.
    *
