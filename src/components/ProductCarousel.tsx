@@ -1,75 +1,60 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductCard } from './ProductCard';
 import { Product } from '../types';
 
-interface ProductCarouselProps {
-  products: Product[];
-  idPrefix: string;
-}
+interface ProductCarouselProps { products: Product[]; idPrefix: string; }
 
 export const ProductCarousel: React.FC<ProductCarouselProps> = ({ products, idPrefix }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(true);
+  const [showRight, setShowRight] = useState(false);
 
   const checkScroll = () => {
-    if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    setShowLeft(scrollLeft > 0);
-    setShowRight(scrollLeft < scrollWidth - clientWidth - 10);
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    setShowLeft(el.scrollLeft > 8);
+    setShowRight(max - el.scrollLeft > 8);
   };
 
   useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
     checkScroll();
+    const observer = new ResizeObserver(checkScroll);
+    observer.observe(el);
     window.addEventListener('resize', checkScroll);
-    return () => window.removeEventListener('resize', checkScroll);
+    return () => { observer.disconnect(); window.removeEventListener('resize', checkScroll); };
   }, [products]);
 
   const scroll = (direction: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const clientWidth = scrollRef.current.clientWidth;
-    const scrollAmount = direction === 'left' ? -clientWidth * 0.75 : clientWidth * 0.75;
-    scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = Math.max(280, el.clientWidth * 0.78);
+    el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
   };
 
-  if (!products || products.length === 0) return null;
+  if (!products?.length) return null;
 
   return (
-    <div className="relative group">
-      {/* Left Navigation Button */}
+    <div className="relative -mx-1 px-1">
+      <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-10 rounded-[22px] bg-gradient-to-r from-[#F7F7F8]/75 via-transparent to-[#F7F7F8]/75 opacity-0 sm:opacity-100" />
       {showLeft && (
-        <button 
-          onClick={() => scroll('left')}
-          className="absolute -left-2 sm:-left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white text-[#171717] rounded-full shadow-md border border-[#E5E5E5] flex items-center justify-center hover:text-[#8F7137] hover:border-[#B89753] hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          aria-label="Scroll Left"
-        >
-          <ChevronLeft className="w-5 h-5" />
+        <button type="button" onClick={() => scroll('left')} aria-label="Previous products" className="absolute left-0 sm:-left-3 top-1/2 -translate-y-1/2 z-30 h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/70 bg-white/80 backdrop-blur-xl text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:border-[#B89753]/60 hover:text-[#8F7137] hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer">
+          <ChevronLeft className="h-5 w-5" />
         </button>
       )}
-
-      {/* Carousel Container */}
-      <div 
-        ref={scrollRef}
-        onScroll={checkScroll}
-        className="flex overflow-x-auto gap-3 sm:gap-4 md:gap-5 pb-6 pt-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
+      <div ref={scrollRef} onScroll={checkScroll} className="relative z-20 flex gap-3 sm:gap-4 md:gap-5 overflow-x-auto snap-x snap-mandatory scroll-smooth py-2.5 px-1 sm:px-2 -mx-1 sm:-mx-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {products.map((product) => (
-          <div key={`${idPrefix}-${product.id}`} className="snap-start flex-none w-[165px] sm:w-[195px] md:w-[210px] lg:w-[calc((100%-4*1rem)/5)] xl:w-[calc((100%-5*1rem)/6)] flex">
+          <div key={`${idPrefix}-${product.id}`} className="snap-start flex-none w-[166px] xs:w-[178px] sm:w-[202px] md:w-[218px] lg:w-[calc((100%-4*1.25rem)/5)] xl:w-[calc((100%-5*1.25rem)/6)]">
             <ProductCard product={product} />
           </div>
         ))}
       </div>
-
-      {/* Right Navigation Button */}
       {showRight && (
-        <button 
-          onClick={() => scroll('right')}
-          className="absolute -right-2 sm:-right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white text-[#171717] rounded-full shadow-md border border-[#E5E5E5] flex items-center justify-center hover:text-[#8F7137] hover:border-[#B89753] hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          aria-label="Scroll Right"
-        >
-          <ChevronRight className="w-5 h-5" />
+        <button type="button" onClick={() => scroll('right')} aria-label="Next products" className="absolute right-0 sm:-right-3 top-1/2 -translate-y-1/2 z-30 h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/70 bg-white/80 backdrop-blur-xl text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:border-[#B89753]/60 hover:text-[#8F7137] hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer">
+          <ChevronRight className="h-5 w-5" />
         </button>
       )}
     </div>
