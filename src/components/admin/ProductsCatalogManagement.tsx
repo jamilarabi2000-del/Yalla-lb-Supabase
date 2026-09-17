@@ -54,6 +54,10 @@ export const ProductsCatalogManagement: React.FC = () => {
   const [form, setForm] = useState<any>(emptyProduct());
   const [saving, setSaving] = useState(false);
   const [quickValues, setQuickValues] = useState<Record<string, { price: string; stock: string }>>({});
+  const [imageDraft, setImageDraft] = useState('');
+  const [videoDraft, setVideoDraft] = useState('');
+  const addImageRef = useRef<HTMLInputElement>(null);
+  const addVideoRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => products.filter(p => {
     const q = query.trim().toLowerCase();
@@ -297,10 +301,6 @@ export const ProductsCatalogManagement: React.FC = () => {
     const original = Number(form.originalPriceUSD || 0);
     const activePrice = Number(form.priceUSD || 0);
     const calculatedDiscount = discountFromPrices(activePrice, original);
-    const addImageRef = useRef<HTMLInputElement>(null);
-    const addVideoRef = useRef<HTMLInputElement>(null);
-    const [imageDraft, setImageDraft] = useState('');
-    const [videoDraft, setVideoDraft] = useState('');
     const arabicQuickKeywords = ['مونة بلدية', 'زيت زيتون كورة', 'زعتر بلدي جبلي', 'عسل سدر', 'صناعة لبنانية', 'شحن مغتربين'];
     const addArabicKeyword = (keyword: string) => {
       const current = String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean);
@@ -422,7 +422,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     {viewMode === 'sequence' && <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3 text-[10px] text-indigo-800 font-semibold">Sequence mode uses the filtered products above. Reorder with arrows, Make #1, or type an exact rank and press Go. Save Products Order writes the sequence to the catalog.</div>}
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{sequence.map((p,i)=><ProductCard key={p.id} p={p} index={i}/>)}</div>
     {!sequence.length && <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center"><AlertTriangle className="w-7 h-7 mx-auto text-slate-600"/><p className="mt-2 text-sm font-bold text-slate-500">No products match the current filters.</p></div>}
-    {modalOpen && <Modal/>}
+    {modalOpen && Modal()}
   </section>;
 };
 
