@@ -2,8 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import { ArrowLeft, Eye, LogOut } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 
+/**
+ * Navigation contract shared by the legacy admin modules and the current
+ * Supabase admin console. The legacy aliases are retained so existing admin
+ * modules can continue to navigate without losing functionality.
+ */
 export type AdminMenuTab =
   | 'ecommerce'
+  | 'dashboard'
   | 'sales'
   | 'orders'
   | 'products'
@@ -15,6 +21,7 @@ export type AdminMenuTab =
   | 'active_carts'
   | 'reviews'
   | 'search_analytics'
+  | 'search'
   | 'pages_cms'
   | 'page_home'
   | 'page_products'
@@ -27,6 +34,11 @@ export type AdminMenuTab =
   | 'page_custom_blocks'
   | 'page_visibility'
   | 'page_seo'
+  | 'inventory'
+  | 'builder'
+  | 'analytics'
+  | 'notifications'
+  | 'security'
   | 'db_logs';
 
 interface AdminSidebarProps {
@@ -60,7 +72,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   } = useShop();
   const navScrollRef = useRef<HTMLDivElement>(null);
 
-  // Keep the selected navigation item visible when switching tabs programmatically.
   useEffect(() => {
     if (!navScrollRef.current) return;
 
@@ -128,6 +139,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     { id: 'page_seo', label: 'Global SEO', icon: '🔍' }
   ];
 
+  const systemItems: {
+    id: AdminMenuTab;
+    label: string;
+    icon: string;
+    tag?: string;
+  }[] = [
+    { id: 'inventory', label: 'Inventory Ledger', icon: '📋' },
+    { id: 'builder', label: 'Visual Builder', icon: '✨' },
+    { id: 'analytics', label: 'Analytics', icon: '📊' },
+    { id: 'notifications', label: 'Notifications', icon: '🔔' },
+    { id: 'db_logs', label: 'Database Sync & Logs', icon: '⚡', tag: 'Stream' }
+  ];
+
   const itemClass = (isActive: boolean, compact = false) => `
     w-full flex items-center justify-between px-3 ${compact ? 'py-2' : 'py-2.5'} rounded-xl text-[13px] font-medium transition-all cursor-pointer group text-left
     ${isActive
@@ -137,7 +161,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpenMobile && (
         <div
           onClick={onCloseMobile}
@@ -192,7 +215,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               scrollbarColor: '#cbd5e1 transparent'
             }}
           >
-            {/* Store Operations */}
             <div className="space-y-1">
               <div className="px-3 pb-1 text-[10px] font-black tracking-widest text-slate-400 uppercase">
                 Store Operations
@@ -226,7 +248,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               </nav>
             </div>
 
-            {/* Page Content & CMS */}
             <div className="space-y-1 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between px-3 pb-1">
                 <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
@@ -265,7 +286,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               </nav>
             </div>
 
-            {/* System & Diagnostics */}
             <div className="space-y-1 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between px-3 pb-1">
                 <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
@@ -277,29 +297,36 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 </span>
               </div>
               <nav className="space-y-0.5">
-                <button
-                  id="admin-menu-db_logs"
-                  type="button"
-                  onClick={() => selectTab('db_logs')}
-                  className={itemClass(currentTab === 'db_logs')}
-                  aria-current={currentTab === 'db_logs' ? 'page' : undefined}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-base select-none shrink-0">⚡</span>
-                    <span className={`truncate ${currentTab === 'db_logs' ? 'text-indigo-900 font-bold' : 'text-slate-700 group-hover:text-slate-900'}`}>
-                      Database Sync & Logs
-                    </span>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0 ${currentTab === 'db_logs' ? 'bg-indigo-600 text-white' : 'bg-emerald-100 text-emerald-800 group-hover:bg-indigo-600 group-hover:text-white'}`}>
-                    Stream
-                  </span>
-                </button>
+                {systemItems.map(item => {
+                  const isActive = currentTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      id={`admin-menu-${item.id}`}
+                      type="button"
+                      onClick={() => selectTab(item.id)}
+                      className={itemClass(isActive)}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base select-none shrink-0">{item.icon}</span>
+                        <span className={`truncate ${isActive ? 'text-indigo-900 font-bold' : 'text-slate-700 group-hover:text-slate-900'}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                      {item.tag && (
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0 ${isActive ? 'bg-indigo-600 text-white' : 'bg-emerald-100 text-emerald-800 group-hover:bg-indigo-600 group-hover:text-white'}`}>
+                          {item.tag}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </nav>
             </div>
           </div>
         </div>
 
-        {/* Storefront & admin controls */}
         <div className="pt-3.5 border-t border-slate-100 space-y-2 flex-shrink-0">
           <button
             type="button"
