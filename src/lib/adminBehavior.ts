@@ -5,10 +5,25 @@ import type { Product } from '../types';
  * This module captures the catalog rules used by the original Yalla admin UI
  * without importing or depending on Firebase.
  */
-export const ADMIN_PRODUCT_REQUIRED_FIELDS = ['id', 'name', 'category', 'priceUSD'] as const;
+export const ADMIN_PRODUCT_REQUIRED_FIELDS = ['name', 'category', 'priceUSD'] as const;
+
+/**
+ * Treats '' / null / undefined as "not supplied" rather than as 0.
+ *
+ * Number('') is 0, so clearing an optional numeric field used to write a real
+ * zero: display order jumped to the front of the catalogue, the low-stock
+ * threshold silently disabled its own warnings, and stock read as sold out.
+ */
+function optionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
 
 export const ADMIN_PRODUCT_DEFAULTS = {
-  category: 'grocery',
+  // No default category: category_id is a uuid foreign key, so a slug such as
+  // 'grocery' can never resolve. The admin must pick a real category.
+  category: '',
   origin: 'Lebanon',
   stock: 25,
   lowStockThreshold: 5,
@@ -48,10 +63,8 @@ export function validateAdminProductInput(input: Partial<Product>): {
 export function normalizeAdminProductPayload(
   input: Partial<Product>,
   published: boolean,
-): Omit<Product, 'id'> {
-  const stock = input.stock === undefined || input.stock === null
-    ? ADMIN_PRODUCT_DEFAULTS.stock
-    : Number(input.stock);
+): Omit<Product, 'id' | 'rating' | 'reviewsCount'> {
+  const stock = optionalNumber(input.stock) ?? ADMIN_PRODUCT_DEFAULTS.stock;
 
   return {
     name: String(input.name ?? '').trim(),
@@ -62,11 +75,10 @@ export function normalizeAdminProductPayload(
     sellerId: input.sellerId || undefined,
     arabicSeller: String(input.arabicSeller ?? '').trim() || undefined,
     origin: String(input.origin ?? ADMIN_PRODUCT_DEFAULTS.origin).trim() || ADMIN_PRODUCT_DEFAULTS.origin,
+    brand: String(input.brand ?? '').trim() || undefined,
     priceUSD: Number(input.priceUSD),
-    originalPriceUSD: Number(input.originalPriceUSD) > 0 ? Number(input.originalPriceUSD) : undefined,
-    discountPercentage: input.discountPercentage === undefined ? undefined : Number(input.discountPercentage),
-    rating: Number(input.rating ?? 0),
-    reviewsCount: Number(input.reviewsCount ?? 0),
+    originalPriceUSD: optionalNumber(input.originalPriceUSD),
+    discountPercentage: optionalNumber(input.discountPercentage),
     image: String(input.image ?? '').trim(),
     additionalImages: (input.additionalImages ?? []).filter(Boolean),
     videoUrl: String(input.videoUrl ?? '').trim() || undefined,
@@ -79,12 +91,12 @@ export function normalizeAdminProductPayload(
     isFeatured: input.isFeatured ?? ADMIN_PRODUCT_DEFAULTS.isFeatured,
     isBestseller: input.isBestseller ?? ADMIN_PRODUCT_DEFAULTS.isBestseller,
     isPublished: published,
-    displayOrder: input.displayOrder === undefined ? undefined : Number(input.displayOrder),
+    displayOrder: optionalNumber(input.displayOrder),
     sellerItemCode: String(input.sellerItemCode ?? '').trim() || undefined,
-    lowStockThreshold: Number(input.lowStockThreshold) >= 0 ? Number(input.lowStockThreshold) : ADMIN_PRODUCT_DEFAULTS.lowStockThreshold,
+    lowStockThreshold: optionalNumber(input.lowStockThreshold),
     lowStockNotice: String(input.lowStockNotice ?? '').trim() || undefined,
     customStockLabel: String(input.customStockLabel ?? '').trim() || undefined,
-    costPriceUSD: Number(input.costPriceUSD) > 0 ? Number(input.costPriceUSD) : undefined,
+    costPriceUSD: optionalNumber(input.costPriceUSD),
     tags: (input.tags ?? []).filter(Boolean),
     keywords: (input.keywords ?? []).filter(Boolean),
     arabicKeywords: (input.arabicKeywords ?? []).filter(Boolean),

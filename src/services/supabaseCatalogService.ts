@@ -1221,35 +1221,47 @@ export const supabaseCatalogService = {
       );
     }
 
+    /**
+     * Only columns the caller actually supplied are sent.
+     *
+     * These fields used to carry `?? ''` / `?? 0` / `?? false` fallbacks. That
+     * is safe for a full create payload and destructive for a partial one: a
+     * publish toggle sends `{ id, isPublished }`, so every other field
+     * collapsed to its fallback and the upsert wrote an empty name, a zero
+     * price, an empty image, zero stock, empty tags and display_order 0 over
+     * a live product.
+     *
+     * Every one of these columns is NOT NULL with a database default (only
+     * `name` has none, and creation always supplies it), so omitting an
+     * unsupplied key lets Postgres apply the correct default on INSERT and
+     * leaves the stored value untouched on UPDATE.
+     */
     const productPayload =
       removeUndefined({
         id:
           product.id,
 
         name:
-          product.name ?? '',
+          product.name,
 
         arabic_name:
           product.arabicName,
 
         artisan:
           product.artisan ??
-          product.seller ??
-          '',
+          product.seller,
 
         seller_id:
           product.sellerId,
 
         origin:
-          product.origin ??
-          'Lebanon',
+          product.origin,
 
         category_id:
           product.category,
 
         price_usd:
-          product.priceUSD ??
-          0,
+          product.priceUSD,
 
         original_price_usd:
           product.originalPriceUSD,
@@ -1257,52 +1269,35 @@ export const supabaseCatalogService = {
         discount_percentage:
           product.discountPercentage,
 
-        rating:
-          product.rating ??
-          0,
-
-        reviews_count:
-          product.reviewsCount ??
-          0,
-
         image:
-          product.image ??
-          '',
+          product.image,
 
         video_url:
           product.videoUrl,
 
         description:
-          product.description ??
-          '',
+          product.description,
 
         craft_story:
-          product.craftStory ??
-          '',
+          product.craftStory,
 
         stock:
-          product.stock ??
-          0,
+          product.stock,
 
         is_new_arrival:
-          product.isNewArrival ??
-          false,
+          product.isNewArrival,
 
         is_featured:
-          product.isFeatured ??
-          false,
+          product.isFeatured,
 
         is_bestseller:
-          product.isBestseller ??
-          false,
+          product.isBestseller,
 
         is_published:
-          product.isPublished ??
-          false,
+          product.isPublished,
 
         display_order:
-          product.displayOrder ??
-          0,
+          product.displayOrder,
 
         /**
          * These columns currently exist
@@ -1326,16 +1321,13 @@ export const supabaseCatalogService = {
           product.costPriceUSD,
 
         tags:
-          product.tags ??
-          [],
+          product.tags,
 
         keywords:
-          product.keywords ??
-          [],
+          product.keywords,
 
         arabic_keywords:
-          product.arabicKeywords ??
-          [],
+          product.arabicKeywords,
 
         seo_title:
           product.seoTitle,
@@ -1385,9 +1377,26 @@ export const supabaseCatalogService = {
     );
 
     /**
-     * Replace the product's media rows
-     * with the current frontend state.
+     * Replace the product's media rows with the current frontend state --
+     * but ONLY when the caller actually supplied media.
+     *
+     * This block used to delete every product_images row unconditionally and
+     * re-insert only `if (mediaRows.length > 0)`. A partial update such as a
+     * publish toggle supplies no media at all, so buildProductMediaRows
+     * returned [] and the product's whole gallery was deleted with nothing
+     * written back.
      */
+    const mediaFieldsSupplied =
+      product.image !== undefined ||
+      product.additionalImages !== undefined ||
+      product.videoUrl !== undefined ||
+      product.additionalVideos !== undefined ||
+      product.videos !== undefined;
+
+    if (!mediaFieldsSupplied) {
+      return;
+    }
+
     const mediaRows =
       buildProductMediaRows(
         product,
@@ -1432,6 +1441,44 @@ export const supabaseCatalogService = {
 
         throw insertMediaError;
       }
+    }
+  },
+
+  /**
+   * Delete many products and their dependent rows in one round trip.
+   *
+   * product_images and product_private are removed explicitly rather than
+   * relying on cascade, matching deleteProduct, so the behaviour is identical
+   * whether one product or fifty are removed.
+   */
+  async deleteProducts(
+    productIds: string[],
+  ): Promise<void> {
+    const ids = (productIds || []).filter(Boolean);
+    if (!ids.length) return;
+
+    const { error: mediaError } = await supabase
+      .from('product_images')
+      .delete()
+      .in('product_id', ids);
+    if (mediaError) {
+      console.error('[supabaseCatalogService] deleteProducts media:', mediaError);
+      throw mediaError;
+    }
+
+    const { error: privateError } = await supabase
+      .from('product_private')
+      .delete()
+      .in('product_id', ids);
+    if (privateError) {
+      console.error('[supabaseCatalogService] deleteProducts private:', privateError);
+      throw privateError;
+    }
+
+    const { error } = await supabase.from('products').delete().in('id', ids);
+    if (error) {
+      console.error('[supabaseCatalogService] deleteProducts products:', error);
+      throw error;
     }
   },
 
