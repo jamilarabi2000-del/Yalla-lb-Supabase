@@ -58,4 +58,13 @@ export const LEBANON_REGIONS: GovernorateOption[] = [
   }
 ];
 
-export const LBP_USD_RATE = 89500; // Standard official/market rate for Lebanese Pound
+/**
+ * Fallback only. The authoritative rate lives in public.app_settings
+ * ('lbp_usd_rate') and is what private.checkout_create_order charges; this
+ * constant exists so the UI can render a total before that value has loaded.
+ * Use getLbpUsdRate() from src/lib/pricing wherever a real total is shown.
+ */
+export const LBP_USD_RATE_FALLBACK = 89500;
+
+/** @deprecated Use getLbpUsdRate(); kept so existing call sites keep compiling. */
+export const LBP_USD_RATE = LBP_USD_RATE_FALLBACK;

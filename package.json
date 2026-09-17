@@ -24,7 +24,9 @@
     "revoke-seller": "node scripts/revoke-seller.mjs",
     "verify-admin": "node scripts/verify-admin.mjs",
     "test:rls": "vitest run test/rlsAnonymousAccess.test.ts",
-    "test:product": "vitest run test/adminProductContract.test.ts test/commerceMapping.test.ts"
+    "test:product": "vitest run test/adminProductContract.test.ts test/commerceMapping.test.ts",
+    "db:fingerprint": "node scripts/db/schema-fingerprint.mjs",
+    "db:verify": "node scripts/db/schema-fingerprint.mjs --verify"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

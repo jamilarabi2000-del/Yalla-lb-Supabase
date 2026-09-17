@@ -1457,27 +1457,15 @@ export const supabaseCatalogService = {
     const ids = (productIds || []).filter(Boolean);
     if (!ids.length) return;
 
-    const { error: mediaError } = await supabase
-      .from('product_images')
-      .delete()
-      .in('product_id', ids);
-    if (mediaError) {
-      console.error('[supabaseCatalogService] deleteProducts media:', mediaError);
-      throw mediaError;
-    }
-
-    const { error: privateError } = await supabase
-      .from('product_private')
-      .delete()
-      .in('product_id', ids);
-    if (privateError) {
-      console.error('[supabaseCatalogService] deleteProducts private:', privateError);
-      throw privateError;
-    }
-
-    const { error } = await supabase.from('products').delete().in('id', ids);
+    // private.admin_delete_products removes the dependent rows in one
+    // transaction and requires a live, server-recorded administrator step-up.
+    // A direct table DELETE would be gated only by the client-side prompt,
+    // which an attacker calling PostgREST never sees.
+    const { error } = await supabase
+      .schema('private')
+      .rpc('admin_delete_products', { p_product_ids: ids });
     if (error) {
-      console.error('[supabaseCatalogService] deleteProducts products:', error);
+      console.error('[supabaseCatalogService] deleteProducts:', error);
       throw error;
     }
   },

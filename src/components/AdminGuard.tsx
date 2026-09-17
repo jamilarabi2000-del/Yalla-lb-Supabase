@@ -3,6 +3,7 @@ import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert 
 import { supabase } from '../lib/supabase';
 import { adminOtpClient } from '../lib/adminOtpClient';
 import { useShop } from '../context/ShopContext';
+import { adminStepUpService } from '../services/adminStepUpService';
 import {
   clearAdminMfaSession,
   isMfaSessionValid,
@@ -95,12 +96,27 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const otpSendLockRef = useRef(false);
 
   const userId = authUser?.uid;
-  const isMfaVerified = isMfaSessionValid(userId);
+  const [serverStepUp, setServerStepUp] = useState<boolean | null>(null);
+  // Both must hold: the local stamp keeps the UI responsive, the server record
+  // is the one an attacker cannot forge from DevTools.
+  const isMfaVerified = isMfaSessionValid(userId) && serverStepUp === true;
 
   useEffect(() => {
     const timer = window.setInterval(() => setOtpCooldownSeconds(getOtpCooldownSeconds()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (authStatus !== 'authenticated_admin' || !userId) {
+      setServerStepUp(null);
+      return;
+    }
+    adminStepUpService.hasRecentStepUp()
+      .then(ok => { if (!cancelled) setServerStepUp(ok); })
+      .catch(() => { if (!cancelled) setServerStepUp(false); });
+    return () => { cancelled = true; };
+  }, [authStatus, userId, mode]);
 
   const verifyAdminRole = async (uid: string) => {
     const { data, error } = await supabase.from('profiles').select('role').eq('id', uid).maybeSingle();
@@ -125,6 +141,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       window.clearInterval(timer);
       ADMIN_ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, markActivity));
       clearAdminMfaSession(userId);
+      await adminStepUpService.clear();
       clearPendingAdminOtpStage();
       clearOtpLastSentAt();
       setMode('login');
@@ -202,7 +219,13 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       await sendLoginOtp(cleanEmail);
     } catch (err: any) {
       const message = String(err?.message || '').toLowerCase();
-      if (message.includes('invalid login credentials')) {
+      // A failed role check previously left a fully authenticated non-admin
+      // session in place behind the error message.
+      if (message.includes('administrator privileges')) {
+        clearPendingAdminOtpStage();
+        await supabase.auth.signOut();
+        setLoginError('This account does not have administrator privileges.');
+      } else if (message.includes('invalid login credentials')) {
         clearPendingAdminOtpStage();
         setLoginError('Invalid administrator email or password.');
       } else if (message.includes('email not confirmed')) {
@@ -239,7 +262,20 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         throw new Error('The verification code does not belong to the signed-in administrator.');
       }
 
+      // The server records the step-up from the OTP session's own JWT. The
+      // sessionStorage stamp below is only a UI convenience; the database
+      // record is what actually gates destructive administrator operations.
+      try {
+        await adminStepUpService.recordFromOtpSession();
+      } catch (stepUpError: any) {
+        throw new Error(
+          'Your identity could not be verified with the server. Please request a new code and try again.'
+          + (stepUpError?.message ? ` (${stepUpError.message})` : ''),
+        );
+      }
+
       setAdminMfaSession(data.user.id);
+      setServerStepUp(true);
       clearPendingAdminOtpStage();
       clearOtpLastSentAt();
       setOtp('');
@@ -314,7 +350,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
           <button onClick={resendLoginOtp} disabled={isResendingOtp || isSendingOtp || otpCooldownSeconds > 0} className="text-sm text-[#8F7137] font-semibold disabled:opacity-50">
             {isResendingOtp ? 'Sending new code…' : otpCooldownSeconds > 0 ? `Resend security code (${otpCooldownSeconds}s)` : 'Resend security code'}
           </button>
-          <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setOtp(''); setPassword(''); setMode('login'); }} className="block w-full text-sm text-[#666666]">Cancel and Sign Out</button>
+          <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await adminStepUpService.clear(); await supabase.auth.signOut(); setOtp(''); setPassword(''); setMode('login'); }} className="block w-full text-sm text-[#666666]">Cancel and Sign Out</button>
         </div>
       </div>
     </div>
@@ -328,7 +364,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         <p className="text-sm text-[#666666]">Verify your administrator email before accessing the console.</p>
         <button onClick={async () => { const { data, error } = await supabase.auth.getUser(); if (error) return setLoginError(error.message); if (!data.user?.email_confirmed_at) return setLoginError('Email is still unverified. Please check your inbox.'); await verifyAdminRole(data.user.id); await sendLoginOtp(data.user.email || email); }} className="gold-btn w-full py-3 rounded-xl font-bold">I verified my email — continue</button>
         {loginError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828]">{loginError}</div>}
-        <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setMode('login'); }} className="text-sm text-[#666666]">Back to login</button>
+        <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await adminStepUpService.clear(); await supabase.auth.signOut(); setMode('login'); }} className="text-sm text-[#666666]">Back to login</button>
       </div>
     </div>
   );

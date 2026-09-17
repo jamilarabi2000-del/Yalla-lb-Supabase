@@ -1,0 +1,12 @@
+{
+  "_comment": "Structural fingerprint of the deployed Supabase schema. Regenerate with `npm run db:fingerprint` after applying migrations, and commit the result in the same change. `npm run db:verify` fails when the live database and this file disagree, which is how a migration that exists only on disk -- or only in the database -- gets caught.",
+  "generatedAt": "2026-09-17T09:11:12Z",
+  "project": "yjmpjuskgbbshrvhgmys",
+  "functions": { "count": 58, "hash": "092ab2b5aa1ac9f9067d8ae3b9d93fd5" },
+  "policies":  { "count": 85, "hash": "a774844148ed1ca66ce6ae6b7a3c85ac" },
+  "columns":   { "count": 440, "hash": "7d210c37486445a9acad81891182e58a" },
+  "indexes":   { "count": 106, "hash": "b7a94743b8b15229c1a9016eaa4472aa" },
+  "grants":    { "count": 141, "hash": "54d13d2a40066fe1a3f2af55f9baea8c" },
+  "triggers":  { "count": 54, "hash": "5a1874b78b081620b7c37caa739d515e" },
+  "rls":       { "count": 38, "hash": "38ae1f1675bd7082c26ec992bdac370f" }
+}

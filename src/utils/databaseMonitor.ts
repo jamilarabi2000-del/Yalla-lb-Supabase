@@ -1,18 +1,32 @@
 import { safeErrorMessage, diagnosticError } from './errorSanitizer';
 
-export type OperationStatus='PENDING'|'SUCCESS'|'FAILED';
-export type FirestoreOpType='GET_DOC'|'SET_DOC'|'UPDATE_DOC'|'DELETE_DOC'|'BATCH_COMMIT'|'SNAPSHOT_SYNC'|'QUERY'|'DIAGNOSTIC_PING';
-export interface FirestoreLogRecord{id:string;timestamp:string;isoTimestamp:string;epochMs:number;operation:FirestoreOpType;collection:string;documentId:string;path:string;caller:string;status:OperationStatus;latencyMs?:number;payload?:any;diff?:Record<string,{before:any;after:any}>;errorMessage?:string;errorCode?:string;errorStack?:string;metadata?:Record<string,any>}
-export interface SyncDiagnosticsSummary{totalOperations:number;totalReads:number;totalWrites:number;successfulWrites:number;failedWrites:number;writeSuccessRate:number;avgLatencyMs:number;lastSuccessfulSync:string|null;lastFailedSync:string|null;lastError:string|null;activeMonitoredPaths:string[]}
-const logs:FirestoreLogRecord[]=[];
-export const redactPII=(data:any):any=>{if(!data||typeof data!=='object')return data;if(Array.isArray(data))return data.map(redactPII);const copy={...data};for(const k of ['email','phone','address','fullName','firstName','lastName','shipping','profile','user'])if(k in copy)copy[k]='[REDACTED_PII]';return copy};
-export const sanitizeDocumentData=redactPII;
+/**
+ * PII redaction for anything that reaches a log or a diagnostic buffer.
+ *
+ * This module previously also exported a `dbMonitor` object and a set of
+ * `monitored*Doc` helpers. They were Firestore-era shims: `dbMonitor.getSummary`
+ * returned hardcoded counters including a permanent `writeSuccessRate: 100`,
+ * `subscribe` returned a no-op unsubscribe, and the `monitored*` helpers
+ * resolved to undefined without doing anything. Nothing in the application
+ * called any of them -- the admin audit screen reads `public.admin_activities`
+ * directly -- so they have been removed rather than left to look like working
+ * instrumentation.
+ */
+export const redactPII = (data: any): any => {
+  if (!data || typeof data !== 'object') return data;
+  if (Array.isArray(data)) return data.map(redactPII);
+  const copy = { ...data };
+  for (const key of ['email', 'phone', 'address', 'fullName', 'firstName', 'lastName', 'shipping', 'profile', 'user']) {
+    if (key in copy) copy[key] = '[REDACTED_PII]';
+  }
+  return copy;
+};
+
+export const sanitizeDocumentData = redactPII;
 
 /** Add only sanitized diagnostics to the browser-visible monitoring buffer. */
-export const sanitizeDatabaseError=(error:unknown)=>{const safe=safeErrorMessage(error);const diagnostic=diagnosticError(error);return {errorMessage:safe,errorCode:diagnostic.code};};
-
-export const dbMonitor={getLogs:()=>[...logs],clearLogs:()=>{logs.length=0},subscribe:(_fn:(record:FirestoreLogRecord,allLogs:FirestoreLogRecord[])=>void)=>()=>{},getSummary:():SyncDiagnosticsSummary=>({totalOperations:logs.length,totalReads:0,totalWrites:0,successfulWrites:0,failedWrites:0,writeSuccessRate:100,avgLatencyMs:0,lastSuccessfulSync:null,lastFailedSync:null,lastError:null,activeMonitoredPaths:[]})};
-export const monitoredSetDoc=async(..._args:any[])=>undefined;
-export const monitoredGetDoc=async(..._args:any[])=>null;
-export const monitoredUpdateDoc=async(..._args:any[])=>undefined;
-export const monitoredDeleteDoc=async(..._args:any[])=>undefined;
+export const sanitizeDatabaseError = (error: unknown) => {
+  const safe = safeErrorMessage(error);
+  const diagnostic = diagnosticError(error);
+  return { errorMessage: safe, errorCode: diagnostic.code };
+};

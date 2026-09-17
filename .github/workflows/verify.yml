@@ -41,3 +41,10 @@ jobs:
 
       - name: Dependency audit
         run: npm audit --audit-level=high --omit=dev
+
+      - name: Schema drift check
+        # Fails when the deployed Supabase schema and the committed migrations
+        # disagree. Skips with a clear message when no connection is configured.
+        run: npm run db:verify
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

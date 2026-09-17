@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabasePublishableKey =
@@ -74,4 +74,4 @@ const supabaseRuntime = new Proxy(supabaseClient as any, {
   },
 });
 
-export const supabase: any = supabaseRuntime;
+export const supabase = supabaseRuntime as SupabaseClient;

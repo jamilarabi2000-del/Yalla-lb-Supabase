@@ -65,7 +65,7 @@ import {
 } from '../lib/productValidation';
 
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
-import { assertHighRiskAuthorization } from '../utils/adminMfa';
+import { assertHighRiskAuthorization, clearAdminMfaSession } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
 
@@ -86,6 +86,8 @@ import {
 
 import { CheckoutError } from '../services/supabaseOrderService';
 import { supabaseAdminService } from '../services/supabaseAdminService';
+import { supabaseProductService } from '../services/supabaseProductService';
+import { adminStepUpService } from '../services/adminStepUpService';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
 
 import {
@@ -93,10 +95,7 @@ import {
   calculateObjectDiff
 } from '../utils/dbLogger';
 
-import {
-  dbMonitor,
-  sanitizeDocumentData
-} from '../utils/databaseMonitor';
+import { sanitizeDocumentData } from '../utils/databaseMonitor';
 
 
 // -----------------------------------------------------------------------------
@@ -3526,6 +3525,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOutUser = async () => {
     try {
+      // End the server-recorded step-up first: signing out and back in with
+      // only the password must not land inside a still-valid second factor.
+      await adminStepUpService.clear();
+      clearAdminMfaSession();
       await supabase.auth.signOut();
       setAuthUser(null);
       setUser(INITIAL_USER);
@@ -3537,6 +3540,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         localStorage.removeItem('yallalb_orders');
         localStorage.removeItem('yallalb_saved_checkout_data');
+        sessionStorage.removeItem('yalla_admin_otp_stage');
+        sessionStorage.removeItem('yalla_admin_otp_last_sent');
       } catch {}
       showToast('Signed out successfully', 'info');
     } catch (error: any) {
@@ -4250,6 +4255,57 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(errorMsg);
       }
       newProdData.sellerId = sellerId;
+
+      // Sellers create through the atomic RPC rather than the three unbatched
+      // writes below, so a partial product can never be left behind. The
+      // server derives seller_id from the caller and forces a draft.
+      const createdId = await supabaseProductService.createProductAsSeller({
+        product: {
+          name: newProdData.name,
+          arabic_name: newProdData.arabicName,
+          artisan: newProdData.artisan,
+          origin: newProdData.origin,
+          brand: (newProdData as any).brand,
+          category_id: newProdData.category,
+          price_usd: newProdData.priceUSD,
+          original_price_usd: newProdData.originalPriceUSD,
+          discount_percentage: newProdData.discountPercentage,
+          image: newProdData.image,
+          video_url: newProdData.videoUrl,
+          description: newProdData.description,
+          craft_story: newProdData.craftStory,
+          stock: newProdData.stock,
+          is_new_arrival: newProdData.isNewArrival,
+          seller_item_code: newProdData.sellerItemCode,
+          low_stock_threshold: newProdData.lowStockThreshold,
+          low_stock_notice: newProdData.lowStockNotice,
+          custom_stock_label: newProdData.customStockLabel,
+          weight_or_volume: newProdData.weightOrVolume,
+          tags: newProdData.tags,
+          keywords: newProdData.keywords,
+          arabic_keywords: newProdData.arabicKeywords,
+        },
+        images: (newProdData.additionalImages || []).map((url, index) => ({
+          url,
+          media_type: 'image',
+          display_order: index + 1,
+        })),
+      }).catch((err: any) => {
+        showToast(err?.message || 'Could not create the product.', 'error');
+        throw err;
+      });
+
+      await syncAllProductsToDatabase().catch(() => undefined);
+      await logAdminActivity(
+        'product_add',
+        `Product "${newProdData.name}" created`,
+        `Seller created catalog item ${createdId}.`,
+        createdId,
+        null,
+        newProdData as any,
+      );
+      showToast(`Product "${newProdData.name}" submitted for review!`);
+      return;
     }
 
     // 1. Validation: Duplicate Product Number (sellerItemCode or custom ID)
