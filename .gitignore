@@ -1,7 +1,9 @@
 node_modules/
 build/
 functions/lib/
-# dist/ is included for deployment artifact packaging
+# Build output. Vercel and Netlify both build from source, so a committed
+# dist/ only creates merge conflicts and bloats diffs.
+dist/
 coverage/
 .DS_Store
 *.log
