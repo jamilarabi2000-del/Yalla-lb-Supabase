@@ -56,6 +56,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const [quickValues, setQuickValues] = useState<Record<string, { price: string; stock: string }>>({});
   const [imageDraft, setImageDraft] = useState('');
   const [videoDraft, setVideoDraft] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const addImageRef = useRef<HTMLInputElement>(null);
   const addVideoRef = useRef<HTMLInputElement>(null);
 
@@ -92,15 +93,25 @@ export const ProductsCatalogManagement: React.FC = () => {
   const saveProduct = async (published: boolean) => {
     const stock = Number(form.stock);
     const price = Number(form.priceUSD);
-    if (!String(form.name || '').trim() || !String(form.category || '').trim() || !Number.isFinite(price) || price < 1) return showToast('Product title, category and a price of at least $1.00 are required.', 'warning');
-    if (!Number.isInteger(stock) || stock < 0) return showToast('Stock quantity must be a whole number of units (0 or more).', 'warning');
+    const errors: Record<string, string> = {};
+    if (!String(form.name || '').trim()) errors.name = 'Product title (English) is required.';
+    if (!String(form.category || '').trim()) errors.category = 'Category is required.';
+    if (!Number.isFinite(price) || price < 1) errors.priceUSD = 'Price must be at least $1.00.';
+    if (!Number.isInteger(stock) || stock < 0) errors.stock = 'Stock quantity must be a whole number (0 or more).';
+    if (!String(form.seller || '').trim()) errors.seller = 'Seller Name (English) is required.';
+    if (!String(form.sellerItemCode || '').trim()) errors.sellerItemCode = 'Seller Item Code (SKU) is required.';
+    if (!String(form.image || '').trim()) errors.image = 'Primary Image URL is required.';
+    if (String(form.image || '').trim() && imageLooksLikeWebPage(String(form.image || ''))) errors.image = 'Use a direct image URL, not an .html webpage.';
+    if (String(form.category || '').trim() && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(form.category || ''))) errors.category = 'Select a valid catalog category.';
     const dup = form.sellerItemCode ? checkDuplicateProductNumber(form.sellerItemCode, editing?.id || null, products, form.sellerId || undefined, form.seller || form.artisan) : { isDuplicate: false };
-    if (dup.isDuplicate) return showToast(`Duplicate seller item code: ${form.sellerItemCode}`, 'error');
-    if (!String(form.seller || '').trim()) return showToast('Seller Name (English) is required.', 'warning');
-    if (!String(form.sellerItemCode || '').trim()) return showToast('Seller Item Code (SKU) is required.', 'warning');
-    if (!String(form.image || '').trim()) return showToast('Primary Image URL is required.', 'warning');
-    if (imageLooksLikeWebPage(String(form.image || ''))) return showToast('Primary Image URL must point directly to an image, not an .html webpage.', 'warning');
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(form.category || ''))) return showToast('Select a valid catalog category.', 'warning');
+    if (dup.isDuplicate) errors.sellerItemCode = `Duplicate seller item code: ${form.sellerItemCode}`;
+    setValidationErrors(errors);
+    if (Object.keys(errors).length) {
+      const first = Object.keys(errors)[0];
+      window.setTimeout(() => document.getElementById(`product-field-${first}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
+      showToast(`Please complete the highlighted required field${Object.keys(errors).length > 1 ? 's' : ''} before saving.`, 'warning');
+      return;
+    }
     const payload: any = {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
@@ -147,10 +158,15 @@ export const ProductsCatalogManagement: React.FC = () => {
           ]
         });
       }
-      showToast(editing?.id ? 'Product updated successfully.' : 'Product created successfully.', 'success');
+      setValidationErrors({});
+      showToast(editing?.id ? 'Product updated successfully.' : published ? 'Product published successfully.' : 'Product saved as draft successfully.', 'success');
       setEditing(null);
       setModalOpen(false);
-    } catch (e: any) { showToast(e?.message || 'Unable to save product.', 'error'); }
+    } catch (e: any) {
+      const message = e?.message || 'Unable to save product.';
+      showToast(message, 'error');
+      console.error('[ProductsCatalogManagement] saveProduct failed:', e);
+    }
     finally { setSaving(false); }
   };
 
@@ -236,6 +252,9 @@ export const ProductsCatalogManagement: React.FC = () => {
   };
 
   const setQuick = (p: Product, key: 'price' | 'stock', value: string) => setQuickValues(v => ({ ...v, [p.id]: { ...(v[p.id] || { price: String(p.priceUSD), stock: String(p.stock) }), [key]: value } }));
+
+  const fieldClass = (field: string, base = 'mt-1.5 w-full px-3 py-2.5 rounded-xl border') => `${base} ${validationErrors[field] ? 'border-rose-500 bg-rose-50/40 ring-2 ring-rose-100' : 'border-slate-200'}`;
+  const RequiredBadge = ({ field }: { field: string }) => validationErrors[field] ? <span className="ml-2 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[9px] font-black">REQUIRED</span> : <span className="ml-2 text-[9px] text-slate-400 font-bold">Required</span>;
 
   const ProductCard = ({ p, index }: { p: Product; index: number }) => {
     const q = quickValues[p.id] || { price: String(p.priceUSD ?? 0), stock: String(p.stock ?? 0) };
@@ -335,9 +354,9 @@ export const ProductsCatalogManagement: React.FC = () => {
         <div className="overflow-y-auto p-5 sm:p-7 space-y-7">
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">1</span><div><h4 className="font-black text-slate-900">Bilingual Product Identity</h4><p className="text-[11px] text-slate-500">The commercial identity used across the international and Arabic catalog.</p></div></div>
             <div className="grid md:grid-cols-2 gap-4">
-              <label className="text-xs font-black text-slate-600">Product Title (English) *<input value={form.name || ''} onChange={e=>setField('name',e.target.value)} placeholder="Mountain Wild Zaatar Blend" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label id="product-field-name" className="text-xs font-black text-slate-600">Product Title (English) *<RequiredBadge field="name"/><input value={form.name || ''} onChange={e=>setField('name',e.target.value)} placeholder="Mountain Wild Zaatar Blend" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
               <label dir="rtl" className="text-xs font-black text-slate-600">Product Title (Arabic)<input value={form.arabicName || ''} onChange={e=>setField('arabicName',e.target.value)} placeholder="خلطة الزعتر الجبلي البلدي" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right font-sans"/></label>
-              <label className="text-xs font-black text-slate-600 md:col-span-2">Category Selection *<select value={form.category || ''} onChange={e=>setField('category',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white">{!form.category && <option value="">Select a bilingual catalog category…</option>}{categories.map((cat:any)=><option key={cat.id} value={cat.id}>{cat.icon ? cat.icon+' ' : ''}{cat.nameEn} {cat.nameAr ? '— '+cat.nameAr : ''}</option>)}</select>{selectedCategory && <span className="block mt-1.5 text-[10px] text-indigo-600 font-bold">{selectedCategory.icon} {selectedCategory.nameEn} · {selectedCategory.nameAr}</span>}</label>
+              <label className="text-xs font-black text-slate-600 md:col-span-2">Category Selection *<select value={form.category || ''} onChange={e=>{setField('category',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,category:''}));}} className={fieldClass('category','mt-1.5 w-full px-3 py-2.5 rounded-xl border bg-white')}>{!form.category && <option value="">Select a bilingual catalog category…</option>}{categories.map((cat:any)=><option key={cat.id} value={cat.id}>{cat.icon ? cat.icon+' ' : ''}{cat.nameEn} {cat.nameAr ? '— '+cat.nameAr : ''}</option>)}</select>{selectedCategory && <span className="block mt-1.5 text-[10px] text-indigo-600 font-bold">{selectedCategory.icon} {selectedCategory.nameEn} · {selectedCategory.nameAr}</span>}</label>
             </div>
           </section>
 
@@ -374,7 +393,7 @@ export const ProductsCatalogManagement: React.FC = () => {
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">6</span><div><h4 className="font-black">Packaging &amp; Specifications</h4><p className="text-[11px] text-slate-500">Use tags for storefront filters and search chips.</p></div></div><label className="text-xs font-black text-slate-600">Search &amp; Filter Tags<textarea rows={2} value={form.tagsInput || ''} onChange={e=>setField('tagsInput',e.target.value)} placeholder="Artisanal, Mouneh, Cold Pressed, Organic, Vegan, Cedar Terroir" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></section>
 
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">7</span><div><h4 className="font-black">Multi-Asset Media Gallery</h4><p className="text-[11px] text-slate-500">Add product photos and YouTube, Vimeo or direct MP4 videos.</p></div></div>
-            <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5"><div><label className="text-xs font-black text-slate-600">Primary Image URL *<input value={form.image || ''} onChange={e=>setField('image',e.target.value)} placeholder="https://…" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>{form.image && <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-2"><img src={form.image} alt="Primary product preview" className="w-full h-48 object-contain rounded-xl" onError={e=>{(e.currentTarget as HTMLImageElement).style.display='none';}}/>{imageLooksLikeWebPage(form.image) && <p className="text-[10px] text-rose-600 font-bold mt-2">This looks like an .html webpage URL, not a direct image file. Use a direct image URL.</p>}</div>}
+            <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5"><div><label id="product-field-image" className="text-xs font-black text-slate-600">Primary Image URL *<RequiredBadge field="image"/><input value={form.image || ''} onChange={e=>{setField('image',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,image:''}));}} placeholder="https://…" className={fieldClass('image')}/></label>{form.image && <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-2"><img src={form.image} alt="Primary product preview" className="w-full h-48 object-contain rounded-xl" onError={e=>{(e.currentTarget as HTMLImageElement).style.display='none';}}/>{imageLooksLikeWebPage(form.image) && <p className="text-[10px] text-rose-600 font-bold mt-2">This looks like an .html webpage URL, not a direct image file. Use a direct image URL.</p>}</div>}
               <div className="mt-3 flex gap-2"><input ref={addImageRef} value={imageDraft} onChange={e=>setImageDraft(e.target.value)} placeholder="Additional image URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('additionalImages',imageDraft);setImageDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Photo</button></div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">{(form.additionalImages || []).map((url:string,i:number)=><div key={url+i} className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src={url} alt={`Gallery ${i+1}`} className="w-full h-24 object-contain"/><button type="button" onClick={()=>removeMediaUrl('additionalImages',i)} className="absolute top-1 right-1 p-1 rounded-full bg-white shadow text-rose-600"><X className="w-3 h-3"/></button></div>)}</div></div>
               <div><label className="text-xs font-black text-slate-600">Product Video Integration<input value={form.videoUrl || ''} onChange={e=>setField('videoUrl',e.target.value)} placeholder="https://youtube.com/... / Vimeo / .mp4" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><div className="mt-3 flex gap-2"><input ref={addVideoRef} value={videoDraft} onChange={e=>setVideoDraft(e.target.value)} placeholder="Additional video URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('videos',videoDraft);setVideoDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Video</button></div><div className="mt-3 space-y-2">{(form.videos || []).map((url:string,i:number)=><div key={url+i} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs"><span className="px-2 py-1 rounded-full bg-slate-100 font-black">VIDEO {i+1}</span><span className="truncate flex-1">{url}</span><button type="button" onClick={()=>removeMediaUrl('videos',i)} className="text-rose-600"><X className="w-4 h-4"/></button></div>)}</div></div></div>
@@ -404,7 +423,7 @@ export const ProductsCatalogManagement: React.FC = () => {
         <button onClick={()=>fileRef.current?.click()} className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-black flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/>Bulk Upload CSV</button>
         <button onClick={()=>bulkPublish(false)} disabled={!selected.size} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><Save className="w-3.5 h-3.5"/>Save Drafts</button>
         <button onClick={()=>bulkPublish(true)} disabled={!selected.size} className="px-3 py-2 rounded-xl bg-emerald-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5"/>Public Publish Live</button>
-        <button onClick={()=>{setForm(emptyProduct());setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
+        <button onClick={()=>{setForm(emptyProduct());setValidationErrors({});setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
       </div>
     </div>
 
