@@ -201,8 +201,20 @@ export const ProductsCatalogManagement: React.FC = () => {
           const price = Number(row.price_usd ?? row.priceUSD ?? row.price ?? 0);
           const stock = Number(row.stock ?? row.stock_quantity ?? 0);
           if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) continue;
+          const categoryId = String(row.category_id || row.category || '').trim();
+          const brand = String(row.brand || '').trim();
+          if (!categoryId || !brand) continue;
           try {
-            await addProduct({ name, arabicName: row.name_ar || row.product_name_ar || undefined, category: row.category || 'grocery', seller: row.seller || row.seller_name_en || 'Independent Artisan', artisan: row.artisan || row.seller || 'Independent Artisan', origin: row.origin || 'Lebanon', priceUSD: price, stock, image: row.image || row.image_url || '', sellerItemCode: row.seller_item_code || undefined, isPublished: String(row.status || '').toLowerCase() === 'published' });
+            await supabaseProductService.createProduct({
+              product: {
+                name, arabic_name: row.name_ar || row.product_name_ar || undefined, artisan: row.artisan || row.seller || 'Independent Artisan',
+                origin: row.origin || 'Lebanon', brand, description: row.description || 'Imported product', craft_story: row.craft_story || 'Imported product',
+                image: row.image || row.image_url || '', price_usd: price, stock, category_id: categoryId,
+                seller_id: row.seller_id || undefined, seller_item_code: row.seller_item_code || undefined,
+                is_published: String(row.status || '').toLowerCase() === 'published', publish_status: String(row.status || '').toLowerCase() === 'published' ? 'published' : 'draft'
+              },
+              privateData: { seller_id: row.seller_id || undefined, seller_item_code: row.seller_item_code || undefined }
+            });
             created++;
           } catch { /* keep valid rows importing */ }
         }
