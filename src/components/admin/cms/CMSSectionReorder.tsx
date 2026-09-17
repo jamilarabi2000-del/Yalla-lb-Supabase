@@ -153,7 +153,7 @@ export const CMSSectionReorder: React.FC<CMSSectionReorderProps> = ({
   };
 
   return (
-    <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-4">
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-4">
       <CMSConfirmModal
         isOpen={showResetModal}
         title="Reset Homepage Section Order"
@@ -166,13 +166,13 @@ export const CMSSectionReorder: React.FC<CMSSectionReorderProps> = ({
       />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers className="w-5 h-5 text-amber-400" />
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-indigo-600" />
             <span>Homepage Section Order & Visual Arrangement</span>
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Reorder the exact sequence in which sections appear on the homepage using the Up/Down controls.
           </p>
         </div>
@@ -180,7 +180,7 @@ export const CMSSectionReorder: React.FC<CMSSectionReorderProps> = ({
         <button
           type="button"
           onClick={() => setShowResetModal(true)}
-          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Reset Order</span>
@@ -203,26 +203,26 @@ export const CMSSectionReorder: React.FC<CMSSectionReorderProps> = ({
               key={sectionId}
               className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
                 isVisible
-                  ? 'bg-slate-900/80 border-white/10 hover:border-amber-400/40'
-                  : 'bg-slate-950/60 border-white/5 opacity-50'
+                  ? 'bg-slate-50 border-slate-200 hover:border-amber-400/40'
+                  : 'bg-slate-50 border-slate-200 opacity-50'
               }`}
             >
               {/* Left: Position Number & Info */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <span className="w-7 h-7 rounded-xl bg-slate-950 border border-white/10 text-amber-400 text-xs font-mono font-black flex items-center justify-center flex-shrink-0">
+                <span className="w-7 h-7 rounded-xl bg-slate-50 border border-slate-200 text-indigo-600 text-xs font-mono font-black flex items-center justify-center flex-shrink-0">
                   {idx + 1}
                 </span>
 
                 <div className="min-w-0 flex-1 pr-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white truncate">
+                    <span className="text-xs font-bold text-slate-900 truncate">
                       {meta.label}
                     </span>
-                    <span className="text-[11px] text-slate-400 font-arabic truncate hidden sm:inline" dir="rtl">
+                    <span className="text-[11px] text-slate-500 font-arabic truncate hidden sm:inline" dir="rtl">
                       ({meta.labelAr})
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
                     {meta.desc}
                   </p>
                 </div>
@@ -249,12 +249,12 @@ export const CMSSectionReorder: React.FC<CMSSectionReorderProps> = ({
                 )}
 
                 {/* Up / Down Controls */}
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-white/10">
+                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
                   <button
                     type="button"
                     disabled={idx === 0}
                     onClick={() => moveSection(idx, 'up')}
-                    className="p-1.5 rounded-lg text-slate-300 hover:text-amber-400 hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                     title="Move section up"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -263,7 +263,7 @@ export const CMSSectionReorder: React.FC<CMSSectionReorderProps> = ({
                     type="button"
                     disabled={idx === currentOrder.length - 1}
                     onClick={() => moveSection(idx, 'down')}
-                    className="p-1.5 rounded-lg text-slate-300 hover:text-amber-400 hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                     title="Move section down"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
