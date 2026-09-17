@@ -26,11 +26,10 @@ describe('Atomic product creation', () => {
   });
 
   it('wires the Admin Products Create draft action directly to the atomic service', () => {
-    const adminView = read('src/components/AdminView.tsx');
-    expect(adminView).toContain("import { supabaseProductService } from '../services/supabaseProductService';");
+    const adminView = read('src/components/admin/ProductsCatalogManagement.tsx');
+    expect(adminView).toContain("import { supabaseProductService } from '../../services/supabaseProductService';");
     expect(adminView).toContain('await supabaseProductService.createProduct({');
-    expect(adminView).toContain("publish_status: 'draft'");
-    expect(adminView).toContain('await syncProducts();');
-    expect(adminView).not.toContain('const addProduct = shop.addProduct');
+    expect(adminView).toContain("publish_status: published ? 'published' : 'draft'");
+    expect(adminView).not.toContain('await addProduct(payload)');
   });
 });
