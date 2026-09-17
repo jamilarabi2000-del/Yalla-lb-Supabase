@@ -1,7 +1,7 @@
 import React from 'react';
 import { Product } from '../../types';
 import { ProductOrderRankWidget } from './ProductOrderRankWidget';
-import { Eye, EyeOff, Edit3, DollarSign, Trash2, Store, Star, Layers, ShieldCheck, ArrowUpDown } from 'lucide-react';
+import { Eye, EyeOff, Edit3, DollarSign, Trash2, Store, ArrowUpDown } from 'lucide-react';
 
 interface ProductsSequenceTableViewProps {
   products: Product[];
@@ -33,11 +33,11 @@ export const ProductsSequenceTableView: React.FC<ProductsSequenceTableViewProps>
   formatPrice
 }) => {
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               <th className="py-3.5 pl-5 pr-3 w-10">
                 <span className="sr-only">Select</span>
               </th>
@@ -67,9 +67,9 @@ export const ProductsSequenceTableView: React.FC<ProductsSequenceTableViewProps>
               return (
                 <tr 
                   key={prod.id}
-                  className={`transition-colors hover:bg-indigo-50/20 ${
+                  className={`transition-colors hover:bg-indigo-50/60 ${
                     isSelected ? 'bg-indigo-50/40' : ''
-                  } ${isRecentlyMoved ? 'bg-amber-50/60 ring-1 ring-amber-300' : ''}`}
+                  } ${isRecentlyMoved ? 'bg-amber-50 ring-1 ring-amber-300' : ''}`}
                 >
                   {/* Select Checkbox */}
                   <td className="py-3 pl-5 pr-3">
