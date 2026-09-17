@@ -43,7 +43,7 @@ export const CMSFieldGroup: React.FC<CMSFieldGroupProps> = ({
   const contentId = `${safeId}-content`;
 
   return (
-    <div id={id} className={`bg-[#121222] border border-white/10 rounded-3xl overflow-hidden transition-all duration-300 ${className}`}>
+    <div id={id} className={`bg-white border border-slate-200 rounded-3xl overflow-hidden transition-all duration-300 ${className}`}>
       <button
         type="button"
         id={headerId}
@@ -56,13 +56,13 @@ export const CMSFieldGroup: React.FC<CMSFieldGroupProps> = ({
           {icon}
           <div className="min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">
                 {title}
               </h3>
               {badge}
             </div>
             {description && (
-              <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+              <p className="text-xs text-slate-500 mt-1 line-clamp-1">
                 {description}
               </p>
             )}
@@ -73,7 +73,7 @@ export const CMSFieldGroup: React.FC<CMSFieldGroupProps> = ({
           <span className="text-xs text-slate-500 font-medium hidden sm:inline">
             {isExpanded ? 'Collapse' : 'Expand'}
           </span>
-          <div className={`w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+          <div className={`w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
             <ChevronDown className="w-4 h-4" aria-hidden="true" />
           </div>
         </div>
@@ -84,7 +84,7 @@ export const CMSFieldGroup: React.FC<CMSFieldGroupProps> = ({
           id={contentId} 
           role="region" 
           aria-labelledby={headerId} 
-          className="p-6 pt-0 space-y-5 border-t border-white/5"
+          className="p-6 pt-0 space-y-5 border-t border-slate-200"
         >
           {children}
         </div>
