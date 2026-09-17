@@ -104,9 +104,9 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
       {/* Live Google SERP Simulation & Browser Tab Previews */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* 1. Google SERP Simulation */}
-        <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-4">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Search className="w-4 h-4 text-blue-400" aria-hidden="true" />
               <span>Google SERP Search Preview</span>
             </h3>
@@ -118,11 +118,11 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
 
           <div className="p-4 bg-white rounded-2xl shadow-inner text-left font-sans space-y-1.5 border border-slate-200">
             <div className="flex items-center gap-2 text-xs text-slate-700">
-              <div className="w-4 h-4 rounded-full bg-slate-900 overflow-hidden flex items-center justify-center">
+              <div className="w-4 h-4 rounded-full bg-slate-50 overflow-hidden flex items-center justify-center">
                 <img src={activeFavicon} alt="" className="w-3.5 h-3.5 object-contain" referrerPolicy="no-referrer" />
               </div>
               <span className="text-xs text-slate-800 font-medium">Yalla Lebanon</span>
-              <span className="text-slate-400">https://yalla.shop › lebanon</span>
+              <span className="text-slate-500">https://yalla.shop › lebanon</span>
             </div>
 
             <h4 className="text-sm text-[#1a0dab] hover:underline font-medium cursor-pointer leading-snug truncate">
@@ -136,21 +136,21 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
         </div>
 
         {/* 2. Live Browser Tab Mockup */}
-        <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-4">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Globe className="w-4 h-4 text-amber-400" aria-hidden="true" />
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-indigo-600" aria-hidden="true" />
               <span>Browser Tab Live Preview</span>
             </h3>
-            <span className="text-[11px] text-slate-400">Real-time tab simulation</span>
+            <span className="text-[11px] text-slate-500">Real-time tab simulation</span>
           </div>
 
           <div className="space-y-2">
             {/* Dark Mode Tab Preview */}
-            <div className="p-2.5 bg-slate-950 rounded-2xl border border-white/10 flex items-center gap-2">
-              <div className="flex-1 max-w-[260px] bg-slate-900 border border-white/15 px-3 py-1.5 rounded-t-xl rounded-b-md flex items-center gap-2 shadow-xs">
+            <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-2">
+              <div className="flex-1 max-w-[260px] bg-slate-50 border border-white/15 px-3 py-1.5 rounded-t-xl rounded-b-md flex items-center gap-2 shadow-xs">
                 <img src={activeFavicon} alt="Favicon" className="w-4 h-4 object-contain shrink-0" referrerPolicy="no-referrer" />
-                <span className="text-xs text-slate-200 font-medium truncate">
+                <span className="text-xs text-slate-700 font-medium truncate">
                   {seoData.title || 'Yalla — Lebanese Craftsmanship & Commerce'}
                 </span>
                 <X className="w-3 h-3 text-slate-500 shrink-0 ml-auto" />
@@ -165,7 +165,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 <span className="text-xs text-slate-800 font-medium truncate">
                   {seoData.title || 'Yalla — Lebanese Craftsmanship & Commerce'}
                 </span>
-                <X className="w-3 h-3 text-slate-400 shrink-0 ml-auto" />
+                <X className="w-3 h-3 text-slate-500 shrink-0 ml-auto" />
               </div>
               <span className="text-[10px] text-slate-600 font-mono">Light Tab</span>
             </div>
@@ -174,17 +174,17 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
       </div>
 
       {/* Browser Favicon Icon & Social Image Section */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          <Globe className="w-5 h-5 text-amber-400" aria-hidden="true" />
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <Globe className="w-5 h-5 text-indigo-600" aria-hidden="true" />
           <span>Favicon Icon & Social Share Imagery</span>
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Favicon Control */}
-          <div className="p-5 bg-slate-950/70 border border-white/10 rounded-2xl space-y-4">
+          <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <label htmlFor="seo-favicon" className="block text-xs font-bold uppercase tracking-wider text-amber-400 cursor-pointer">
+              <label htmlFor="seo-favicon" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 cursor-pointer">
                 Browser Favicon Icon (.ico / .png / .svg / .webp)
               </label>
               {seoData.faviconUrl && (
@@ -200,11 +200,11 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
             </div>
 
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-white/15 p-2 flex items-center justify-center shrink-0 shadow-inner">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-white/15 p-2 flex items-center justify-center shrink-0 shadow-inner">
                 {seoData.faviconUrl ? (
                   <img src={seoData.faviconUrl} alt="Favicon Preview" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
                 ) : (
-                  <Globe className="w-6 h-6 text-amber-400/60" aria-hidden="true" />
+                  <Globe className="w-6 h-6 text-indigo-600/60" aria-hidden="true" />
                 )}
               </div>
 
@@ -215,7 +215,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   value={seoData.faviconUrl || ''}
                   onChange={(e) => onChangeField('faviconUrl', e.target.value)}
                   placeholder="https://example.com/favicon.png or upload image below"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
 
                 <div className="flex items-center gap-2">
@@ -229,22 +229,22 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   <button
                     type="button"
                     onClick={() => faviconFileInputRef.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-indigo-600 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload Favicon File</span>
                   </button>
-                  <span className="text-[10px] text-slate-400">PNG, ICO, SVG, WEBP</span>
+                  <span className="text-[10px] text-slate-500">PNG, ICO, SVG, WEBP</span>
                 </div>
               </div>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
               Displayed in browser tabs, bookmarks, and mobile home screen shortcuts. After saving, this updates live in the browser tab.
             </p>
           </div>
 
           {/* Social Share / OpenGraph Banner */}
-          <div className="p-5 bg-slate-950/70 border border-white/10 rounded-2xl space-y-4">
+          <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-4">
             <div className="flex items-center justify-between">
               <label htmlFor="seo-og-image" className="block text-xs font-bold uppercase tracking-wider text-purple-400 cursor-pointer">
                 Social Share Preview Image (OG / Twitter)
@@ -262,7 +262,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
             </div>
 
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-white/15 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-white/15 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
                 {seoData.ogImageUrl ? (
                   <img src={seoData.ogImageUrl} alt="OG Preview" className="w-full h-full object-cover rounded-xl" referrerPolicy="no-referrer" />
                 ) : (
@@ -277,7 +277,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   value={seoData.ogImageUrl || ''}
                   onChange={(e) => onChangeField('ogImageUrl', e.target.value)}
                   placeholder="https://example.com/banner.jpg or upload"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-purple-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-purple-400 focus:outline-none"
                 />
 
                 <div className="flex items-center gap-2">
@@ -296,11 +296,11 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload Social Banner</span>
                   </button>
-                  <span className="text-[10px] text-slate-400">1200x630px recommended</span>
+                  <span className="text-[10px] text-slate-500">1200x630px recommended</span>
                 </div>
               </div>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
               Shown when sharing links on WhatsApp, Facebook, iMessage, and X/Twitter.
             </p>
           </div>
@@ -308,9 +308,9 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
       </div>
 
       {/* Meta Titles & Search Descriptions */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          <Type className="w-5 h-5 text-amber-400" aria-hidden="true" />
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <Type className="w-5 h-5 text-indigo-600" aria-hidden="true" />
           <span>Meta Titles & Search Descriptions (Bilingual)</span>
         </h3>
 
@@ -319,11 +319,11 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="seo-title-en" className="text-xs font-bold uppercase tracking-wider text-slate-300 cursor-pointer">
+                <label htmlFor="seo-title-en" className="text-xs font-bold uppercase tracking-wider text-slate-600 cursor-pointer">
                   Global Meta Title (English)
                 </label>
                 <span className={`text-[11px] font-mono ${
-                  enTitleLength >= 40 && enTitleLength <= 65 ? 'text-emerald-400' : 'text-amber-400'
+                  enTitleLength >= 40 && enTitleLength <= 65 ? 'text-emerald-400' : 'text-indigo-600'
                 }`}>
                   {enTitleLength}/65 chars (Optimal: 50-60)
                 </span>
@@ -333,17 +333,17 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 type="text"
                 value={seoData.title || ''}
                 onChange={(e) => onChangeField('title', e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="seo-desc-en" className="text-xs font-bold uppercase tracking-wider text-slate-300 cursor-pointer">
+                <label htmlFor="seo-desc-en" className="text-xs font-bold uppercase tracking-wider text-slate-600 cursor-pointer">
                   Global Meta Description (English)
                 </label>
                 <span className={`text-[11px] font-mono ${
-                  enDescLength >= 120 && enDescLength <= 160 ? 'text-emerald-400' : 'text-amber-400'
+                  enDescLength >= 120 && enDescLength <= 160 ? 'text-emerald-400' : 'text-indigo-600'
                 }`}>
                   {enDescLength}/160 chars (Optimal: 140-160)
                 </span>
@@ -353,7 +353,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 rows={4}
                 value={seoData.description || ''}
                 onChange={(e) => onChangeField('description', e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
               />
             </div>
           </div>
@@ -363,11 +363,11 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className={`text-[11px] font-mono font-arabic ${
-                  arTitleLength >= 40 && arTitleLength <= 65 ? 'text-emerald-400' : 'text-amber-400'
+                  arTitleLength >= 40 && arTitleLength <= 65 ? 'text-emerald-400' : 'text-indigo-600'
                 }`}>
                   {arTitleLength}/65 (الأمثل: 50-60)
                 </span>
-                <label htmlFor="seo-title-ar" className="text-xs font-bold uppercase tracking-wider text-amber-400 cursor-pointer font-arabic" dir="rtl">
+                <label htmlFor="seo-title-ar" className="text-xs font-bold uppercase tracking-wider text-indigo-600 cursor-pointer font-arabic" dir="rtl">
                   عنوان المتجر لمحركات البحث (عربي)
                 </label>
               </div>
@@ -377,18 +377,18 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 dir="rtl"
                 value={seoData.arabicTitle || ''}
                 onChange={(e) => onChangeField('arabicTitle', e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className={`text-[11px] font-mono font-arabic ${
-                  arDescLength >= 120 && arDescLength <= 160 ? 'text-emerald-400' : 'text-amber-400'
+                  arDescLength >= 120 && arDescLength <= 160 ? 'text-emerald-400' : 'text-indigo-600'
                 }`}>
                   {arDescLength}/160 (الأمثل: 140-160)
                 </span>
-                <label htmlFor="seo-desc-ar" className="text-xs font-bold uppercase tracking-wider text-amber-400 cursor-pointer font-arabic" dir="rtl">
+                <label htmlFor="seo-desc-ar" className="text-xs font-bold uppercase tracking-wider text-indigo-600 cursor-pointer font-arabic" dir="rtl">
                   الوصف التعريفي لمحركات البحث (عربي)
                 </label>
               </div>
@@ -398,7 +398,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 dir="rtl"
                 value={seoData.arabicDescription || ''}
                 onChange={(e) => onChangeField('arabicDescription', e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed text-right font-arabic"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed text-right font-arabic"
               />
             </div>
           </div>
@@ -406,8 +406,8 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
       </div>
 
       {/* Meta Keywords Manager */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <Globe className="w-5 h-5 text-purple-400" aria-hidden="true" />
           <span>SEO Keywords & Indexing Tags</span>
         </h3>
@@ -415,20 +415,20 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* English Keywords */}
           <div className="space-y-3">
-            <label htmlFor="seo-keyword-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 cursor-pointer">
+            <label htmlFor="seo-keyword-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 cursor-pointer">
               Keywords (English)
             </label>
-            <div className="flex flex-wrap gap-1.5 min-h-12 p-3 rounded-2xl bg-slate-900 border border-white/10">
+            <div className="flex flex-wrap gap-1.5 min-h-12 p-3 rounded-2xl bg-slate-50 border border-slate-200">
               {keywordsEn.map((kw, idx) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-800 text-xs text-slate-200 border border-white/10"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 text-xs text-slate-700 border border-slate-200"
                 >
                   <span>{kw}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveKeywordEn(kw)}
-                    className="text-slate-400 hover:text-rose-400 cursor-pointer"
+                    className="text-slate-500 hover:text-rose-400 cursor-pointer"
                     aria-label={`Remove keyword ${kw}`}
                   >
                     <X className="w-3 h-3" />
@@ -444,12 +444,12 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 value={newKeywordEn}
                 onChange={(e) => setNewKeywordEn(e.target.value)}
                 placeholder="Add keyword (e.g. olive soap)"
-                className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={!newKeywordEn.trim()}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-amber-400 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-100 disabled:opacity-40 text-indigo-600 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add</span>
@@ -459,20 +459,20 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
 
           {/* Arabic Keywords */}
           <div className="space-y-3">
-            <label htmlFor="seo-keyword-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 font-arabic text-right cursor-pointer" dir="rtl">
+            <label htmlFor="seo-keyword-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 font-arabic text-right cursor-pointer" dir="rtl">
               الكلمات المفتاحية (عربي)
             </label>
-            <div className="flex flex-wrap gap-1.5 min-h-12 p-3 rounded-2xl bg-slate-900 border border-white/10" dir="rtl">
+            <div className="flex flex-wrap gap-1.5 min-h-12 p-3 rounded-2xl bg-slate-50 border border-slate-200" dir="rtl">
               {keywordsAr.map((kw, idx) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-800 text-xs text-amber-200 border border-white/10 font-arabic"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 text-xs text-indigo-700 border border-slate-200 font-arabic"
                 >
                   <span>{kw}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveKeywordAr(kw)}
-                    className="text-slate-400 hover:text-rose-400 cursor-pointer mr-1"
+                    className="text-slate-500 hover:text-rose-400 cursor-pointer mr-1"
                     aria-label={`إزالة الكلمة المفتاحية ${kw}`}
                   >
                     <X className="w-3 h-3" />
@@ -489,12 +489,12 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 value={newKeywordAr}
                 onChange={(e) => setNewKeywordAr(e.target.value)}
                 placeholder="أضف كلمة مفتاحية (مثال: زعتر بلدي)"
-                className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none text-right font-arabic"
+                className="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none text-right font-arabic"
               />
               <button
                 type="submit"
                 disabled={!newKeywordAr.trim()}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-amber-400 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 font-arabic"
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-100 disabled:opacity-40 text-indigo-600 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 font-arabic"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>إضافة</span>
