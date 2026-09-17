@@ -64,12 +64,12 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
             <span 
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-black tracking-tight ${
                 isTop 
-                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-xs' 
-                  : 'bg-slate-800 text-white'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-900 shadow-xs' 
+                  : 'bg-slate-800 text-slate-900'
               }`}
               title={`Current Rank Sequence: #${currentRank} of ${totalProducts}`}
             >
-              {isTop && <Star className="w-3 h-3 fill-white text-white" />}
+              {isTop && <Star className="w-3 h-3 fill-white text-slate-900" />}
               <span>#{currentRank}</span>
             </span>
           </div>
@@ -79,7 +79,7 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
             <button
               type="button"
               onClick={() => onMove(productId, 'top')}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10.5px] font-black shadow-2xs transition-all cursor-pointer active:scale-95 animate-pulse"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 text-[10.5px] font-black shadow-2xs transition-all cursor-pointer active:scale-95 animate-pulse"
               title={`Jump "${productName}" directly to Rank #1`}
             >
               <Zap className="w-3 h-3 fill-white" />
@@ -128,7 +128,7 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
           <button
             type="submit"
             disabled={!targetRankInput.trim()}
-            className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-slate-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
           >
             Go
           </button>
@@ -147,8 +147,8 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
       <span 
         className={`inline-flex items-center justify-center min-w-[48px] px-2.5 py-1 rounded-xl text-xs font-black tracking-tight ${
           isTop 
-            ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-xs ring-2 ring-amber-300' 
-            : 'bg-slate-900 text-white'
+            ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-900 shadow-xs ring-2 ring-amber-300' 
+            : 'bg-white text-slate-900'
         }`}
       >
         {isTop && <Star className="w-3 h-3 fill-white mr-1 shrink-0" />}
@@ -160,7 +160,7 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
         <button
           type="button"
           onClick={() => onMove(productId, 'top')}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-black shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
           title={`Jump "${productName}" directly to Rank #1`}
         >
           <Zap className="w-3.5 h-3.5 fill-white" />
@@ -231,7 +231,7 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
         <button
           type="submit"
           disabled={!targetRankInput.trim()}
-          className="px-2.5 py-1 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          className="px-2.5 py-1 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-slate-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors whitespace-nowrap"
         >
           Move
         </button>
