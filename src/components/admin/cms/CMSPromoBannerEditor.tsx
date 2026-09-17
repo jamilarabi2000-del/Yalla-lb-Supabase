@@ -363,7 +363,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
       </div>
 
       {/* Real-time Visual Preview */}
-      <div className="bg-neutral-950 p-4 sm:p-6 rounded-2xl border border-neutral-800 text-white space-y-3 shadow-md">
+      <div className="bg-neutral-950 p-4 sm:p-6 rounded-2xl border border-neutral-800 text-slate-900 space-y-3 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -395,7 +395,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
               <button
                 type="button"
                 onClick={handleAddSlide}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111111] hover:bg-[#8F7137] text-white text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111111] hover:bg-[#8F7137] text-slate-900 text-xs font-semibold cursor-pointer shadow-xs transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Slide</span>
