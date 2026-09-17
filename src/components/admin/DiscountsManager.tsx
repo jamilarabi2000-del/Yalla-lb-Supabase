@@ -318,7 +318,7 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
             </div>
             <button
               onClick={handleOpenCreate}
-              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-white font-extrabold text-xs tracking-wider uppercase shadow-md shadow-amber-500/20 hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:-translate-y-0.5 active:translate-y-0"
+              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-slate-900 font-extrabold text-xs tracking-wider uppercase shadow-md shadow-amber-500/20 hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:-translate-y-0.5 active:translate-y-0"
             >
               <Plus className="w-4 h-4" />
               <span>Create New Discount</span>
@@ -390,7 +390,7 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
           </div>
           <button
             onClick={handleOpenCreate}
-            className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors inline-flex items-center gap-2 cursor-pointer shadow-sm"
+            className="px-5 py-2.5 bg-slate-50 text-slate-900 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors inline-flex items-center gap-2 cursor-pointer shadow-sm"
           >
             <Plus className="w-4 h-4" />
             <span>Add Discount Rule</span>
@@ -479,7 +479,7 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
                   <button
                     onClick={() => handleToggleActive(rule)}
                     className={`flex items-center gap-1.5 text-xs font-bold cursor-pointer transition-colors ${
-                      rule.isActive ? 'text-emerald-600 hover:text-emerald-700' : 'text-slate-400 hover:text-slate-600'
+                      rule.isActive ? 'text-emerald-600 hover:text-emerald-700' : 'text-slate-500 hover:text-slate-600'
                     }`}
                   >
                     {rule.isActive ? (
@@ -489,7 +489,7 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
                       </>
                     ) : (
                       <>
-                        <ToggleLeft className="w-5 h-5 text-slate-400" />
+                        <ToggleLeft className="w-5 h-5 text-slate-500" />
                         <span>Disabled</span>
                       </>
                     )}
@@ -525,7 +525,7 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
 
       {/* Create / Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-50 backdrop-blur-sm flex items-center justify-center p-4">
           <div 
             ref={discountModalRef}
             role="dialog"
@@ -543,7 +543,7 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-2 text-slate-500 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -877,7 +877,7 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-white font-bold text-xs shadow-md shadow-amber-500/20 hover:brightness-105 transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-slate-900 font-bold text-xs shadow-md shadow-amber-500/20 hover:brightness-105 transition-all cursor-pointer"
                 >
                   {editingId ? 'Save Changes' : 'Create Discount Rule'}
                 </button>
