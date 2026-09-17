@@ -193,6 +193,7 @@ export const AdminView:React.FC=()=>{const shop=useShop() as any;const[tab,setTa
     default:
       return <EcommerceOverview onNavigateToTab={(t: any) => setTab(t === 'ecommerce' ? 'dashboard' : t)} />;
   }
+};
 
 const sidebarTab: AdminMenuTab =
   tab === 'dashboard' ? 'ecommerce' :
