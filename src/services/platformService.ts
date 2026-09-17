@@ -25,7 +25,10 @@ export async function recordInventoryChange(input: {
   productId: string; quantityChange: number; reason: string;
   referenceType?: string; referenceId?: string; note?: string;
 }) {
-  const { data, error } = await supabase.rpc('record_inventory_change', {
+  // Lives in the `private` schema alongside the other authorization-bearing
+  // SECURITY DEFINER RPCs; it performs its own permission and seller-ownership
+  // checks internally.
+  const { data, error } = await supabase.schema('private').rpc('record_inventory_change', {
     p_product_id: input.productId,
     p_quantity_change: input.quantityChange,
     p_reason: input.reason,

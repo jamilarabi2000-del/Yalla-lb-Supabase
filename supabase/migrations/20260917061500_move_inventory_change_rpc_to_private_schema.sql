@@ -1,17 +1,13 @@
--- public.record_inventory_change was SECURITY INVOKER and internally called
--- public.has_permission, which is not executable by `authenticated`. Every
--- caller failed with "permission denied for function has_permission" before
--- reaching any logic, and the insert into inventory_ledger would have failed
--- too because that table had no grant.
-create or replace function public.record_inventory_change(
+-- Every other authorization-bearing SECURITY DEFINER function in this project
+-- lives in the `private` schema (create_product_atomic, admin_delete_order,
+-- checkout_create_order_gateway, has_permission). record_inventory_change was
+-- the one left in `public`, where the database linter flags it as a definer
+-- function reachable at /rest/v1/rpc/. Its own authorization is unchanged.
+create or replace function private.record_inventory_change(
   p_product_id uuid, p_quantity_change integer, p_reason text,
   p_reference_type text default null, p_reference_id uuid default null, p_note text default null
 )
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
+returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   v_id uuid; v_seller uuid;
   v_actor uuid := (select auth.uid());
@@ -52,9 +48,7 @@ begin
 end;
 $$;
 
-revoke all on function public.record_inventory_change(uuid,integer,text,text,uuid,text) from public, anon;
-grant execute on function public.record_inventory_change(uuid,integer,text,text,uuid,text) to authenticated;
+revoke all on function private.record_inventory_change(uuid,integer,text,text,uuid,text) from public, anon, authenticated;
+grant execute on function private.record_inventory_change(uuid,integer,text,text,uuid,text) to authenticated;
 
--- NOTE: superseded by 20260917061500_move_inventory_change_rpc_to_private_schema.sql,
--- which moves this function into the `private` schema for consistency with the
--- other authorization-bearing SECURITY DEFINER RPCs.
+drop function if exists public.record_inventory_change(uuid,integer,text,text,uuid,text);
