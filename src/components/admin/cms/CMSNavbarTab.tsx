@@ -115,14 +115,14 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner / Announcement Ticker */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          <Navigation className="w-5 h-5 text-amber-400" />
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <Navigation className="w-5 h-5 text-indigo-600" />
           <span>Top Announcement Ticker Bar</span>
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="navbar-ticker-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="navbar-ticker-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Announcement Message (English)
             </label>
             <input
@@ -130,12 +130,12 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               type="text"
               value={navbarData.announcementTicker || ''}
               onChange={(e) => onChangeField('announcementTicker', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               placeholder="e.g. 🇱🇧 Express Delivery Across Lebanon • Live LBP Rate: 89,500 LBP/USD"
             />
           </div>
           <div>
-            <label htmlFor="navbar-ticker-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer" dir="rtl">
+            <label htmlFor="navbar-ticker-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer" dir="rtl">
               رسالة شريط الإعلانات العلوي (عربي)
             </label>
             <input
@@ -144,7 +144,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               dir="rtl"
               value={navbarData.announcementTickerArabic || ''}
               onChange={(e) => onChangeField('announcementTickerArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               placeholder="توصيل سريع لكافة المناطق • سعر الصرف: 89,500 ل.ل/دولار"
             />
           </div>
@@ -152,18 +152,18 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
       </div>
 
       {/* Brand Identity, Logo & Header Contacts */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-amber-400" />
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-indigo-600" />
           <span>Store Logo, Favicon & Brand Identity</span>
         </h3>
 
         {/* Logo & Favicon Upload / URL Inputs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-slate-950/70 border border-white/10 rounded-2xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-slate-50/70 border border-slate-200 rounded-2xl">
           {/* Logo Field */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label htmlFor="navbar-logo-url" className="block text-xs font-bold uppercase tracking-wider text-amber-400 cursor-pointer">
+              <label htmlFor="navbar-logo-url" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 cursor-pointer">
                 Header Logo Image URL
               </label>
               {navbarData.logoUrl && (
@@ -178,7 +178,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               )}
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                 {navbarData.logoUrl ? (
                   <img src={navbarData.logoUrl} alt="Store Logo Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
@@ -192,7 +192,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                   value={navbarData.logoUrl || ''}
                   onChange={(e) => onChangeField('logoUrl', e.target.value)}
                   placeholder="https://example.com/logo.png (or upload below)"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
                 <div className="flex items-center gap-2">
                   <input
@@ -205,7 +205,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                   <button
                     type="button"
                     onClick={() => logoFileInputRef.current?.click()}
-                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-indigo-600 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <Upload className="w-3 h-3" />
                     <span>Upload Logo</span>
@@ -213,13 +213,13 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 </div>
               </div>
             </div>
-            <p className="text-[11px] text-slate-400">Replaces the top left navbar icon across the entire store.</p>
+            <p className="text-[11px] text-slate-500">Replaces the top left navbar icon across the entire store.</p>
           </div>
 
           {/* Favicon Field */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label htmlFor="navbar-favicon-url" className="block text-xs font-bold uppercase tracking-wider text-amber-400 cursor-pointer">
+              <label htmlFor="navbar-favicon-url" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 cursor-pointer">
                 Browser Favicon Icon URL (.ico / .png)
               </label>
               {navbarData.faviconUrl && (
@@ -234,7 +234,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               )}
             </div>
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                 {navbarData.faviconUrl ? (
                   <img src={navbarData.faviconUrl} alt="Favicon Preview" className="w-6 h-6 object-contain" referrerPolicy="no-referrer" />
                 ) : (
@@ -248,7 +248,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                   value={navbarData.faviconUrl || ''}
                   onChange={(e) => onChangeField('faviconUrl', e.target.value)}
                   placeholder="https://example.com/favicon.ico (or upload below)"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
                 <div className="flex items-center gap-2">
                   <input
@@ -261,7 +261,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                   <button
                     type="button"
                     onClick={() => faviconFileInputRef.current?.click()}
-                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-indigo-600 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
                   >
                     <Upload className="w-3 h-3" />
                     <span>Upload Favicon</span>
@@ -269,13 +269,13 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 </div>
               </div>
             </div>
-            <p className="text-[11px] text-slate-400">Updates the browser tab icon in your customers' browsers.</p>
+            <p className="text-[11px] text-slate-500">Updates the browser tab icon in your customers' browsers.</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="navbar-brand-name-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="navbar-brand-name-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Brand Name (English)
             </label>
             <input
@@ -283,11 +283,11 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               type="text"
               value={navbarData.brandName || ''}
               onChange={(e) => onChangeField('brandName', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="navbar-brand-name-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer" dir="rtl">
+            <label htmlFor="navbar-brand-name-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer" dir="rtl">
               اسم المتجر (عربي)
             </label>
             <input
@@ -296,12 +296,12 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               dir="rtl"
               value={navbarData.brandNameArabic || ''}
               onChange={(e) => onChangeField('brandNameArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label htmlFor="navbar-brand-sub-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="navbar-brand-sub-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Brand Tagline / Subtitle (English)
             </label>
             <input
@@ -309,11 +309,11 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               type="text"
               value={navbarData.brandSubtitle || ''}
               onChange={(e) => onChangeField('brandSubtitle', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="navbar-brand-sub-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer" dir="rtl">
+            <label htmlFor="navbar-brand-sub-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer" dir="rtl">
               شعار المتجر الفرعي (عربي)
             </label>
             <input
@@ -322,12 +322,12 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               dir="rtl"
               value={navbarData.brandSubtitleArabic || ''}
               onChange={(e) => onChangeField('brandSubtitleArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label htmlFor="navbar-phone-support" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center gap-1.5 cursor-pointer">
+            <label htmlFor="navbar-phone-support" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
               <Phone className="w-3.5 h-3.5 text-emerald-400" />
               <span>Customer Support Phone / WhatsApp Hotline</span>
             </label>
@@ -336,21 +336,21 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               type="text"
               value={navbarData.phoneSupport || ''}
               onChange={(e) => onChangeField('phoneSupport', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
         </div>
       </div>
 
       {/* Global Search Placeholders */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
           <Search className="w-5 h-5 text-blue-400" />
           <span>Live Search Box Placeholders</span>
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="navbar-search-en" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 cursor-pointer">
+            <label htmlFor="navbar-search-en" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 cursor-pointer">
               Search Input Placeholder (English)
             </label>
             <input
@@ -358,11 +358,11 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               type="text"
               value={navbarData.searchPlaceholder || ''}
               onChange={(e) => onChangeField('searchPlaceholder', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor="navbar-search-ar" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer" dir="rtl">
+            <label htmlFor="navbar-search-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer" dir="rtl">
               نص البحث التوضيحي (عربي)
             </label>
             <input
@@ -371,20 +371,20 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               dir="rtl"
               value={navbarData.searchPlaceholderArabic || ''}
               onChange={(e) => onChangeField('searchPlaceholderArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
         </div>
       </div>
 
       {/* Navigation Menu Tabs Manager */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers className="w-5 h-5 text-amber-400" />
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-indigo-600" />
             <span>Storefront Navigation Menu Tabs</span>
           </h3>
-          <span className="text-xs font-mono text-slate-400">{navTabs.length} items</span>
+          <span className="text-xs font-mono text-slate-500">{navTabs.length} items</span>
         </div>
 
         {/* Existing Tabs List */}
@@ -392,38 +392,38 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
           {navTabs.map((tab, idx) => (
             <div 
               key={idx}
-              className="bg-slate-900/90 border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
+              className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3"
             >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 w-full">
                 <div>
-                  <label htmlFor={`navtab-id-${idx}`} className="block text-[10px] font-bold text-slate-400 uppercase cursor-pointer">Tab Key / ID</label>
+                  <label htmlFor={`navtab-id-${idx}`} className="block text-[10px] font-bold text-slate-500 uppercase cursor-pointer">Tab Key / ID</label>
                   <input
                     id={`navtab-id-${idx}`}
                     type="text"
                     value={tab.id}
                     onChange={(e) => handleUpdateTab(idx, { id: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-slate-300 font-mono focus:border-amber-400 focus:outline-none"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 font-mono focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label htmlFor={`navtab-label-${idx}`} className="block text-[10px] font-bold text-slate-400 uppercase cursor-pointer">Label (EN)</label>
+                  <label htmlFor={`navtab-label-${idx}`} className="block text-[10px] font-bold text-slate-500 uppercase cursor-pointer">Label (EN)</label>
                   <input
                     id={`navtab-label-${idx}`}
                     type="text"
                     value={tab.label}
                     onChange={(e) => handleUpdateTab(idx, { label: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label htmlFor={`navtab-label-ar-${idx}`} className="block text-[10px] font-bold text-amber-400 uppercase cursor-pointer" dir="rtl">الاسم (عربي)</label>
+                  <label htmlFor={`navtab-label-ar-${idx}`} className="block text-[10px] font-bold text-indigo-600 uppercase cursor-pointer" dir="rtl">الاسم (عربي)</label>
                   <input
                     id={`navtab-label-ar-${idx}`}
                     type="text"
                     dir="rtl"
                     value={tab.arabicLabel || ''}
                     onChange={(e) => handleUpdateTab(idx, { arabicLabel: e.target.value })}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -435,7 +435,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                     tab.isPublished !== false
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-slate-800 text-slate-400 border border-white/5'
+                      : 'bg-slate-100 text-slate-500 border border-slate-200'
                   }`}
                 >
                   {tab.isPublished !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -455,8 +455,8 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
         </div>
 
         {/* Add New Navigation Tab */}
-        <form onSubmit={handleAddTab} className="p-4 bg-slate-950/70 border border-dashed border-white/20 rounded-2xl space-y-3">
-          <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+        <form onSubmit={handleAddTab} className="p-4 bg-slate-50/70 border border-dashed border-white/20 rounded-2xl space-y-3">
+          <span className="text-xs font-bold text-indigo-600 flex items-center gap-1.5">
             <Plus className="w-3.5 h-3.5" />
             <span>Add Navigation Menu Item</span>
           </span>
@@ -469,7 +469,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 placeholder="Tab ID (e.g. workshops)"
                 value={newTabId}
                 onChange={(e) => setNewTabId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-mono"
               />
             </div>
             <div>
@@ -480,7 +480,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 placeholder="English Label (e.g. Master Workshops)"
                 value={newTabLabel}
                 onChange={(e) => setNewTabLabel(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div>
@@ -492,7 +492,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 placeholder="الاسم بالعربي (مثال: ورش الحرفيين)"
                 value={newTabLabelAr}
                 onChange={(e) => setNewTabLabelAr(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
               />
             </div>
           </div>
