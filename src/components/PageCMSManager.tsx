@@ -330,16 +330,16 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
   };
 
   return (
-    <div className="bg-[#1a1a2e] p-4 sm:p-6 lg:p-8 rounded-3xl text-white shadow-2xl space-y-6 relative border border-white/5">
+    <div className="bg-slate-50 text-slate-900 p-4 sm:p-6 lg:p-8 rounded-3xl text-slate-900 shadow-2xl space-y-6 relative border border-slate-200">
       {/* Top Header & Global Actions Toolbar */}
-      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 border-b border-white/10 pb-6">
+      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div className="flex items-center gap-3.5">
-          <span className="p-3 rounded-2xl bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-inner">
+          <span className="p-3 rounded-2xl bg-amber-500/15 text-indigo-600 border border-amber-500/30 shadow-inner">
             <Sparkles className="w-6 h-6" />
           </span>
           <div>
             <div className="flex items-center gap-2.5">
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 Storefront CMS Studio
               </h2>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold tracking-wide flex items-center gap-1.5">
@@ -347,13 +347,13 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
                 Live Sync
               </span>
               {isDirty && (
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-bold tracking-wide flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-indigo-600 text-[11px] font-bold tracking-wide flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                   Draft autosaved ({formatDraftAge(draftSavedAt)})
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Visual storefront management, bilingual EN/AR copywriting, live device preview, and version rollback.
             </p>
           </div>
@@ -366,14 +366,14 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
           </div>
 
           {/* 3-Way View Switcher */}
-          <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-white/10 shadow-inner shrink-0">
+          <div className="flex items-center bg-slate-50 p-1 rounded-xl border border-slate-200 shadow-inner shrink-0">
             <button
               type="button"
               onClick={() => setViewMode('editor')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 viewMode === 'editor'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600 text-white shadow-md font-black'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
               title="Editor Focus: Full width comfortable dual-language editing"
             >
@@ -385,8 +385,8 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               onClick={() => setViewMode('split')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 viewMode === 'split'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600 text-white shadow-md font-black'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
               title="Split View: Editor on left, live storefront preview on right"
             >
@@ -398,8 +398,8 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               onClick={() => setViewMode('preview')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 viewMode === 'preview'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600 text-white shadow-md font-black'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
               title="Preview Focus: Full width interactive storefront with device frames"
             >
@@ -412,7 +412,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
           <button
             type="button"
             onClick={() => setShowHistoryModal(true)}
-            className="px-3 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
+            className="px-3 py-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
             title="View CMS version history and snapshots"
           >
             <History className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
@@ -442,7 +442,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               type="button"
               onClick={handleReset}
               disabled={isSaving}
-              className="px-3 py-2 rounded-xl bg-slate-900/90 hover:bg-rose-950/40 border border-white/10 hover:border-rose-500/30 text-slate-300 hover:text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
+              className="px-3 py-2 rounded-xl bg-white hover:bg-rose-950/40 border border-slate-200 hover:border-rose-500/30 text-slate-600 hover:text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
               title="Discard unsaved changes"
             >
               <RotateCcw className="w-3.5 h-3.5 shrink-0" />
@@ -456,7 +456,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
             disabled={isSaving}
             className={`px-4 sm:px-5 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer shadow-lg active:scale-95 shrink-0 whitespace-nowrap ${
               isDirty 
-                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 ring-2 ring-amber-400/50 shadow-amber-500/20' 
+                ? 'bg-amber-500 hover:bg-indigo-700 text-slate-950 ring-2 ring-amber-400/50 shadow-amber-500/20' 
                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
             } disabled:opacity-50`}
             title="Save and publish CMS changes live to visitors (Shortcut: Cmd+S / Ctrl+S)"
@@ -473,14 +473,14 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
       {/* Category Pills & Quick Filter Bar */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-2xl border border-white/10 w-fit">
+          <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-slate-200 w-fit">
             <button
               type="button"
               onClick={() => setSelectedCategory('all')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 selectedCategory === 'all'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600 text-white font-black shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               All Modules ({categoryCounts.all})
@@ -490,8 +490,8 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               onClick={() => setSelectedCategory('pages')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 selectedCategory === 'pages'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600 text-white font-black shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               Storefront Pages ({categoryCounts.pages})
@@ -501,8 +501,8 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               onClick={() => setSelectedCategory('global')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 selectedCategory === 'global'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600 text-white font-black shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               Header, Footer & Brand ({categoryCounts.global})
@@ -512,8 +512,8 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               onClick={() => setSelectedCategory('layout')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 selectedCategory === 'layout'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-indigo-600 text-white font-black shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               Layout & Blocks ({categoryCounts.layout})
@@ -525,7 +525,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               href={currentTabObj.livePath}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-amber-400 border border-amber-500/20 hover:border-amber-400/40 text-xs font-semibold transition-all shadow-xs group"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-indigo-600 border border-amber-500/20 hover:border-amber-400/40 text-xs font-semibold transition-all shadow-xs group"
             >
               <span>View live on storefront</span>
               <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -543,11 +543,11 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer text-left border ${
                   isActive 
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/10 font-black scale-[1.02]' 
-                    : 'bg-slate-900/90 text-slate-300 hover:bg-slate-800/90 hover:text-white border-white/5 hover:border-white/15'
+                    ? 'bg-indigo-600 text-white border-amber-400 shadow-lg shadow-amber-500/10 font-black scale-[1.02]' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100/90 hover:text-slate-900 border-slate-200 hover:border-white/15'
                 }`}
               >
-                <tab.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-400'}`} />
+                <tab.icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-indigo-600'}`} />
                 <span className="truncate">{tab.label}</span>
               </button>
             );
@@ -556,25 +556,25 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
       </div>
 
       {/* Active Section Context / Breadcrumb Banner */}
-      <div className="bg-[#121222] border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="p-2 rounded-xl bg-amber-500/10 text-indigo-600 border border-amber-500/20">
             <currentTabObj.icon className="w-5 h-5" />
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black text-white">{currentTabObj.label}</h3>
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5">
+              <h3 className="text-sm font-black text-slate-900">{currentTabObj.label}</h3>
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
                 {currentTabObj.category}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">{currentTabObj.desc}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{currentTabObj.desc}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
           {isDirty ? (
-            <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1.5">
+            <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-indigo-600 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               Unpublished edits pending
             </span>
@@ -590,7 +590,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
       {/* Main Workspace Layout (Editor Focus, Split View, or Full Preview) */}
       {viewMode === 'preview' ? (
         /* Full Width Preview Focus */
-        <div className="bg-slate-900 border border-white/10 rounded-3xl p-4 min-h-[750px]">
+        <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 min-h-[750px]">
           <CMSLivePreview
             content={cmsForm}
             activeTab={activeTab}
@@ -871,19 +871,19 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
 
       {/* Sticky Bottom Save / Unsaved Edits Indicator Bar */}
       {isDirty && (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-8 md:max-w-xl z-40 bg-slate-900/95 backdrop-blur-md border border-amber-500/40 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-bounce-short">
+        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-8 md:max-w-xl z-40 bg-white/95 backdrop-blur-md border border-amber-500/40 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-bounce-short">
           <div className="flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping shrink-0" />
             <div>
-              <p className="text-xs font-bold text-white">You have unpublished draft edits</p>
-              <p className="text-[10px] text-slate-400">Edits are previewing live but not yet published to customers.</p>
+              <p className="text-xs font-bold text-slate-900">You have unpublished draft edits</p>
+              <p className="text-[10px] text-slate-500">Edits are previewing live but not yet published to customers.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setShowDiffModal(true)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold border border-purple-500/30 transition-all cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-purple-300 text-xs font-bold border border-purple-500/30 transition-all cursor-pointer"
             >
               Review Diff
             </button>
@@ -891,7 +891,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               type="button"
               onClick={() => handleSave()}
               disabled={isSaving}
-              className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-indigo-700 text-slate-950 text-xs font-black transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
             >
               <span>{isSaving ? 'Publishing...' : 'Publish (⌘S)'}</span>
             </button>
