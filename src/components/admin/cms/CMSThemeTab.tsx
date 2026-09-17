@@ -41,21 +41,21 @@ export const CMSThemeTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-6 space-y-6">
-        <div className="flex items-center gap-2 border-b border-white/10 pb-4">
-          <Palette className="w-5 h-5 text-amber-400" />
-          <h3 className="text-base font-bold text-white tracking-wide">
+      <div className="bg-slate-50/60 border border-slate-200 rounded-2xl p-6 space-y-6">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-4">
+          <Palette className="w-5 h-5 text-indigo-600" />
+          <h3 className="text-base font-bold text-slate-900 tracking-wide">
             Global Design, Colors & Typography
           </h3>
         </div>
 
-        <p className="text-xs text-slate-300 leading-relaxed">
+        <p className="text-xs text-slate-600 leading-relaxed">
           Customize the visual branding, color palettes, and typography of the entire Yalla Lebanon storefront and admin portal instantly.
         </p>
 
         {/* Color Presets */}
         <div className="space-y-3">
-          <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">
+          <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
             Quick Brand Color Presets
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -70,8 +70,8 @@ export const CMSThemeTab: React.FC = () => {
                 }}
                 className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                   theme.primaryColor === preset.primary 
-                    ? 'bg-amber-500/20 border-amber-400 text-white' 
-                    : 'bg-slate-900 border-white/10 text-slate-300 hover:border-white/30'
+                    ? 'bg-amber-500/20 border-amber-400 text-slate-900' 
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-white/30'
                 }`}
               >
                 <div>
@@ -82,7 +82,7 @@ export const CMSThemeTab: React.FC = () => {
                   </div>
                 </div>
                 {theme.primaryColor === preset.primary && (
-                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
                 )}
               </button>
             ))}
@@ -90,9 +90,9 @@ export const CMSThemeTab: React.FC = () => {
         </div>
 
         {/* Custom Color Pickers */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Primary Brand Color (Hex)
             </label>
             <div className="flex items-center gap-3">
@@ -100,19 +100,19 @@ export const CMSThemeTab: React.FC = () => {
                 type="color"
                 value={theme.primaryColor || '#c5a059'}
                 onChange={(e) => handleUpdateTheme('primaryColor', e.target.value)}
-                className="w-12 h-10 rounded-xl bg-slate-900 border border-white/10 cursor-pointer"
+                className="w-12 h-10 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer"
               />
               <input
                 type="text"
                 value={theme.primaryColor || '#c5a059'}
                 onChange={(e) => handleUpdateTheme('primaryColor', e.target.value)}
-                className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white font-mono"
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 font-mono"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               Accent / Secondary Color (Hex)
             </label>
             <div className="flex items-center gap-3">
@@ -120,23 +120,23 @@ export const CMSThemeTab: React.FC = () => {
                 type="color"
                 value={theme.accentColor || '#059669'}
                 onChange={(e) => handleUpdateTheme('accentColor', e.target.value)}
-                className="w-12 h-10 rounded-xl bg-slate-900 border border-white/10 cursor-pointer"
+                className="w-12 h-10 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer"
               />
               <input
                 type="text"
                 value={theme.accentColor || '#059669'}
                 onChange={(e) => handleUpdateTheme('accentColor', e.target.value)}
-                className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white font-mono"
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 font-mono"
               />
             </div>
           </div>
         </div>
 
         {/* Typography */}
-        <div className="space-y-3 pt-4 border-t border-white/10">
+        <div className="space-y-3 pt-4 border-t border-slate-200">
           <div className="flex items-center gap-2">
-            <Type className="w-4 h-4 text-amber-400" />
-            <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">
+            <Type className="w-4 h-4 text-indigo-600" />
+            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
               System Typography / Font Family
             </label>
           </div>
@@ -148,8 +148,8 @@ export const CMSThemeTab: React.FC = () => {
                 onClick={() => handleUpdateTheme('fontFamily', font.id)}
                 className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                   theme.fontFamily === font.id
-                    ? 'bg-amber-500/20 border-amber-400 text-white font-bold'
-                    : 'bg-slate-900 border-white/10 text-slate-300 hover:border-white/30'
+                    ? 'bg-amber-500/20 border-amber-400 text-slate-900 font-bold'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-white/30'
                 }`}
               >
                 <div className="text-xs">{font.name}</div>
@@ -159,8 +159,8 @@ export const CMSThemeTab: React.FC = () => {
         </div>
 
         {/* UI Component Radius */}
-        <div className="space-y-3 pt-4 border-t border-white/10">
-          <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">
+        <div className="space-y-3 pt-4 border-t border-slate-200">
+          <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
             Card & Button Corner Roundness
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -176,8 +176,8 @@ export const CMSThemeTab: React.FC = () => {
                 onClick={() => handleUpdateTheme('borderRadius', rad.id)}
                 className={`p-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold ${
                   theme.borderRadius === rad.id
-                    ? 'bg-amber-500/20 border-amber-400 text-white'
-                    : 'bg-slate-900 border-white/10 text-slate-300 hover:border-white/30'
+                    ? 'bg-amber-500/20 border-amber-400 text-slate-900'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-white/30'
                 }`}
               >
                 {rad.label}
