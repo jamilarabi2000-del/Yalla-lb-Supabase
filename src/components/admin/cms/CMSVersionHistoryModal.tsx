@@ -1,6 +1,111 @@
-import React,{useEffect,useState} from 'react';
-import {History,RotateCcw,Download,Upload,Trash2,X,Clock,User,HardDrive} from 'lucide-react';
-import {SiteContent} from '../../../types';
-import {getCmsSnapshots,deleteCmsSnapshot,clearAllCmsSnapshots,CmsSnapshot} from '../../../utils/cmsSnapshots';
-interface Props{onClose:()=>void;onRollback:(data:SiteContent)=>void;currentData?:SiteContent}
-export const CMSVersionHistoryModal:React.FC<Props>=({onClose,onRollback,currentData})=>{const[snapshots,setSnapshots]=useState<CmsSnapshot[]>([]);const[selected,setSelected]=useState<CmsSnapshot|null>(null);useEffect(()=>setSnapshots(getCmsSnapshots()),[]);const remove=(id:string)=>{const next=deleteCmsSnapshot(id);setSnapshots(next);if(selected?.id===id)setSelected(null)};const clear=()=>{clearAllCmsSnapshots();setSnapshots([]);setSelected(null)};const exportJson=()=>{const data=selected?.data||currentData||{};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`yalla_cms_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url)};const importJson=(e:React.ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{onRollback(JSON.parse(String(r.result)));onClose()}catch{alert('Invalid JSON file.')}};r.readAsText(file)};return <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"><header className="p-5 border-b flex items-center justify-between"><div><h2 className="font-black text-xl flex items-center gap-2"><History className="w-5 h-5"/>CMS Version History</h2><p className="text-xs text-slate-500">Local revision history. Supabase CMS data remains the source of truth.</p></div><button onClick={onClose}><X/></button></header><div className="flex-1 overflow-auto p-5 grid lg:grid-cols-2 gap-4"><div className="space-y-2">{snapshots.map(s=><button key={s.id} onClick={()=>setSelected(s)} className={`w-full text-left p-4 rounded-2xl border ${selected?.id===s.id?'border-indigo-400 bg-indigo-50':'bg-white'}`}><div className="flex justify-between"><b>{s.note||'CMS update'}</b><Trash2 onClick={e=>{e.stopPropagation();remove(s.id)}} className="w-4 h-4 text-rose-500"/></div><div className="text-xs text-slate-500 mt-2"><Clock className="inline w-3 h-3"/> {new Date(s.timestamp).toLocaleString()} · <User className="inline w-3 h-3"/> {s.author}</div></button>)}{snapshots.length===0&&<div className="p-8 text-center text-slate-500 border rounded-2xl">No saved revisions.</div>}</div><div className="border rounded-2xl p-5 min-h-64">{selected?<><div className="font-bold">Selected revision</div><pre className="mt-3 max-h-80 overflow-auto text-xs bg-slate-950 text-slate-100 p-3 rounded-xl">{JSON.stringify(selected.data,null,2)}</pre></>:<div className="h-full flex items-center justify-center text-slate-400">Select a revision.</div>}</div></div><footer className="p-4 border-t flex flex-wrap gap-2 justify-end"><button onClick={clear} className="px-3 py-2 rounded-xl bg-slate-100 text-sm font-bold">Clear history</button><label className="px-3 py-2 rounded-xl bg-slate-100 text-sm font-bold cursor-pointer"><Upload className="inline w-4 h-4"/> Import<input type="file" accept="application/json" className="hidden" onChange={importJson}/></label><button onClick={exportJson} className="px-3 py-2 rounded-xl bg-slate-100 text-sm font-bold"><Download className="inline w-4 h-4"/> Export</button>{selected&&<button onClick={()=>{onRollback(selected.data);onClose()}} className="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold"><RotateCcw className="inline w-4 h-4"/> Restore</button>}<span className="text-xs text-slate-400 self-center"><HardDrive className="inline w-3 h-3"/> local revisions</span></footer></div></div>};
+import React, { useState, useEffect } from 'react';
+import { History, RotateCcw, Download, Upload, Trash2, X, Clock, User, Cloud, HardDrive } from 'lucide-react';
+import { SiteContent } from '../../../types';
+import { getCmsSnapshots, getCmsSnapshotsRemote, deleteCmsSnapshot, clearAllCmsSnapshots, CmsSnapshot } from '../../../utils/cmsSnapshots';
+
+interface CMSVersionHistoryModalProps {
+  onClose: () => void;
+  onRollback: (snapshotData: SiteContent) => void;
+  currentData?: SiteContent;
+}
+
+export const CMSVersionHistoryModal: React.FC<CMSVersionHistoryModalProps> = ({ onClose, onRollback, currentData }) => {
+  const [snapshots, setSnapshots] = useState<CmsSnapshot[]>([]);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<CmsSnapshot | null>(null);
+  const [isSharedHistory, setIsSharedHistory] = useState(false);
+  const [pendingRollback, setPendingRollback] = useState<CmsSnapshot | null>(null);
+
+  useEffect(() => {
+    setSnapshots(getCmsSnapshots());
+    let cancelled = false;
+    void getCmsSnapshotsRemote().then(remote => {
+      if (cancelled || !remote || remote.length === 0) return;
+      setSnapshots(remote);
+      setIsSharedHistory(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = deleteCmsSnapshot(id);
+    setSnapshots(updated);
+    if (selectedSnapshot?.id === id) setSelectedSnapshot(null);
+  };
+
+  const handleExportJson = () => {
+    const dataToExport = selectedSnapshot?.data || currentData || {};
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `yalla_cms_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = event => {
+      try { onRollback(JSON.parse(String(event.target?.result || ''))); onClose(); }
+      catch { alert('Invalid JSON file format.'); }
+    };
+    reader.readAsText(file);
+  };
+
+  const formatTimestamp = (iso: string) => {
+    try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch { return iso; }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="history-modal-title" className="bg-slate-900 border border-white/15 rounded-3xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fadeIn">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between bg-slate-950/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30"><History className="w-5 h-5" /></div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 id="history-modal-title" className="text-base font-bold text-white">CMS Version History & Rollback</h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 text-xs font-bold border border-white/10">{snapshots.length} Snapshots</span>
+                {isSharedHistory ? <span className="px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 text-[10px] font-bold border border-sky-500/30 flex items-center gap-1"><Cloud className="w-3 h-3" />Supabase Shared</span> : <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 text-[10px] font-bold border border-white/10 flex items-center gap-1"><HardDrive className="w-3 h-3" />Local</span>}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">Automatically saved snapshots from publish events. Restore any revision directly to your draft.</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer" aria-label="Close version history"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="p-3.5 bg-slate-950/40 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={handleExportJson} className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-white/10"><Download className="w-3.5 h-3.5 text-amber-400" /><span>Export CMS JSON</span></button>
+            <label className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-white/10"><Upload className="w-3.5 h-3.5 text-emerald-400" /><span>Import JSON Backup</span><input type="file" accept=".json" onChange={handleImportJson} className="hidden" /></label>
+          </div>
+          {snapshots.length > 0 && <button type="button" onClick={() => { clearAllCmsSnapshots(); setSnapshots([]); }} className="text-slate-500 hover:text-rose-400 text-xs flex items-center gap-1 cursor-pointer transition-colors"><Trash2 className="w-3 h-3" /><span>Clear Local History</span></button>}
+        </div>
+
+        <div className="p-5 overflow-y-auto space-y-3 flex-1 custom-scrollbar">
+          {snapshots.length === 0 ? <div className="p-12 text-center text-slate-400 space-y-3"><Clock className="w-10 h-10 text-slate-600 mx-auto" /><h4 className="text-sm font-bold text-white">No Published Snapshots Yet</h4><p className="text-xs text-slate-400">Snapshots are automatically recorded in Supabase every time you publish CMS changes.</p></div> : snapshots.map(snap => (
+            <div key={snap.id} onClick={() => setSelectedSnapshot(snap)} className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${selectedSnapshot?.id === snap.id ? 'bg-amber-500/15 border-amber-400/50 shadow-md' : 'bg-slate-950/60 border-white/10 hover:border-white/20'}`}>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap"><span className="text-xs font-bold text-white">{formatTimestamp(snap.timestamp)}</span><span className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-bold text-amber-300 border border-white/5">{snap.changesCount} {snap.changesCount === 1 ? 'change' : 'changes'}</span>{snap.isRemote && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-500/20 text-sky-300">Supabase</span>}</div>
+                <p className="text-xs text-slate-400">{snap.note || 'Storefront live update'}</p>
+                <div className="flex items-center gap-3 text-[11px] text-slate-500"><span className="flex items-center gap-1"><User className="w-3 h-3" />{snap.author}</span><span>•</span><span className="font-mono text-[10px] text-slate-500">ID: {snap.id.substring(0, 12)}</span></div>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button type="button" onClick={e => { e.stopPropagation(); setPendingRollback(snap); }} className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /><span>Rollback</span></button>
+                {!snap.isRemote && <button type="button" onClick={e => handleDelete(snap.id, e)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer" title="Delete local snapshot" aria-label="Delete local snapshot"><Trash2 className="w-4 h-4" /></button>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 bg-slate-950 border-t border-white/10 flex items-center justify-between gap-4"><span className="text-xs text-slate-400">Reverting to a snapshot loads all values into your draft editor without immediately affecting live shoppers.</span><button type="button" onClick={onClose} className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors cursor-pointer">Close</button></div>
+
+        {pendingRollback && <div className="fixed inset-0 z-[130] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"><div role="alertdialog" aria-modal="true" aria-labelledby="rollback-dialog-title" className="bg-slate-900 border border-amber-500/30 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-fadeIn"><h4 id="rollback-dialog-title" className="text-sm font-bold text-white flex items-center gap-2"><RotateCcw className="w-4 h-4 text-amber-400" /><span>Confirm Snapshot Rollback</span></h4><p className="text-xs text-slate-300 leading-relaxed">Restore snapshot from <strong className="text-white">{formatTimestamp(pendingRollback.timestamp)}</strong>? This will replace your current draft in the editor.</p><div className="flex items-center justify-end gap-2.5 pt-2"><button type="button" autoFocus onClick={() => setPendingRollback(null)} className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer">Cancel</button><button type="button" onClick={() => { onRollback(pendingRollback.data); setPendingRollback(null); onClose(); }} className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black cursor-pointer">Confirm Rollback</button></div></div></div>}
+      </div>
+    </div>
+  );
+};
