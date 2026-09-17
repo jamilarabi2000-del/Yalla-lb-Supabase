@@ -5,6 +5,7 @@ export interface Product {
   name: string;
   arabicName?: string;
   artisan: string;
+  brand?: string;
   seller?: string;
   arabicSeller?: string;
   sellerId?: string;
