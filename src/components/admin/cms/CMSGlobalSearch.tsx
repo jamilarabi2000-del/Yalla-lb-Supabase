@@ -175,13 +175,13 @@ export const CMSGlobalSearch: React.FC<CMSGlobalSearchProps> = ({
             setIsOpen(true);
             setTimeout(() => inputRef.current?.focus(), 50);
           }}
-          className="w-full px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-900 border border-white/15 hover:border-amber-400/50 text-slate-400 hover:text-slate-200 text-xs flex items-center justify-between gap-2 transition-all cursor-pointer shadow-xs"
+          className="w-full px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-white/15 hover:border-amber-400/50 text-slate-500 hover:text-slate-200 text-xs flex items-center justify-between gap-2 transition-all cursor-pointer shadow-xs"
         >
           <div className="flex items-center gap-2 min-w-0 truncate">
-            <Search className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <Search className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
             <span className="truncate">Search CMS fields, texts, tabs...</span>
           </div>
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-800 border border-white/10 text-[10px] font-mono text-slate-400 shrink-0">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-500 shrink-0">
             <span>⌘</span>K
           </kbd>
         </button>
@@ -189,10 +189,10 @@ export const CMSGlobalSearch: React.FC<CMSGlobalSearchProps> = ({
 
       {/* Search Results Dropdown Overlay */}
       {isOpen && (
-        <div className="absolute left-0 sm:left-0 sm:right-auto w-[calc(100vw-2rem)] sm:w-[460px] max-w-[90vw] top-full mt-2 rounded-2xl bg-slate-900 border border-amber-500/30 shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-fadeIn">
+        <div className="absolute left-0 sm:left-0 sm:right-auto w-[calc(100vw-2rem)] sm:w-[460px] max-w-[90vw] top-full mt-2 rounded-2xl bg-slate-50 border border-amber-500/30 shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-fadeIn">
           {/* Top Search Bar */}
-          <div className="p-3 border-b border-white/10 flex items-center gap-2.5 bg-slate-950/60">
-            <Search className="w-4 h-4 text-amber-400 shrink-0" />
+          <div className="p-3 border-b border-slate-200 flex items-center gap-2.5 bg-slate-50">
+            <Search className="w-4 h-4 text-indigo-600 shrink-0" />
             <input
               ref={inputRef}
               type="text"
@@ -203,14 +203,14 @@ export const CMSGlobalSearch: React.FC<CMSGlobalSearchProps> = ({
               }}
               onKeyDown={handleKeyDown}
               placeholder="Type field name, English/Arabic phrase, section..."
-              className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
+              className="flex-1 bg-transparent text-xs text-slate-900 placeholder-slate-500 focus:outline-none"
               autoFocus
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="text-slate-400 hover:text-white text-xs cursor-pointer p-1"
+                className="text-slate-500 hover:text-slate-900 text-xs cursor-pointer p-1"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -222,8 +222,8 @@ export const CMSGlobalSearch: React.FC<CMSGlobalSearchProps> = ({
           <div className="max-h-80 overflow-y-auto p-2 space-y-1 custom-scrollbar">
             {query.trim() === '' ? (
               <div className="p-4 text-center text-slate-500 text-xs">
-                <Sparkles className="w-5 h-5 text-amber-400/60 mx-auto mb-1.5" />
-                <p className="font-semibold text-slate-400">Quick Global CMS Search</p>
+                <Sparkles className="w-5 h-5 text-indigo-600/60 mx-auto mb-1.5" />
+                <p className="font-semibold text-slate-500">Quick Global CMS Search</p>
                 <p className="text-[11px] mt-0.5">Search across titles, banners, bilingual copy, buttons, or visibility switches.</p>
               </div>
             ) : results.length === 0 ? (
@@ -240,27 +240,27 @@ export const CMSGlobalSearch: React.FC<CMSGlobalSearchProps> = ({
                     onMouseEnter={() => setSelectedIndex(idx)}
                     className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 text-start ${
                       isSelected
-                        ? 'bg-amber-500/20 border border-amber-400/40 text-white'
-                        : 'hover:bg-slate-800/60 border border-transparent text-slate-300'
+                        ? 'bg-amber-500/20 border border-amber-400/40 text-slate-900'
+                        : 'hover:bg-slate-100/60 border border-transparent text-slate-600'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-white/10 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
                           {item.tabLabel}
                         </span>
-                        <span className="text-xs font-bold text-white truncate">
+                        <span className="text-xs font-bold text-slate-900 truncate">
                           {item.title}
                         </span>
                       </div>
                       {item.snippet && (
-                        <p className="text-[11px] text-slate-400 mt-1 truncate">
+                        <p className="text-[11px] text-slate-500 mt-1 truncate">
                           {item.snippet}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 text-slate-400 flex-shrink-0">
+                    <div className="flex items-center gap-1 text-slate-500 flex-shrink-0">
                       <span className="text-[10px] font-semibold hidden sm:inline">Jump</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </div>
@@ -271,7 +271,7 @@ export const CMSGlobalSearch: React.FC<CMSGlobalSearchProps> = ({
           </div>
 
           {/* Results Footer */}
-          <div className="p-2 bg-slate-950 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400 px-3">
+          <div className="p-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500 px-3">
             <span>Use ↑ ↓ keys to navigate, ↵ to select</span>
             <span>{results.length} results</span>
           </div>
