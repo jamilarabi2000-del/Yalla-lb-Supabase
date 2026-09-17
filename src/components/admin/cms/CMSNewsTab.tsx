@@ -117,25 +117,25 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Section Headings */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          <Newspaper className="w-5 h-5 text-amber-400" />
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <Newspaper className="w-5 h-5 text-indigo-600" />
           <span>Cultural News & Press Section Headings</span>
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               News Section Title (English)
             </label>
             <input
               type="text"
               value={newsData.title || ''}
               onChange={(e) => onChangeField('title', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5" dir="rtl">
+            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5" dir="rtl">
               عنوان قسم الأخبار (عربي)
             </label>
             <input
@@ -143,23 +143,23 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
               dir="rtl"
               value={newsData.titleArabic || ''}
               onChange={(e) => onChangeField('titleArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
               News Subtitle / Description (English)
             </label>
             <textarea
               rows={2}
               value={newsData.subtitle || ''}
               onChange={(e) => onChangeField('subtitle', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5" dir="rtl">
+            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5" dir="rtl">
               وصف قسم الأخبار (عربي)
             </label>
             <textarea
@@ -167,21 +167,21 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
               dir="rtl"
               value={newsData.subtitleArabic || ''}
               onChange={(e) => onChangeField('subtitleArabic', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
             />
           </div>
         </div>
       </div>
 
       {/* Article Manager Header */}
-      <div className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-6">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Newspaper className="w-5 h-5 text-emerald-400" />
               <span>Published Articles & Blog Posts</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1">Manage heritage stories, harvest press releases, and artisan spotlights.</p>
+            <p className="text-xs text-slate-500 mt-1">Manage heritage stories, harvest press releases, and artisan spotlights.</p>
           </div>
           {!isCreating && !editingArticle && (
             <button
@@ -197,16 +197,16 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
 
         {/* Create / Edit Form Modal/Drawer */}
         {(isCreating || editingArticle) && (
-          <form onSubmit={handleSaveArticle} className="p-5 bg-slate-950 border border-amber-500/40 rounded-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h4 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+          <form onSubmit={handleSaveArticle} className="p-5 bg-slate-50 border border-amber-500/40 rounded-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h4 className="text-sm font-bold text-indigo-600 flex items-center gap-2">
                 <Edit3 className="w-4 h-4" />
                 <span>{editingArticle ? 'Edit Article' : 'Compose New Heritage Article'}</span>
               </h4>
               <button
                 type="button"
                 onClick={() => { setIsCreating(false); setEditingArticle(null); }}
-                className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400"
+                className="p-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -214,93 +214,93 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Article Headline (English)</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Article Headline (English)</label>
                 <input
                   type="text"
                   required
                   value={formState.title}
                   onChange={(e) => setFormState({ ...formState, title: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   placeholder="e.g. Sarafand Phoenician Blown Glass Heritage"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">عنوان المقال (عربي)</label>
+                <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">عنوان المقال (عربي)</label>
                 <input
                   type="text"
                   dir="rtl"
                   value={formState.titleArabic || ''}
                   onChange={(e) => setFormState({ ...formState, titleArabic: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   placeholder="عنوان المقال بالعربية"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Short Excerpt / Lead (English)</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Short Excerpt / Lead (English)</label>
                 <textarea
                   rows={2}
                   value={formState.excerpt}
                   onChange={(e) => setFormState({ ...formState, excerpt: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">موجز المقال (عربي)</label>
+                <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">موجز المقال (عربي)</label>
                 <textarea
                   rows={2}
                   dir="rtl"
                   value={formState.excerptArabic || ''}
                   onChange={(e) => setFormState({ ...formState, excerptArabic: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Source / Publication</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Source / Publication</label>
                 <input
                   type="text"
                   value={formState.source}
                   onChange={(e) => setFormState({ ...formState, source: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Category Tag</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Category Tag</label>
                 <input
                   type="text"
                   value={formState.tag}
                   onChange={(e) => setFormState({ ...formState, tag: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Featured Image URL</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Featured Image URL</label>
                 <input
                   type="url"
                   value={formState.imageUrl}
                   onChange={(e) => setFormState({ ...formState, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-mono"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Estimated Read Time</label>
+                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Estimated Read Time</label>
                 <input
                   type="text"
                   value={formState.readTime}
                   onChange={(e) => setFormState({ ...formState, readTime: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   placeholder="e.g. 4 min read"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => { setIsCreating(false); setEditingArticle(null); }}
-                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold transition-all"
+                className="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all"
               >
                 Cancel
               </button>
@@ -320,11 +320,11 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
           {articles.map((article) => (
             <div 
               key={article.id}
-              className={`bg-slate-900 border rounded-2xl overflow-hidden flex flex-col justify-between transition-all ${
-                article.isPublished !== false ? 'border-white/10 hover:border-white/20' : 'border-white/5 opacity-60'
+              className={`bg-slate-50 border rounded-2xl overflow-hidden flex flex-col justify-between transition-all ${
+                article.isPublished !== false ? 'border-slate-200 hover:border-slate-300' : 'border-slate-200 opacity-60'
               }`}
             >
-              <div className="relative h-48 sm:h-52 bg-slate-950 overflow-hidden flex items-center justify-center group">
+              <div className="relative h-48 sm:h-52 bg-slate-50 overflow-hidden flex items-center justify-center group">
                 {/* Ambient blurred backdrop for seamless filling without cropping foreground */}
                 <img 
                   src={article.imageUrl} 
@@ -342,13 +342,13 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
                 />
                 <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md ${
-                    article.isPublished !== false ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                    article.isPublished !== false ? 'bg-emerald-500 text-slate-950' : 'bg-slate-100 text-slate-600'
                   }`}>
                     {article.isPublished !== false ? 'Published' : 'Draft'}
                   </span>
                 </div>
                 <div className="absolute bottom-2.5 left-2.5 z-20">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-amber-300 shadow-md">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-indigo-600 shadow-md">
                     {article.tag}
                   </span>
                 </div>
@@ -356,16 +356,16 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
 
               <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
                 <div>
-                  <h4 className="text-xs font-bold text-white line-clamp-2">{article.title}</h4>
+                  <h4 className="text-xs font-bold text-slate-900 line-clamp-2">{article.title}</h4>
                   {article.titleArabic && (
-                    <p className="text-[11px] text-amber-400 font-serif line-clamp-1 mt-0.5" dir="rtl">
+                    <p className="text-[11px] text-indigo-600 font-serif line-clamp-1 mt-0.5" dir="rtl">
                       {article.titleArabic}
                     </p>
                   )}
-                  <p className="text-[11px] text-slate-400 line-clamp-2 mt-1.5 leading-relaxed">{article.excerpt}</p>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 mt-1.5 leading-relaxed">{article.excerpt}</p>
                 </div>
 
-                <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-400">
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-slate-500" />
                     <span>{article.date}</span>
@@ -375,15 +375,15 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => handleTogglePublish(article.id)}
-                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-600 transition-colors"
                       title={article.isPublished !== false ? 'Set as Draft' : 'Publish'}
                     >
-                      {article.isPublished !== false ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5 text-slate-400" />}
+                      {article.isPublished !== false ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleStartEdit(article)}
-                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 transition-colors"
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-indigo-600 transition-colors"
                       title="Edit article"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
