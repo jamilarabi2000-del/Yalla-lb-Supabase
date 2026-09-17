@@ -344,14 +344,14 @@ export const ProductsCatalogManagement: React.FC = () => {
     };
     const close = () => { setModalOpen(false); setEditing(null); };
     return <div className="fixed inset-0 z-[70] bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
-      <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[96vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col">
+      <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[96vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col min-h-0">
         <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 px-5 py-4 sm:px-7">
           <div className="flex items-start justify-between gap-4">
             <div><div className="flex items-center gap-2"><span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-wide">Lebanese Catalog</span><span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">Supabase</span></div><h3 className="text-2xl font-black tracking-tight mt-2">{editing?.id ? 'Edit Lebanese Item' : 'List New Lebanese Item'}</h3><p className="text-xs text-slate-500 mt-1">Catalog authentic Lebanese artisanal goods, mouneh and local crafts with bilingual merchandising and live storefront controls.</p></div>
             <button onClick={close} className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-500"><X className="w-5 h-5"/></button>
           </div>
         </div>
-        <div className="overflow-y-auto p-5 sm:p-7 space-y-7">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-7 space-y-7" style={{ WebkitOverflowScrolling: "touch" }}>
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">1</span><div><h4 className="font-black text-slate-900">Bilingual Product Identity</h4><p className="text-[11px] text-slate-500">The commercial identity used across the international and Arabic catalog.</p></div></div>
             <div className="grid md:grid-cols-2 gap-4">
               <label id="product-field-name" className="text-xs font-black text-slate-600">Product Title (English) *<RequiredBadge field="name"/><input value={form.name || ''} onChange={e=>setField('name',e.target.value)} placeholder="Mountain Wild Zaatar Blend" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
@@ -371,9 +371,9 @@ export const ProductsCatalogManagement: React.FC = () => {
 
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">USD is the catalog price; LBP display is handled by the storefront exchange-rate layer.</p></div></div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <label className="text-xs font-black text-slate-600">Price (USD) *<input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>setPrice(e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
-              <label className="text-xs font-black text-slate-600">Stock Quantity *<input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>setField('stock',e.target.value === '' ? '' : Number(e.target.value))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
-              <label className="text-xs font-black text-slate-600">Seller Item Code (SKU) *<input value={form.sellerItemCode || ''} onChange={e=>setField('sellerItemCode',e.target.value)} placeholder="SIC-12930" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
+              <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Price (USD) *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/></label>
+              <label id="product-field-stock" className="text-xs font-black text-slate-600">Stock Quantity *<RequiredBadge field="stock"/><input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>{setField('stock',e.target.value === '' ? '' : Number(e.target.value));setValidationErrors(v=>({...v,stock:''}));}} className={fieldClass('stock')}/></label>
+              <label id="product-field-sellerItemCode" className="text-xs font-black text-slate-600">Seller Item Code (SKU) *<RequiredBadge field="sellerItemCode"/><input value={form.sellerItemCode || ''} onChange={e=>{setField('sellerItemCode',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,sellerItemCode:''}));}} placeholder="SIC-12930" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
               <label className="text-xs font-black text-slate-600">Package / Unit Size<input value={form.weightOrVolume || ''} onChange={e=>setField('weightOrVolume',e.target.value)} placeholder="500ml Glass Bottle / Set of 6 / Medium 38–44" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
             </div>
           </section>
