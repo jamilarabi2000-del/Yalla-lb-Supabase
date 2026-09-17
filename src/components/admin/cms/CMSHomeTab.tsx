@@ -47,7 +47,7 @@ export const getSlideScheduleStatus = (item: {
   if (item.isPublished === false) {
     return {
       status: 'hidden' as const,
-      badgeColor: 'bg-slate-800 text-slate-400 border-slate-700',
+      badgeColor: 'bg-slate-100 text-slate-500 border-slate-700',
       label: 'Hidden / Draft',
       labelAr: 'مخفي / مسودة',
       isLive: false
@@ -83,7 +83,7 @@ export const getSlideScheduleStatus = (item: {
     if (!isNaN(end.getTime()) && now > end) {
       return {
         status: 'expired' as const,
-        badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+        badgeColor: 'bg-amber-500/20 text-indigo-600 border-amber-500/30',
         label: `Expired (${end.toLocaleDateString()})`,
         labelAr: `منتهي (${end.toLocaleDateString('ar')})`,
         isLive: false
@@ -468,9 +468,9 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
       const el = document.getElementById(`sec-${id}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        el.classList.add('ring-2', 'ring-amber-400');
+        el.classList.add('ring-2', 'ring-indigo-400');
         setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-amber-400');
+          el.classList.remove('ring-2', 'ring-indigo-400');
         }, 1500);
       }
     }, 50);
@@ -479,20 +479,20 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
   return (
     <div className="space-y-6">
       {/* Sticky Quick-Jump Navigation Strip */}
-      <div className="sticky top-2 z-20 bg-[#121222]/95 backdrop-blur-md border border-white/10 rounded-2xl p-2.5 shadow-xl flex items-center justify-between gap-2 flex-wrap">
+      <div className="sticky top-2 z-20 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-2.5 shadow-xl flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar max-w-full">
-          <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 px-2 flex items-center gap-1 shrink-0">
+          <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600 px-2 flex items-center gap-1 shrink-0">
             <Compass className="w-3.5 h-3.5" /> Jump:
           </span>
           <button
             type="button"
             onClick={() => scrollToSection('hero')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
-            <Sparkles className="w-3 h-3 text-amber-400" />
+            <Sparkles className="w-3 h-3 text-indigo-600" />
             <span>Hero & Media</span>
             {heroMediaItems.length > 0 && (
-              <span className="text-[10px] px-1.5 rounded-full bg-amber-500/20 text-amber-400 font-mono">
+              <span className="text-[10px] px-1.5 rounded-full bg-amber-500/20 text-indigo-600 font-mono">
                 {heroMediaItems.length}
               </span>
             )}
@@ -500,15 +500,15 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('promo-banner')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
-            <Layers className="w-3 h-3 text-amber-400" />
+            <Layers className="w-3 h-3 text-indigo-600" />
             <span>Promo Banner</span>
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('offers')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <Tag className="w-3 h-3 text-emerald-400" />
             <span>Offers Carousel</span>
@@ -521,7 +521,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('trust')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <ShieldCheck className="w-3 h-3 text-emerald-400" />
             <span>Trust Badges</span>
@@ -529,7 +529,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('categories')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <Grid className="w-3 h-3 text-indigo-400" />
             <span>Categories</span>
@@ -537,15 +537,15 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('featured')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
-            <Star className="w-3 h-3 text-amber-400" />
+            <Star className="w-3 h-3 text-indigo-600" />
             <span>Featured</span>
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('deals')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <Zap className="w-3 h-3 text-yellow-400" />
             <span>Flash Deals</span>
@@ -553,7 +553,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('bundles')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <ShoppingBag className="w-3 h-3 text-rose-400" />
             <span>Combos & Packs</span>
@@ -561,7 +561,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('newArrivals')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <Sparkles className="w-3 h-3 text-cyan-400" />
             <span>New Arrivals</span>
@@ -569,7 +569,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('story')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <BookOpen className="w-3 h-3 text-orange-400" />
             <span>Story</span>
@@ -577,7 +577,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('reviews')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <MessageSquare className="w-3 h-3 text-pink-400" />
             <span>Reviews</span>
@@ -585,7 +585,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => scrollToSection('newsletter')}
-            className="px-2.5 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold border border-white/5 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             <Mail className="w-3 h-3 text-purple-400" />
             <span>Newsletter</span>
@@ -596,7 +596,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           <button
             type="button"
             onClick={() => handleToggleAll(!isAllExpanded)}
-            className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-600 hover:text-slate-900 text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
           >
             {isAllExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             <span>{isAllExpanded ? 'Collapse All' : 'Expand All'}</span>
@@ -605,21 +605,21 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
       </div>
 
       {/* 1. Hero Banner & Responsive Media Section */}
-      <div id="sec-hero" className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5 transition-all duration-300">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+      <div id="sec-hero" className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5 transition-all duration-300">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-400" />
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
               <span>Hero Banner & Media (Desktop & Mobile Controls)</span>
             </h3>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-indigo-600 font-bold border border-amber-500/20">
               Dual Device Optimized
             </span>
           </div>
           <button
             type="button"
             onClick={() => toggleSection('hero')}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
             title={sectionExpansion['hero'] ? "Collapse section" : "Expand section"}
           >
             {sectionExpansion['hero'] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -706,7 +706,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                 <div>
-                  <label htmlFor="hero-primary-target" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer">
+                  <label htmlFor="hero-primary-target" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer">
                     Primary Button Redirect Target URL
                   </label>
                   <input
@@ -715,13 +715,13 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     value={heroData?.targetUrl || ''}
                     onChange={(e) => onChangeHeroField('targetUrl', e.target.value)}
                     placeholder="e.g. /products, pantry, or crafts"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Destination when clicking the primary button.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Destination when clicking the primary button.</p>
                 </div>
 
                 <div>
-                  <label htmlFor="hero-secondary-target" className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-1.5 cursor-pointer">
+                  <label htmlFor="hero-secondary-target" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer">
                     Secondary Button Redirect Target URL
                   </label>
                   <input
@@ -730,15 +730,15 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     value={heroData?.secondaryTargetUrl || ''}
                     onChange={(e) => onChangeHeroField('secondaryTargetUrl', e.target.value)}
                     placeholder="e.g. /products?category=Mouneh, or #sec-story"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">Destination when clicking the secondary button.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Destination when clicking the secondary button.</p>
                 </div>
               </div>
             </div>
 
             {/* Global Screen Aspect Ratio & Smart Auto Height */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
               <div className="p-4 rounded-2xl bg-sky-950/30 border border-sky-500/20 space-y-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-sky-400 mb-1.5 flex items-center gap-1.5">
                   <Monitor className="w-4 h-4" />
@@ -747,14 +747,14 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                 <select
                   value={heroData?.desktopAspectRatio || '16:9'}
                   onChange={(e) => onChangeHeroField('desktopAspectRatio', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
                 >
                   <option value="auto">⚡ Smart Auto Height & Width (Natural Aspect Scaling)</option>
                   <option value="16:9">🖥️ 16:9 Widescreen (Standard Laptops & Monitors)</option>
                   <option value="21:9">🎞️ 21:9 Ultrawide Cinematic Display</option>
                   <option value="4:3">📺 4:3 Classic Display</option>
                 </select>
-                <p className="text-[10px] text-slate-400">Smart Auto Height scales naturally without hard cropping on wide displays.</p>
+                <p className="text-[10px] text-slate-500">Smart Auto Height scales naturally without hard cropping on wide displays.</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 space-y-2">
@@ -765,7 +765,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                 <select
                   value={heroData?.mobileAspectRatio || 'auto'}
                   onChange={(e) => onChangeHeroField('mobileAspectRatio', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
                 >
                   <option value="auto">⚡ Smart Auto Height & Width (Natural Aspect Scaling)</option>
                   <option value="16:9">📺 16:9 Landscape (Show Full Horizontal Photo)</option>
@@ -773,7 +773,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value="3:4">📱 3:4 Mobile Tall</option>
                   <option value="1:1">⏹️ 1:1 Square</option>
                 </select>
-                <p className="text-[10px] text-slate-400">Smart Auto Height prevents awkward cropping on tall smartphone screens.</p>
+                <p className="text-[10px] text-slate-500">Smart Auto Height prevents awkward cropping on tall smartphone screens.</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-sky-950/30 border border-sky-500/20 space-y-2 md:col-span-2">
@@ -784,13 +784,13 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                 <select
                   value={heroData?.defaultImageFit || 'contain'}
                   onChange={(e) => onChangeHeroField('defaultImageFit', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
                 >
                   <option value="contain">✅ Auto Full Fit (Show Entire Image Uncropped - Recommended Default)</option>
                   <option value="cover">Cover (Fill Frame & Crop Image Edges)</option>
                   <option value="fill">Stretch (Force Full Width & Height)</option>
                 </select>
-                <p className="text-[10px] text-slate-400">
+                <p className="text-[10px] text-slate-500">
                   Auto Full Fit automatically scales the image to fit 100% inside the slider without cutting off top/bottom or sides, filling any widescreen margins with an ambient blurred reflection.
                 </p>
               </div>
@@ -799,13 +799,13 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
             {/* Slider Auto-Play Speed & Tint Controls */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                   Slider Auto-Play Speed (Seconds)
                 </label>
                 <select
                   value={heroData?.slideInterval ?? 5}
                   onChange={(e) => onChangeHeroField('slideInterval', parseInt(e.target.value, 10))}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
                 >
                   <option value={0}>Pause Auto-Play (Manual Navigation Only)</option>
                   <option value={3}>3 Seconds (Fast)</option>
@@ -818,10 +818,10 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
                     Background Dark Overlay Tint
                   </label>
-                  <span className="text-xs font-mono text-amber-400 font-bold">{heroData?.overlayOpacity ?? 0}%</span>
+                  <span className="text-xs font-mono text-indigo-600 font-bold">{heroData?.overlayOpacity ?? 0}%</span>
                 </div>
                 <input
                   type="range"
@@ -832,18 +832,18 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   onChange={(e) => onChangeHeroField('overlayOpacity', parseInt(e.target.value, 10))}
                   className="w-full accent-amber-500 cursor-pointer"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">Set to 0% for 100% natural, un-tinted true image colors.</p>
+                <p className="text-[10px] text-slate-500 mt-1">Set to 0% for 100% natural, un-tinted true image colors.</p>
               </div>
             </div>
 
             {/* Hero Background Media Manager */}
-            <div className="pt-4 border-t border-white/10 space-y-4">
+            <div className="pt-4 border-t border-slate-200 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600">
                     Hero Background Media ({heroMediaItems.length} {heroMediaItems.length === 1 ? 'Slide' : 'Slides'})
                   </label>
-                  <p className="text-[11px] text-slate-400">Configure dual Desktop and Mobile media assets, zoom, fit, and slide texts.</p>
+                  <p className="text-[11px] text-slate-500">Configure dual Desktop and Mobile media assets, zoom, fit, and slide texts.</p>
                 </div>
                 <button
                   type="button"
@@ -862,20 +862,20 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <div 
                     key={item.id || idx} 
                     className={`p-4 sm:p-5 rounded-2xl border transition-all ${
-                      item.isPublished !== false ? 'bg-slate-900/90 border-white/10' : 'bg-slate-900/40 border-red-900/40 opacity-75'
+                      item.isPublished !== false ? 'bg-white border-slate-200' : 'bg-slate-50/40 border-red-900/40 opacity-75'
                     } space-y-4`}
                   >
                     {/* Header bar of the slide card */}
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3 gap-2 flex-wrap">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-3 gap-2 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-mono font-bold text-amber-400 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <span className="text-xs font-mono font-bold text-indigo-600 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
                           Slide #{idx + 1}
                         </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${scheduleStatus.badgeColor}`}>
                           {scheduleStatus.status === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                           {scheduleStatus.status === 'scheduled' && <Clock className="w-3 h-3 text-sky-400" />}
-                          {scheduleStatus.status === 'expired' && <Clock className="w-3 h-3 text-amber-400" />}
-                          {scheduleStatus.status === 'hidden' && <EyeOff className="w-3 h-3 text-slate-400" />}
+                          {scheduleStatus.status === 'expired' && <Clock className="w-3 h-3 text-indigo-600" />}
+                          {scheduleStatus.status === 'hidden' && <EyeOff className="w-3 h-3 text-slate-500" />}
                           <span>{scheduleStatus.label}</span>
                         </span>
                         <input
@@ -883,12 +883,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           value={item.title || ''}
                           onChange={(e) => handleUpdateMediaItem(idx, { title: e.target.value })}
                           placeholder="Slide Title / Label (e.g. Cedar Forest Workshop)"
-                          className="px-2.5 py-1 rounded-lg bg-slate-950 border border-white/10 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none min-w-[200px]"
+                          className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-500 focus:border-indigo-500 focus:outline-none min-w-[200px]"
                         />
                         <select
                           value={item.type || 'image'}
                           onChange={(e) => handleUpdateMediaItem(idx, { type: e.target.value as 'image' | 'video' })}
-                          className="px-2 py-1 rounded-lg bg-slate-950 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                          className="px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                         >
                           <option value="image">🖼️ Image</option>
                           <option value="video">🎥 Video (MP4/WebM)</option>
@@ -900,7 +900,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           type="button"
                           onClick={() => handleMoveMediaItem(idx, 'up')}
                           disabled={idx === 0}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-600 disabled:opacity-30 cursor-pointer"
                           title="Move slide up"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
@@ -909,7 +909,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           type="button"
                           onClick={() => handleMoveMediaItem(idx, 'down')}
                           disabled={idx === heroMediaItems.length - 1}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-600 disabled:opacity-30 cursor-pointer"
                           title="Move slide down"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
@@ -917,7 +917,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDuplicateMediaItem(item)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-indigo-600 cursor-pointer"
                           title="Duplicate slide"
                         >
                           <Copy className="w-3.5 h-3.5" />
@@ -949,14 +949,14 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     {/* Dual Device Asset Pickers and Configuration */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       {/* Desktop Asset Card */}
-                      <div className="p-3.5 rounded-xl bg-slate-950/80 border border-sky-500/30 space-y-3">
+                      <div className="p-3.5 rounded-xl bg-slate-50/80 border border-sky-500/30 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
                             <Monitor className="w-3.5 h-3.5" />
                             <span>Desktop Media (Widescreen 16:9 / 21:9)</span>
                           </span>
                           {item.url && (
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-[10px] text-slate-500 font-mono">
                               Active
                             </span>
                           )}
@@ -973,7 +973,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                         {/* Live Desktop Thumbnail Preview */}
                         {item.url && item.type !== 'video' && (
-                          <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-white/10 bg-black">
+                          <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-slate-200 bg-black">
                             <img 
                               src={item.url} 
                               alt={item.title || 'Slide preview'} 
@@ -985,7 +985,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               }}
                               referrerPolicy="no-referrer"
                             />
-                            <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono">
+                            <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-slate-900 font-mono">
                               Desktop Preview
                             </div>
                           </div>
@@ -994,7 +994,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <div>
                             <div className="flex justify-between items-center mb-0.5">
-                              <label className="text-[10px] uppercase text-slate-400 font-bold">Desktop Zoom</label>
+                              <label className="text-[10px] uppercase text-slate-500 font-bold">Desktop Zoom</label>
                               <span className="text-[10px] font-mono text-sky-400">{item.imageZoom || 100}%</span>
                             </div>
                             <input
@@ -1009,11 +1009,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           </div>
 
                           <div>
-                            <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Desktop Focus</label>
+                            <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Focus</label>
                             <select
                               value={item.objectPosition || 'center'}
                               onChange={(e) => handleUpdateMediaItem(idx, { objectPosition: e.target.value })}
-                              className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                              className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                             >
                               <option value="center">Center</option>
                               <option value="top">Top Center</option>
@@ -1024,11 +1024,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           </div>
 
                           <div>
-                            <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Desktop Aspect Ratio</label>
+                            <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Aspect Ratio</label>
                             <select
                               value={item.desktopAspectRatio || '16:9'}
                               onChange={(e) => handleUpdateMediaItem(idx, { desktopAspectRatio: e.target.value as any })}
-                              className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                              className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                             >
                               <option value="auto">⚡ Smart Auto Height</option>
                               <option value="16:9">16:9 Widescreen</option>
@@ -1038,11 +1038,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           </div>
 
                           <div>
-                            <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Desktop Fit Mode</label>
+                            <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Fit Mode</label>
                             <select
                               value={item.imageFit || 'contain'}
                               onChange={(e) => handleUpdateMediaItem(idx, { imageFit: e.target.value as any })}
-                              className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                              className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                             >
                               <option value="contain">✅ Full Fit (Auto Fit / No Crop - Default)</option>
                               <option value="cover">Cover (Fill Screen / Crop Edges)</option>
@@ -1053,13 +1053,13 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       </div>
 
                       {/* Mobile Asset Card */}
-                      <div className="p-3.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-3">
+                      <div className="p-3.5 rounded-xl bg-slate-50/80 border border-emerald-500/30 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
                             <Smartphone className="w-3.5 h-3.5" />
                             <span>Mobile Media (Vertical 9:16 / 3:4)</span>
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-500">
                             {item.mobileUrl ? 'Dedicated Mobile' : 'Using Desktop Image'}
                           </span>
                         </div>
@@ -1076,11 +1076,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         {/* ONE-CLICK DISPLAY MODE */}
                         <div className="space-y-1.5 pt-1">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] uppercase text-amber-400 font-extrabold flex items-center gap-1 tracking-wider">
+                            <label className="text-[10px] uppercase text-indigo-600 font-extrabold flex items-center gap-1 tracking-wider">
                               <Sparkles className="w-3 h-3" />
                               <span>⚡ One-Click Display Mode:</span>
                             </label>
-                            <span className="text-[10px] text-slate-400">Choose how photo fits on phones</span>
+                            <span className="text-[10px] text-slate-500">Choose how photo fits on phones</span>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5">
                             <button
@@ -1089,7 +1089,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                                 (item.mobileAspectRatio === '16:9' && (item.mobileImageFit || 'cover') === 'contain')
                                   ? 'bg-sky-500 text-slate-950 border-sky-300 font-black shadow-lg shadow-sky-500/20'
-                                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/10'
+                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
                               }`}
                             >
                               <span>🖼️ Full Image (Uncropped)</span>
@@ -1100,7 +1100,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                                 (item.mobileAspectRatio === '16:9' && (item.mobileImageFit || 'cover') !== 'contain')
                                   ? 'bg-sky-500 text-slate-950 border-sky-300 font-black shadow-lg shadow-sky-500/20'
-                                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/10'
+                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
                               }`}
                             >
                               <span>📺 16:9 Landscape Phone</span>
@@ -1111,7 +1111,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                                 item.mobileAspectRatio === '9:16'
                                   ? 'bg-sky-500 text-slate-950 border-sky-300 font-black shadow-lg shadow-sky-500/20'
-                                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/10'
+                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
                               }`}
                             >
                               <span>📱 9:16 Portrait Crop</span>
@@ -1148,7 +1148,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               }}
                               referrerPolicy="no-referrer"
                             />
-                            <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-400 text-center font-mono z-20 flex items-center justify-center gap-1 border border-white/10">
+                            <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-400 text-center font-mono z-20 flex items-center justify-center gap-1 border border-slate-200">
                               <span>{item.mobileAspectRatio === '16:9' ? '📺 Full 16:9 Landscape' : '📱 Mobile Screen'}</span>
                             </div>
                           </div>
@@ -1162,7 +1162,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <div>
                             <div className="flex justify-between items-center mb-0.5">
-                              <label className="text-[10px] uppercase text-slate-400 font-bold">Mobile Zoom</label>
+                              <label className="text-[10px] uppercase text-slate-500 font-bold">Mobile Zoom</label>
                               <span className="text-[10px] font-mono text-emerald-400">{item.mobileImageZoom || item.imageZoom || 100}%</span>
                             </div>
                             <input
@@ -1177,11 +1177,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           </div>
 
                           <div>
-                            <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Mobile Focus</label>
+                            <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Focus</label>
                             <select
                               value={item.mobileObjectPosition || item.objectPosition || 'center'}
                               onChange={(e) => handleUpdateMediaItem(idx, { mobileObjectPosition: e.target.value })}
-                              className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                              className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                             >
                               <option value="center">Center</option>
                               <option value="top">Top Center</option>
@@ -1192,11 +1192,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           </div>
 
                           <div>
-                            <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Mobile Aspect Ratio</label>
+                            <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Aspect Ratio</label>
                             <select
                               value={item.mobileAspectRatio || 'auto'}
                               onChange={(e) => handleUpdateMediaItem(idx, { mobileAspectRatio: e.target.value as any })}
-                              className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                              className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                             >
                               <option value="16:9">📺 16:9 Landscape (Show Full Horizontal Photo)</option>
                               <option value="auto">⚡ Smart Auto Height</option>
@@ -1207,11 +1207,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           </div>
 
                           <div>
-                            <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Mobile Fit Mode</label>
+                            <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Fit Mode</label>
                             <select
                               value={item.mobileImageFit || item.imageFit || 'cover'}
                               onChange={(e) => handleUpdateMediaItem(idx, { mobileImageFit: e.target.value as any })}
-                              className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                              className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                             >
                               <option value="cover">Cover (Fill Screen & Crop Edges)</option>
                               <option value="contain">Contain (Full Uncropped)</option>
@@ -1222,53 +1222,53 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     </div>
 
                     {/* Custom Slide Overlay Text (English & Arabic) */}
-                    <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/10 space-y-3">
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                        <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">
                           Custom Slide Overlay Headings (Overrides Hero Main Title for this slide)
                         </span>
                         <span className="text-[10px] text-slate-500">Optional</span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">Slide Title (English)</label>
+                          <label className="block text-[10px] uppercase text-slate-500 mb-1">Slide Title (English)</label>
                           <input
                             type="text"
                             value={item.customTitle || ''}
                             onChange={(e) => handleUpdateMediaItem(idx, { customTitle: e.target.value })}
                             placeholder="Leave blank to use default Hero Title"
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] uppercase text-amber-400 mb-1" dir="rtl">عنوان الشريحة (عربي)</label>
+                          <label className="block text-[10px] uppercase text-indigo-600 mb-1" dir="rtl">عنوان الشريحة (عربي)</label>
                           <input
                             type="text"
                             value={item.customTitleArabic || ''}
                             onChange={(e) => handleUpdateMediaItem(idx, { customTitleArabic: e.target.value })}
                             placeholder="اتركه فارغاً لاستخدام العنوان الافتراضي"
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-white/10 text-xs text-white text-right"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-slate-200 text-xs text-slate-900 text-right"
                             dir="rtl"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">Slide Subtitle (English)</label>
+                          <label className="block text-[10px] uppercase text-slate-500 mb-1">Slide Subtitle (English)</label>
                           <input
                             type="text"
                             value={item.customSubtitle || ''}
                             onChange={(e) => handleUpdateMediaItem(idx, { customSubtitle: e.target.value })}
                             placeholder="Leave blank to use default Hero Subtitle"
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] uppercase text-amber-400 mb-1" dir="rtl">الوصف الترويجي للشريحة (عربي)</label>
+                          <label className="block text-[10px] uppercase text-indigo-600 mb-1" dir="rtl">الوصف الترويجي للشريحة (عربي)</label>
                           <input
                             type="text"
                             value={item.customSubtitleArabic || ''}
                             onChange={(e) => handleUpdateMediaItem(idx, { customSubtitleArabic: e.target.value })}
                             placeholder="اتركه فارغاً لاستخدام الوصف الافتراضي"
-                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-white/10 text-xs text-white text-right"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-black border border-slate-200 text-xs text-slate-900 text-right"
                             dir="rtl"
                           />
                         </div>
@@ -1276,16 +1276,16 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     </div>
 
                     {/* Slide Scheduling & Auto-Publishing Window */}
-                    <div className="p-3.5 rounded-xl bg-slate-950/70 border border-white/10 space-y-2.5">
+                    <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200 space-y-2.5">
                       <div className="flex items-center justify-between flex-wrap gap-2">
-                        <label className="text-xs font-bold text-slate-300 flex items-center gap-2 cursor-pointer">
+                        <label className="text-xs font-bold text-slate-600 flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={item.scheduleActive || false}
                             onChange={(e) => handleUpdateMediaItem(idx, { scheduleActive: e.target.checked })}
                             className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
                           />
-                          <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                          <Calendar className="w-3.5 h-3.5 text-indigo-600" />
                           <span>Automate Run Dates (Schedule Start & Expiration)</span>
                         </label>
                         {item.scheduleActive && (
@@ -1296,28 +1296,28 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       </div>
 
                       {item.scheduleActive && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                               Start Date & Time (Go Live)
                             </label>
                             <input
                               type="datetime-local"
                               value={item.startDate || ''}
                               onChange={(e) => handleUpdateMediaItem(idx, { startDate: e.target.value })}
-                              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                             />
                             <p className="text-[10px] text-slate-500 mt-1">Leave empty to display immediately when published.</p>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                               End Date & Time (Auto-Hide)
                             </label>
                             <input
                               type="datetime-local"
                               value={item.endDate || ''}
                               onChange={(e) => handleUpdateMediaItem(idx, { endDate: e.target.value })}
-                              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                              className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                             />
                             <p className="text-[10px] text-slate-500 mt-1">Slide will automatically expire and hide after this time.</p>
                           </div>
@@ -1329,8 +1329,8 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                 })}
                 
                 {heroMediaItems.length === 0 && (
-                  <div className="text-center py-8 bg-slate-900/60 rounded-2xl border border-white/10 space-y-2">
-                    <p className="text-sm text-slate-400">No background media slides added yet.</p>
+                  <div className="text-center py-8 bg-slate-50/60 rounded-2xl border border-slate-200 space-y-2">
+                    <p className="text-sm text-slate-500">No background media slides added yet.</p>
                     <button
                       type="button"
                       onClick={handleAddMediaItem}
@@ -1345,18 +1345,18 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
             </div>
 
             {/* Hero Statistics & Trust Counters */}
-            <div className="pt-4 border-t border-white/10 space-y-3">
+            <div className="pt-4 border-t border-slate-200 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
                     Hero Statistics & Trust Counters ({heroStats.length})
                   </h4>
-                  <p className="text-[11px] text-slate-400">Key proof metrics shown beneath the hero call to action.</p>
+                  <p className="text-[11px] text-slate-500">Key proof metrics shown beneath the hero call to action.</p>
                 </div>
                 <button
                   type="button"
                   onClick={handleAddStat}
-                  className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-xl text-xs font-bold transition-all border border-white/10 flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1 bg-slate-50 hover:bg-slate-100 text-indigo-600 rounded-xl text-xs font-bold transition-all border border-slate-200 flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Metric</span>
@@ -1365,21 +1365,21 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {heroStats.map((stat, idx) => (
-                  <div key={idx} className="p-3.5 bg-slate-900 rounded-2xl border border-white/10 space-y-2.5">
+                  <div key={idx} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-slate-400">Metric #{idx + 1}</span>
+                      <span className="text-[10px] font-mono text-slate-500">Metric #{idx + 1}</span>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleUpdateStat(idx, { isPublished: stat.isPublished === false ? true : false })}
-                          className="text-slate-400 hover:text-white p-1"
+                          className="text-slate-500 hover:text-slate-900 p-1"
                         >
                           {stat.isPublished !== false ? <Eye className="w-3.5 h-3.5 text-emerald-400" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteStat(idx)}
-                          className="text-slate-400 hover:text-red-400 p-1"
+                          className="text-slate-500 hover:text-red-400 p-1"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1388,47 +1388,47 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[9px] uppercase text-slate-400 mb-0.5">Value (EN)</label>
+                        <label className="block text-[9px] uppercase text-slate-500 mb-0.5">Value (EN)</label>
                         <input
                           type="text"
                           value={stat.value}
                           onChange={(e) => handleUpdateStat(idx, { value: e.target.value })}
-                          className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white font-bold"
+                          className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900 font-bold"
                           placeholder="e.g. 120+"
                         />
                       </div>
                       <div>
-                        <label className="block text-[9px] uppercase text-amber-400 mb-0.5" dir="rtl">القيمة (عربي)</label>
+                        <label className="block text-[9px] uppercase text-indigo-600 mb-0.5" dir="rtl">القيمة (عربي)</label>
                         <input
                           type="text"
                           dir="rtl"
                           value={stat.valueArabic || ''}
                           onChange={(e) => handleUpdateStat(idx, { valueArabic: e.target.value })}
-                          className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white font-bold text-right"
+                          className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900 font-bold text-right"
                           placeholder="+١٢٠"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[9px] uppercase text-slate-400 mb-0.5">Label (EN)</label>
+                      <label className="block text-[9px] uppercase text-slate-500 mb-0.5">Label (EN)</label>
                       <input
                         type="text"
                         value={stat.label}
                         onChange={(e) => handleUpdateStat(idx, { label: e.target.value })}
-                        className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                        className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                         placeholder="e.g. Master Artisans"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[9px] uppercase text-amber-400 mb-0.5" dir="rtl">الوصف (عربي)</label>
+                      <label className="block text-[9px] uppercase text-indigo-600 mb-0.5" dir="rtl">الوصف (عربي)</label>
                       <input
                         type="text"
                         dir="rtl"
                         value={stat.labelArabic || ''}
                         onChange={(e) => handleUpdateStat(idx, { labelArabic: e.target.value })}
-                        className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white text-right"
+                        className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900 text-right"
                         placeholder="حرفي ماهر"
                       />
                     </div>
@@ -1446,9 +1446,9 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
           id="sec-promo-banner-group"
           title="Homepage Promotional Content Slider & Carousel"
           description="Fully admin-controlled responsive slider/carousel positioned alongside the homepage hero (Multiple slides, autoplay, arrows, dots, loop, image/text/product/category promos)"
-          icon={<Layers className="w-5 h-5 text-amber-400 shrink-0" aria-hidden="true" />}
+          icon={<Layers className="w-5 h-5 text-indigo-600 shrink-0" aria-hidden="true" />}
           badge={
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-indigo-600 font-bold border border-amber-500/20">
               Responsive Slider Block
             </span>
           }
@@ -1463,10 +1463,10 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
       </div>
 
       {/* 3. Promotional Offers & Carousel Slides */}
-      <div id="sec-offers" className="bg-[#121222] border border-white/10 rounded-3xl p-6 space-y-5 transition-all duration-300">
-        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+      <div id="sec-offers" className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5 transition-all duration-300">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Tag className="w-5 h-5 text-emerald-400" />
               <span>Promotional Offers & Carousel Slides</span>
             </h3>
@@ -1490,7 +1490,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
             <button
               type="button"
               onClick={() => toggleSection('offers')}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer"
+              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
               title={sectionExpansion['offers'] ? "Collapse section" : "Expand section"}
             >
               {sectionExpansion['offers'] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1501,96 +1501,96 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         {sectionExpansion['offers'] && (
           <div className="space-y-5">
             {/* Section Header Configuration */}
-            <div className="p-5 bg-slate-950/70 border border-white/10 rounded-2xl space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+            <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
                 Ads & Promotions Header Text & Labels
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Section Category Tag (English)</label>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Section Category Tag (English)</label>
                   <input
                     type="text"
                     value={offersData?.sectionTag || ''}
                     onChange={(e) => onChangeOffersField('sectionTag', e.target.value)}
                     placeholder="Default: Ads & Promotions"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">فئة القسم (عربي)</label>
+                  <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">فئة القسم (عربي)</label>
                   <input
                     type="text"
                     dir="rtl"
                     value={offersData?.sectionTagArabic || ''}
                     onChange={(e) => onChangeOffersField('sectionTagArabic', e.target.value)}
                     placeholder="الافتراضي: الإعلانات والعروض"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Sponsored Badge Pill (English)</label>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Sponsored Badge Pill (English)</label>
                   <input
                     type="text"
                     value={offersData?.sectionBadge || ''}
                     onChange={(e) => onChangeOffersField('sectionBadge', e.target.value)}
                     placeholder="Default: Sponsored • Special Deals"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">شارة الرعاية (عربي)</label>
+                  <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">شارة الرعاية (عربي)</label>
                   <input
                     type="text"
                     dir="rtl"
                     value={offersData?.sectionBadgeArabic || ''}
                     onChange={(e) => onChangeOffersField('sectionBadgeArabic', e.target.value)}
                     placeholder="الافتراضي: برعاية • عروض خاصة"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Main Section Title (English)</label>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Main Section Title (English)</label>
                   <input
                     type="text"
                     value={offersData?.sectionTitle || ''}
                     onChange={(e) => onChangeOffersField('sectionTitle', e.target.value)}
                     placeholder="Default: Exclusive Cultural Promotions & Offers"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">عنوان القسم الرئيسي (عربي)</label>
+                  <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">عنوان القسم الرئيسي (عربي)</label>
                   <input
                     type="text"
                     dir="rtl"
                     value={offersData?.sectionTitleArabic || ''}
                     onChange={(e) => onChangeOffersField('sectionTitleArabic', e.target.value)}
                     placeholder="الافتراضي: عروض وحملات إعلانية حصرية"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Section Subtitle / Description (English)</label>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Section Subtitle / Description (English)</label>
                   <input
                     type="text"
                     value={offersData?.sectionSubtitle || ''}
                     onChange={(e) => onChangeOffersField('sectionSubtitle', e.target.value)}
                     placeholder="Default: Limited-time seasonal deals..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">الوصف الفرعي للقسم (عربي)</label>
+                  <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">الوصف الفرعي للقسم (عربي)</label>
                   <input
                     type="text"
                     dir="rtl"
                     value={offersData?.sectionSubtitleArabic || ''}
                     onChange={(e) => onChangeOffersField('sectionSubtitleArabic', e.target.value)}
                     placeholder="الافتراضي: عروض موسمية لفترة محدودة..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -1598,8 +1598,8 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
             {/* Slide Edit / Create Form */}
             {(isCreatingSlide || editingSlide) && (
-              <form onSubmit={handleSaveSlide} className="p-5 bg-slate-950 border border-emerald-500/40 rounded-2xl space-y-4">
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <form onSubmit={handleSaveSlide} className="p-5 bg-slate-50 border border-emerald-500/40 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                   <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
                     <Edit3 className="w-4 h-4" />
                     <span>{editingSlide ? 'Edit Promotional Slide' : 'Add New Promotional Slide'}</span>
@@ -1607,7 +1607,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <button
                     type="button"
                     onClick={() => { setIsCreatingSlide(false); setEditingSlide(null); }}
-                    className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 cursor-pointer"
+                    className="p-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1615,126 +1615,126 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Slide Badge (English)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Slide Badge (English)</label>
                     <input
                       type="text"
                       value={slideForm.badge}
                       onChange={(e) => setSlideForm({ ...slideForm, badge: e.target.value })}
                       placeholder="e.g. SPECIAL PROMOTION"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">شارة العرض (عربي)</label>
+                    <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">شارة العرض (عربي)</label>
                     <input
                       type="text"
                       dir="rtl"
                       value={slideForm.badgeArabic || ''}
                       onChange={(e) => setSlideForm({ ...slideForm, badgeArabic: e.target.value })}
                       placeholder="عرض خاص"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Slide Title (English)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Slide Title (English)</label>
                     <input
                       type="text"
                       required
                       value={slideForm.title}
                       onChange={(e) => setSlideForm({ ...slideForm, title: e.target.value })}
                       placeholder="e.g. Koura Cold-Pressed Extra Virgin Olive Oil"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">عنوان العرض (عربي)</label>
+                    <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">عنوان العرض (عربي)</label>
                     <input
                       type="text"
                       dir="rtl"
                       value={slideForm.titleArabic || ''}
                       onChange={(e) => setSlideForm({ ...slideForm, titleArabic: e.target.value })}
                       placeholder="زيت زيتون الكورة البكر الممتاز"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Slide Subtitle (English)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Slide Subtitle (English)</label>
                     <input
                       type="text"
                       value={slideForm.subtitle}
                       onChange={(e) => setSlideForm({ ...slideForm, subtitle: e.target.value })}
                       placeholder="e.g. First cold extraction olive oil gift sets..."
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-amber-400 uppercase mb-1" dir="rtl">وصف العرض (عربي)</label>
+                    <label className="block text-[11px] font-bold text-indigo-600 uppercase mb-1" dir="rtl">وصف العرض (عربي)</label>
                     <input
                       type="text"
                       dir="rtl"
                       value={slideForm.subtitleArabic || ''}
                       onChange={(e) => setSlideForm({ ...slideForm, subtitleArabic: e.target.value })}
                       placeholder="زيت بكر ممتاز من العصرة الأولى..."
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Button Label (EN)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Button Label (EN)</label>
                     <input
                       type="text"
                       value={slideForm.buttonText}
                       onChange={(e) => setSlideForm({ ...slideForm, buttonText: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1" dir="rtl">نص الزر (عربي)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1" dir="rtl">نص الزر (عربي)</label>
                     <input
                       type="text"
                       value={slideForm.buttonTextArabic || ''}
                       onChange={(e) => setSlideForm({ ...slideForm, buttonTextArabic: e.target.value })}
                       placeholder="تسوق العرض"
                       dir="rtl"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Target Redirect URL</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Target Redirect URL</label>
                     <input
                       type="text"
                       value={slideForm.targetUrl || ''}
                       onChange={(e) => setSlideForm({ ...slideForm, targetUrl: e.target.value })}
                       placeholder="/products?category=Pantry"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Discount Tag (e.g. 30% OFF)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Discount Tag (e.g. 30% OFF)</label>
                     <input
                       type="text"
                       value={slideForm.discountBadge || ''}
                       onChange={(e) => setSlideForm({ ...slideForm, discountBadge: e.target.value })}
                       placeholder="BUNDLE & SAVE 20%"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
                   {/* Dual Device Asset Pickers and Configuration - Matching Hero Background Media Studio */}
                   <div className="md:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Desktop Asset Card */}
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-sky-500/30 space-y-3">
+                    <div className="p-3.5 rounded-xl bg-slate-50/80 border border-sky-500/30 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
                           <Monitor className="w-3.5 h-3.5" />
                           <span>Desktop Media (Widescreen 16:9 / 21:9)</span>
                         </span>
                         {(slideForm.desktopImageUrl || slideForm.imageUrl) && (
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-slate-500 font-mono">
                             Active
                           </span>
                         )}
@@ -1751,7 +1751,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                       {/* Live Desktop Thumbnail Preview */}
                       {(slideForm.desktopImageUrl || slideForm.imageUrl) && (
-                        <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-white/10 bg-black">
+                        <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-slate-200 bg-black">
                           {/* Ambient blurred backdrop if fit mode is contain */}
                           {(slideForm.desktopImageFit || slideForm.imageFit || 'contain') === 'contain' && (
                             <img
@@ -1772,7 +1772,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             }}
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono z-20">
+                          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-slate-900 font-mono z-20">
                             Desktop Preview
                           </div>
                         </div>
@@ -1781,7 +1781,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div>
                           <div className="flex justify-between items-center mb-0.5">
-                            <label className="text-[10px] uppercase text-slate-400 font-bold">Desktop Zoom</label>
+                            <label className="text-[10px] uppercase text-slate-500 font-bold">Desktop Zoom</label>
                             <span className="text-[10px] font-mono text-sky-400">{slideForm.desktopImageZoom ?? slideForm.imageZoom ?? 100}%</span>
                           </div>
                           <input
@@ -1796,11 +1796,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Desktop Focus</label>
+                          <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Focus</label>
                           <select
                             value={slideForm.desktopObjectPosition || slideForm.objectPosition || 'center'}
                             onChange={(e) => setSlideForm({ ...slideForm, desktopObjectPosition: e.target.value, objectPosition: e.target.value })}
-                            className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           >
                             <option value="center">Center</option>
                             <option value="top">Top Center</option>
@@ -1811,11 +1811,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Desktop Aspect Ratio</label>
+                          <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Aspect Ratio</label>
                           <select
                             value={slideForm.desktopAspectRatio || '16:9'}
                             onChange={(e) => setSlideForm({ ...slideForm, desktopAspectRatio: e.target.value as any })}
-                            className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           >
                             <option value="auto">⚡ Smart Auto Height</option>
                             <option value="16:9">16:9 Widescreen</option>
@@ -1825,11 +1825,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Desktop Fit Mode</label>
+                          <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Fit Mode</label>
                           <select
                             value={slideForm.desktopImageFit || slideForm.imageFit || 'contain'}
                             onChange={(e) => setSlideForm({ ...slideForm, desktopImageFit: e.target.value as any, imageFit: e.target.value as any })}
-                            className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           >
                             <option value="contain">✅ Full Fit (Auto Fit / No Crop - Default)</option>
                             <option value="cover">Cover (Fill Screen / Crop Edges)</option>
@@ -1840,13 +1840,13 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     </div>
 
                     {/* Mobile Asset Card */}
-                    <div className="p-3.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-3">
+                    <div className="p-3.5 rounded-xl bg-slate-50/80 border border-emerald-500/30 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
                           <Smartphone className="w-3.5 h-3.5" />
                           <span>Mobile Media (Vertical 9:16 / 3:4)</span>
                         </span>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-slate-500">
                           {slideForm.mobileImageUrl ? 'Dedicated Mobile' : 'Using Desktop Image'}
                         </span>
                       </div>
@@ -1863,11 +1863,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       {/* ONE-CLICK DISPLAY MODE */}
                       <div className="space-y-1.5 pt-1">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] uppercase text-amber-400 font-extrabold flex items-center gap-1 tracking-wider">
+                          <label className="text-[10px] uppercase text-indigo-600 font-extrabold flex items-center gap-1 tracking-wider">
                             <Sparkles className="w-3 h-3" />
                             <span>⚡ One-Click Display Mode:</span>
                           </label>
-                          <span className="text-[10px] text-slate-400">Choose how photo fits on phones</span>
+                          <span className="text-[10px] text-slate-500">Choose how photo fits on phones</span>
                         </div>
                         <div className="grid grid-cols-3 gap-1.5">
                           <button
@@ -1876,7 +1876,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                               (slideForm.mobileAspectRatio === '16:9' && (slideForm.mobileImageFit || 'cover') === 'contain')
                                 ? 'bg-sky-500 text-slate-950 border-sky-300 font-black shadow-lg shadow-sky-500/20'
-                                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/10'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
                             }`}
                           >
                             <span>🖼️ Full Image (Uncropped)</span>
@@ -1887,7 +1887,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                               (slideForm.mobileAspectRatio === '16:9' && (slideForm.mobileImageFit || 'cover') !== 'contain')
                                 ? 'bg-sky-500 text-slate-950 border-sky-300 font-black shadow-lg shadow-sky-500/20'
-                                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/10'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
                             }`}
                           >
                             <span>📺 16:9 Landscape Phone</span>
@@ -1898,7 +1898,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                               slideForm.mobileAspectRatio === '9:16'
                                 ? 'bg-sky-500 text-slate-950 border-sky-300 font-black shadow-lg shadow-sky-500/20'
-                                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/10'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
                             }`}
                           >
                             <span>📱 9:16 Portrait Crop</span>
@@ -1935,7 +1935,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             }}
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-400 text-center font-mono z-20 flex items-center justify-center gap-1 border border-white/10">
+                          <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-400 text-center font-mono z-20 flex items-center justify-center gap-1 border border-slate-200">
                             <span>{slideForm.mobileAspectRatio === '16:9' ? '📺 Full 16:9 Landscape' : '📱 Mobile Screen'}</span>
                           </div>
                         </div>
@@ -1949,7 +1949,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div>
                           <div className="flex justify-between items-center mb-0.5">
-                            <label className="text-[10px] uppercase text-slate-400 font-bold">Mobile Zoom</label>
+                            <label className="text-[10px] uppercase text-slate-500 font-bold">Mobile Zoom</label>
                             <span className="text-[10px] font-mono text-emerald-400">{slideForm.mobileImageZoom ?? slideForm.imageZoom ?? 100}%</span>
                           </div>
                           <input
@@ -1964,11 +1964,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Mobile Focus</label>
+                          <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Focus</label>
                           <select
                             value={slideForm.mobileObjectPosition || slideForm.objectPosition || 'center'}
                             onChange={(e) => setSlideForm({ ...slideForm, mobileObjectPosition: e.target.value })}
-                            className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           >
                             <option value="center">Center</option>
                             <option value="top">Top Center</option>
@@ -1979,11 +1979,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Mobile Aspect Ratio</label>
+                          <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Aspect Ratio</label>
                           <select
                             value={slideForm.mobileAspectRatio || 'auto'}
                             onChange={(e) => setSlideForm({ ...slideForm, mobileAspectRatio: e.target.value as any })}
-                            className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           >
                             <option value="16:9">📺 16:9 Landscape (Show Full Horizontal Photo)</option>
                             <option value="auto">⚡ Smart Auto Height</option>
@@ -1994,11 +1994,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 font-bold mb-0.5">Mobile Fit Mode</label>
+                          <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Fit Mode</label>
                           <select
                             value={slideForm.mobileImageFit || slideForm.imageFit || 'contain'}
                             onChange={(e) => setSlideForm({ ...slideForm, mobileImageFit: e.target.value as any })}
-                            className="w-full px-2 py-1 rounded-lg bg-black border border-white/10 text-xs text-white"
+                            className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           >
                             <option value="contain">✅ Full Fit (Auto Fit / No Crop - Default)</option>
                             <option value="cover">Cover (Fill Screen & Crop Edges)</option>
@@ -2009,8 +2009,8 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   </div>
 
                   {/* Optional Background Video URL */}
-                  <div className="md:col-span-2 p-3.5 rounded-xl bg-slate-950/60 border border-white/10 space-y-2">
-                    <label className="block text-[11px] font-bold text-amber-400 uppercase">
+                  <div className="md:col-span-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <label className="block text-[11px] font-bold text-indigo-600 uppercase">
                       Slide Background Video URL (Optional MP4/WebM)
                     </label>
                     <input
@@ -2018,15 +2018,15 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       value={slideForm.bgVideoUrl || ''}
                       onChange={(e) => setSlideForm({ ...slideForm, bgVideoUrl: e.target.value })}
                       placeholder="https://.../slide-video.mp4"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none font-mono"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-mono"
                     />
                   </div>
                 </div>
 
                 {/* Timed Campaign Scheduling & Run Window */}
-                <div className="p-4 bg-slate-950/70 border border-white/10 rounded-xl space-y-3">
+                <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <label className="text-xs font-bold text-amber-400 flex items-center gap-2 cursor-pointer">
+                    <label className="text-xs font-bold text-indigo-600 flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={slideForm.scheduleActive || false}
@@ -2036,7 +2036,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       <Calendar className="w-4 h-4" />
                       <span>Automate Run Dates (Schedule Start & Auto-Expiration)</span>
                     </label>
-                    <label className="text-xs text-slate-300 flex items-center gap-1.5 cursor-pointer">
+                    <label className="text-xs text-slate-600 flex items-center gap-1.5 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={slideForm.isPublished !== false}
@@ -2048,28 +2048,28 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   </div>
 
                   {slideForm.scheduleActive && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                        <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
                           Start Date & Time (Go Live)
                         </label>
                         <input
                           type="datetime-local"
                           value={slideForm.startDate || ''}
                           onChange={(e) => setSlideForm({ ...slideForm, startDate: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                         />
                         <p className="text-[10px] text-slate-500 mt-1">Leave blank to display immediately upon publishing.</p>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                        <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
                           End Date & Time (Auto-Hide)
                         </label>
                         <input
                           type="datetime-local"
                           value={slideForm.endDate || ''}
                           onChange={(e) => setSlideForm({ ...slideForm, endDate: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:border-amber-400 focus:outline-none"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                         />
                         <p className="text-[10px] text-slate-500 mt-1">Slide will automatically expire and disappear from website after this time.</p>
                       </div>
@@ -2077,11 +2077,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => { setIsCreatingSlide(false); setEditingSlide(null); }}
-                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -2103,11 +2103,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                 return (
                 <div 
                   key={slide.id}
-                  className={`bg-slate-900 border rounded-2xl overflow-hidden flex flex-col justify-between transition-all ${
-                    slide.isPublished !== false ? 'border-white/10 hover:border-white/20' : 'border-white/5 opacity-60'
+                  className={`bg-slate-50 border rounded-2xl overflow-hidden flex flex-col justify-between transition-all ${
+                    slide.isPublished !== false ? 'border-slate-200 hover:border-slate-300' : 'border-slate-200 opacity-60'
                   }`}
                 >
-                  <div className="relative h-36 bg-slate-950">
+                  <div className="relative h-36 bg-slate-50">
                     {slide.imageUrl && (
                       <img src={slide.imageUrl} alt={slide.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     )}
@@ -2117,7 +2117,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           {slide.badge}
                         </span>
                         {slide.mobileImageUrl && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-500 text-white shadow-sm flex items-center gap-0.5">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-500 text-slate-900 shadow-sm flex items-center gap-0.5">
                             <Smartphone className="w-2.5 h-2.5" /> Mobile
                           </span>
                         )}
@@ -2125,19 +2125,19 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1 ${scheduleStatus.badgeColor}`}>
                         {scheduleStatus.status === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                         {scheduleStatus.status === 'scheduled' && <Clock className="w-2.5 h-2.5 text-sky-400" />}
-                        {scheduleStatus.status === 'expired' && <Clock className="w-2.5 h-2.5 text-amber-400" />}
-                        {scheduleStatus.status === 'hidden' && <EyeOff className="w-2.5 h-2.5 text-slate-400" />}
+                        {scheduleStatus.status === 'expired' && <Clock className="w-2.5 h-2.5 text-indigo-600" />}
+                        {scheduleStatus.status === 'hidden' && <EyeOff className="w-2.5 h-2.5 text-slate-500" />}
                         <span>{scheduleStatus.label}</span>
                       </span>
                     </div>
                   </div>
 
                   <div className="p-4 space-y-2">
-                    <h4 className="text-xs font-bold text-white line-clamp-1">{slide.title}</h4>
+                    <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{slide.title}</h4>
                     {slide.titleArabic && (
-                      <p className="text-[11px] text-amber-400/90 font-medium line-clamp-1 text-right" dir="rtl">{slide.titleArabic}</p>
+                      <p className="text-[11px] text-indigo-600/90 font-medium line-clamp-1 text-right" dir="rtl">{slide.titleArabic}</p>
                     )}
-                    <p className="text-[11px] text-slate-400 line-clamp-2">{slide.subtitle}</p>
+                    <p className="text-[11px] text-slate-500 line-clamp-2">{slide.subtitle}</p>
 
                     {slide.scheduleActive && (slide.startDate || slide.endDate) && (
                       <div className="text-[10px] font-mono text-sky-400 flex items-center gap-1 bg-sky-500/10 px-2 py-1 rounded-md border border-sky-500/20">
@@ -2148,14 +2148,14 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       </div>
                     )}
 
-                    <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-1 flex-wrap">
-                      <span className="text-[10px] font-bold text-amber-400">{slide.discountBadge}</span>
+                    <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-1 flex-wrap">
+                      <span className="text-[10px] font-bold text-indigo-600">{slide.discountBadge}</span>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleMoveSlide(sIdx, 'up')}
                           disabled={sIdx === 0}
-                          className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer"
+                          className="p-1 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-600 disabled:opacity-30 cursor-pointer"
                           title="Move slide left / up"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
@@ -2164,7 +2164,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           type="button"
                           onClick={() => handleMoveSlide(sIdx, 'down')}
                           disabled={sIdx === slides.length - 1}
-                          className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 cursor-pointer"
+                          className="p-1 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-600 disabled:opacity-30 cursor-pointer"
                           title="Move slide right / down"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
@@ -2172,7 +2172,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDuplicateSlide(slide)}
-                          className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 cursor-pointer"
+                          className="p-1 rounded-lg bg-slate-100 hover:bg-slate-100 text-indigo-600 cursor-pointer"
                           title="Duplicate slide"
                         >
                           <Copy className="w-3.5 h-3.5" />
@@ -2192,7 +2192,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleStartEditSlide(slide)}
-                          className="p-1 rounded-lg bg-slate-800 text-amber-400 hover:text-amber-300 cursor-pointer"
+                          className="p-1 rounded-lg bg-slate-100 text-indigo-600 hover:text-indigo-600 cursor-pointer"
                           title="Edit slide"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -2214,8 +2214,8 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
             </div>
 
             {slides.length === 0 && (
-              <div className="text-center py-6 bg-slate-900/60 rounded-xl border border-white/10">
-                <p className="text-xs text-slate-400">No promotional offer slides configured yet.</p>
+              <div className="text-center py-6 bg-slate-50/60 rounded-xl border border-slate-200">
+                <p className="text-xs text-slate-500">No promotional offer slides configured yet.</p>
               </div>
             )}
           </div>
@@ -2315,9 +2315,9 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         id="sec-featured"
         title="Featured Lebanese Treasures Section"
         description="Headlines, subheadings and context paragraph for the featured products showcase"
-        icon={<Star className="w-5 h-5 text-amber-400 shrink-0" aria-hidden="true" />}
+        icon={<Star className="w-5 h-5 text-indigo-600 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-indigo-600 font-bold border border-amber-500/20">
             Showcase Grid
           </span>
         }
