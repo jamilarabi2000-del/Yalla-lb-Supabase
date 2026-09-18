@@ -1,4 +1,3 @@
-// Vercel redeploy trigger: category JSX restored
 import React, { useState } from 'react';
 import { useShop } from '../../context/ShopContext';
 import { CategoryItem, TerroirRegion } from '../../types';
@@ -90,29 +89,6 @@ export const CategoriesDetailsView: React.FC = () => {
   const [filterPublished, setFilterPublished] = useState<'all' | 'published' | 'hidden'>('all');
   const [categoryViewMode, setCategoryViewMode] = useState<'grid' | 'reorder'>('grid');
   const [selectedCategoryForProductOrder, setSelectedCategoryForProductOrder] = useState<CategoryItem | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const allCategoriesSelected = filteredCategories.length > 0 && filteredCategories.every(c => selectedCategories.has(c.id));
-  const toggleCategorySelection = (id: string) => setSelectedCategories(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const toggleAllCategories = () => setSelectedCategories(allCategoriesSelected ? new Set() : new Set(filteredCategories.map(c => c.id)));
-  const bulkCategoryPublish = async (isPublished: boolean) => {
-    if (!selectedCategories.size) return;
-    await Promise.all([...selectedCategories].map(id => updateCategory(id, { isPublished })));
-    showToast(`${selectedCategories.size} categor${selectedCategories.size === 1 ? 'y' : 'ies'} ${isPublished ? 'unhidden' : 'hidden'} successfully.`, 'success');
-    setSelectedCategories(new Set());
-  };
-  const bulkDeleteCategories = async () => {
-    if (!selectedCategories.size) return;
-    const rows = categories.filter(c => selectedCategories.has(c.id));
-    const dependent = rows.filter(c => getProductCountForCategory(c.id) > 0);
-    if (dependent.length) {
-      showToast(`Cannot delete ${dependent.length} selected categor${dependent.length === 1 ? 'y' : 'ies'} because they still contain products. Hide them or reassign/remove the products first.`, 'warning');
-      return;
-    }
-    if (!window.confirm(`Delete ${rows.length} selected categor${rows.length === 1 ? 'y' : 'ies'}? This cannot be undone.`)) return;
-    await Promise.all(rows.map(c => deleteCategory(c.id)));
-    setSelectedCategories(new Set());
-    showToast(`${rows.length} categor${rows.length === 1 ? 'y' : 'ies'} deleted.`, 'success');
-  };
 
   // Add / Edit Category State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -498,7 +474,9 @@ export const CategoriesDetailsView: React.FC = () => {
                 Manage full taxonomy, Arabic SEO keywords, subcategories, artisan guilds, and regional logistics.
               </p>
             </div>
-          </div>        </div>
+          </div>
+        </div>
+
         <div className="flex items-center gap-2">
           {activeTab === 'categories' ? (
             <button
@@ -628,16 +606,6 @@ export const CategoriesDetailsView: React.FC = () => {
               </button>
             </div>
 
-            {/* Bulk Category Actions */}
-            <div className="flex items-center gap-2 bg-white border border-slate-200 p-1 rounded-xl">
-              <button onClick={toggleAllCategories} className="px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-700 text-[10px] font-black">{allCategoriesSelected ? 'Clear Selection' : `Select All (${filteredCategories.length})`}</button>
-              {selectedCategories.size > 0 && <>
-                <button onClick={() => bulkCategoryPublish(true)} className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black">Unhide {selectedCategories.size}</button>
-                <button onClick={() => bulkCategoryPublish(false)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black">Hide {selectedCategories.size}</button>
-                <button onClick={bulkDeleteCategories} className="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-[10px] font-black">Delete {selectedCategories.size}</button>
-              </>}
-            </div>
-
             {/* Search */}
             <div className="relative min-w-[220px]">
               <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -729,8 +697,7 @@ export const CategoriesDetailsView: React.FC = () => {
               <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto text-2xl">
                 📂
               </div>
-              <h3 className="text-base font-bold text-slate-800">No matching categories found</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              <h3 className="text-base font-bold text-slate-800">No matching categories found</h3>              <p className="text-xs text-slate-500 max-w-sm mx-auto">
                 No categories matched "{searchQuery}". You can create a new category or clear your search query.
               </p>
               <button
@@ -767,7 +734,6 @@ export const CategoriesDetailsView: React.FC = () => {
                 {categories.map((cat, index) => {
                   const count = getProductCountForCategory(cat.id);
                   const isPublished = cat.isPublished !== false;
-                  const categorySelected = selectedCategories.has(cat.id);
                   const isFirst = index === 0;
                   const isLast = index === categories.length - 1;
 
@@ -778,7 +744,6 @@ export const CategoriesDetailsView: React.FC = () => {
                         !isPublished ? 'opacity-70 bg-slate-50/50' : ''
                       }`}
                     >
-                      <label className="shrink-0"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></label>
                       {/* Left: Position Rank & Move Buttons */}
                       <div className="flex items-center gap-2 shrink-0">
                         {/* Position input / badge */}
@@ -942,7 +907,6 @@ export const CategoriesDetailsView: React.FC = () => {
               {filteredCategories.map((cat, index) => {
                 const count = getProductCountForCategory(cat.id);
                 const isPublished = cat.isPublished !== false;
-                const categorySelected = selectedCategories.has(cat.id);
                 const isFirst = index === 0;
                 const isLast = index === categories.length - 1;
 
@@ -964,7 +928,6 @@ export const CategoriesDetailsView: React.FC = () => {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
                         
-                        <div className="absolute top-3 left-3 z-20"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></div>
                         {/* Top quick badges & reordering controls */}
                         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
                           <span className={`px-2.5 py-1 rounded-lg text-slate-900 text-[11px] font-mono font-bold border backdrop-blur-xs ${
@@ -996,8 +959,10 @@ export const CategoriesDetailsView: React.FC = () => {
                               title="Move Up 1 spot"
                               className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
                             >
-                              <MoveUp className="w-3.5 h-3.5" />                            </button>
-                            <button                              onClick={() => handleMoveCategory(index, 'down')}
+                              <MoveUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleMoveCategory(index, 'down')}
                               disabled={isLast}
                               title="Move Down 1 spot"
                               className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
@@ -1431,8 +1396,7 @@ export const CategoriesDetailsView: React.FC = () => {
                     className="w-full px-3.5 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none text-right font-serif leading-relaxed"
                     dir="rtl"
                   />
-                </div>
-              </div>
+                </div>              </div>
 
               {/* Banner URL & Live Preview */}
               <div>
@@ -1532,3 +1496,466 @@ export const CategoriesDetailsView: React.FC = () => {
               {/* ARABIC SEO KEYWORDS SECTION */}
               <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-200/80 space-y-3">
                 <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block font-bold text-amber-950 flex items-center gap-1.5">
+                      <Key className="w-4 h-4 text-[#c5a059]" />
+                      <span>الكلمات الدلالية لمحركات البحث بالعربية (Arabic SEO Keywords)</span>
+                    </label>
+                    <p className="text-[11px] text-amber-800/80 mt-0.5">
+                      تساعد محركات البحث وميزة البحث المباشر في المتجر على إظهار القسم والمنتجات المرتبطة به.
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-black font-serif">
+                    {catForm.arabicKeywords.length} كلمة
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="اكتب كلمة مفتاحية واضغط Enter (مثال: مونة بلدية لبنانية)"
+                    value={catForm.newArabicKeywordInput}
+                    onChange={(e) => setCatForm({ ...catForm, newArabicKeywordInput: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (catForm.newArabicKeywordInput.trim()) {
+                          setCatForm({
+                            ...catForm,
+                            arabicKeywords: [...catForm.arabicKeywords, catForm.newArabicKeywordInput.trim()],
+                            newArabicKeywordInput: ''
+                          });
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-white rounded-xl border border-amber-200 focus:outline-none text-right font-serif"
+                    dir="rtl"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (catForm.newArabicKeywordInput.trim()) {
+                        setCatForm({
+                          ...catForm,
+                          arabicKeywords: [...catForm.arabicKeywords, catForm.newArabicKeywordInput.trim()],
+                          newArabicKeywordInput: ''
+                        });
+                      }
+                    }}
+                    className="px-4 py-2 bg-[#c5a059] hover:bg-[#b08d46] text-slate-900 font-bold rounded-xl cursor-pointer font-serif"
+                  >
+                    إضافة
+                  </button>
+                </div>
+
+                {/* Quick Suggestion Pills */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+                    اقتراحات سريعة (انقر للإضافة):
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {ARABIC_KEYWORD_SUGGESTIONS.map((sug, sugIdx) => {
+                      const alreadyAdded = catForm.arabicKeywords.includes(sug);
+                      return (
+                        <button
+                          key={sugIdx}
+                          type="button"
+                          disabled={alreadyAdded}
+                          onClick={() => {
+                            if (!alreadyAdded) {
+                              setCatForm({
+                                ...catForm,
+                                arabicKeywords: [...catForm.arabicKeywords, sug]
+                              });
+                            }
+                          }}
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-serif transition-all ${
+                            alreadyAdded 
+                              ? 'bg-amber-200/50 text-amber-600 cursor-not-allowed opacity-60' 
+                              : 'bg-white border border-amber-200 text-amber-900 hover:bg-amber-100 cursor-pointer'
+                          }`}
+                        >
+                          + {sug}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Added Arabic Badges */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {catForm.arabicKeywords.map((kw, kIdx) => (
+                    <span key={kIdx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-amber-300 text-amber-950 rounded-lg text-xs font-serif font-bold shadow-2xs">
+                      <span>#{kw}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCatForm({
+                          ...catForm,
+                          arabicKeywords: catForm.arabicKeywords.filter((_, i) => i !== kIdx)
+                        })}
+                        className="text-indigo-600 hover:text-rose-600 cursor-pointer font-bold ml-1"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Publish Toggle */}
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+                <div>
+                  <span className="block font-bold text-slate-800">Publish in Store Catalog</span>
+                  <span className="text-[11px] text-slate-500">When active, shoppers can browse this category on the web store.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCatForm({ ...catForm, isPublished: !catForm.isPublished })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    catForm.isPublished ? 'bg-[#4f46e5]' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      catForm.isPublished ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Submit / Cancel Actions */}
+              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-all"
+                >
+                  Cancel
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => handleSaveCategory(e, false)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-50 text-slate-900 font-bold text-xs rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all"
+                    title="Save category as private draft"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save (Draft)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleSaveCategory(e, true)}
+                    className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#4f46e5] to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-slate-900 font-bold text-xs cursor-pointer shadow-md active:scale-95 transition-all"
+                    title="Save and publish live to public storefront"
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Public (Publish Live)</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Category Safeguard Modal */}
+      {categoryToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-3xl shadow-2xl space-y-5">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                Delete Category "{categoryToDelete.nameEn}"?
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                This category currently has <strong className="text-slate-800">{getProductCountForCategory(categoryToDelete.id)}</strong> products linked to it.
+              </p>
+            </div>
+
+            {getProductCountForCategory(categoryToDelete.id) > 0 && (
+              <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+                <label className="block text-xs font-bold text-amber-900">
+                  Reassign existing products to another category:
+                </label>
+                <select
+                  value={reassignTargetCatId}
+                  onChange={(e) => setReassignTargetCatId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-amber-300 text-xs font-semibold focus:outline-none"
+                >
+                  {categories.filter(c => c.id !== categoryToDelete.id).map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nameEn} ({c.nameAr})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setCategoryToDelete(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteCategory}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-slate-900 rounded-xl text-xs font-bold shadow-md cursor-pointer"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Region Add / Edit Modal */}
+      {isRegionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white max-w-lg w-full p-6 sm:p-8 rounded-3xl shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                {editingRegion ? `Edit Region: ${editingRegion.nameEn}` : 'Add Regional Delivery Zone'}
+              </h3>
+              <button 
+                onClick={() => setIsRegionModalOpen(false)}
+                className="text-slate-500 hover:text-slate-700 text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRegion} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Region Name (English) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Mount Lebanon"
+                    value={regionForm.nameEn}
+                    onChange={(e) => setRegionForm({ ...regionForm, nameEn: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Region Name (Arabic)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. جبل لبنان"
+                    value={regionForm.nameAr}
+                    onChange={(e) => setRegionForm({ ...regionForm, nameAr: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none text-right font-serif"
+                    dir="rtl"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Base Delivery Rate ($ USD)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    value={regionForm.baseDeliveryUSD}
+                    onChange={(e) => setRegionForm({ ...regionForm, baseDeliveryUSD: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none font-bold"
+                  />
+                </div>
+                <div className="flex flex-col justify-end">
+                  <label className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={regionForm.expressAvailable}
+                      onChange={(e) => setRegionForm({ ...regionForm, expressAvailable: e.target.checked })}
+                      className="rounded text-indigo-600"
+                    />
+                    <span className="font-bold text-slate-700">Express Delivery Available</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Major Cities Tag Manager */}
+              <div className="space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                <label className="block font-bold text-slate-700">Major Cities & Delivery Hubs</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Jounieh, Byblos, Aley..."
+                    value={regionForm.newCityInput}
+                    onChange={(e) => setRegionForm({ ...regionForm, newCityInput: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (regionForm.newCityInput.trim()) {
+                          setRegionForm({
+                            ...regionForm,
+                            majorCities: [...regionForm.majorCities, regionForm.newCityInput.trim()],
+                            newCityInput: ''
+                          });
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-1.5 bg-white rounded-xl border border-slate-200 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (regionForm.newCityInput.trim()) {
+                        setRegionForm({
+                          ...regionForm,
+                          majorCities: [...regionForm.majorCities, regionForm.newCityInput.trim()],
+                          newCityInput: ''
+                        });
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-slate-100 text-slate-900 font-bold rounded-xl"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {regionForm.majorCities.map((city, cIdx) => (
+                    <span key={cIdx} className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs flex items-center gap-1">
+                      <span>{city}</span>
+                      <button
+                        type="button"
+                        onClick={() => setRegionForm({
+                          ...regionForm,
+                          majorCities: regionForm.majorCities.filter((_, i) => i !== cIdx)
+                        })}
+                        className="text-slate-500 hover:text-rose-600 font-bold ml-1"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Estimated Delivery Timeline (English)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Within 2-4 hours across Beirut"
+                  value={regionForm.estimatedTimeEn}
+                  onChange={(e) => setRegionForm({ ...regionForm, estimatedTimeEn: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                {editingRegion ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const toDel = editingRegion;
+                      setIsRegionModalOpen(false);
+                      setRegionToDelete(toDel);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs cursor-pointer border border-rose-200 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete This Zone</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRegionModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-[#c5a059] hover:bg-[#b08d46] text-slate-900 font-bold text-xs shadow-md cursor-pointer transition-all active:scale-95"
+                  >
+                    Save Region
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Region Safeguard Modal */}
+      {regionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white max-w-md w-full p-6 sm:p-7 rounded-3xl shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Delete Delivery Zone?
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">id: {regionToDelete.id}</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-rose-50/70 border border-rose-200/80 rounded-2xl space-y-1.5">
+              <div className="font-bold text-xs text-rose-950 flex items-center justify-between">
+                <span>{regionToDelete.nameEn}</span>
+                <span className="font-serif text-amber-800">{regionToDelete.nameAr}</span>
+              </div>
+              <p className="text-[11px] text-rose-700 leading-relaxed">
+                Base Fee: <strong>${regionToDelete.baseDeliveryUSD.toFixed(2)}</strong> • {regionToDelete.majorCities?.length || 0} delivery hubs
+              </p>
+              <p className="text-[11px] text-slate-600 pt-1">
+                Are you sure you want to permanently delete this delivery zone? Shoppers will no longer be able to select it at checkout.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setRegionToDelete(null)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const targetName = regionToDelete.nameEn;
+                  const targetId = regionToDelete.id;
+                  try {
+                    await deleteRegion(targetId);
+                    setRegionToDelete(null);
+                    showToast(`Delivery zone "${targetName}" deleted successfully!`, 'success');
+                  } catch (err: any) {
+                    showToast(err.message || 'Could not delete delivery zone.', 'warning');
+                  }
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-slate-900 rounded-xl text-xs font-bold shadow-md cursor-pointer active:scale-95 transition-all"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Products Order Modal */}
+      {selectedCategoryForProductOrder && (
+        <CategoryProductsOrderModal
+          category={selectedCategoryForProductOrder}
+          isOpen={!!selectedCategoryForProductOrder}
+          onClose={() => setSelectedCategoryForProductOrder(null)}
+        />
+      )}
+    </div>
+  );
+};
