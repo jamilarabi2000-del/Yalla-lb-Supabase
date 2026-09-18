@@ -115,7 +115,8 @@ export const ProductsCatalogManagement: React.FC = () => {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || 'Lebanon').trim() || 'Lebanon', priceUSD: price,
-      originalPriceUSD: Number(form.originalPriceUSD) > price && Number(form.originalPriceUSD) > 0 ? Number(form.originalPriceUSD) : undefined, discountPercentage: discountFromPrices(price, Number(form.originalPriceUSD || 0)) || undefined,
+      originalPriceUSD: (() => { const enteredOriginal = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); const derivedOriginal = enteredOriginal > price ? enteredOriginal : originalFromPriceDiscount(price, enteredDiscount); return derivedOriginal > price ? derivedOriginal : undefined; })(),
+      discountPercentage: (() => { const enteredOriginal = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return discountFromPrices(price, enteredOriginal) || (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : undefined); })(),
       stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : 5, lowStockNotice: String(form.lowStockNotice || '').trim() || undefined,
       customStockLabel: String(form.customStockLabel || '').trim() || undefined, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : undefined,
       image: String(form.image || '').trim(),
@@ -313,6 +314,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const removeMediaUrl = (key: 'additionalImages' | 'videos', index: number) => setForm((v: any) => ({ ...v, [key]: (v[key] || []).filter((_: string, i: number) => i !== index) }));
   const discountFromPrices = (price: number, original: number) => original > price && original > 0 ? Math.round(((original - price) / original) * 100) : 0;
   const priceFromDiscount = (original: number, discount: number) => original > 0 && discount >= 0 && discount <= 100 ? Math.round((original * (1 - discount / 100)) * 100) / 100 : 0;
+  const originalFromPriceDiscount = (price: number, discount: number) => price > 0 && discount > 0 && discount < 100 ? Math.round((price / (1 - discount / 100)) * 100) / 100 : 0;
   const imageLooksLikeWebPage = (url: string) => /\\.html?(?:[?#]|$)/i.test(url.trim());
   const normalizeSeller = (seller: any) => seller ? { nameEn: seller.nameEn || '', nameAr: seller.nameAr || '', region: seller.region || seller.district || seller.governorate || 'Lebanon' } : null;
 
@@ -321,7 +323,9 @@ export const ProductsCatalogManagement: React.FC = () => {
     const selectedCategory = categories.find((cat: any) => cat.id === form.category);
     const original = Number(form.originalPriceUSD || 0);
     const activePrice = Number(form.priceUSD || 0);
-    const calculatedDiscount = discountFromPrices(activePrice, original);
+    const enteredDiscount = Number(form.discountPercentage || 0);
+    const calculatedOriginal = original > activePrice ? original : originalFromPriceDiscount(activePrice, enteredDiscount);
+    const calculatedDiscount = discountFromPrices(activePrice, calculatedOriginal) || (enteredDiscount > 0 ? Math.round(enteredDiscount) : 0);
     const arabicQuickKeywords = ['مونة بلدية', 'زيت زيتون كورة', 'زعتر بلدي جبلي', 'عسل سدر', 'صناعة لبنانية', 'شحن مغتربين'];
     const addArabicKeyword = (keyword: string) => {
       const current = String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean);
@@ -337,27 +341,41 @@ export const ProductsCatalogManagement: React.FC = () => {
     const setPrice = (value: string) => {
       const n = Number(value);
       const originalValue = Number(form.originalPriceUSD || 0);
-      const discount = discountFromPrices(n, originalValue);
-      setForm((v: any) => ({ ...v, priceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0), discountPercentage: discount || '' }));
+      const enteredDiscount = Number(form.discountPercentage || 0);
+      const discount = discountFromPrices(n, originalValue) || (enteredDiscount > 0 ? Math.round(enteredDiscount) : 0);
+      const derivedOriginal = originalValue > n ? originalValue : originalFromPriceDiscount(n, enteredDiscount);
+      setForm((v: any) => ({
+        ...v,
+        priceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0),
+        originalPriceUSD: derivedOriginal > n ? derivedOriginal : v.originalPriceUSD,
+        discountPercentage: discount || ''
+      }));
     };
     const setOriginalPrice = (value: string) => {
       const n = Number(value);
       const currentPrice = Number(form.priceUSD || 0);
       const discount = discountFromPrices(currentPrice, n);
-      setForm((v: any) => ({ ...v, originalPriceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0), discountPercentage: discount || '' }));
+      setForm((v: any) => ({
+        ...v,
+        originalPriceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0),
+        discountPercentage: discount || ''
+      }));
     };
     const setDiscount = (value: string) => {
       const n = Number(value);
       const originalValue = Number(form.originalPriceUSD || 0);
+      const currentPrice = Number(form.priceUSD || 0);
       if (value === '') {
         setForm((v: any) => ({ ...v, discountPercentage: '', priceUSD: originalValue || v.priceUSD }));
         return;
       }
       const discount = Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0));
       const calculatedPrice = priceFromDiscount(originalValue, discount);
+      const calculatedOriginal = originalValue > 0 ? originalValue : originalFromPriceDiscount(currentPrice, discount);
       setForm((v: any) => ({
         ...v,
         discountPercentage: discount,
+        originalPriceUSD: calculatedOriginal > 0 ? calculatedOriginal : v.originalPriceUSD,
         priceUSD: originalValue > 0 ? calculatedPrice : v.priceUSD
       }));
     };
@@ -401,7 +419,7 @@ export const ProductsCatalogManagement: React.FC = () => {
             <div className="grid sm:grid-cols-3 gap-4">
               <label className="text-xs font-black text-slate-600">Original / Compare-at Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setOriginalPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
               <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" step="1" type="number" value={form.discountPercentage ?? calculatedDiscount ?? ''} onChange={e=>setDiscount(e.target.value)} placeholder="50" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700"/></label>
-              <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from compare-at price' : 'Enter a higher compare-at price'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
+              <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from Original / Compare-at Price or Discount %' : 'Enter a valid compare-at price or discount %'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
             </div>
           </section>
 
