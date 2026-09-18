@@ -2,6 +2,7 @@ export type Currency = 'USD' | 'LBP';
 
 export interface Product {
   id: string;
+  yallaItemCode?: string;
   name: string;
   arabicName?: string;
   artisan: string;
