@@ -156,7 +156,8 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!Number.isFinite(price) || price < 1) errors.priceUSD = 'Price must be at least $1.00.';
     if (!Number.isInteger(stock) || stock < 0) errors.stock = 'Stock quantity must be a whole number (0 or more).';
     if (!String(form.seller || '').trim()) errors.seller = 'Seller Name (English) is required.';
-    if (!String(form.sellerItemCode || '').trim()) errors.sellerItemCode = 'Seller Item Code (SKU) is required.';
+    if (!String(form.sellerItemCode || '').trim()) errors.sellerItemCode = 'Seller Product Code is required.';
+    if (!editing?.id && !String(form.yallaItemCode || '').trim()) errors.yallaItemCode = 'Yalla Item Code could not be generated. Close and reopen the form.';
     if (!String(form.image || '').trim()) errors.image = 'Primary Image URL is required.';
     if (String(form.image || '').trim() && imageLooksLikeWebPage(String(form.image || ''))) errors.image = 'Use a direct image URL, not an .html webpage.';
     if (form.promotionScheduleEnabled) {
@@ -188,7 +189,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     const payload: any = {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
-      arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || 'Lebanon').trim() || 'Lebanon', priceUSD: price,
+      arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || '').trim() || undefined, priceUSD: price,
       originalPriceUSD: (() => { const promo = Number(form.originalPriceUSD || 0); return promo > 0 && promo < price ? promo : undefined; })(),
       discountPercentage: (() => { const promo = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return discountFromPrices(price, promo) || (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : undefined); })(),
       promotionScheduleEnabled: !!form.promotionScheduleEnabled,
@@ -212,7 +213,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       } else {
         const createdProductId = await supabaseProductService.createProduct({
           product: {
-            yalla_item_code: String(form.yallaItemCode || '').trim() || undefined,
+            yalla_item_code: String(form.yallaItemCode || '').trim(),
             name: payload.name, arabic_name: payload.arabicName, artisan: payload.artisan, origin: payload.origin,
             brand: payload.brand, description: payload.description, craft_story: payload.craftStory, image: payload.image,
             price_usd: payload.priceUSD, stock: payload.stock, category_id: payload.category, seller_id: payload.sellerId,
