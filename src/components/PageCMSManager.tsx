@@ -850,7 +850,15 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
 
             {/* 12. Theme & Global Design */}
             {activeTab === 'theme' && (
-              <CMSThemeTab themeData={cmsForm.theme as any} onChange={(updates) => {\n                handleUpdate(prev => ({ ...prev, theme: { ...(prev.theme as any), ...updates } }));\n              }} />
+              <CMSThemeTab
+                themeData={cmsForm.theme as any}
+                onChange={(updates) => {
+                  handleUpdate(prev => ({
+                    ...prev,
+                    theme: { ...(prev.theme as any), ...updates }
+                  }));
+                }}
+              />
             )}
           </div>
 
