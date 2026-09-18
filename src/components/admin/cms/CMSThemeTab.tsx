@@ -3,9 +3,14 @@ import { useShop } from '../../../context/ShopContext';
 import { CMSTextStyleSlot } from '../../../types';
 import { Sparkles, Palette, Type, Layout, ShieldCheck } from 'lucide-react';
 
-export const CMSThemeTab: React.FC = () => {
+interface CMSThemeTabProps {
+  themeData?: any;
+  onChange?: (updates: Record<string, any>) => void;
+}
+
+export const CMSThemeTab: React.FC<CMSThemeTabProps> = ({ themeData, onChange }) => {
   const { siteContent, updateSiteContent, showToast } = useShop();
-  const theme = siteContent?.theme || {
+  const theme = themeData || siteContent?.theme || {
     primaryColor: '#c5a059',
     accentColor: '#059669',
     fontFamily: 'plus_jakarta',
@@ -38,13 +43,11 @@ export const CMSThemeTab: React.FC = () => {
   };
 
   const handleUpdateTheme = (key: string, value: any) => {
-    const updated = {
-      ...siteContent,
-      theme: {
-        ...theme,
-        [key]: value
-      }
-    };
+    if (onChange) {
+      onChange({ [key]: value });
+      return;
+    }
+    const updated = { ...siteContent, theme: { ...theme, [key]: value } };
     updateSiteContent(updated);
   };
 
