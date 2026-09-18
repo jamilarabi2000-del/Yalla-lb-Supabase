@@ -66,15 +66,18 @@ export const ProductsCatalogManagement: React.FC = () => {
   const addImageRef = useRef<HTMLInputElement>(null);
   const addVideoRef = useRef<HTMLInputElement>(null);
 
+  const categoryNameById = useMemo(() => new Map((categories as any[]).map((cat: any) => [cat.id, cat.nameEn || cat.name || ''])), [categories]);
+  const categoryLabel = (p: Product) => categoryNameById.get(p.category) || '—';
+
   const filtered = useMemo(() => products.filter(p => {
     const q = query.trim().toLowerCase();
-    const haystack = [p.name, p.arabicName, p.brand, p.seller, p.artisan, p.origin, p.category, p.sellerItemCode, p.id, p.description, ...(p.keywords || []), ...(p.arabicKeywords || [])].filter(Boolean).join(' ').toLowerCase();
+    const haystack = [p.name, p.arabicName, p.brand, p.seller, p.artisan, p.origin, categoryNameById.get(p.category), p.sellerItemCode, p.id, p.description, ...(p.keywords || []), ...(p.arabicKeywords || [])].filter(Boolean).join(' ').toLowerCase();
     const matchesQuery = !q || haystack.includes(q);
     const matchesSeller = sellerFilter === 'all' || p.sellerId === sellerFilter || p.seller === sellerFilter || p.artisan === sellerFilter;
     const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter;
     const matchesStatus = statusFilter === 'all' || (statusFilter === 'published' ? p.isPublished !== false : p.isPublished === false);
     return matchesQuery && matchesSeller && matchesCategory && matchesStatus;
-  }), [products, query, sellerFilter, categoryFilter, statusFilter]);
+  }), [products, query, sellerFilter, categoryFilter, statusFilter, categoryNameById]);
 
   React.useEffect(() => {
     setSelected(prev => {
@@ -396,12 +399,16 @@ export const ProductsCatalogManagement: React.FC = () => {
     const q = quickValues[p.id] || { price: String(p.priceUSD), stock: String(p.stock) };
     const price = Number(q.price), stock = Number(q.stock);
     if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) return showToast('Enter a valid price and whole-number stock.', 'warning');
-    await updateProduct(p.id, { priceUSD: price, stock });
-    showToast(`${p.name} price/stock updated.`, 'success');
+    try {
+      await updateProduct(p.id, { priceUSD: price, stock });
+      showToast(p.name + ' price/stock updated.', 'success');
+    } catch (e: any) {
+      showToast(e?.message || 'Could not update price/stock.', 'error');
+    }
   };
 
   const downloadCatalog = () => csvDownload(filtered.map(p => ({
-    id: p.id, seller_item_code: p.sellerItemCode || '', name_en: p.name, name_ar: p.arabicName || '', seller: p.seller || p.artisan || '', category: p.category || '', price_usd: p.priceUSD || 0, stock: p.stock || 0, status: p.isPublished === false ? 'Draft' : 'Published', image: p.image || ''
+    id: p.id, seller_item_code: p.sellerItemCode || '', name_en: p.name, name_ar: p.arabicName || '', seller: p.seller || p.artisan || '', category: categoryLabel(p), price_usd: p.priceUSD || 0, stock: p.stock || 0, status: p.isPublished === false ? 'Draft' : 'Published', image: p.image || ''
   })), `yalla_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
 
   const downloadMaster = () => downloadFullMasterReport(products, sellers, orders, 'yalla_full_master_report');
@@ -413,30 +420,44 @@ export const ProductsCatalogManagement: React.FC = () => {
       complete: async (result: any) => {
         const rows = result.data || [];
         let created = 0;
-        for (const row of rows) {
+        const skipped: { row: number; reason: string }[] = [];
+        const failed: { row: number; reason: string }[] = [];
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+          const row = rows[rowIndex];
+          const line = rowIndex + 2;
           const name = String(row.name_en || row.name || row.product_name_en || '').trim();
-          if (!name) continue;
+          if (!name) { skipped.push({ row: line, reason: 'Missing English product name' }); continue; }
           const price = Number(row.price_usd ?? row.priceUSD ?? row.price ?? 0);
           const stock = Number(row.stock ?? row.stock_quantity ?? 0);
-          if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) continue;
+          if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) { skipped.push({ row: line, reason: 'Invalid price or stock' }); continue; }
           const categoryId = String(row.category_id || row.category || '').trim();
           const brand = String(row.brand || '').trim();
-          if (!categoryId || !brand) continue;
+          const sellerItemCode = String(row.seller_item_code || '').trim();
+          if (!categoryId || !brand) { skipped.push({ row: line, reason: 'Category and brand are required' }); continue; }
+          if (sellerItemCode && checkDuplicateProductNumber(sellerItemCode, null, products, row.seller_id || undefined, row.seller || row.artisan).isDuplicate) {
+            skipped.push({ row: line, reason: 'Duplicate seller product code: ' + sellerItemCode }); continue;
+          }
           try {
             await supabaseProductService.createProduct({
               product: {
                 name, arabic_name: row.name_ar || row.product_name_ar || undefined, artisan: row.artisan || row.seller || 'Independent Artisan',
                 origin: row.origin || 'Lebanon', brand, description: row.description || 'Imported product', craft_story: row.craft_story || 'Imported product',
                 image: row.image || row.image_url || '', price_usd: price, stock, category_id: categoryId,
-                seller_id: row.seller_id || undefined, seller_item_code: row.seller_item_code || undefined,
+                seller_id: row.seller_id || undefined, seller_item_code: sellerItemCode || undefined,
                 is_published: String(row.status || '').toLowerCase() === 'published', publish_status: String(row.status || '').toLowerCase() === 'published' ? 'published' : 'draft'
               },
-              privateData: { seller_id: row.seller_id || undefined, seller_item_code: row.seller_item_code || undefined }
+              privateData: { seller_id: row.seller_id || undefined, seller_item_code: sellerItemCode || undefined }
             });
             created++;
-          } catch { /* keep valid rows importing */ }
+          } catch (e: any) {
+            failed.push({ row: line, reason: e?.message || 'Create failed' });
+          }
         }
-        showToast(`Bulk upload complete: ${created} product(s) imported.`, created ? 'success' : 'warning');
+        const totalProblems = skipped.length + failed.length;
+        if (totalProblems) {
+          csvDownload([...skipped.map(x => ({ row: x.row, status: 'skipped', reason: x.reason })), ...failed.map(x => ({ row: x.row, status: 'failed', reason: x.reason }))], 'yalla_import_errors.csv');
+        }
+        showToast('Imported ' + created + ' of ' + rows.length + '. ' + skipped.length + ' skipped, ' + failed.length + ' failed.', totalProblems ? 'warning' : 'success');
       }, error: () => showToast('Could not read the CSV file.', 'error')
     });
   };
@@ -454,7 +475,8 @@ export const ProductsCatalogManagement: React.FC = () => {
   const ProductCard = ({ p, index }: { p: Product; index: number }) => {
     const q = quickValues[p.id] || { price: String(p.priceUSD ?? 0), stock: String(p.stock ?? 0) };
     const published = p.isPublished !== false;
-    const stockState = Number(p.stock) <= 0 ? 'out' : Number(p.stock) <= 5 ? 'low' : 'ok';
+    const threshold = Number(p.lowStockThreshold ?? 5);
+    const stockState = Number(p.stock) <= 0 ? 'out' : Number(p.stock) <= threshold ? 'low' : 'ok';
     return <article className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm hover:shadow-md transition-shadow">
       <div className={`rounded-xl border ${index === 0 && viewMode === 'sequence' ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200'} p-2 mb-2`}>
         <div className="flex items-center gap-2 text-[11px] font-bold">
@@ -492,7 +514,7 @@ export const ProductsCatalogManagement: React.FC = () => {
           <button onClick={() => saveQuick(p)} className="flex-1 px-2 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black">Save Price/Stock</button>
           <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600" title="Edit"><Pencil className="w-3.5 h-3.5"/></button>
           <button onClick={() => updateProduct(p.id, { isPublished: !published })} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600" title={published ? 'Hide' : 'Publish'}>{published ? <EyeOff className="w-3.5 h-3.5"/> : <Eye className="w-3.5 h-3.5"/>}</button>
-          <button onClick={() => deleteProduct(p.id)} className="p-1.5 rounded-lg bg-rose-50 text-rose-600" title="Delete"><Trash2 className="w-3.5 h-3.5"/></button>
+          <button onClick={() => { if (window.confirm('Delete this product? This cannot be undone.')) void deleteProduct(p.id); }} className="p-1.5 rounded-lg bg-rose-50 text-rose-600" title="Delete"><Trash2 className="w-3.5 h-3.5"/></button>
         </div>
       </div>
     </article>;
@@ -721,7 +743,7 @@ export const ProductsCatalogManagement: React.FC = () => {
         formatPrice={(price) => `${Number(price || 0).toFixed(2)}`}
       />
     ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{sequence.map((p,i)=><ProductCard key={p.id} p={p} index={i}/>)}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{sequence.map((p,i)=><React.Fragment key={p.id}>{ProductCard({ p, index: i })}</React.Fragment>)}</div>
     )}
     {!sequence.length && <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center"><AlertTriangle className="w-7 h-7 mx-auto text-slate-600"/><p className="mt-2 text-sm font-bold text-slate-500">No products match the current filters.</p></div>}
     {validationModalOpen && <div className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
