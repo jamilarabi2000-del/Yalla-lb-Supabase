@@ -508,12 +508,12 @@ export const ProductsCatalogManagement: React.FC = () => {
         </div>
         <div className="flex items-center justify-between mt-2 text-[10px]">
           <span className={`font-bold ${stockState === 'out' ? 'text-rose-600' : stockState === 'low' ? 'text-amber-600' : 'text-emerald-600'}`}>{stockState === 'out' ? 'Out of stock' : stockState === 'low' ? 'Low stock' : `${p.stock} in stock`}</span>
-          <span className="text-slate-500 truncate max-w-[120px]">{p.category}</span>
+          <span className="text-slate-500 truncate max-w-[120px]">{categoryLabel(p)}</span>
         </div>
         <div className="flex gap-1.5 mt-3 pt-2 border-t border-slate-100">
           <button onClick={() => saveQuick(p)} className="flex-1 px-2 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black">Save Price/Stock</button>
           <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600" title="Edit"><Pencil className="w-3.5 h-3.5"/></button>
-          <button onClick={() => updateProduct(p.id, { isPublished: !published })} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600" title={published ? 'Hide' : 'Publish'}>{published ? <EyeOff className="w-3.5 h-3.5"/> : <Eye className="w-3.5 h-3.5"/>}</button>
+          <button onClick={async () => { try { await updateProduct(p.id, { isPublished: !published }); } catch (e: any) { showToast(e?.message || 'Could not change publication status.', 'error'); } }} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600" title={published ? 'Hide' : 'Publish'}>{published ? <EyeOff className="w-3.5 h-3.5"/> : <Eye className="w-3.5 h-3.5"/>}</button>
           <button onClick={() => { if (window.confirm('Delete this product? This cannot be undone.')) void deleteProduct(p.id); }} className="p-1.5 rounded-lg bg-rose-50 text-rose-600" title="Delete"><Trash2 className="w-3.5 h-3.5"/></button>
         </div>
       </div>
