@@ -90,3 +90,62 @@ To support administrator SMS MFA in production, ensure the Firebase project is c
 - [x] **Authorized Domains**: Add production domain (e.g., `https://yalla.lb`) and Cloud Run container domains to Authorized Domains.
 - [x] **Admin Verification**: Ensure administrator user accounts have their email address verified.
 - [x] **Phone Factor Enrollment**: Enroll the administrator's authorized mobile phone number as an active MFA factor.
+
+---
+
+## 6. Supabase Database Linter — Reviewed Advisories
+
+Supabase's database linter reports advisories against the live schema. The entries below
+were reviewed against the deployed function bodies and grants on 2026-09-18 and are
+**accepted as false positives**. They are recorded here so a future reviewer does not
+"fix" them by revoking a grant the admin UI depends on.
+
+### 0029 — `authenticated` can execute `public.next_yalla_item_code()`
+
+- **Reported**: WARN — a `SECURITY DEFINER` function is callable by signed-in users via
+  `/rest/v1/rpc/next_yalla_item_code`.
+- **Reviewed**: the function authorizes internally before it does any work, and the
+  admin check precedes `nextval`, so a non-admin caller is rejected with `42501` without
+  advancing the sequence. `search_path` is pinned to `''`. `anon` holds no EXECUTE.
+- **Why the grant exists**: the admin Products & Catalog screen calls this RPC directly
+  from the browser (`src/components/admin/ProductsCatalogManagement.tsx`, ADD PRODUCT) to
+  reserve the immutable Yalla item code before the create form opens. Revoking EXECUTE
+  from `authenticated` breaks ADD PRODUCT outright.
+- **Decision**: keep the grant. Authorization is enforced inside the function, which is
+  the correct pattern for a Supabase single-`authenticated`-role deployment where admin
+  status is a column in `public.profiles` rather than a Postgres role.
+
+### 0029 — `authenticated` can execute `public.create_product_atomic(jsonb,jsonb,jsonb)`
+
+- **Reported**: WARN, same lint.
+- **Reviewed**: admin-gated twice — the `public` wrapper checks `public.profiles.role`,
+  and the `private.create_product_atomic` it delegates to independently checks
+  `private.is_admin()`. Both pin `search_path` to `''`. `anon` holds no EXECUTE.
+- **Decision**: keep the grant; it is the product-create path for the admin UI.
+
+### 0008 — `private.admin_step_up` has RLS enabled with no policies
+
+- **Reported**: INFO.
+- **Reviewed**: intentional. RLS with no policies denies by default, which is the desired
+  posture for a table in the `private` schema that is not exposed through PostgREST.
+- **Decision**: no change.
+
+### Open item — `USAGE` on the `private` schema
+
+Not raised by the linter, but noted during the same review: `anon` and `authenticated`
+both hold `USAGE` on the `private` schema, and `private.create_product_atomic` carries an
+EXECUTE grant to `authenticated`. This is **not currently exploitable** — PostgREST only
+exposes `public`, so `private` routines are unreachable over the REST API, and the
+routines gate on `private.is_admin()` regardless. It does, however, weaken the intent of
+the migrations that moved helpers into `private`
+(`move_permission_helper_to_private_schema`, `move_inventory_change_rpc_to_private_schema`,
+`remove_public_security_definer_helpers`). Revoking `USAGE ON SCHEMA private` from `anon`
+and `authenticated` should be verified against every `SECURITY DEFINER` caller before it
+is applied, since definer functions resolve `private.*` as their owner rather than as the
+calling role.
+
+### Remaining linter warning not accepted
+
+- **Leaked password protection is disabled** in Supabase Auth. This is a real gap and a
+  dashboard toggle, not a code change: Authentication → Policies → enable the
+  HaveIBeenPwned check. Tracked in `PROJECT_STATUS.md`.

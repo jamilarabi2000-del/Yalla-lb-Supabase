@@ -37,6 +37,10 @@ These cannot honestly be marked complete from source inspection alone:
 
 - [ ] Full frontend XSS/open-redirect/input-sanitization review.
 - [ ] Full RPC and `SECURITY DEFINER` review against the live schema.
+  - Partial (2026-09-18): `public.next_yalla_item_code` and
+    `public.create_product_atomic` reviewed against the live schema and recorded in
+    `SECURITY.md` §6 as accepted linter false positives. The remaining definer
+    functions are still unreviewed, so this item stays open.
 - [ ] Full public-data exposure review for every exposed table/view.
 - [ ] Product/review mutation and ownership tests expanded where coverage is missing.
 - [ ] Responsive UI pass across mobile/tablet/desktop breakpoints.
