@@ -26,200 +26,61 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 @media (max-width: 767px) {
-  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
-    font-size: max(16px, 1em);
-  }
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: max(16px, 1em); }
 }
 
-.skip-link {
-  position: absolute;
-  top: -40px;
-  left: 0;
-  background: var(--gold-dark);
-  color: white;
-  padding: 8px 16px;
-  z-index: 100;
-  transition: top 0.2s;
-  border-radius: 0 0 8px 8px;
-  font-weight: 600;
-}
-
+.skip-link { position: absolute; top: -40px; left: 0; background: var(--gold-dark); color: white; padding: 8px 16px; z-index: 100; transition: top 0.2s; border-radius: 0 0 8px 8px; font-weight: 600; }
 .skip-link:focus { top: 0; }
 
 @layer base {
-  html {
-    background-color: var(--bg-primary);
-    color: var(--text-main);
-  }
-
-  body {
-    background-color: var(--bg-primary);
-    color: var(--text-main);
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
-  }
-
-  input,
-  select,
-  textarea {
-    color: var(--text-main);
-    background-color: var(--bg-surface);
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--text-soft);
-    opacity: 1;
-  }
-
-  option {
-    color: var(--text-main);
-    background: var(--bg-surface);
-  }
+  html { background-color: var(--bg-primary); color: var(--text-main); }
+  body { background-color: var(--bg-primary); color: var(--text-main); font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow-x: hidden; }
+  input, select, textarea { color: var(--text-main); background-color: var(--bg-surface); }
+  input::placeholder, textarea::placeholder { color: var(--text-soft); opacity: 1; }
+  option { color: var(--text-main); background: var(--bg-surface); }
 }
 
 @layer components {
   :where(.bg-white, [class*="bg-[#F7F7F8]"], [class*="bg-[#FFFFFF]"], [class*="bg-white/"]) .text-white,
-  :where(.bg-white, [class*="bg-[#F7F7F8]"], [class*="bg-[#FFFFFF]"], [class*="bg-white/"]) [class*="text-white"] {
-    color: var(--text-main) !important;
-  }
-
-  :where(input, select, textarea).text-white,
-  :where(input, select, textarea)[class*="text-white"] {
-    color: var(--text-main) !important;
-  }
-
-  .gold-btn,
-  .gold-btn.text-white,
-  .gold-gradient-bg,
-  .gold-gradient-bg.text-white {
-    color: #FFFFFF !important;
-  }
-
-  /* Legacy admin/CMS surfaces are now normalized to the Yalla light theme. */
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) {
-    background-color: #FFFFFF !important;
-    color: #111111 !important;
-    border-color: #E5E5E5 !important;
-  }
-
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-white,
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) [class*="text-white"] {
-    color: #111111 !important;
-  }
-
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-100,
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-200,
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-300,
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-400 {
-    color: #666666 !important;
-  }
-
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .border-white\/5,
-  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .border-white\/10 {
-    border-color: #E5E5E5 !important;
-  }
+  :where(.bg-white, [class*="bg-[#F7F7F8]"], [class*="bg-[#FFFFFF]"], [class*="bg-white/"]) [class*="text-white"] { color: var(--text-main) !important; }
+  :where(input, select, textarea).text-white, :where(input, select, textarea)[class*="text-white"] { color: var(--text-main) !important; }
+  .gold-btn, .gold-btn.text-white, .gold-gradient-bg, .gold-gradient-bg.text-white { color: #FFFFFF !important; }
+  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) { background-color: #FFFFFF !important; color: #111111 !important; border-color: #E5E5E5 !important; }
+  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-white, :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) [class*="text-white"] { color: #111111 !important; }
+  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-100, :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-200, :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-300, :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .text-slate-400 { color: #666666 !important; }
+  :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .border-white\/5, :where([class*="bg-[#1a1a2e]"], .bg-slate-950, .bg-slate-900, .bg-slate-800) .border-white\/10 { border-color: #E5E5E5 !important; }
 }
 
-.premium-card {
-  background: #FFFFFF;
-  border: 1px solid #E5E5E5;
-  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.premium-card:hover {
-  border-color: rgba(184, 151, 83, 0.5);
-  box-shadow: 0 12px 24px -6px rgba(184, 151, 83, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.04);
-  transform: translateY(-2px);
-}
-
-.gold-gradient {
-  background: linear-gradient(135deg, #8F7137 0%, #B89753 50%, #755B29 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.gold-gradient-bg {
-  background: linear-gradient(135deg, #B89753 0%, #D4B572 50%, #8F7137 100%);
-}
-
-.gold-btn {
-  background: linear-gradient(135deg, #B89753 0%, #C8A865 100%);
-  color: #FFFFFF;
-  font-weight: 700;
-  transition: all 0.25s ease;
-}
-
-.gold-btn:hover {
-  background: linear-gradient(135deg, #C8A865 0%, #8F7137 100%);
-  box-shadow: 0 6px 20px -4px rgba(184, 151, 83, 0.35);
-  transform: translateY(-1px);
-}
-
+.premium-card { background: #FFFFFF; border: 1px solid #E5E5E5; box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+.premium-card:hover { border-color: rgba(184, 151, 83, 0.5); box-shadow: 0 12px 24px -6px rgba(184, 151, 83, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.04); transform: translateY(-2px); }
+.gold-gradient { background: linear-gradient(135deg, #8F7137 0%, #B89753 50%, #755B29 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.gold-gradient-bg { background: linear-gradient(135deg, #B89753 0%, #D4B572 50%, #8F7137 100%); }
+.gold-btn { background: linear-gradient(135deg, #B89753 0%, #C8A865 100%); color: #FFFFFF; font-weight: 700; transition: all 0.25s ease; }
+.gold-btn:hover { background: linear-gradient(135deg, #C8A865 0%, #8F7137 100%); box-shadow: 0 6px 20px -4px rgba(184, 151, 83, 0.35); transform: translateY(-1px); }
 .gold-btn:active { transform: translateY(0); }
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #16803C;
-  display: inline-block;
-  box-shadow: 0 0 8px rgba(22, 128, 60, 0.4);
-}
-
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #16803C; display: inline-block; box-shadow: 0 0 8px rgba(22, 128, 60, 0.4); }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #F1F1EF; }
 ::-webkit-scrollbar-thumb { background: #D4D4D0; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #B89753; }
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
-}
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
 .animate-fadeIn { animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-@keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
+@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .animate-slideInRight { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-@keyframes slideInLeft {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-.animate-slideInLeft { animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+.animate-slideInLeft { animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 1, 1) forwards; }
 [dir="rtl"] .animate-slideInRight { animation-name: slideInLeft; }
-
-.font-arabic, [dir="rtl"] {
-  font-family: 'Cairo', 'Tajawal', 'Plus Jakarta Sans', -apple-system, sans-serif;
-  line-height: 1.7;
-}
-
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(184, 151, 83, 0.5) transparent;
-}
+.font-arabic, [dir="rtl"] { font-family: 'Cairo', 'Tajawal', 'Plus Jakarta Sans', -apple-system, sans-serif; line-height: 1.7; }
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(184, 151, 83, 0.5) transparent; }
 .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(184, 151, 83, 0.45); border-radius: 3px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(184, 151, 83, 0.75); }
-
-@keyframes bounceShort {
-  0% { transform: translateY(12px); opacity: 0; }
-  55% { transform: translateY(-4px); opacity: 1; }
-  75% { transform: translateY(2px); }
-  100% { transform: translateY(0); opacity: 1; }
-}
+@keyframes bounceShort { 0% { transform: translateY(12px); opacity: 0; } 55% { transform: translateY(-4px); opacity: 1; } 75% { transform: translateY(2px); } 100% { transform: translateY(0); opacity: 1; } }
 .animate-bounce-short { animation: bounceShort 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* Keep bundle creation in the standalone Bundles & Combo Deals section. */
+button:has(svg.lucide-package-check) { display: none !important; }
