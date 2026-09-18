@@ -1786,31 +1786,30 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const reorderProducts = async (orderedProducts: Product[]) => {
     const orderMap = new Map<string, number>();
-    orderedProducts.forEach((p, idx) => {
-      orderMap.set(p.id, idx + 1);
-    });
+    orderedProducts.forEach((p, idx) => orderMap.set(p.id, idx + 1));
 
-    const updatedProducts = [...products].map(p => {
-      if (orderMap.has(p.id)) {
-        return { ...p, displayOrder: orderMap.get(p.id)! };
-      }
-      return p;
-    }).sort((a, b) => {
-      const orderA = a.displayOrder ?? 9999;
-      const orderB = b.displayOrder ?? 9999;
-      return orderA - orderB;
-    });
+    const previousProducts = products;
+    const updatedProducts = [...products].map(p => orderMap.has(p.id) ? { ...p, displayOrder: orderMap.get(p.id)! } : p)
+      .sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999));
 
     setProducts(updatedProducts);
 
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(updatedProducts));
-      }
-    } catch {}
+      const rows = orderedProducts.map((p, idx) => ({ id: p.id, display_order: idx + 1 }));
+      const { error } = await supabase.rpc('admin_reorder_products', { p_rows: rows });
+      if (error) throw error;
 
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(updatedProducts));
+        }
+      } catch {}
 
-    await logAdminActivity('product_update', 'Products reordered', `Admin reordered ${orderedProducts.length} products.`);
+      await logAdminActivity('product_update', 'Products reordered', `Admin reordered ${orderedProducts.length} products.`);
+    } catch (err) {
+      setProducts(previousProducts);
+      throw err;
+    }
   };
 
   const updateRegion = async (id: string, updates: Partial<TerroirRegion>) => {
