@@ -270,7 +270,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       // Persist product-level scheduled promotion atomically. The database function
       // is admin-only and scopes replacement to rules owned by this product form.
       const scheduledDiscount = Number(payload.discountPercentage || 0);
-      const promotionRule = payload.promotionScheduleEnabled && scheduledDiscount > 0 && payload.promotionStartAt && payload.promotionEndAt
+      const promotionRule = form.promotionScheduleEnabled && scheduledDiscount > 0 && form.promotionStartAt && form.promotionEndAt
         ? {
             name: 'Product Promotion — ' + payload.name,
             description: 'Scheduled product promotion for ' + payload.name,
@@ -280,8 +280,8 @@ export const ProductsCatalogManagement: React.FC = () => {
               target: 'product',
               targetValue: savedProductId,
               isActive: true,
-              startDate: payload.promotionStartAt,
-              endDate: payload.promotionEndAt,
+              startDate: String(form.promotionStartAt),
+              endDate: String(form.promotionEndAt),
               source: 'product_form'
             }
           }
