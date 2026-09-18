@@ -81,7 +81,28 @@ export const ProductsCatalogManagement: React.FC = () => {
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(filtered.map(p => p.id)));
   const toggle = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const openEdit = (p: Product) => { setEditing(p); setModalOpen(true); };
+  const openEdit = async (p: Product) => {
+    setEditing(p);
+    setModalOpen(true);
+    try {
+      const { data } = await supabase
+        .from('discount_rules')
+        .select('rule')
+        .contains('rule', { target: 'product', targetValue: p.id })
+        .limit(1);
+      const rule = data?.[0]?.rule;
+      if (rule?.startDate || rule?.endDate) {
+        setForm((v: any) => ({
+          ...v,
+          promotionScheduleEnabled: true,
+          promotionStartAt: rule.startDate ? String(rule.startDate).slice(0,16) : '',
+          promotionEndAt: rule.endDate ? String(rule.endDate).slice(0,16) : ''
+        }));
+      }
+    } catch (err) {
+      console.error('[ProductsCatalogManagement] Failed to load product promotion schedule:', err);
+    }
+  };
   React.useEffect(() => {
     if (!editing) return;
     setForm({ ...emptyProduct(), ...editing,
@@ -141,6 +162,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     };
     setSaving(true);
     try {
+      let savedProductId = editing?.id || '';
       if (editing?.id) {
         await updateProduct(editing.id, payload);
       } else {
@@ -170,11 +192,12 @@ export const ProductsCatalogManagement: React.FC = () => {
           ]
         });
         // Notify ShopContext immediately; Supabase Realtime also refreshes the catalogue.
+        savedProductId = createdProductId;
         window.dispatchEvent(new CustomEvent('yalla-products-changed', { detail: { id: createdProductId } }));
       }
       // Persist product-level scheduled promotion in the existing Supabase discount engine.
       // The checkout RPC already honors startDate/endDate in the rule JSON.
-      const savedProductId = editing?.id || createdProductId;
+      savedProductId = savedProductId || createdProductId;
       const { data: existingPromotionRules, error: existingPromotionError } = await supabase
         .from('discount_rules')
         .select('id,rule')
