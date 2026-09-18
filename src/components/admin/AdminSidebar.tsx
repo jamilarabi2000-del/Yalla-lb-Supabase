@@ -260,11 +260,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           {/* Navigation Sections with smooth independent scroll */}
           <div 
             ref={navScrollRef}
-            className="flex-1 min-h-0 overflow-y-auto space-y-4.5 pr-1.5 -mr-1.5 overscroll-contain focus:outline-none scroll-smooth pb-4"
+            id="admin-sidebar-nav"
+            className="flex-1 min-h-0 overflow-y-auto space-y-4.5 pr-2 -mr-2 overscroll-contain focus:outline-none scroll-smooth pb-4"
             style={{
-              scrollbarWidth: 'thin',
-              scrollbarColor: '#cbd5e1 transparent'
+              scrollbarWidth: 'auto',
+              scrollbarColor: '#94a3b8 transparent'
             }}
+          >
+            <style>{`
+              #admin-sidebar-nav::-webkit-scrollbar { width: 12px; }
+              #admin-sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+              #admin-sidebar-nav::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 9999px; border: 3px solid transparent; background-clip: content-box; }
+              #admin-sidebar-nav::-webkit-scrollbar-thumb:hover { background: #64748b; background-clip: content-box; }
+            `}</style>
           >
             
             {/* Section 1: Store Operations */}
