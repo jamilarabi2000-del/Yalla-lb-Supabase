@@ -270,31 +270,13 @@ export const ProductsCatalogManagement: React.FC = () => {
         savedProductId = createdProductId;
         window.dispatchEvent(new CustomEvent('yalla-products-changed', { detail: { id: createdProductId } }));
       }
-      // Persist product-level scheduled promotion in the existing Supabase discount engine.
-      // The checkout RPC already honors startDate/endDate in the rule JSON.
-      if (!savedProductId) throw new Error('Product ID was not returned after save.');
-      const { data: existingPromotionRules, error: existingPromotionError } = await supabase
-        .from('discount_rules')
-        .select('id,rule')
-        .contains('rule', { target: 'product', targetValue: savedProductId });
-      if (existingPromotionError) throw existingPromotionError;
-
-      if (existingPromotionRules?.length) {
-        const { error: deletePromotionError } = await supabase
-          .from('discount_rules')
-          .delete()
-          .in('id', existingPromotionRules.map((r: any) => r.id));
-        if (deletePromotionError) throw deletePromotionError;
-      }
-
+      // Persist product-level scheduled promotion atomically. The database function
+      // is admin-only and scopes replacement to rules owned by this product form.
       const scheduledDiscount = Number(payload.discountPercentage || 0);
-      if (payload.promotionScheduleEnabled && scheduledDiscount > 0 && payload.promotionStartAt && payload.promotionEndAt) {
-        const { error: promotionError } = await supabase
-          .from('discount_rules')
-          .insert({
-            name: `Product Promotion — ${payload.name}`,
-            description: `Scheduled product promotion for ${payload.name}`,
-            is_active: true,
+      const promotionRule = payload.promotionScheduleEnabled && scheduledDiscount > 0 && payload.promotionStartAt && payload.promotionEndAt
+        ? {
+            name: 'Product Promotion — ' + payload.name,
+            description: 'Scheduled product promotion for ' + payload.name,
             rule: {
               type: 'percentage',
               value: scheduledDiscount,
@@ -302,11 +284,16 @@ export const ProductsCatalogManagement: React.FC = () => {
               targetValue: savedProductId,
               isActive: true,
               startDate: payload.promotionStartAt,
-              endDate: payload.promotionEndAt
+              endDate: payload.promotionEndAt,
+              source: 'product_form'
             }
-          });
-        if (promotionError) throw promotionError;
-      }
+          }
+        : null;
+      const { error: promotionSaveError } = await supabase.rpc('admin_set_product_promotion', {
+        p_product_id: savedProductId,
+        p_rule: promotionRule
+      });
+      if (promotionSaveError) throw promotionSaveError;
 
       setValidationErrors({});
       showToast(editing?.id ? 'Product updated successfully.' : published ? 'Product published successfully.' : 'Product saved as draft successfully.', 'success');
