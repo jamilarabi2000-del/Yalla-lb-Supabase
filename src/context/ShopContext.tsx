@@ -1513,6 +1513,59 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAdminUser, isSellerUser, sellerId]);
 
+  // Real-time product sync. Product creation/update/delete must be reflected in
+  // the admin catalog and storefront without requiring a page reload.
+  useEffect(() => {
+    let isMounted = true;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const refreshProducts = async () => {
+      try {
+        const fresh = await supabaseCatalogService.fetchProducts({
+          isAdmin: isAdminUser,
+          isSeller: isSellerUser,
+          sellerId,
+        });
+        if (!isMounted) return;
+        const normalized = fresh.map(ensureSellerItemCode);
+        setProducts(normalized);
+        setCatalogStatus('ready');
+        setCatalogError(null);
+        try {
+          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(normalized));
+        } catch {}
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('[ShopContext] Product refresh failed:', err);
+        setCatalogStatus('error');
+        setCatalogError(err instanceof Error ? err.message : String(err));
+      }
+    };
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(refreshProducts, 250);
+    };
+
+    const channel = supabase
+      .channel('yalla-products')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
+      .subscribe((status: string) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`[ShopContext] Supabase realtime channel for products: ${status}`);
+        }
+      });
+
+    window.addEventListener('yalla-products-changed', scheduleRefresh);
+
+    return () => {
+      isMounted = false;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      window.removeEventListener('yalla-products-changed', scheduleRefresh);
+      supabase.removeChannel(channel);
+    };
+  }, [isAdminUser, isSellerUser, sellerId]);
+
   /**
    * Live category sync from Supabase Realtime.
    *
