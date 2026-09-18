@@ -403,10 +403,6 @@ export const ProductsCatalogManagement: React.FC = () => {
     regularPrice > 0 && discount >= 0 && discount <= 100
       ? Math.round((regularPrice * (1 - discount / 100)) * 100) / 100
       : 0;
-  const regularPriceFromPromoDiscount = (promoPrice: number, discount: number) =>
-    promoPrice > 0 && discount >= 0 && discount < 100
-      ? Math.round((promoPrice / (1 - discount / 100)) * 100) / 100
-      : 0;
   const imageLooksLikeWebPage = (url: string) => /\\.html?(?:[?#]|$)/i.test(url.trim());
   const normalizeSeller = (seller: any) => seller ? { nameEn: seller.nameEn || '', nameAr: seller.nameAr || '', region: seller.region || seller.district || seller.governorate || 'Lebanon' } : null;
 
@@ -442,52 +438,34 @@ export const ProductsCatalogManagement: React.FC = () => {
     const setPromoPrice = (value: string) => {
       const promo = Number(value);
       const regular = Number(form.priceUSD || 0);
-      const currentDiscount = Number(form.discountPercentage || 0);
       if (value === '') {
         setForm((v: any) => ({ ...v, originalPriceUSD: '', discountPercentage: '' }));
         return;
       }
       const validPromo = Number.isFinite(promo) ? promo : 0;
-      if (currentDiscount > 0 && currentDiscount < 100) {
-        const derivedRegular = regularPriceFromPromoDiscount(validPromo, currentDiscount);
-        setForm((v: any) => ({
-          ...v,
-          originalPriceUSD: validPromo,
-          priceUSD: derivedRegular || regular,
-          discountPercentage: currentDiscount
-        }));
-      } else {
-        const discount = discountFromPrices(regular, validPromo);
-        setForm((v: any) => ({
-          ...v,
-          originalPriceUSD: validPromo,
-          discountPercentage: discount || ''
-        }));
-      }
+      // Regular Price is always the source price. Entering Promo Price calculates the discount;
+      // it must never change the Regular Price.
+      const discount = discountFromPrices(regular, validPromo);
+      setForm((v: any) => ({
+        ...v,
+        originalPriceUSD: validPromo,
+        discountPercentage: discount || ''
+      }));
     };
     const setDiscount = (value: string) => {
       if (value === '') {
-        setForm((v: any) => ({ ...v, discountPercentage: '' }));
+        setForm((v: any) => ({ ...v, discountPercentage: '', originalPriceUSD: '' }));
         return;
       }
       const discount = Math.min(99, Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0));
-      const promo = Number(form.originalPriceUSD || 0);
       const regular = Number(form.priceUSD || 0);
-      if (promo > 0) {
-        const derivedRegular = regularPriceFromPromoDiscount(promo, discount);
-        setForm((v: any) => ({
-          ...v,
-          discountPercentage: discount,
-          priceUSD: derivedRegular || regular
-        }));
-      } else {
-        const derivedPromo = promoPriceFromDiscount(regular, discount);
-        setForm((v: any) => ({
-          ...v,
-          discountPercentage: discount,
-          originalPriceUSD: derivedPromo || v.originalPriceUSD
-        }));
-      }
+      // Discount is calculated FROM the Regular Price. Entering 50% on $10 means Promo Price = $5.
+      const derivedPromo = promoPriceFromDiscount(regular, discount);
+      setForm((v: any) => ({
+        ...v,
+        discountPercentage: discount,
+        originalPriceUSD: derivedPromo || ''
+      }));
     };
     const close = () => { setModalOpen(false); setEditing(null); setValidationModalOpen(false); };
     return <div className="fixed inset-0 z-[70] bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
@@ -525,7 +503,7 @@ export const ProductsCatalogManagement: React.FC = () => {
             </div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the discounted selling price. Changing Promo Price or Discount % recalculates the regular price.</p></div></div>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the discounted selling price. Changing Promo Price or Discount % recalculates the promo price/discount; the Regular Price never changes automatically.</p></div></div>
             <div className="grid sm:grid-cols-3 gap-4">
               <label className="text-xs font-black text-slate-600">Promo Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setPromoPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
               <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" step="1" type="number" value={form.discountPercentage ?? calculatedDiscount ?? ''} onChange={e=>setDiscount(e.target.value)} placeholder="50" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700"/></label>
