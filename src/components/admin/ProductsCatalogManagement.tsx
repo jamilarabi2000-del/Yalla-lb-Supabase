@@ -116,7 +116,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || 'Lebanon').trim() || 'Lebanon', priceUSD: price,
-      originalPriceUSD: Number(form.originalPriceUSD) > 0 ? Number(form.originalPriceUSD) : undefined, discountPercentage: String(form.discountPercentage) === '' ? undefined : Number(form.discountPercentage),
+      originalPriceUSD: Number(form.originalPriceUSD) > price && Number(form.originalPriceUSD) > 0 ? Number(form.originalPriceUSD) : undefined, discountPercentage: discountFromPrices(price, Number(form.originalPriceUSD || 0)) || undefined,
       stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : 5, lowStockNotice: String(form.lowStockNotice || '').trim() || undefined,
       customStockLabel: String(form.customStockLabel || '').trim() || undefined, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : undefined,
       image: String(form.image || '').trim() || 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=900&q=80',
@@ -132,7 +132,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       if (editing?.id) {
         await updateProduct(editing.id, payload);
       } else {
-        await supabaseProductService.createProduct({
+        const createdProductId = await supabaseProductService.createProduct({
           product: {
             name: payload.name, arabic_name: payload.arabicName, artisan: payload.artisan, origin: payload.origin,
             brand: payload.brand, description: payload.description, craft_story: payload.craftStory, image: payload.image,
@@ -157,6 +157,8 @@ export const ProductsCatalogManagement: React.FC = () => {
             ...(payload.videos || []).map((url: string, index: number) => ({ url, media_type: 'video', display_order: (payload.additionalImages || []).length + index + 1 }))
           ]
         });
+        // Notify ShopContext immediately; Supabase Realtime also refreshes the catalogue.
+        window.dispatchEvent(new CustomEvent('yalla-products-changed', { detail: { id: createdProductId } }));
       }
       setValidationErrors({});
       showToast(editing?.id ? 'Product updated successfully.' : published ? 'Product published successfully.' : 'Product saved as draft successfully.', 'success');
@@ -381,7 +383,7 @@ export const ProductsCatalogManagement: React.FC = () => {
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Compare-at pricing calculates the discount badge automatically.</p></div></div>
             <div className="grid sm:grid-cols-3 gap-4">
               <label className="text-xs font-black text-slate-600">Original / Compare-at Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setOriginalPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
-              <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" type="number" value={form.discountPercentage ?? ''} onChange={e=>setField('discountPercentage',e.target.value === '' ? '' : Number(e.target.value))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" type="number" readOnly value={calculatedDiscount || ''} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"/></label>
               <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from compare-at price' : 'Enter a higher compare-at price'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
             </div>
           </section>
