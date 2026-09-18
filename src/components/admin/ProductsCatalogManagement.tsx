@@ -4,7 +4,6 @@ import Papa from 'papaparse';
 import { useShop } from '../../context/ShopContext';
 import { downloadFullMasterReport } from '../../utils/exportMasterReport';
 import { checkDuplicateProductNumber } from '../../lib/productValidation';
-import { secureRandomInt } from '../../utils/uuid';
 import { supabaseProductService } from '../../services/supabaseProductService';
 import { supabase } from '../../lib/supabase';
 import type { Product } from '../../types';
@@ -12,10 +11,11 @@ import type { Product } from '../../types';
 type ViewMode = 'grid' | 'sequence';
 
 const emptyProduct = () => ({
-  name: '', arabicName: '', category: '', brand: '', artisan: '', seller: '', arabicSeller: '', sellerId: '', origin: 'Lebanon',
-  priceUSD: 15, originalPriceUSD: '', discountPercentage: '', stock: 25, lowStockThreshold: 5, lowStockNotice: '', customStockLabel: '', costPriceUSD: '',
-  image: '', additionalImages: [] as string[], videoUrl: '', videos: [] as string[], weightOrVolume: '', tagsInput: 'Artisanal, Lebanese Terroir, Handmade', keywordsInput: 'lebanese, artisanal, authentic, gourmet', arabicKeywordsInput: 'مونة بلدية, منتجات لبنانية أصيلة', sellerItemCode: 'SIC-' + secureRandomInt(100000, 1000000),
-  description: '', craftStory: '', seoTitle: '', seoArabicTitle: '', seoDescription: '', seoArabicDescription: '', isNewArrival: true, isFeatured: false, isBestseller: false, isPublished: false, displayOrder: '',
+  yallaItemCode: '',
+  name: '', arabicName: '', category: '', brand: '', artisan: '', seller: '', arabicSeller: '', sellerId: '', origin: '',
+  priceUSD: '', originalPriceUSD: '', discountPercentage: '', stock: '', lowStockThreshold: '', lowStockNotice: '', customStockLabel: '', costPriceUSD: '',
+  image: '', additionalImages: [] as string[], videoUrl: '', videos: [] as string[], weightOrVolume: '', tagsInput: '', keywordsInput: '', arabicKeywordsInput: '', sellerItemCode: '',
+  description: '', craftStory: '', seoTitle: '', seoArabicTitle: '', seoDescription: '', seoArabicDescription: '', isNewArrival: false, isFeatured: false, isBestseller: false, isPublished: false, displayOrder: '',
   promotionScheduleEnabled: false, promotionStartAt: '', promotionEndAt: ''
 });
 
@@ -110,10 +110,10 @@ export const ProductsCatalogManagement: React.FC = () => {
       ...emptyProduct(),
       ...editing,
       sellerId: (editing as any).sellerId || linkedSeller?.id || '',
-      seller: (editing as any).seller || linkedSeller?.nameEn || (editing as any).artisan || '',
+      seller: (editing as any).seller || linkedSeller?.nameEn || ((editing as any).artisan && (editing as any).artisan !== 'Independent Artisan' ? (editing as any).artisan : ''),
       arabicSeller: (editing as any).arabicSeller || linkedSeller?.nameAr || '',
       artisan: (editing as any).artisan || linkedSeller?.nameEn || '',
-      origin: (editing as any).origin || linkedSeller?.region || 'Lebanon',
+      origin: (editing as any).origin || linkedSeller?.region || '',
       isNewArrival: (editing as any).isNewArrival ?? false,
       keywordsInput: (editing.keywords || []).join(', '),
       arabicKeywordsInput: (editing.arabicKeywords || []).join(', '),
@@ -121,6 +121,30 @@ export const ProductsCatalogManagement: React.FC = () => {
       additionalImages: editing.additionalImages || [],
       videos: editing.videos || editing.additionalVideos || []
     });
+  }, [editing, sellers]);
+
+  React.useEffect(() => {
+    if (!editing?.sellerId) return;
+    const linkedSeller: any = (sellers as any[]).find((s: any) => s.id === (editing as any).sellerId);
+    if (linkedSeller?.nameEn) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('sellers')
+        .select('id,name_en,name_ar,region,district,governorate')
+        .eq('id', editing.sellerId)
+        .maybeSingle();
+      if (cancelled || error || !data) return;
+      setForm((v: any) => ({
+        ...v,
+        sellerId: data.id,
+        seller: v.seller || data.name_en || '',
+        arabicSeller: v.arabicSeller || data.name_ar || '',
+        artisan: v.artisan || data.name_en || '',
+        origin: v.origin || data.region || data.district || data.governorate || ''
+      }));
+    })();
+    return () => { cancelled = true; };
   }, [editing, sellers]);
 
   const saveProduct = async (published: boolean) => {
@@ -188,6 +212,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       } else {
         const createdProductId = await supabaseProductService.createProduct({
           product: {
+            yalla_item_code: String(form.yallaItemCode || '').trim() || undefined,
             name: payload.name, arabic_name: payload.arabicName, artisan: payload.artisan, origin: payload.origin,
             brand: payload.brand, description: payload.description, craft_story: payload.craftStory, image: payload.image,
             price_usd: payload.priceUSD, stock: payload.stock, category_id: payload.category, seller_id: payload.sellerId,
@@ -410,7 +435,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     setForm((v: any) => ({ ...v, [key]: [...(v[key] || []), url] }));
   };
   const removeMediaUrl = (key: 'additionalImages' | 'videos', index: number) => setForm((v: any) => ({ ...v, [key]: (v[key] || []).filter((_: string, i: number) => i !== index) }));
-  // Pricing model: Price (USD) = regular/original price; Promo Price = temporary selling price.
+  // Pricing model: Price (USD) = regular/regular price; Promo Price = temporary selling price.
   const discountFromPrices = (regularPrice: number, promoPrice: number) =>
     regularPrice > promoPrice && regularPrice > 0
       ? Math.round(((regularPrice - promoPrice) / regularPrice) * 100)
@@ -514,7 +539,8 @@ export const ProductsCatalogManagement: React.FC = () => {
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Price (USD) — Regular / Original *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/>{validationErrors.priceUSD && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.priceUSD}</span>}</label>
               <label id="product-field-stock" className="text-xs font-black text-slate-600">Stock Quantity *<RequiredBadge field="stock"/><input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>{setField('stock',e.target.value === '' ? '' : Number(e.target.value));setValidationErrors(v=>({...v,stock:''}));}} className={fieldClass('stock')}/>{validationErrors.stock && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.stock}</span>}</label>
-              <label id="product-field-sellerItemCode" className="text-xs font-black text-slate-600">Seller Item Code (SKU) *<RequiredBadge field="sellerItemCode"/><input value={form.sellerItemCode || ''} onChange={e=>{setField('sellerItemCode',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,sellerItemCode:''}));}} placeholder="SIC-12930" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
+              <label id="product-field-sellerItemCode" className="text-xs font-black text-slate-600">Seller Product Code *<RequiredBadge field="sellerItemCode"/><input value={form.sellerItemCode || ''} onChange={e=>{setField('sellerItemCode',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,sellerItemCode:''}));}} placeholder="Enter seller's product code" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
+              <label className="text-xs font-black text-slate-600">Yalla Item Code <span className="ml-2 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[9px] font-black">SYSTEM GENERATED</span><input value={form.yallaItemCode || ''} readOnly aria-readonly="true" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/60 text-indigo-700 font-mono font-black cursor-not-allowed"/></label>
               <label className="text-xs font-black text-slate-600">Package / Unit Size<input value={form.weightOrVolume || ''} onChange={e=>setField('weightOrVolume',e.target.value)} placeholder="500ml Glass Bottle / Set of 6 / Medium 38–44" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
             </div>
           </section>
@@ -578,7 +604,22 @@ export const ProductsCatalogManagement: React.FC = () => {
         <button onClick={()=>fileRef.current?.click()} className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-black flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/>Bulk Upload CSV</button>
         <button onClick={()=>bulkPublish(false)} disabled={!selected.size} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><Save className="w-3.5 h-3.5"/>Save Drafts</button>
         <button onClick={()=>bulkPublish(true)} disabled={!selected.size} className="px-3 py-2 rounded-xl bg-emerald-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5"/>Public Publish Live</button>
-        <button onClick={()=>{setForm({ ...emptyProduct(), isNewArrival: true, promotionScheduleEnabled: false, promotionStartAt: '', promotionEndAt: '' });setValidationErrors({});setValidationModalOpen(false);setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
+        <button onClick={async ()=>{
+          setSaving(true);
+          try {
+            const { data, error } = await supabase.rpc('next_yalla_item_code');
+            if (error || !data) throw error || new Error('Unable to generate Yalla item code.');
+            setForm({ ...emptyProduct(), yallaItemCode: String(data) });
+            setValidationErrors({});
+            setValidationModalOpen(false);
+            setEditing(null);
+            setModalOpen(true);
+          } catch (e: any) {
+            showToast(e?.message || 'Unable to generate Yalla item code.', 'error');
+          } finally {
+            setSaving(false);
+          }
+        }} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
       </div>
     </div>
 
