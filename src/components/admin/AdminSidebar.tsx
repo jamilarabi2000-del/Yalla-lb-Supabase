@@ -261,16 +261,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <div 
             ref={navScrollRef}
             id="admin-sidebar-nav"
-            className="flex-1 min-h-0 overflow-y-auto space-y-4.5 pr-2 -mr-2 overscroll-contain focus:outline-none scroll-smooth pb-4"
+            className="flex-1 min-h-0 overflow-y-auto space-y-4.5 pr-3 -mr-3 overscroll-contain focus:outline-none scroll-smooth pb-4"
             style={{
               scrollbarWidth: 'auto',
               scrollbarColor: '#94a3b8 transparent'
             }}
           >
             <style>{`
-              #admin-sidebar-nav::-webkit-scrollbar { width: 12px; }
+              #admin-sidebar-nav::-webkit-scrollbar { width: 18px; }
               #admin-sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-              #admin-sidebar-nav::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 9999px; border: 3px solid transparent; background-clip: content-box; }
+              #admin-sidebar-nav::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 9999px; border: 4px solid transparent; background-clip: content-box; }
               #admin-sidebar-nav::-webkit-scrollbar-thumb:hover { background: #64748b; background-clip: content-box; }
             `}</style>
           >
