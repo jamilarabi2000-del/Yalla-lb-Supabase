@@ -52,6 +52,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sequence, setSequence] = useState<Product[]>([]);
   const [orderDirty, setOrderDirty] = useState(false);
+  const [lastMovedProductId, setLastMovedProductId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<any>(emptyProduct());
@@ -307,12 +308,12 @@ export const ProductsCatalogManagement: React.FC = () => {
     const next = [...sequence]; const target = index + direction;
     if (target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
-    setSequence(next); setOrderDirty(true);
+    setSequence(next); setOrderDirty(true); setLastMovedProductId(next[target]?.id ?? null);
   };
   const makeFirst = (index: number) => {
     if (index <= 0) return;
     const next = [...sequence]; const [item] = next.splice(index, 1); next.unshift(item);
-    setSequence(next); setOrderDirty(true);
+    setSequence(next); setOrderDirty(true); setLastMovedProductId(item.id);
   };
   const saveOrder = async () => {
     if (!orderDirty) return;
@@ -328,6 +329,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const resetOrder = () => {
     setSequence([...filtered].sort((a, b) => (a.displayOrder ?? 999999) - (b.displayOrder ?? 999999)));
     setOrderDirty(false);
+    setLastMovedProductId(null);
     showToast('Sequence changes reset to the saved database order.', 'success');
   };
 
@@ -342,6 +344,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       next.push(item);
       setSequence(next);
       setOrderDirty(true);
+      setLastMovedProductId(item.id);
       return;
     }
     move(index, direction === 'up' ? -1 : 1);
@@ -679,7 +682,7 @@ export const ProductsCatalogManagement: React.FC = () => {
         onToggleSelect={toggle}
         onMoveProduct={moveSequenceProduct}
         onSetProductRank={setSequenceRank}
-        lastMovedProductId={null}
+        lastMovedProductId={lastMovedProductId}
         onTogglePublish={async (id) => { await updateProduct(id, { isPublished: !(products.find(p => p.id === id)?.isPublished !== false) }); }}
         onEditProduct={openEdit}
         onQuickPriceStock={saveQuick}
