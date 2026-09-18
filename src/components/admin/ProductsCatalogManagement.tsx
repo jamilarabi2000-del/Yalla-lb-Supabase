@@ -197,7 +197,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       }
       // Persist product-level scheduled promotion in the existing Supabase discount engine.
       // The checkout RPC already honors startDate/endDate in the rule JSON.
-      savedProductId = savedProductId || createdProductId;
+      if (!savedProductId) throw new Error('Product ID was not returned after save.');
       const { data: existingPromotionRules, error: existingPromotionError } = await supabase
         .from('discount_rules')
         .select('id,rule')
