@@ -497,8 +497,7 @@ export const CategoriesDetailsView: React.FC = () => {
                 Manage full taxonomy, Arabic SEO keywords, subcategories, artisan guilds, and regional logistics.
               </p>
             </div>
-          </div>
-        </div>
+          </div>        </div>
 
         <div className="flex items-center gap-2">
           {activeTab === 'categories' ? (
@@ -780,7 +779,7 @@ export const CategoriesDetailsView: React.FC = () => {
                       }`}
                     >
                       <label className="shrink-0"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></label>
-                      {/* Left: Position Rank & Move Buttons */
+                      {/* Left: Position Rank & Move Buttons */}
                       <div className="flex items-center gap-2 shrink-0">
                         {/* Position input / badge */}
                         <div className="flex flex-col items-center justify-center">
@@ -997,8 +996,7 @@ export const CategoriesDetailsView: React.FC = () => {
                               title="Move Up 1 spot"
                               className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
                             >
-                              <MoveUp className="w-3.5 h-3.5" />
-                            </button>
+                              <MoveUp className="w-3.5 h-3.5" />                            </button>
                             <button
                               onClick={() => handleMoveCategory(index, 'down')}
                               disabled={isLast}
