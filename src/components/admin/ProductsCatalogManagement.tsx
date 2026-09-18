@@ -136,9 +136,20 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!String(form.image || '').trim()) errors.image = 'Primary Image URL is required.';
     if (String(form.image || '').trim() && imageLooksLikeWebPage(String(form.image || ''))) errors.image = 'Use a direct image URL, not an .html webpage.';
     if (form.promotionScheduleEnabled) {
-      if (!String(form.promotionStartAt || '').trim()) errors.promotionStartAt = 'Promotion start date and time are required when scheduling is enabled.';
-      if (!String(form.promotionEndAt || '').trim()) errors.promotionEndAt = 'Promotion end date and time are required when scheduling is enabled.';
-      if (form.promotionStartAt && form.promotionEndAt && new Date(form.promotionStartAt) >= new Date(form.promotionEndAt)) {
+      const now = new Date();
+      const startAt = form.promotionStartAt ? new Date(form.promotionStartAt) : null;
+      const endAt = form.promotionEndAt ? new Date(form.promotionEndAt) : null;
+      if (!String(form.promotionStartAt || '').trim()) {
+        errors.promotionStartAt = 'Promotion start date and time are required when scheduling is enabled.';
+      } else if (startAt && startAt <= now) {
+        errors.promotionStartAt = 'Promotion cannot start in the past. Select the current date/time or a future date/time.';
+      }
+      if (!String(form.promotionEndAt || '').trim()) {
+        errors.promotionEndAt = 'Promotion end date and time are required when scheduling is enabled.';
+      } else if (endAt && endAt <= now) {
+        errors.promotionEndAt = 'Promotion end must be in the future.';
+      }
+      if (startAt && endAt && endAt <= startAt) {
         errors.promotionEndAt = 'Promotion end must be later than the promotion start.';
       }
     }
@@ -337,6 +348,11 @@ export const ProductsCatalogManagement: React.FC = () => {
 
   const setQuick = (p: Product, key: 'price' | 'stock', value: string) => setQuickValues(v => ({ ...v, [p.id]: { ...(v[p.id] || { price: String(p.priceUSD), stock: String(p.stock) }), [key]: value } }));
 
+  const localDateTimeMin = useMemo(() => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    return new Date(now.getTime() - offset * 60 * 1000).toISOString().slice(0, 16);
+  }, []);
   const fieldClass = (field: string, base = 'mt-1.5 w-full px-3 py-2.5 rounded-xl border') => `${base} ${validationErrors[field] ? 'border-rose-500 bg-rose-50/40 ring-2 ring-rose-100' : 'border-slate-200'}`;
   const RequiredBadge = ({ field }: { field: string }) => validationErrors[field] ? <span className="ml-2 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[9px] font-black">REQUIRED</span> : <span className="ml-2 text-[9px] text-slate-400 font-bold">Required</span>;
 
@@ -512,15 +528,15 @@ export const ProductsCatalogManagement: React.FC = () => {
           </section>
 
           <section>
-            <div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center text-xs font-black">5</span><div><h4 className="font-black">Promotion Scheduling</h4><p className="text-[11px] text-slate-500">Schedule this product discount to activate and expire automatically. The checkout engine uses the exact start/end date and time.</p></div></div>
+            <div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center text-xs font-black">5</span><div><h4 className="font-black">Promotion Scheduling</h4><p className="text-[11px] text-slate-500">Schedule this product discount from the current date/time forward. Past dates and times cannot be selected. The checkout engine uses the exact start/end date and time.</p></div></div>
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-4">
               <label className="inline-flex items-center gap-2 text-xs font-black text-slate-800">
                 <input type="checkbox" checked={!!form.promotionScheduleEnabled} onChange={e=>setField('promotionScheduleEnabled',e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-600"/>
                 Enable scheduled promotion
               </label>
               {form.promotionScheduleEnabled && <div className="grid sm:grid-cols-2 gap-4">
-                <label id="product-field-promotionStartAt" className="text-xs font-black text-slate-600">Start Date &amp; Time *<input type="datetime-local" value={form.promotionStartAt || ''} onChange={e=>setField('promotionStartAt',e.target.value)} className={fieldClass('promotionStartAt')}/>{validationErrors.promotionStartAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionStartAt}</span>}</label>
-                <label id="product-field-promotionEndAt" className="text-xs font-black text-slate-600">End Date &amp; Time *<input type="datetime-local" value={form.promotionEndAt || ''} onChange={e=>setField('promotionEndAt',e.target.value)} className={fieldClass('promotionEndAt')}/>{validationErrors.promotionEndAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionEndAt}</span>}</label>
+                <label id="product-field-promotionStartAt" className="text-xs font-black text-slate-600">Start Date &amp; Time *<input type="datetime-local" min={localDateTimeMin} value={form.promotionStartAt || ''} onChange={e=>setField('promotionStartAt',e.target.value)} className={fieldClass('promotionStartAt')}/><span className="block mt-1 text-[10px] text-slate-500">Must be now or a future date/time. Past dates and times are not allowed.</span>{validationErrors.promotionStartAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionStartAt}</span>}</label>
+                <label id="product-field-promotionEndAt" className="text-xs font-black text-slate-600">End Date &amp; Time *<input type="datetime-local" min={localDateTimeMin} value={form.promotionEndAt || ''} onChange={e=>setField('promotionEndAt',e.target.value)} className={fieldClass('promotionEndAt')}/><span className="block mt-1 text-[10px] text-slate-500">Must be in the future and later than the start time.</span>{validationErrors.promotionEndAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionEndAt}</span>}</label>
               </div>}
               <p className="text-[10px] text-indigo-700 font-semibold">The scheduled rule is saved in Supabase and is evaluated by the server at checkout. Your Regular Price, Promo Price and Discount % remain the source for the promotion amount.</p>
             </div>
