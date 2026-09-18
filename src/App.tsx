@@ -125,10 +125,26 @@ const MainAppContent: React.FC = () => {
       cssFor('input', ':root #main-content input::placeholder, :root #main-content textarea::placeholder'),
       cssFor('link', ':root #main-content a')
     ].join('');
-    const responsive = `
-      ${Object.entries(styles).map(([slot, s]: any) => s?.fontSizeTablet ? cssFor(slot, `@media (min-width:768px) and (max-width:1279px){__SELECTOR__}`.replace('__SELECTOR__', slot === 'heading1' ? '#main-content h1' : slot === 'heading2' ? '#main-content h2' : slot === 'heading3' ? '#main-content h3' : slot === 'body' ? '#main-content p,#main-content li' : slot === 'button' ? '#main-content button' : slot === 'nav' ? 'nav a,nav button' : '')).replace(/font-size:[^;]+ !important/g, `font-size:${esc(s.fontSizeTablet)} !important`) : '').join('')}
-      ${Object.entries(styles).map(([slot, s]: any) => s?.fontSizeMobile ? cssFor(slot, `@media (max-width:767px){${slot === 'heading1' ? '#main-content h1' : slot === 'heading2' ? '#main-content h2' : slot === 'heading3' ? '#main-content h3' : slot === 'body' ? '#main-content p,#main-content li' : slot === 'button' ? '#main-content button' : slot === 'nav' ? 'nav a,nav button' : ''}}`).replace(/font-size:[^;]+ !important/g, `font-size:${esc(s.fontSizeMobile)} !important`) : '').join('')}
-    `;
+    const selectorFor = (slot: string) =>
+      slot === 'heading1' ? '#main-content h1' :
+      slot === 'heading2' ? '#main-content h2' :
+      slot === 'heading3' ? '#main-content h3' :
+      slot === 'body' ? '#main-content p,#main-content li,#main-content dd' :
+      slot === 'small' ? '#main-content small,#main-content .yalla-text-small' :
+      slot === 'label' ? '#main-content label,#main-content .yalla-text-label' :
+      slot === 'button' ? '#main-content button,#main-content [role="button"]' :
+      slot === 'nav' ? 'nav a,nav button' :
+      slot === 'link' ? '#main-content a' :
+      slot === 'input' ? '#main-content input::placeholder,#main-content textarea::placeholder' :
+      slot === 'price' ? '#main-content .yalla-text-price' :
+      slot === 'badge' ? '#main-content .yalla-text-badge' :
+      '#main-content .yalla-text-' + slot;
+    const responsive = Object.entries(styles).map(([slot, s]: any) => {
+      const selector = selectorFor(slot);
+      const tablet = s?.fontSizeTablet ? `@media (min-width:768px) and (max-width:1279px){${selector}{font-size:${esc(s.fontSizeTablet)} !important}}` : '';
+      const mobile = s?.fontSizeMobile ? `@media (max-width:767px){${selector}{font-size:${esc(s.fontSizeMobile)} !important}}` : '';
+      return tablet + mobile;
+    }).join('');
     let style = document.getElementById('yalla-admin-text-styles') as HTMLStyleElement | null;
     if (!style) { style = document.createElement('style'); style.id = 'yalla-admin-text-styles'; document.head.appendChild(style); }
     style.textContent = css + responsive + (siteContent.theme.customCss || '');
