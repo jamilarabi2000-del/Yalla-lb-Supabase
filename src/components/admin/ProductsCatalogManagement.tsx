@@ -6,6 +6,7 @@ import { downloadFullMasterReport } from '../../utils/exportMasterReport';
 import { checkDuplicateProductNumber } from '../../lib/productValidation';
 import { secureRandomInt } from '../../utils/uuid';
 import { supabaseProductService } from '../../services/supabaseProductService';
+import { supabase } from '../../lib/supabase';
 import type { Product } from '../../types';
 
 type ViewMode = 'grid' | 'sequence';
@@ -14,7 +15,8 @@ const emptyProduct = () => ({
   name: '', arabicName: '', category: '', brand: '', artisan: '', seller: '', arabicSeller: '', sellerId: '', origin: 'Lebanon',
   priceUSD: 15, originalPriceUSD: '', discountPercentage: '', stock: 25, lowStockThreshold: 5, lowStockNotice: '', customStockLabel: '', costPriceUSD: '',
   image: '', additionalImages: [] as string[], videoUrl: '', videos: [] as string[], weightOrVolume: '', tagsInput: 'Artisanal, Lebanese Terroir, Handmade', keywordsInput: 'lebanese, artisanal, authentic, gourmet', arabicKeywordsInput: 'مونة بلدية, منتجات لبنانية أصيلة', sellerItemCode: 'SIC-' + secureRandomInt(100000, 1000000),
-  description: '', craftStory: '', seoTitle: '', seoArabicTitle: '', seoDescription: '', seoArabicDescription: '', isNewArrival: true, isFeatured: false, isBestseller: false, isPublished: false, displayOrder: ''
+  description: '', craftStory: '', seoTitle: '', seoArabicTitle: '', seoDescription: '', seoArabicDescription: '', isNewArrival: true, isFeatured: false, isBestseller: false, isPublished: false, displayOrder: '',
+  promotionScheduleEnabled: false, promotionStartAt: '', promotionEndAt: ''
 });
 
 const csvDownload = (rows: any[], filename: string) => {
@@ -103,6 +105,13 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!String(form.sellerItemCode || '').trim()) errors.sellerItemCode = 'Seller Item Code (SKU) is required.';
     if (!String(form.image || '').trim()) errors.image = 'Primary Image URL is required.';
     if (String(form.image || '').trim() && imageLooksLikeWebPage(String(form.image || ''))) errors.image = 'Use a direct image URL, not an .html webpage.';
+    if (form.promotionScheduleEnabled) {
+      if (!String(form.promotionStartAt || '').trim()) errors.promotionStartAt = 'Promotion start date and time are required when scheduling is enabled.';
+      if (!String(form.promotionEndAt || '').trim()) errors.promotionEndAt = 'Promotion end date and time are required when scheduling is enabled.';
+      if (form.promotionStartAt && form.promotionEndAt && new Date(form.promotionStartAt) >= new Date(form.promotionEndAt)) {
+        errors.promotionEndAt = 'Promotion end must be later than the promotion start.';
+      }
+    }
     if (String(form.category || '').trim() && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(form.category || ''))) errors.category = 'Select a valid catalog category.';
     const dup = form.sellerItemCode ? checkDuplicateProductNumber(form.sellerItemCode, editing?.id || null, products, form.sellerId || undefined, form.seller || form.artisan) : { isDuplicate: false };
     if (dup.isDuplicate) errors.sellerItemCode = `Duplicate seller item code: ${form.sellerItemCode}`;
@@ -117,6 +126,9 @@ export const ProductsCatalogManagement: React.FC = () => {
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || 'Lebanon').trim() || 'Lebanon', priceUSD: price,
       originalPriceUSD: (() => { const enteredOriginal = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); const derivedOriginal = enteredOriginal > price ? enteredOriginal : originalFromPriceDiscount(price, enteredDiscount); return derivedOriginal > price ? derivedOriginal : undefined; })(),
       discountPercentage: (() => { const enteredOriginal = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return discountFromPrices(price, enteredOriginal) || (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : undefined); })(),
+      promotionScheduleEnabled: !!form.promotionScheduleEnabled,
+      promotionStartAt: String(form.promotionStartAt || '').trim() || undefined,
+      promotionEndAt: String(form.promotionEndAt || '').trim() || undefined,
       stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : 5, lowStockNotice: String(form.lowStockNotice || '').trim() || undefined,
       customStockLabel: String(form.customStockLabel || '').trim() || undefined, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : undefined,
       image: String(form.image || '').trim(),
@@ -160,6 +172,44 @@ export const ProductsCatalogManagement: React.FC = () => {
         // Notify ShopContext immediately; Supabase Realtime also refreshes the catalogue.
         window.dispatchEvent(new CustomEvent('yalla-products-changed', { detail: { id: createdProductId } }));
       }
+      // Persist product-level scheduled promotion in the existing Supabase discount engine.
+      // The checkout RPC already honors startDate/endDate in the rule JSON.
+      const savedProductId = editing?.id || createdProductId;
+      const { data: existingPromotionRules, error: existingPromotionError } = await supabase
+        .from('discount_rules')
+        .select('id,rule')
+        .contains('rule', { target: 'product', targetValue: savedProductId });
+      if (existingPromotionError) throw existingPromotionError;
+
+      if (existingPromotionRules?.length) {
+        const { error: deletePromotionError } = await supabase
+          .from('discount_rules')
+          .delete()
+          .in('id', existingPromotionRules.map((r: any) => r.id));
+        if (deletePromotionError) throw deletePromotionError;
+      }
+
+      const scheduledDiscount = Number(payload.discountPercentage || 0);
+      if (payload.promotionScheduleEnabled && scheduledDiscount > 0 && payload.promotionStartAt && payload.promotionEndAt) {
+        const { error: promotionError } = await supabase
+          .from('discount_rules')
+          .insert({
+            name: `Product Promotion — ${payload.name}`,
+            description: `Scheduled product promotion for ${payload.name}`,
+            is_active: true,
+            rule: {
+              type: 'percentage',
+              value: scheduledDiscount,
+              target: 'product',
+              targetValue: savedProductId,
+              isActive: true,
+              startDate: payload.promotionStartAt,
+              endDate: payload.promotionEndAt
+            }
+          });
+        if (promotionError) throw promotionError;
+      }
+
       setValidationErrors({});
       showToast(editing?.id ? 'Product updated successfully.' : published ? 'Product published successfully.' : 'Product saved as draft successfully.', 'success');
       setEditing(null);
@@ -423,27 +473,41 @@ export const ProductsCatalogManagement: React.FC = () => {
             </div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-xs font-black">5</span><div><h4 className="font-black">Scarcity Alert &amp; Low-Stock Notices</h4><p className="text-[11px] text-slate-500">Control when and how urgency messaging appears to shoppers.</p></div></div>
+          <section>
+            <div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center text-xs font-black">5</span><div><h4 className="font-black">Promotion Scheduling</h4><p className="text-[11px] text-slate-500">Schedule this product discount to activate and expire automatically. The checkout engine uses the exact start/end date and time.</p></div></div>
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-4">
+              <label className="inline-flex items-center gap-2 text-xs font-black text-slate-800">
+                <input type="checkbox" checked={!!form.promotionScheduleEnabled} onChange={e=>setField('promotionScheduleEnabled',e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-indigo-600"/>
+                Enable scheduled promotion
+              </label>
+              {form.promotionScheduleEnabled && <div className="grid sm:grid-cols-2 gap-4">
+                <label id="product-field-promotionStartAt" className="text-xs font-black text-slate-600">Start Date &amp; Time *<input type="datetime-local" value={form.promotionStartAt || ''} onChange={e=>setField('promotionStartAt',e.target.value)} className={fieldClass('promotionStartAt')}/>{validationErrors.promotionStartAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionStartAt}</span>}</label>
+                <label id="product-field-promotionEndAt" className="text-xs font-black text-slate-600">End Date &amp; Time *<input type="datetime-local" value={form.promotionEndAt || ''} onChange={e=>setField('promotionEndAt',e.target.value)} className={fieldClass('promotionEndAt')}/>{validationErrors.promotionEndAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionEndAt}</span>}</label>
+              </div>}
+              <p className="text-[10px] text-indigo-700 font-semibold">The scheduled rule is saved in Supabase and is evaluated by the server at checkout. Your Original / Compare-at Price and Discount % remain the source for the promotion amount.</p>
+            </div>
+          </section>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-xs font-black">6</span><div><h4 className="font-black">Scarcity Alert &amp; Low-Stock Notices</h4><p className="text-[11px] text-slate-500">Control when and how urgency messaging appears to shoppers.</p></div></div>
             <div className="grid sm:grid-cols-2 gap-4"><label className="text-xs font-black text-slate-600">Low Stock Threshold<input min="0" step="1" type="number" value={form.lowStockThreshold ?? 5} onChange={e=>setField('lowStockThreshold',Number(e.target.value))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label className="text-xs font-black text-slate-600">Shopper Notice / Urgency Label<input value={form.lowStockNotice || ''} onChange={e=>setField('lowStockNotice',e.target.value)} placeholder="Limited Stock" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/><div className="flex flex-wrap gap-1.5 mt-2">{['Limited Stock','Last piece','Few units left','Handmade batch ending','Order soon'].map(v=><button type="button" key={v} onClick={()=>setField('lowStockNotice',v)} className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[9px] font-bold">{v}</button>)}</div></label><label className="text-xs font-black text-slate-600 sm:col-span-2">Custom Stock Label<input value={form.customStockLabel || ''} onChange={e=>setField('customStockLabel',e.target.value)} placeholder="Optional label shown beside the quantity selector" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">6</span><div><h4 className="font-black">Packaging &amp; Specifications</h4><p className="text-[11px] text-slate-500">Use tags for storefront filters and search chips.</p></div></div><label className="text-xs font-black text-slate-600">Search &amp; Filter Tags<textarea rows={2} value={form.tagsInput || ''} onChange={e=>setField('tagsInput',e.target.value)} placeholder="Artisanal, Mouneh, Cold Pressed, Organic, Vegan, Cedar Terroir" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></section>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">7</span><div><h4 className="font-black">Packaging &amp; Specifications</h4><p className="text-[11px] text-slate-500">Use tags for storefront filters and search chips.</p></div></div><label className="text-xs font-black text-slate-600">Search &amp; Filter Tags<textarea rows={2} value={form.tagsInput || ''} onChange={e=>setField('tagsInput',e.target.value)} placeholder="Artisanal, Mouneh, Cold Pressed, Organic, Vegan, Cedar Terroir" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">7</span><div><h4 className="font-black">Multi-Asset Media Gallery</h4><p className="text-[11px] text-slate-500">Add product photos and YouTube, Vimeo or direct MP4 videos.</p></div></div>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">8</span><div><h4 className="font-black">Multi-Asset Media Gallery</h4><p className="text-[11px] text-slate-500">Add product photos and YouTube, Vimeo or direct MP4 videos.</p></div></div>
             <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5"><div><label id="product-field-image" className="text-xs font-black text-slate-600">Primary Image URL *<RequiredBadge field="image"/><input value={form.image || ''} onChange={e=>{setField('image',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,image:''}));}} placeholder="https://…" className={fieldClass('image')}/></label>{form.image && <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-2"><img src={form.image} alt="Primary product preview" className="w-full h-48 object-contain rounded-xl" onError={e=>{(e.currentTarget as HTMLImageElement).style.display='none';}}/>{imageLooksLikeWebPage(form.image) && <p className="text-[10px] text-rose-600 font-bold mt-2">This looks like an .html webpage URL, not a direct image file. Use a direct image URL.</p>}</div>}
               <div className="mt-3 flex gap-2"><input ref={addImageRef} value={imageDraft} onChange={e=>setImageDraft(e.target.value)} placeholder="Additional image URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('additionalImages',imageDraft);setImageDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Photo</button></div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">{(form.additionalImages || []).map((url:string,i:number)=><div key={url+i} className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src={url} alt={`Gallery ${i+1}`} className="w-full h-24 object-contain"/><button type="button" onClick={()=>removeMediaUrl('additionalImages',i)} className="absolute top-1 right-1 p-1 rounded-full bg-white shadow text-rose-600"><X className="w-3 h-3"/></button></div>)}</div></div>
               <div><label className="text-xs font-black text-slate-600">Product Video Integration<input value={form.videoUrl || ''} onChange={e=>setField('videoUrl',e.target.value)} placeholder="https://youtube.com/... / Vimeo / .mp4" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><div className="mt-3 flex gap-2"><input ref={addVideoRef} value={videoDraft} onChange={e=>setVideoDraft(e.target.value)} placeholder="Additional video URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('videos',videoDraft);setVideoDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Video</button></div><div className="mt-3 space-y-2">{(form.videos || []).map((url:string,i:number)=><div key={url+i} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs"><span className="px-2 py-1 rounded-full bg-slate-100 font-black">VIDEO {i+1}</span><span className="truncate flex-1">{url}</span><button type="button" onClick={()=>removeMediaUrl('videos',i)} className="text-rose-600"><X className="w-4 h-4"/></button></div>)}</div></div></div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">8</span><div><h4 className="font-black">Bilingual Search Engine Optimization (SEO)</h4><p className="text-[11px] text-slate-500">Keywords support Google metadata and storefront search indexing.</p></div></div>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">9</span><div><h4 className="font-black">Bilingual Search Engine Optimization (SEO)</h4><p className="text-[11px] text-slate-500">Keywords support Google metadata and storefront search indexing.</p></div></div>
             <div className="grid lg:grid-cols-2 gap-4"><div><label className="text-xs font-black text-slate-600">Arabic SEO Keywords (الكلمات الدلالية لمحركات البحث)</label><div className="mt-1.5 min-h-12 rounded-xl border border-slate-200 p-2 flex flex-wrap gap-1.5">{arabicKeywords.map(k=><span dir="rtl" key={k} className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">{k}<button type="button" onClick={()=>removeArabicKeyword(k)} className="ml-1 text-emerald-600">×</button></span>)}<input dir="rtl" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();const v=e.currentTarget.value.trim();if(v)addArabicKeyword(v);e.currentTarget.value='';}}} placeholder="اكتب كلمة واضغط Enter" className="flex-1 min-w-36 outline-none text-xs text-right"/></div><div className="flex flex-wrap gap-1.5 mt-2">{arabicQuickKeywords.map(k=><button type="button" key={k} onClick={()=>addArabicKeyword(k)} className="px-2 py-1 rounded-full bg-slate-50 text-slate-600 text-[9px] font-bold">{k}</button>)}</div></div><label className="text-xs font-black text-slate-600">English SEO Keywords<textarea rows={3} value={form.keywordsInput || ''} onChange={e=>setField('keywordsInput',e.target.value)} placeholder="lebanese zaatar, mouneh, cold pressed olive oil, handmade" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></div>
             <div className="grid lg:grid-cols-2 gap-4 mt-4"><label className="text-xs font-black text-slate-600">SEO Title<input value={form.seoTitle || ''} onChange={e=>setField('seoTitle',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label dir="rtl" className="text-xs font-black text-slate-600">SEO Arabic Title<input value={form.seoArabicTitle || ''} onChange={e=>setField('seoArabicTitle',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right"/></label></div>
             <div className="grid lg:grid-cols-2 gap-4 mt-4"><label className="text-xs font-black text-slate-600">Description &amp; Heritage Story<textarea rows={5} value={form.description || ''} onChange={e=>setField('description',e.target.value)} placeholder="Describe the artisan history, regional origin, traditional Lebanese production methods and ingredients…" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label className="text-xs font-black text-slate-600">Craft / Heritage Story<textarea rows={5} value={form.craftStory || ''} onChange={e=>setField('craftStory',e.target.value)} placeholder="Extended heritage narrative…" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></div>
             <div className="grid lg:grid-cols-2 gap-4 mt-4"><label className="text-xs font-black text-slate-600">SEO Description<textarea rows={3} value={form.seoDescription || ''} onChange={e=>setField('seoDescription',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><label dir="rtl" className="text-xs font-black text-slate-600">SEO Arabic Description<textarea rows={3} value={form.seoArabicDescription || ''} onChange={e=>setField('seoArabicDescription',e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right"/></label></div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">9</span><div><h4 className="font-black">Publishing Controls</h4><p className="text-[11px] text-slate-500">Draft remains hidden; Publish Live makes the item available to the storefront.</p></div></div><div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isNewArrival} onChange={e=>setField('isNewArrival',e.target.checked)} className="mr-2"/>New Arrival</label><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isFeatured} onChange={e=>setField('isFeatured',e.target.checked)} className="mr-2"/>Featured</label><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isBestseller} onChange={e=>setField('isBestseller',e.target.checked)} className="mr-2"/>Bestseller</label></div></section>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">10</span><div><h4 className="font-black">Publishing Controls</h4><p className="text-[11px] text-slate-500">Draft remains hidden; Publish Live makes the item available to the storefront.</p></div></div><div className="flex flex-wrap gap-2"><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isNewArrival} onChange={e=>setField('isNewArrival',e.target.checked)} className="mr-2"/>New Arrival</label><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isFeatured} onChange={e=>setField('isFeatured',e.target.checked)} className="mr-2"/>Featured</label><label className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold"><input type="checkbox" checked={!!form.isBestseller} onChange={e=>setField('isBestseller',e.target.checked)} className="mr-2"/>Bestseller</label></div></section>
         </div>
         <div className="border-t border-slate-200 bg-white px-5 py-4 sm:px-7 flex flex-wrap justify-end gap-2"><button onClick={close} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold">Cancel</button><button disabled={saving} onClick={()=>saveProduct(false)} className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-black border border-slate-200">Save (Draft)</button><button disabled={saving} onClick={()=>saveProduct(true)} className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-black shadow-sm">{saving ? 'Saving…' : 'Public (Publish Live)'}</button></div>
       </div>
