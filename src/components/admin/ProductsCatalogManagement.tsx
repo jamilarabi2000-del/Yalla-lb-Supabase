@@ -216,11 +216,17 @@ export const ProductsCatalogManagement: React.FC = () => {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || '').trim() || undefined,
-      // Admin form: Price is regular/original; Promo Price is the lower selling price.
-      // Storefront/database convention: priceUSD is the amount charged; originalPriceUSD is the struck-through regular price.
-      priceUSD: (() => { const promo = Number(form.originalPriceUSD || 0); return promo > 0 && promo < price ? promo : price; })(),
-      originalPriceUSD: (() => { const promo = Number(form.originalPriceUSD || 0); return promo > 0 && promo < price ? price : null; })(),
-      discountPercentage: (() => { const promo = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return promo > 0 && promo < price ? discountFromPrices(price, promo) : (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : null); })(),
+      // Pricing convention: priceUSD is the Regular Price; originalPriceUSD is the Promo Price.
+      // The database constraint requires Promo Price <= Regular Price.
+      priceUSD: price,
+      originalPriceUSD: (() => {
+        const promo = Number(form.originalPriceUSD || 0);
+        return promo > 0 && promo <= price ? promo : null;
+      })(),
+      discountPercentage: (() => {
+        const promo = Number(form.originalPriceUSD || 0);
+        return promo > 0 && promo <= price ? discountFromPrices(price, promo) : null;
+      })(),
       stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : null, lowStockNotice: String(form.lowStockNotice || '').trim() || null,
       customStockLabel: String(form.customStockLabel || '').trim() || null, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : null,
       image: String(form.image || '').trim(),
