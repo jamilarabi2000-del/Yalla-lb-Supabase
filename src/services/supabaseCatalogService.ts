@@ -106,6 +106,7 @@ export function mapSupabaseProduct(
 
     seller:
       row.seller_name_en ??
+      row.artisan ??
       undefined,
 
     arabicSeller:
