@@ -274,12 +274,51 @@ export interface CMSHeroMediaItem {
   endDate?: string;
 }
 
+export interface CMSTextStyle {
+  fontFamily?: string;
+  fontSize?: string;
+  fontSizeTablet?: string;
+  fontSizeMobile?: string;
+  fontWeight?: string;
+  fontStyle?: 'normal' | 'italic';
+  color?: string;
+  textAlign?: 'left' | 'center' | 'right' | 'start' | 'end';
+  lineHeight?: string;
+  letterSpacing?: string;
+  wordSpacing?: string;
+  maxWidth?: string;
+  margin?: string;
+  padding?: string;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  whiteSpace?: 'normal' | 'nowrap' | 'pre-wrap';
+  overflow?: 'visible' | 'hidden';
+  textOverflow?: 'clip' | 'ellipsis';
+  lineClamp?: number | null;
+}
+
+export type CMSTextStyleSlot =
+  | 'body'
+  | 'heading1'
+  | 'heading2'
+  | 'heading3'
+  | 'subtitle'
+  | 'small'
+  | 'label'
+  | 'button'
+  | 'nav'
+  | 'price'
+  | 'badge'
+  | 'input'
+  | 'link';
+
 export interface CMSThemeConfig {
   primaryColor: string;
   accentColor: string;
   fontFamily: 'plus_jakarta' | 'playfair' | 'inter' | 'tajawal' | 'cairo' | 'amiri';
   borderRadius: 'sm' | 'md' | 'xl' | 'full';
   headerStyle: 'modern' | 'classic' | 'minimal';
+  textStyles?: Partial<Record<CMSTextStyleSlot, CMSTextStyle>>;
+  customCss?: string;
 }
 
 export interface CMSHeroStat {
