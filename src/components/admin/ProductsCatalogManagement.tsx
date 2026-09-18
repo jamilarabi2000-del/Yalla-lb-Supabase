@@ -62,6 +62,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const [videoDraft, setVideoDraft] = useState('');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [loadedPromotionStartAt, setLoadedPromotionStartAt] = useState('');
   const addImageRef = useRef<HTMLInputElement>(null);
   const addVideoRef = useRef<HTMLInputElement>(null);
 
@@ -76,15 +77,34 @@ export const ProductsCatalogManagement: React.FC = () => {
   }), [products, query, sellerFilter, categoryFilter, statusFilter]);
 
   React.useEffect(() => {
-    setSequence([...filtered].sort((a, b) => (a.displayOrder ?? 999999) - (b.displayOrder ?? 999999)));
+    setSelected(prev => {
+      const visibleIds = new Set(filtered.map(p => p.id));
+      const next = new Set([...prev].filter(id => visibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
   }, [filtered]);
 
-  const allSelected = filtered.length > 0 && selected.size === filtered.length;
+  React.useEffect(() => {
+    if (orderDirty) {
+      setSequence(prev => {
+        const byId = new Map(filtered.map(p => [p.id, p]));
+        const kept = prev.filter(p => byId.has(p.id)).map(p => byId.get(p.id)!);
+        const added = filtered.filter(p => !prev.some(q => q.id === p.id));
+        return [...kept, ...added];
+      });
+      return;
+    }
+    setSequence([...filtered].sort((a, b) => (a.displayOrder ?? 999999) - (b.displayOrder ?? 999999)));
+  }, [filtered, orderDirty]);
+
+  const visibleSelected = useMemo(() => filtered.filter(p => selected.has(p.id)).map(p => p.id), [filtered, selected]);
+  const allSelected = filtered.length > 0 && visibleSelected.length === filtered.length;
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(filtered.map(p => p.id)));
   const toggle = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const openEdit = async (p: Product) => {
     setEditing(p);
+    setLoadedPromotionStartAt('');
     setModalOpen(true);
     try {
       const { data } = await supabase
@@ -100,6 +120,7 @@ export const ProductsCatalogManagement: React.FC = () => {
           promotionStartAt: rule.startDate ? String(rule.startDate).slice(0,16) : '',
           promotionEndAt: rule.endDate ? String(rule.endDate).slice(0,16) : ''
         }));
+        setLoadedPromotionStartAt(rule.startDate ? String(rule.startDate).slice(0,16) : '');
       }
     } catch (err) {
       console.error('[ProductsCatalogManagement] Failed to load product promotion schedule:', err);
@@ -123,7 +144,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       additionalImages: editing.additionalImages || [],
       videos: editing.videos || editing.additionalVideos || []
     });
-  }, [editing, sellers]);
+  }, [editing?.id]);
 
   React.useEffect(() => {
     if (!editing?.sellerId) return;
@@ -147,7 +168,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       }));
     })();
     return () => { cancelled = true; };
-  }, [editing, sellers]);
+  }, [editing?.sellerId, sellers]);
 
   const saveProduct = async (published: boolean) => {
     const stock = Number(form.stock);
@@ -168,8 +189,8 @@ export const ProductsCatalogManagement: React.FC = () => {
       const endAt = form.promotionEndAt ? new Date(form.promotionEndAt) : null;
       if (!String(form.promotionStartAt || '').trim()) {
         errors.promotionStartAt = 'Promotion start date and time are required when scheduling is enabled.';
-      } else if (startAt && startAt <= now) {
-        errors.promotionStartAt = 'Promotion cannot start in the past. Select the current date/time or a future date/time.';
+      } else if (startAt && startAt <= now && String(form.promotionStartAt || '') !== String(loadedPromotionStartAt || '')) {
+        errors.promotionStartAt = 'A new promotion cannot start in the past.';
       }
       if (!String(form.promotionEndAt || '').trim()) {
         errors.promotionEndAt = 'Promotion end date and time are required when scheduling is enabled.';
@@ -192,20 +213,23 @@ export const ProductsCatalogManagement: React.FC = () => {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || '').trim() || undefined, priceUSD: price,
-      originalPriceUSD: (() => { const promo = Number(form.originalPriceUSD || 0); return promo > 0 && promo < price ? promo : undefined; })(),
-      discountPercentage: (() => { const promo = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return discountFromPrices(price, promo) || (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : undefined); })(),
+      // Admin form: Price is regular/original; Promo Price is the lower selling price.
+      // Storefront/database convention: priceUSD is the amount charged; originalPriceUSD is the struck-through regular price.
+      priceUSD: (() => { const promo = Number(form.originalPriceUSD || 0); return promo > 0 && promo < price ? promo : price; })(),
+      originalPriceUSD: (() => { const promo = Number(form.originalPriceUSD || 0); return promo > 0 && promo < price ? price : null; })(),
+      discountPercentage: (() => { const promo = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return promo > 0 && promo < price ? discountFromPrices(price, promo) : (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : null); })(),
       promotionScheduleEnabled: !!form.promotionScheduleEnabled,
       promotionStartAt: String(form.promotionStartAt || '').trim() || undefined,
       promotionEndAt: String(form.promotionEndAt || '').trim() || undefined,
-      stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : 5, lowStockNotice: String(form.lowStockNotice || '').trim() || undefined,
-      customStockLabel: String(form.customStockLabel || '').trim() || undefined, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : undefined,
+      stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : null, lowStockNotice: String(form.lowStockNotice || '').trim() || null,
+      customStockLabel: String(form.customStockLabel || '').trim() || null, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : null,
       image: String(form.image || '').trim(),
       additionalImages: form.additionalImages || [], videoUrl: String(form.videoUrl || '').trim() || undefined, videos: form.videos || [], description: String(form.description || '').trim(), craftStory: String(form.craftStory || '').trim(),
       isNewArrival: !!form.isNewArrival, isFeatured: !!form.isFeatured, isBestseller: !!form.isBestseller, isPublished: published,
       displayOrder: String(form.displayOrder) === '' ? undefined : Number(form.displayOrder), weightOrVolume: String(form.weightOrVolume || '').trim() || undefined,
       tags: String(form.tagsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean), keywords: String(form.keywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean),
       arabicKeywords: String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean), sellerItemCode: String(form.sellerItemCode || '').trim() || undefined,
-      seoTitle: String(form.seoTitle || '').trim() || undefined, seoArabicTitle: String(form.seoArabicTitle || '').trim() || undefined, seoDescription: String(form.seoDescription || '').trim() || undefined, seoArabicDescription: String(form.seoArabicDescription || '').trim() || undefined
+      seoTitle: String(form.seoTitle || '').trim() || null, seoArabicTitle: String(form.seoArabicTitle || '').trim() || null, seoDescription: String(form.seoDescription || '').trim() || null, seoArabicDescription: String(form.seoArabicDescription || '').trim() || null
     };
     setSaving(true);
     try {
@@ -294,14 +318,21 @@ export const ProductsCatalogManagement: React.FC = () => {
   };
 
   const bulkPublish = async (published: boolean) => {
-    if (!selected.size) return;
-    await Promise.allSettled([...selected].map(id => updateProduct(id, { isPublished: published })));
-    showToast(`${selected.size} product(s) ${published ? 'published live' : 'saved as drafts'}.`, 'success');
+    if (!visibleSelected.length) return;
+    const results = await Promise.allSettled(visibleSelected.map(id => updateProduct(id, { isPublished: published })));
+    const ok = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.length - ok;
+    showToast(failed ? ok + ' product(s) updated, ' + failed + ' failed.' : ok + ' product(s) ' + (published ? 'published live' : 'saved as drafts') + '.', failed ? 'warning' : 'success');
   };
   const bulkDelete = async () => {
-    if (!selected.size || !window.confirm(`Delete ${selected.size} selected product(s)? This cannot be undone.`)) return;
-    await deleteMultipleProducts([...selected]);
-    setSelected(new Set());
+    if (!visibleSelected.length || !window.confirm('Delete ' + visibleSelected.length + ' visible selected product(s)? This cannot be undone.')) return;
+    try {
+      await deleteMultipleProducts(visibleSelected);
+      setSelected(prev => { const n = new Set(prev); visibleSelected.forEach(id => n.delete(id)); return n; });
+      showToast(visibleSelected.length + ' product(s) deleted.', 'success');
+    } catch (e: any) {
+      showToast(e?.message || 'Some products could not be deleted.', 'error');
+    }
   };
 
   const move = (index: number, direction: -1 | 1) => {
@@ -483,7 +514,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     regularPrice > 0 && discount >= 0 && discount <= 100
       ? Math.round((regularPrice * (1 - discount / 100)) * 100) / 100
       : 0;
-  const imageLooksLikeWebPage = (url: string) => /\\.html?(?:[?#]|$)/i.test(url.trim());
+  const imageLooksLikeWebPage = (url: string) => /\.html?(?:[?#]|$)/i.test(url.trim());
   const normalizeSeller = (seller: any) => seller ? { nameEn: seller.nameEn || '', nameAr: seller.nameAr || '', region: seller.region || seller.district || seller.governorate || 'Lebanon' } : null;
 
   const Modal = () => {
