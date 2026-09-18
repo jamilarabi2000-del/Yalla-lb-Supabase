@@ -81,22 +81,57 @@ const MainAppContent: React.FC = () => {
   }, [siteContent, siteContent?.seo, siteContent?.navbar, language]);
 
   useEffect(() => {
-    if (siteContent?.theme) {
-      const root = document.documentElement;
-      if (siteContent.theme.primaryColor) {
-        root.style.setProperty('--gold', siteContent.theme.primaryColor);
-        root.style.setProperty('--gold-dark', siteContent.theme.primaryColor + 'cc');
-      }
-      const fonts = ['plus_jakarta', 'playfair', 'inter', 'tajawal', 'cairo', 'amiri'];
-      fonts.forEach(f => document.body.classList.remove(`font-${f}`));
-      if (siteContent.theme.fontFamily) {
-        const fontMap: Record<string, string> = {
-          plus_jakarta: '"Plus Jakarta Sans", sans-serif', playfair: '"Playfair Display", serif', inter: '"Inter", sans-serif',
-          tajawal: '"Tajawal", sans-serif', cairo: '"Cairo", sans-serif', amiri: '"Amiri", serif'
-        };
-        document.body.style.fontFamily = fontMap[siteContent.theme.fontFamily] || '"Plus Jakarta Sans", sans-serif';
-      }
+    if (!siteContent?.theme) return;
+    const root = document.documentElement;
+    if (siteContent.theme.primaryColor) {
+      root.style.setProperty('--gold', siteContent.theme.primaryColor);
+      root.style.setProperty('--gold-dark', siteContent.theme.primaryColor + 'cc');
     }
+    if (siteContent.theme.accentColor) root.style.setProperty('--yalla-accent', siteContent.theme.accentColor);
+
+    const fontMap: Record<string, string> = {
+      plus_jakarta: '"Plus Jakarta Sans", sans-serif', playfair: '"Playfair Display", serif',
+      inter: '"Inter", sans-serif', tajawal: '"Tajawal", sans-serif', cairo: '"Cairo", sans-serif',
+      amiri: '"Amiri", serif'
+    };
+    document.body.style.fontFamily = fontMap[siteContent.theme.fontFamily] || '"Plus Jakarta Sans", sans-serif';
+
+    const styles = siteContent.theme.textStyles || {};
+    const esc = (v: any) => typeof v === 'string' ? v.replace(/[;{}]/g, '') : '';
+    const cssFor = (slot: any, selectors: string) => {
+      const s = styles[slot] || {};
+      const rules = [
+        ['font-family', s.fontFamily], ['font-size', s.fontSize], ['font-weight', s.fontWeight],
+        ['font-style', s.fontStyle], ['color', s.color], ['text-align', s.textAlign],
+        ['line-height', s.lineHeight], ['letter-spacing', s.letterSpacing], ['word-spacing', s.wordSpacing],
+        ['max-width', s.maxWidth], ['margin', s.margin], ['padding', s.padding],
+        ['text-transform', s.textTransform], ['white-space', s.whiteSpace],
+        ['overflow', s.overflow], ['text-overflow', s.textOverflow]
+      ].filter(([,v]) => v !== undefined && v !== '').map(([k,v]) => `${k}:${esc(v)} !important`).join(';');
+      return rules ? `${selectors}{${rules}}` : '';
+    };
+    const css = [
+      cssFor('body', ':root #main-content p, :root #main-content li, :root #main-content dd'),
+      cssFor('heading1', ':root #main-content h1'),
+      cssFor('heading2', ':root #main-content h2'),
+      cssFor('heading3', ':root #main-content h3'),
+      cssFor('subtitle', ':root #main-content .yalla-text-subtitle'),
+      cssFor('small', ':root #main-content small, :root #main-content .yalla-text-small'),
+      cssFor('label', ':root #main-content label, :root #main-content .yalla-text-label'),
+      cssFor('button', ':root #main-content button, :root #main-content [role="button"]'),
+      cssFor('nav', ':root nav a, :root nav button'),
+      cssFor('price', ':root #main-content .yalla-text-price'),
+      cssFor('badge', ':root #main-content .yalla-text-badge'),
+      cssFor('input', ':root #main-content input::placeholder, :root #main-content textarea::placeholder'),
+      cssFor('link', ':root #main-content a')
+    ].join('');
+    const responsive = `
+      ${Object.entries(styles).map(([slot, s]: any) => s?.fontSizeTablet ? cssFor(slot, `@media (min-width:768px) and (max-width:1279px){__SELECTOR__}`.replace('__SELECTOR__', slot === 'heading1' ? '#main-content h1' : slot === 'heading2' ? '#main-content h2' : slot === 'heading3' ? '#main-content h3' : slot === 'body' ? '#main-content p,#main-content li' : slot === 'button' ? '#main-content button' : slot === 'nav' ? 'nav a,nav button' : '')).replace(/font-size:[^;]+ !important/g, `font-size:${esc(s.fontSizeTablet)} !important`) : '').join('')}
+      ${Object.entries(styles).map(([slot, s]: any) => s?.fontSizeMobile ? cssFor(slot, `@media (max-width:767px){${slot === 'heading1' ? '#main-content h1' : slot === 'heading2' ? '#main-content h2' : slot === 'heading3' ? '#main-content h3' : slot === 'body' ? '#main-content p,#main-content li' : slot === 'button' ? '#main-content button' : slot === 'nav' ? 'nav a,nav button' : ''}}`).replace(/font-size:[^;]+ !important/g, `font-size:${esc(s.fontSizeMobile)} !important`) : '').join('')}
+    `;
+    let style = document.getElementById('yalla-admin-text-styles') as HTMLStyleElement | null;
+    if (!style) { style = document.createElement('style'); style.id = 'yalla-admin-text-styles'; document.head.appendChild(style); }
+    style.textContent = css + responsive + (siteContent.theme.customCss || '');
   }, [siteContent?.theme]);
 
   useEffect(() => {
