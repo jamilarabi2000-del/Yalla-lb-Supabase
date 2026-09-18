@@ -8,7 +8,7 @@ import {secureRandomString} from '../../utils/uuid';
 const GOV:any={Beirut:['Beirut'],'Mount Lebanon':['Baabda','Aley','Chouf','Keserwan','Matn','Jbeil'],North:['Tripoli','Zgharta','Bsharri','Batroun','Koura','Minieh-Dinnieh'],Akkar:['Akkar'],Bekaa:['Zahle','West Bekaa','Rashaya'],'Baalbek-Hermel':['Baalbek','Hermel'],South:['Saida','Jezzine','Tyre'],Nabatieh:['Nabatieh','Bint Jbeil','Hasbaya','Marjeyoun']};
 const norm=(v:string)=>{let s=(v||'').replace(/[^0-9+]/g,'');if(s.startsWith('00'))s='+'+s.slice(2);if(/^0[35789]/.test(s))s='+961'+s;return s};
 const valid=(v:string)=>/^\+961(3|70|71|76|78|79|81)\d{6}$/.test(norm(v));
-const safe=(v:any)=>{const s=String(v??'');return /^[=+\\-@]/.test(s)?"'"+s:s};
+const safe=(v:any)=>{const s=String(v??'');return /^[=+\-@]/.test(s)?"'"+s:s};
 const dl=(data:any[],name:string)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([Papa.unparse(data)],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();URL.revokeObjectURL(a.href)};
 const blank=()=>({nameEn:'',nameAr:'',sellerCode:'',contactPhone:'',contactEmail:'',governorate:'',district:'',village:'',exactAddress:'',craftCategory:'',region:'',commissionPct:'',logoUrl:'',bannerImage:'',bioEn:'',bioAr:'',isActive:true});
 
