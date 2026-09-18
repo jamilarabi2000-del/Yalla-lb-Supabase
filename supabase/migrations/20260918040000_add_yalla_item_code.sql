@@ -65,7 +65,6 @@ set search_path = ''
 as $$
 declare
   v_id uuid;
-  v_code text;
 begin
   if not exists (
     select 1
@@ -78,12 +77,13 @@ begin
 
   v_id := private.create_product_atomic(p_product, p_private, p_images);
 
-  v_code := nullif(trim(p_product->>'yalla_item_code'), '');
-  if v_code is not null then
-    update public.products
-    set yalla_item_code = v_code
-    where id = v_id;
-  end if;
+  update public.products
+  set
+    yalla_item_code = coalesce(nullif(trim(p_product->>'yalla_item_code'), ''), yalla_item_code),
+    artisan = coalesce(nullif(trim(p_product->>'artisan'), ''), ''),
+    origin = coalesce(nullif(trim(p_product->>'origin'), ''), ''),
+    brand = coalesce(nullif(trim(p_product->>'brand'), ''), '')
+  where id = v_id;
 
   return v_id;
 end;
