@@ -57,6 +57,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const [imageDraft, setImageDraft] = useState('');
   const [videoDraft, setVideoDraft] = useState('');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
   const addImageRef = useRef<HTMLInputElement>(null);
   const addVideoRef = useRef<HTMLInputElement>(null);
 
@@ -107,9 +108,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (dup.isDuplicate) errors.sellerItemCode = `Duplicate seller item code: ${form.sellerItemCode}`;
     setValidationErrors(errors);
     if (Object.keys(errors).length) {
-      const first = Object.keys(errors)[0];
-      window.setTimeout(() => document.getElementById(`product-field-${first}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0);
-      showToast(`Please complete the highlighted required field${Object.keys(errors).length > 1 ? 's' : ''} before saving.`, 'warning');
+      setValidationModalOpen(true);
       return;
     }
     const payload: any = {
@@ -119,7 +118,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       originalPriceUSD: Number(form.originalPriceUSD) > price && Number(form.originalPriceUSD) > 0 ? Number(form.originalPriceUSD) : undefined, discountPercentage: discountFromPrices(price, Number(form.originalPriceUSD || 0)) || undefined,
       stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : 5, lowStockNotice: String(form.lowStockNotice || '').trim() || undefined,
       customStockLabel: String(form.customStockLabel || '').trim() || undefined, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : undefined,
-      image: String(form.image || '').trim() || 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=900&q=80',
+      image: String(form.image || '').trim(),
       additionalImages: form.additionalImages || [], videoUrl: String(form.videoUrl || '').trim() || undefined, videos: form.videos || [], description: String(form.description || '').trim(), craftStory: String(form.craftStory || '').trim(),
       isNewArrival: !!form.isNewArrival, isFeatured: !!form.isFeatured, isBestseller: !!form.isBestseller, isPublished: published,
       displayOrder: String(form.displayOrder) === '' ? undefined : Number(form.displayOrder), weightOrVolume: String(form.weightOrVolume || '').trim() || undefined,
@@ -313,6 +312,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   };
   const removeMediaUrl = (key: 'additionalImages' | 'videos', index: number) => setForm((v: any) => ({ ...v, [key]: (v[key] || []).filter((_: string, i: number) => i !== index) }));
   const discountFromPrices = (price: number, original: number) => original > price && original > 0 ? Math.round(((original - price) / original) * 100) : 0;
+  const priceFromDiscount = (original: number, discount: number) => original > 0 && discount >= 0 && discount <= 100 ? Math.round((original * (1 - discount / 100)) * 100) / 100 : 0;
   const imageLooksLikeWebPage = (url: string) => /\\.html?(?:[?#]|$)/i.test(url.trim());
   const normalizeSeller = (seller: any) => seller ? { nameEn: seller.nameEn || '', nameAr: seller.nameAr || '', region: seller.region || seller.district || seller.governorate || 'Lebanon' } : null;
 
@@ -336,15 +336,32 @@ export const ProductsCatalogManagement: React.FC = () => {
     };
     const setPrice = (value: string) => {
       const n = Number(value);
-      const discount = discountFromPrices(n, Number(form.originalPriceUSD || 0));
-      setForm((v: any) => ({ ...v, priceUSD: Number.isFinite(n) ? n : 0, discountPercentage: discount || '' }));
+      const originalValue = Number(form.originalPriceUSD || 0);
+      const discount = discountFromPrices(n, originalValue);
+      setForm((v: any) => ({ ...v, priceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0), discountPercentage: discount || '' }));
     };
     const setOriginalPrice = (value: string) => {
       const n = Number(value);
-      const discount = discountFromPrices(Number(form.priceUSD || 0), n);
-      setForm((v: any) => ({ ...v, originalPriceUSD: Number.isFinite(n) ? n : '', discountPercentage: discount || '' }));
+      const currentPrice = Number(form.priceUSD || 0);
+      const discount = discountFromPrices(currentPrice, n);
+      setForm((v: any) => ({ ...v, originalPriceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0), discountPercentage: discount || '' }));
     };
-    const close = () => { setModalOpen(false); setEditing(null); };
+    const setDiscount = (value: string) => {
+      const n = Number(value);
+      const originalValue = Number(form.originalPriceUSD || 0);
+      if (value === '') {
+        setForm((v: any) => ({ ...v, discountPercentage: '', priceUSD: originalValue || v.priceUSD }));
+        return;
+      }
+      const discount = Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0));
+      const calculatedPrice = priceFromDiscount(originalValue, discount);
+      setForm((v: any) => ({
+        ...v,
+        discountPercentage: discount,
+        priceUSD: originalValue > 0 ? calculatedPrice : v.priceUSD
+      }));
+    };
+    const close = () => { setModalOpen(false); setEditing(null); setValidationModalOpen(false); };
     return <div className="fixed inset-0 z-[70] bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
       <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[96vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col min-h-0">
         <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200 px-5 py-4 sm:px-7">
@@ -356,7 +373,7 @@ export const ProductsCatalogManagement: React.FC = () => {
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-7 space-y-7" style={{ WebkitOverflowScrolling: "touch" }}>
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">1</span><div><h4 className="font-black text-slate-900">Bilingual Product Identity</h4><p className="text-[11px] text-slate-500">The commercial identity used across the international and Arabic catalog.</p></div></div>
             <div className="grid md:grid-cols-2 gap-4">
-              <label id="product-field-name" className="text-xs font-black text-slate-600">Product Title (English) *<RequiredBadge field="name"/><input value={form.name || ''} onChange={e=>setField('name',e.target.value)} placeholder="Mountain Wild Zaatar Blend" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label id="product-field-name" className="text-xs font-black text-slate-600">Product Title (English) *<RequiredBadge field="name"/><input value={form.name || ''} onChange={e=>{setField('name',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,name:''}));}} placeholder="Mountain Wild Zaatar Blend" className={fieldClass('name')}/>{validationErrors.name && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.name}</span>}</label>
               <label dir="rtl" className="text-xs font-black text-slate-600">Product Title (Arabic)<input value={form.arabicName || ''} onChange={e=>setField('arabicName',e.target.value)} placeholder="خلطة الزعتر الجبلي البلدي" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right font-sans"/></label>
               <label className="text-xs font-black text-slate-600 md:col-span-2">Category Selection *<select value={form.category || ''} onChange={e=>{setField('category',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,category:''}));}} className={fieldClass('category','mt-1.5 w-full px-3 py-2.5 rounded-xl border bg-white')}>{!form.category && <option value="">Select a bilingual catalog category…</option>}{categories.map((cat:any)=><option key={cat.id} value={cat.id}>{cat.icon ? cat.icon+' ' : ''}{cat.nameEn} {cat.nameAr ? '— '+cat.nameAr : ''}</option>)}</select>{selectedCategory && <span className="block mt-1.5 text-[10px] text-indigo-600 font-bold">{selectedCategory.icon} {selectedCategory.nameEn} · {selectedCategory.nameAr}</span>}</label>
             </div>
@@ -365,7 +382,7 @@ export const ProductsCatalogManagement: React.FC = () => {
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-xs font-black">2</span><div><h4 className="font-black">Artisan &amp; Terroir Origin Linkage</h4><p className="text-[11px] text-slate-500">Select a registered Lebanese seller to automatically link producer identity and terroir.</p></div></div>
             <div className="grid md:grid-cols-2 gap-4">
               <label className="text-xs font-black text-slate-600 md:col-span-2">Registered Seller / Artisan<select value={form.sellerId || ''} onChange={e=>setSeller(e.target.value)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white"><option value="">Independent / select later</option>{sellers.filter((s:any)=>s.isActive !== false).map((s:any)=><option key={s.id} value={s.id}>{s.nameEn}{s.nameAr ? ' — '+s.nameAr : ''}{s.region ? ' · '+s.region : ''}</option>)}</select>{selectedSeller && <div className="mt-2 flex flex-wrap gap-1.5"><span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black">{selectedSeller.nameEn}</span><span dir="rtl" className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px]">{selectedSeller.nameAr || 'Arabic name not registered'}</span><span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px]">Terroir: {selectedSeller.region}</span></div>}</label>
-              <label className="text-xs font-black text-slate-600">Seller Name (English) *<input list="yalla-seller-names" value={form.seller || ''} onChange={e=>setField('seller',e.target.value)} placeholder="Registered producer / cooperative" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/><datalist id="yalla-seller-names">{sellers.map((s:any)=><option key={s.id} value={s.nameEn}/>)}</datalist></label>
+              <label id="product-field-seller" className="text-xs font-black text-slate-600">Seller Name (English) *<RequiredBadge field="seller"/><input list="yalla-seller-names" value={form.seller || ''} onChange={e=>{setField('seller',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,seller:''}));}} placeholder="Registered producer / cooperative" className={fieldClass('seller')}/>{validationErrors.seller && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.seller}</span>}<datalist id="yalla-seller-names">{sellers.map((s:any)=><option key={s.id} value={s.nameEn}/>)}</datalist></label>
               <label dir="rtl" className="text-xs font-black text-slate-600">Seller Name (Arabic)<input value={form.arabicSeller || ''} onChange={e=>setField('arabicSeller',e.target.value)} placeholder="اسم المنتج بالعربية" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-right"/></label>
               <label className="text-xs font-black text-slate-600">Terroir / Origin<input value={form.origin || 'Lebanon'} onChange={e=>setField('origin',e.target.value)} placeholder="Koura, Chouf, Bekaa, Jezzine, Beirut" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
             </div>
@@ -373,8 +390,8 @@ export const ProductsCatalogManagement: React.FC = () => {
 
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">USD is the catalog price; LBP display is handled by the storefront exchange-rate layer.</p></div></div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Price (USD) *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/></label>
-              <label id="product-field-stock" className="text-xs font-black text-slate-600">Stock Quantity *<RequiredBadge field="stock"/><input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>{setField('stock',e.target.value === '' ? '' : Number(e.target.value));setValidationErrors(v=>({...v,stock:''}));}} className={fieldClass('stock')}/></label>
+              <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Price (USD) *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/>{validationErrors.priceUSD && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.priceUSD}</span>}</label>
+              <label id="product-field-stock" className="text-xs font-black text-slate-600">Stock Quantity *<RequiredBadge field="stock"/><input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>{setField('stock',e.target.value === '' ? '' : Number(e.target.value));setValidationErrors(v=>({...v,stock:''}));}} className={fieldClass('stock')}/>{validationErrors.stock && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.stock}</span>}</label>
               <label id="product-field-sellerItemCode" className="text-xs font-black text-slate-600">Seller Item Code (SKU) *<RequiredBadge field="sellerItemCode"/><input value={form.sellerItemCode || ''} onChange={e=>{setField('sellerItemCode',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,sellerItemCode:''}));}} placeholder="SIC-12930" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
               <label className="text-xs font-black text-slate-600">Package / Unit Size<input value={form.weightOrVolume || ''} onChange={e=>setField('weightOrVolume',e.target.value)} placeholder="500ml Glass Bottle / Set of 6 / Medium 38–44" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
             </div>
@@ -383,7 +400,7 @@ export const ProductsCatalogManagement: React.FC = () => {
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Compare-at pricing calculates the discount badge automatically.</p></div></div>
             <div className="grid sm:grid-cols-3 gap-4">
               <label className="text-xs font-black text-slate-600">Original / Compare-at Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setOriginalPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
-              <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" type="number" readOnly value={calculatedDiscount || ''} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700"/></label>
+              <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" step="1" type="number" value={form.discountPercentage ?? calculatedDiscount ?? ''} onChange={e=>setDiscount(e.target.value)} placeholder="50" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700"/></label>
               <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from compare-at price' : 'Enter a higher compare-at price'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
             </div>
           </section>
@@ -425,7 +442,7 @@ export const ProductsCatalogManagement: React.FC = () => {
         <button onClick={()=>fileRef.current?.click()} className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-black flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/>Bulk Upload CSV</button>
         <button onClick={()=>bulkPublish(false)} disabled={!selected.size} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><Save className="w-3.5 h-3.5"/>Save Drafts</button>
         <button onClick={()=>bulkPublish(true)} disabled={!selected.size} className="px-3 py-2 rounded-xl bg-emerald-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5"/>Public Publish Live</button>
-        <button onClick={()=>{setForm(emptyProduct());setValidationErrors({});setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
+        <button onClick={()=>{setForm(emptyProduct());setValidationErrors({});setValidationModalOpen(false);setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
       </div>
     </div>
 
@@ -443,6 +460,24 @@ export const ProductsCatalogManagement: React.FC = () => {
     {viewMode === 'sequence' && <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-3 text-[10px] text-indigo-800 font-semibold">Sequence mode uses the filtered products above. Reorder with arrows, Make #1, or type an exact rank and press Go. Save Products Order writes the sequence to the catalog.</div>}
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">{sequence.map((p,i)=><ProductCard key={p.id} p={p} index={i}/>)}</div>
     {!sequence.length && <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center"><AlertTriangle className="w-7 h-7 mx-auto text-slate-600"/><p className="mt-2 text-sm font-bold text-slate-500">No products match the current filters.</p></div>}
+    {validationModalOpen && <div className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg rounded-3xl bg-white border border-rose-200 shadow-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-rose-100 bg-rose-50 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0"><AlertTriangle className="w-5 h-5"/></div>
+          <div className="min-w-0"><h3 className="text-lg font-black text-slate-900">Required information is missing</h3><p className="text-xs text-slate-600 mt-1">Complete all highlighted fields before saving or publishing this product.</p></div>
+        </div>
+        <div className="p-6">
+          <div className="space-y-2">
+            {Object.entries(validationErrors).map(([field, message]) => <button key={field} type="button" onClick={() => { setValidationModalOpen(false); window.setTimeout(() => document.getElementById(`product-field-${field}`)?.scrollIntoView({behavior:'smooth', block:'center'}), 50); }} className="w-full text-left px-3 py-2.5 rounded-xl bg-rose-50 border border-rose-100 text-xs text-rose-700 font-bold hover:bg-rose-100">
+              {message}
+            </button>)}
+          </div>
+          <div className="flex justify-end gap-2 mt-5">
+            <button type="button" onClick={() => { setValidationModalOpen(false); window.setTimeout(() => document.getElementById(`product-field-${Object.keys(validationErrors)[0] || ''}`)?.scrollIntoView({behavior:'smooth', block:'center'}), 50); }} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black">Fix Required Fields</button>
+          </div>
+        </div>
+      </div>
+    </div>}
     {modalOpen && Modal()}
   </section>;
 };
