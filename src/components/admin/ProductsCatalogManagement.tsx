@@ -15,7 +15,7 @@ const emptyProduct = () => ({
   name: '', arabicName: '', category: '', brand: '', artisan: '', seller: '', arabicSeller: '', sellerId: '', origin: '',
   priceUSD: '', originalPriceUSD: '', discountPercentage: '', stock: '', lowStockThreshold: '', lowStockNotice: '', customStockLabel: '', costPriceUSD: '',
   image: '', additionalImages: [] as string[], videoUrl: '', videos: [] as string[], weightOrVolume: '', tagsInput: '', keywordsInput: '', arabicKeywordsInput: '', sellerItemCode: '',
-  description: '', craftStory: '', seoTitle: '', seoArabicTitle: '', seoDescription: '', seoArabicDescription: '', isNewArrival: false, isFeatured: false, isBestseller: false, isPublished: false, displayOrder: '',
+  description: '', craftStory: '', seoTitle: '', seoArabicTitle: '', seoDescription: '', seoArabicDescription: '', isNewArrival: true, isFeatured: false, isBestseller: false, isPublished: false, displayOrder: '',
   promotionScheduleEnabled: false, promotionStartAt: '', promotionEndAt: ''
 });
 
