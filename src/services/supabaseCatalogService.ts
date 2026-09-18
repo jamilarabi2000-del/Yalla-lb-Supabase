@@ -91,6 +91,8 @@ export function mapSupabaseProduct(
   return {
     id: String(row.id || ''),
 
+    yallaItemCode: row.yalla_item_code ?? undefined,
+
     name: String(row.name || ''),
 
     arabicName:
@@ -609,6 +611,7 @@ function buildProductMediaRows(
  */
 const PUBLIC_PRODUCT_COLUMNS = `
   id,
+  yalla_item_code,
   name,
   arabic_name,
   artisan,
@@ -662,6 +665,7 @@ const PUBLIC_PRODUCT_COLUMNS = `
  */
 const ADMIN_PRODUCT_COLUMNS = `
   id,
+  yalla_item_code,
   name,
   arabic_name,
   artisan,
