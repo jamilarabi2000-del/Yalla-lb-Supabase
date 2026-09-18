@@ -779,7 +779,7 @@ export const CategoriesDetailsView: React.FC = () => {
                         !isPublished ? 'opacity-70 bg-slate-50/50' : ''
                       }`}
                     >
-                      <label className="absolute top-3 left-3 z-20"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></label>
+                      <label className="shrink-0"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></label>
                       {/* Left: Position Rank & Move Buttons */
                       <div className="flex items-center gap-2 shrink-0">
                         {/* Position input / badge */}
@@ -943,6 +943,7 @@ export const CategoriesDetailsView: React.FC = () => {
               {filteredCategories.map((cat, index) => {
                 const count = getProductCountForCategory(cat.id);
                 const isPublished = cat.isPublished !== false;
+                const categorySelected = selectedCategories.has(cat.id);
                 const isFirst = index === 0;
                 const isLast = index === categories.length - 1;
 
@@ -964,9 +965,9 @@ export const CategoriesDetailsView: React.FC = () => {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
                         
-                        {/* Top quick badges & reordering controls */}
                         <div className="absolute top-3 left-3 z-20"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></div>
-                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pl-7">
+                        {/* Top quick badges & reordering controls */
+                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
                           <span className={`px-2.5 py-1 rounded-lg text-slate-900 text-[11px] font-mono font-bold border backdrop-blur-xs ${
                             isFirst ? 'bg-amber-500/90 border-amber-300 ring-2 ring-amber-400/50' : 'bg-black/70 border-slate-200'
                           }`}>
@@ -1234,3 +1235,303 @@ export const CategoriesDetailsView: React.FC = () => {
               )}
             </div>
           ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredRegions.map((reg) => (
+                <div key={reg.id} className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-4 flex flex-col justify-between hover:border-amber-200 transition-all">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-50 text-[#c5a059] flex items-center justify-center shadow-2xs">
+                          <MapPin className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">{reg.nameEn}</h4>
+                          <p className="text-xs text-amber-700 font-serif font-bold">{reg.nameAr}</p>
+                        </div>
+                      </div>
+
+                      <span className="px-2.5 py-1 rounded-full text-xs font-black bg-slate-50 text-slate-900">
+                        ${reg.baseDeliveryUSD.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Major Artisan Villages & Delivery Hubs ({reg.majorCities?.length || 0}):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {reg.majorCities && reg.majorCities.map((city, idx) => (
+                          <span key={idx} className="px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-200/60 text-slate-700 text-[11px]">
+                            {city}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {reg.estimatedTimeEn && (
+                      <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 flex items-center gap-2">
+                        <Truck className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        <span>{reg.estimatedTimeEn}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Express Delivery:</span>
+                      <span className={`font-bold ${reg.expressAvailable ? 'text-emerald-600' : 'text-slate-500'}`}>
+                        {reg.expressAvailable ? '✓ Available (Same Day)' : 'Standard (24-48h)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="font-mono text-[10px] text-slate-500">id: {reg.id}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenEditRegion(reg)}
+                        className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit Zone</span>
+                      </button>
+                      <button
+                        onClick={() => setRegionToDelete(reg)}
+                        className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-rose-200/60 shadow-2xs active:scale-95"
+                        title={`Delete "${reg.nameEn}" delivery zone`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Category Create / Edit Modal with full Arabic SEO Keywords */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white max-w-2xl w-full p-6 sm:p-8 rounded-3xl shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-[#4f46e5] flex items-center justify-center font-bold">
+                  {editingCategory ? <Edit3 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {editingCategory ? `Edit Category: ${editingCategory.nameEn}` : 'Create New Store Category'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Configure names, icons, subcategories, and Arabic search engine keywords.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-slate-500 hover:text-slate-700 text-xl font-bold cursor-pointer p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-5 text-xs">
+              {/* Names */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Name (English) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Organic Mouneh & Pantry"
+                    value={catForm.nameEn}
+                    onChange={(e) => setCatForm({ ...catForm, nameEn: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-[#4f46e5]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Name (Arabic) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. المونة والأغذية البلدية"
+                    value={catForm.nameAr}
+                    onChange={(e) => setCatForm({ ...catForm, nameAr: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:border-[#4f46e5] text-right font-serif text-sm font-bold text-slate-900"
+                    dir="rtl"
+                  />
+                </div>
+              </div>
+
+              {/* Icon & Slug */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Icon Emoji</label>
+                  <input
+                    type="text"
+                    value={catForm.icon}
+                    onChange={(e) => setCatForm({ ...catForm, icon: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none text-center text-lg"
+                  />
+                  {/* Emoji Quick Picker */}
+                  <div className="flex flex-wrap gap-1 mt-1.5 max-h-16 overflow-y-auto p-1 bg-slate-50 rounded-lg border border-slate-200">
+                    {EMOJI_SUGGESTIONS.map((em, emIdx) => (
+                      <button
+                        key={emIdx}
+                        type="button"
+                        onClick={() => setCatForm({ ...catForm, icon: em })}
+                        className="w-6 h-6 rounded hover:bg-white text-xs flex items-center justify-center cursor-pointer transition-all"
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Category Slug / Identifier {!editingCategory && <span className="text-slate-500 font-normal">(Leave blank to auto-generate)</span>}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. organic-mouneh"
+                    value={catForm.id}
+                    disabled={!!editingCategory}
+                    onChange={(e) => setCatForm({ ...catForm, id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none font-mono disabled:opacity-60 disabled:bg-slate-100"
+                  />
+                  {editingCategory && (
+                    <p className="text-[10px] text-slate-500 mt-1">Slug is locked during edits to protect existing product links.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Descriptions */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Description (English)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Brief description for category banners and SEO snippets..."
+                    value={catForm.description}
+                    onChange={(e) => setCatForm({ ...catForm, description: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none leading-relaxed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Description (Arabic)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="وصف مختصر للقسم يظهر في الترويسات ومحركات البحث..."
+                    value={catForm.descriptionAr}
+                    onChange={(e) => setCatForm({ ...catForm, descriptionAr: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none text-right font-serif leading-relaxed"
+                    dir="rtl"
+                  />
+                </div>
+              </div>
+
+              {/* Banner URL & Live Preview */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Category Banner Image URL</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/..."
+                    value={catForm.bannerUrl}
+                    onChange={(e) => setCatForm({ ...catForm, bannerUrl: e.target.value })}
+                    className="flex-1 px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none"
+                  />
+                </div>
+                {catForm.bannerUrl && (
+                  <div className="mt-2 h-20 w-full rounded-xl overflow-hidden relative border border-slate-200 bg-slate-100">
+                    <img 
+                      src={catForm.bannerUrl} 
+                      alt="Banner Preview" 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute bottom-1 right-2 px-2 py-0.5 bg-black/60 text-slate-900 rounded text-[10px] font-bold">
+                      Banner Preview
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* SUB-CATEGORIES TAGS MANAGER */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2.5">
+                <label className="block font-bold text-slate-800">
+                  Subcategories & Product Filter Tags ({catForm.subcategories.length})
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Type a subcategory name and click "Add" or press Enter.
+                </p>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Olive Oils, Cedar Honey, Artisan Jams..."
+                    value={catForm.newSubcatInput}
+                    onChange={(e) => setCatForm({ ...catForm, newSubcatInput: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (catForm.newSubcatInput.trim()) {
+                          setCatForm({
+                            ...catForm,
+                            subcategories: [...catForm.subcategories, catForm.newSubcatInput.trim()],
+                            newSubcatInput: ''
+                          });
+                        }
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 bg-white rounded-xl border border-slate-200 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (catForm.newSubcatInput.trim()) {
+                        setCatForm({
+                          ...catForm,
+                          subcategories: [...catForm.subcategories, catForm.newSubcatInput.trim()],
+                          newSubcatInput: ''
+                        });
+                      }
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-black text-slate-900 font-bold rounded-xl cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {catForm.subcategories.map((sub, sIdx) => (
+                    <span key={sIdx} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold shadow-2xs">
+                      <span>{sub}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCatForm({
+                          ...catForm,
+                          subcategories: catForm.subcategories.filter((_, i) => i !== sIdx)
+                        })}
+                        className="text-slate-500 hover:text-rose-600 ml-1 cursor-pointer font-bold"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* ARABIC SEO KEYWORDS SECTION */}
+              <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-200/80 space-y-3">
+                <div className="flex items-center justify-between">
