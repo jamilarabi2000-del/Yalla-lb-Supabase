@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useShop } from '../../context/ShopContext';
 import { useDialog } from '../../hooks/useDialog';
 import { DiscountRule } from '../../types';
-import { ProductBundlesManager } from './ProductBundlesManager';
 import { 
   Tag, 
   Plus, 
@@ -25,19 +24,9 @@ import {
   AlertCircle,
   ToggleLeft,
   ToggleRight,
-  PackageCheck
 } from 'lucide-react';
 
-interface DiscountsManagerProps {
-  initialTab?: 'rules' | 'bundles';
-}
-
-export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab = 'rules' }) => {
-  const [activeTab, setActiveTab] = useState<'rules' | 'bundles'>(initialTab);
-
-  React.useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+export const DiscountsManager: React.FC = () => {
 
   const { 
     discountRules = [], 
@@ -272,37 +261,6 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
   return (
     <div className="space-y-6">
       
-      {/* Top Tab Selector */}
-      <div className="flex border-b border-slate-200 gap-4">
-        <button
-          onClick={() => setActiveTab('rules')}
-          className={`pb-3 px-4 font-bold text-xs uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all ${
-            activeTab === 'rules'
-              ? 'border-[#b89753] text-[#b89753]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Tag className="w-4 h-4" />
-          <span>Discount Rules & Coupons</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('bundles')}
-          className={`pb-3 px-4 font-bold text-xs uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all ${
-            activeTab === 'bundles'
-              ? 'border-[#b89753] text-[#b89753]'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <PackageCheck className="w-4 h-4" />
-          <span>Combo & Bundle Deals Creator</span>
-        </button>
-      </div>
-
-      {activeTab === 'bundles' ? (
-        <ProductBundlesManager />
-      ) : (
-        <>
           {/* Header Banner */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -z-1" />
@@ -887,9 +845,6 @@ export const DiscountsManager: React.FC<DiscountsManagerProps> = ({ initialTab =
           </div>
         </div>
       )}
-        </>
-      )}
-
     </div>
   );
 };
