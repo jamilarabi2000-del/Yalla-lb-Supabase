@@ -81,6 +81,3 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(184, 151, 83, 0.75); }
 @keyframes bounceShort { 0% { transform: translateY(12px); opacity: 0; } 55% { transform: translateY(-4px); opacity: 1; } 75% { transform: translateY(2px); } 100% { transform: translateY(0); opacity: 1; } }
 .animate-bounce-short { animation: bounceShort 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-/* Keep bundle creation in the standalone Bundles & Combo Deals section. */
-button:has(svg.lucide-package-check) { display: none !important; }
