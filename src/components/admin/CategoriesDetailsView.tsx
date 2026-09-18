@@ -498,7 +498,6 @@ export const CategoriesDetailsView: React.FC = () => {
               </p>
             </div>
           </div>        </div>
-
         <div className="flex items-center gap-2">
           {activeTab === 'categories' ? (
             <button
@@ -965,7 +964,7 @@ export const CategoriesDetailsView: React.FC = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
                         
                         <div className="absolute top-3 left-3 z-20"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></div>
-                        {/* Top quick badges & reordering controls */
+                        {/* Top quick badges & reordering controls */}
                         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
                           <span className={`px-2.5 py-1 rounded-lg text-slate-900 text-[11px] font-mono font-bold border backdrop-blur-xs ${
                             isFirst ? 'bg-amber-500/90 border-amber-300 ring-2 ring-amber-400/50' : 'bg-black/70 border-slate-200'
@@ -997,8 +996,7 @@ export const CategoriesDetailsView: React.FC = () => {
                               className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
                             >
                               <MoveUp className="w-3.5 h-3.5" />                            </button>
-                            <button
-                              onClick={() => handleMoveCategory(index, 'down')}
+                            <button                              onClick={() => handleMoveCategory(index, 'down')}
                               disabled={isLast}
                               title="Move Down 1 spot"
                               className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
