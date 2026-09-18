@@ -358,7 +358,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     const rank = Number(value);
     if (!Number.isInteger(rank) || rank < 1 || rank > sequence.length) return;
     const next = [...sequence]; const [item] = next.splice(index, 1); next.splice(rank - 1, 0, item);
-    setSequence(next); setOrderDirty(true);
+    setSequence(next); setOrderDirty(true); setLastMovedProductId(item.id);
   };
 
   const saveQuick = async (p: Product) => {
