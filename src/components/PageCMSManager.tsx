@@ -362,7 +362,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
         {/* Global Toolbar */}
         <div className="flex flex-wrap items-center gap-2.5 w-full xl:w-auto justify-start xl:justify-end">
           <div className="w-full sm:w-56 md:w-64 min-w-[180px] shrink-0">
-            <CMSGlobalSearch onSelectTab={(tabId) => setActiveTab(tabId)} />
+            <CMSGlobalSearch cmsForm={cmsForm} onSelectTab={(tabId) => setActiveTab(tabId)} />
           </div>
 
           {/* 3-Way View Switcher */}
@@ -850,7 +850,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
 
             {/* 12. Theme & Global Design */}
             {activeTab === 'theme' && (
-              <CMSThemeTab />
+              <CMSThemeTab themeData={cmsForm.theme as any} onChange={(updates) => {\n                handleUpdate(prev => ({ ...prev, theme: { ...(prev.theme as any), ...updates } }));\n              }} />
             )}
           </div>
 
