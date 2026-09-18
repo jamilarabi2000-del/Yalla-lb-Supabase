@@ -497,8 +497,7 @@ export const CategoriesDetailsView: React.FC = () => {
                 Manage full taxonomy, Arabic SEO keywords, subcategories, artisan guilds, and regional logistics.
               </p>
             </div>
-          </div>        </div>
-        <div className="flex items-center gap-2">
+          </div>        </div>        <div className="flex items-center gap-2">
           {activeTab === 'categories' ? (
             <button
               onClick={handleOpenCreateCategory}
@@ -778,7 +777,7 @@ export const CategoriesDetailsView: React.FC = () => {
                       }`}
                     >
                       <label className="shrink-0"><input type="checkbox" checked={categorySelected} onChange={() => toggleCategorySelection(cat.id)} className="w-4 h-4 accent-indigo-600"/></label>
-                      {/* Left: Position Rank & Move Buttons */}
+                      {/* Left: Position Rank & Move Buttons */}}
                       <div className="flex items-center gap-2 shrink-0">
                         {/* Position input / badge */}
                         <div className="flex flex-col items-center justify-center">
@@ -997,8 +996,7 @@ export const CategoriesDetailsView: React.FC = () => {
                             >
                               <MoveUp className="w-3.5 h-3.5" />                            </button>
                             <button                              onClick={() => handleMoveCategory(index, 'down')}
-                              disabled={isLast}
-                              title="Move Down 1 spot"
+                              disabled={isLast}                              title="Move Down 1 spot"
                               className="p-1 rounded-lg text-slate-900 hover:bg-white/20 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-all"
                             >
                               <MoveDown className="w-3.5 h-3.5" />
@@ -1498,36 +1496,3 @@ export const CategoriesDetailsView: React.FC = () => {
                       if (catForm.newSubcatInput.trim()) {
                         setCatForm({
                           ...catForm,
-                          subcategories: [...catForm.subcategories, catForm.newSubcatInput.trim()],
-                          newSubcatInput: ''
-                        });
-                      }
-                    }}
-                    className="px-4 py-2 bg-slate-100 hover:bg-black text-slate-900 font-bold rounded-xl cursor-pointer"
-                  >
-                    Add
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {catForm.subcategories.map((sub, sIdx) => (
-                    <span key={sIdx} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold shadow-2xs">
-                      <span>{sub}</span>
-                      <button
-                        type="button"
-                        onClick={() => setCatForm({
-                          ...catForm,
-                          subcategories: catForm.subcategories.filter((_, i) => i !== sIdx)
-                        })}
-                        className="text-slate-500 hover:text-rose-600 ml-1 cursor-pointer font-bold"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* ARABIC SEO KEYWORDS SECTION */}
-              <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-200/80 space-y-3">
-                <div className="flex items-center justify-between">
