@@ -105,14 +105,23 @@ export const ProductsCatalogManagement: React.FC = () => {
   };
   React.useEffect(() => {
     if (!editing) return;
-    setForm({ ...emptyProduct(), ...editing,
+    const linkedSeller: any = (sellers as any[]).find((s: any) => s.id === (editing as any).sellerId);
+    setForm({
+      ...emptyProduct(),
+      ...editing,
+      sellerId: (editing as any).sellerId || linkedSeller?.id || '',
+      seller: (editing as any).seller || linkedSeller?.nameEn || (editing as any).artisan || '',
+      arabicSeller: (editing as any).arabicSeller || linkedSeller?.nameAr || '',
+      artisan: (editing as any).artisan || linkedSeller?.nameEn || '',
+      origin: (editing as any).origin || linkedSeller?.region || 'Lebanon',
+      isNewArrival: (editing as any).isNewArrival ?? false,
       keywordsInput: (editing.keywords || []).join(', '),
       arabicKeywordsInput: (editing.arabicKeywords || []).join(', '),
       tagsInput: (editing.tags || []).join(', '),
       additionalImages: editing.additionalImages || [],
       videos: editing.videos || editing.additionalVideos || []
     });
-  }, [editing]);
+  }, [editing, sellers]);
 
   const saveProduct = async (published: boolean) => {
     const stock = Number(form.stock);
@@ -145,8 +154,8 @@ export const ProductsCatalogManagement: React.FC = () => {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || 'Lebanon').trim() || 'Lebanon', priceUSD: price,
-      originalPriceUSD: (() => { const enteredOriginal = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); const derivedOriginal = enteredOriginal > price ? enteredOriginal : originalFromPriceDiscount(price, enteredDiscount); return derivedOriginal > price ? derivedOriginal : undefined; })(),
-      discountPercentage: (() => { const enteredOriginal = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return discountFromPrices(price, enteredOriginal) || (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : undefined); })(),
+      originalPriceUSD: (() => { const promo = Number(form.originalPriceUSD || 0); return promo > 0 && promo < price ? promo : undefined; })(),
+      discountPercentage: (() => { const promo = Number(form.originalPriceUSD || 0); const enteredDiscount = Number(form.discountPercentage || 0); return discountFromPrices(price, promo) || (enteredDiscount > 0 && enteredDiscount < 100 ? Math.round(enteredDiscount) : undefined); })(),
       promotionScheduleEnabled: !!form.promotionScheduleEnabled,
       promotionStartAt: String(form.promotionStartAt || '').trim() || undefined,
       promotionEndAt: String(form.promotionEndAt || '').trim() || undefined,
@@ -385,20 +394,29 @@ export const ProductsCatalogManagement: React.FC = () => {
     setForm((v: any) => ({ ...v, [key]: [...(v[key] || []), url] }));
   };
   const removeMediaUrl = (key: 'additionalImages' | 'videos', index: number) => setForm((v: any) => ({ ...v, [key]: (v[key] || []).filter((_: string, i: number) => i !== index) }));
-  const discountFromPrices = (price: number, original: number) => original > price && original > 0 ? Math.round(((original - price) / original) * 100) : 0;
-  const priceFromDiscount = (original: number, discount: number) => original > 0 && discount >= 0 && discount <= 100 ? Math.round((original * (1 - discount / 100)) * 100) / 100 : 0;
-  const originalFromPriceDiscount = (price: number, discount: number) => price > 0 && discount > 0 && discount < 100 ? Math.round((price / (1 - discount / 100)) * 100) / 100 : 0;
+  // Pricing model: Price (USD) = regular/original price; Promo Price = temporary selling price.
+  const discountFromPrices = (regularPrice: number, promoPrice: number) =>
+    regularPrice > promoPrice && regularPrice > 0
+      ? Math.round(((regularPrice - promoPrice) / regularPrice) * 100)
+      : 0;
+  const promoPriceFromDiscount = (regularPrice: number, discount: number) =>
+    regularPrice > 0 && discount >= 0 && discount <= 100
+      ? Math.round((regularPrice * (1 - discount / 100)) * 100) / 100
+      : 0;
+  const regularPriceFromPromoDiscount = (promoPrice: number, discount: number) =>
+    promoPrice > 0 && discount >= 0 && discount < 100
+      ? Math.round((promoPrice / (1 - discount / 100)) * 100) / 100
+      : 0;
   const imageLooksLikeWebPage = (url: string) => /\\.html?(?:[?#]|$)/i.test(url.trim());
   const normalizeSeller = (seller: any) => seller ? { nameEn: seller.nameEn || '', nameAr: seller.nameAr || '', region: seller.region || seller.district || seller.governorate || 'Lebanon' } : null;
 
   const Modal = () => {
     const selectedSeller = normalizeSeller(sellers.find((s: any) => s.id === form.sellerId));
     const selectedCategory = categories.find((cat: any) => cat.id === form.category);
-    const original = Number(form.originalPriceUSD || 0);
-    const activePrice = Number(form.priceUSD || 0);
+    const regularPrice = Number(form.priceUSD || 0);
+    const promoPrice = Number(form.originalPriceUSD || 0);
     const enteredDiscount = Number(form.discountPercentage || 0);
-    const calculatedOriginal = original > activePrice ? original : originalFromPriceDiscount(activePrice, enteredDiscount);
-    const calculatedDiscount = discountFromPrices(activePrice, calculatedOriginal) || (enteredDiscount > 0 ? Math.round(enteredDiscount) : 0);
+    const calculatedDiscount = discountFromPrices(regularPrice, promoPrice) || (enteredDiscount > 0 ? Math.round(enteredDiscount) : 0);
     const arabicQuickKeywords = ['مونة بلدية', 'زيت زيتون كورة', 'زعتر بلدي جبلي', 'عسل سدر', 'صناعة لبنانية', 'شحن مغتربين'];
     const addArabicKeyword = (keyword: string) => {
       const current = String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean);
@@ -412,45 +430,64 @@ export const ProductsCatalogManagement: React.FC = () => {
       setForm((v: any) => ({ ...v, sellerId: id, seller: normalized?.nameEn || '', arabicSeller: normalized?.nameAr || '', artisan: normalized?.nameEn || '', origin: normalized?.region || v.origin || 'Lebanon' }));
     };
     const setPrice = (value: string) => {
-      const n = Number(value);
-      const originalValue = Number(form.originalPriceUSD || 0);
-      const enteredDiscount = Number(form.discountPercentage || 0);
-      const discount = discountFromPrices(n, originalValue) || (enteredDiscount > 0 ? Math.round(enteredDiscount) : 0);
-      const derivedOriginal = originalValue > n ? originalValue : originalFromPriceDiscount(n, enteredDiscount);
+      const regular = Number(value);
+      const promo = Number(form.originalPriceUSD || 0);
+      const discount = discountFromPrices(regular, promo);
       setForm((v: any) => ({
         ...v,
-        priceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0),
-        originalPriceUSD: derivedOriginal > n ? derivedOriginal : v.originalPriceUSD,
+        priceUSD: value === '' ? '' : (Number.isFinite(regular) ? regular : 0),
         discountPercentage: discount || ''
       }));
     };
-    const setOriginalPrice = (value: string) => {
-      const n = Number(value);
-      const currentPrice = Number(form.priceUSD || 0);
-      const discount = discountFromPrices(currentPrice, n);
-      setForm((v: any) => ({
-        ...v,
-        originalPriceUSD: value === '' ? '' : (Number.isFinite(n) ? n : 0),
-        discountPercentage: discount || ''
-      }));
-    };
-    const setDiscount = (value: string) => {
-      const n = Number(value);
-      const originalValue = Number(form.originalPriceUSD || 0);
-      const currentPrice = Number(form.priceUSD || 0);
+    const setPromoPrice = (value: string) => {
+      const promo = Number(value);
+      const regular = Number(form.priceUSD || 0);
+      const currentDiscount = Number(form.discountPercentage || 0);
       if (value === '') {
-        setForm((v: any) => ({ ...v, discountPercentage: '', priceUSD: originalValue || v.priceUSD }));
+        setForm((v: any) => ({ ...v, originalPriceUSD: '', discountPercentage: '' }));
         return;
       }
-      const discount = Math.min(100, Math.max(0, Number.isFinite(n) ? n : 0));
-      const calculatedPrice = priceFromDiscount(originalValue, discount);
-      const calculatedOriginal = originalValue > 0 ? originalValue : originalFromPriceDiscount(currentPrice, discount);
-      setForm((v: any) => ({
-        ...v,
-        discountPercentage: discount,
-        originalPriceUSD: calculatedOriginal > 0 ? calculatedOriginal : v.originalPriceUSD,
-        priceUSD: originalValue > 0 ? calculatedPrice : v.priceUSD
-      }));
+      const validPromo = Number.isFinite(promo) ? promo : 0;
+      if (currentDiscount > 0 && currentDiscount < 100) {
+        const derivedRegular = regularPriceFromPromoDiscount(validPromo, currentDiscount);
+        setForm((v: any) => ({
+          ...v,
+          originalPriceUSD: validPromo,
+          priceUSD: derivedRegular || regular,
+          discountPercentage: currentDiscount
+        }));
+      } else {
+        const discount = discountFromPrices(regular, validPromo);
+        setForm((v: any) => ({
+          ...v,
+          originalPriceUSD: validPromo,
+          discountPercentage: discount || ''
+        }));
+      }
+    };
+    const setDiscount = (value: string) => {
+      if (value === '') {
+        setForm((v: any) => ({ ...v, discountPercentage: '' }));
+        return;
+      }
+      const discount = Math.min(99, Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0));
+      const promo = Number(form.originalPriceUSD || 0);
+      const regular = Number(form.priceUSD || 0);
+      if (promo > 0) {
+        const derivedRegular = regularPriceFromPromoDiscount(promo, discount);
+        setForm((v: any) => ({
+          ...v,
+          discountPercentage: discount,
+          priceUSD: derivedRegular || regular
+        }));
+      } else {
+        const derivedPromo = promoPriceFromDiscount(regular, discount);
+        setForm((v: any) => ({
+          ...v,
+          discountPercentage: discount,
+          originalPriceUSD: derivedPromo || v.originalPriceUSD
+        }));
+      }
     };
     const close = () => { setModalOpen(false); setEditing(null); setValidationModalOpen(false); };
     return <div className="fixed inset-0 z-[70] bg-slate-900/30 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
@@ -479,20 +516,20 @@ export const ProductsCatalogManagement: React.FC = () => {
             </div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">USD is the catalog price; LBP display is handled by the storefront exchange-rate layer.</p></div></div>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the temporary selling price; LBP display is handled by the storefront exchange-rate layer.</p></div></div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Price (USD) *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/>{validationErrors.priceUSD && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.priceUSD}</span>}</label>
+              <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Price (USD) — Regular / Original *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/>{validationErrors.priceUSD && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.priceUSD}</span>}</label>
               <label id="product-field-stock" className="text-xs font-black text-slate-600">Stock Quantity *<RequiredBadge field="stock"/><input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>{setField('stock',e.target.value === '' ? '' : Number(e.target.value));setValidationErrors(v=>({...v,stock:''}));}} className={fieldClass('stock')}/>{validationErrors.stock && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.stock}</span>}</label>
               <label id="product-field-sellerItemCode" className="text-xs font-black text-slate-600">Seller Item Code (SKU) *<RequiredBadge field="sellerItemCode"/><input value={form.sellerItemCode || ''} onChange={e=>{setField('sellerItemCode',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,sellerItemCode:''}));}} placeholder="SIC-12930" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
               <label className="text-xs font-black text-slate-600">Package / Unit Size<input value={form.weightOrVolume || ''} onChange={e=>setField('weightOrVolume',e.target.value)} placeholder="500ml Glass Bottle / Set of 6 / Medium 38–44" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
             </div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Compare-at pricing calculates the discount badge automatically.</p></div></div>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the discounted selling price. Changing Promo Price or Discount % recalculates the regular price.</p></div></div>
             <div className="grid sm:grid-cols-3 gap-4">
-              <label className="text-xs font-black text-slate-600">Original / Compare-at Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setOriginalPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label className="text-xs font-black text-slate-600">Promo Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setPromoPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
               <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" step="1" type="number" value={form.discountPercentage ?? calculatedDiscount ?? ''} onChange={e=>setDiscount(e.target.value)} placeholder="50" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700"/></label>
-              <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from Original / Compare-at Price or Discount %' : 'Enter a valid compare-at price or discount %'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
+              <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from Promo Price and Regular Price / Discount %' : 'Enter a Promo Price or Discount %'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
             </div>
           </section>
 
@@ -507,7 +544,7 @@ export const ProductsCatalogManagement: React.FC = () => {
                 <label id="product-field-promotionStartAt" className="text-xs font-black text-slate-600">Start Date &amp; Time *<input type="datetime-local" value={form.promotionStartAt || ''} onChange={e=>setField('promotionStartAt',e.target.value)} className={fieldClass('promotionStartAt')}/>{validationErrors.promotionStartAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionStartAt}</span>}</label>
                 <label id="product-field-promotionEndAt" className="text-xs font-black text-slate-600">End Date &amp; Time *<input type="datetime-local" value={form.promotionEndAt || ''} onChange={e=>setField('promotionEndAt',e.target.value)} className={fieldClass('promotionEndAt')}/>{validationErrors.promotionEndAt && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.promotionEndAt}</span>}</label>
               </div>}
-              <p className="text-[10px] text-indigo-700 font-semibold">The scheduled rule is saved in Supabase and is evaluated by the server at checkout. Your Original / Compare-at Price and Discount % remain the source for the promotion amount.</p>
+              <p className="text-[10px] text-indigo-700 font-semibold">The scheduled rule is saved in Supabase and is evaluated by the server at checkout. Your Regular Price, Promo Price and Discount % remain the source for the promotion amount.</p>
             </div>
           </section>
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-xs font-black">6</span><div><h4 className="font-black">Scarcity Alert &amp; Low-Stock Notices</h4><p className="text-[11px] text-slate-500">Control when and how urgency messaging appears to shoppers.</p></div></div>
@@ -547,7 +584,7 @@ export const ProductsCatalogManagement: React.FC = () => {
         <button onClick={()=>fileRef.current?.click()} className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-black flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/>Bulk Upload CSV</button>
         <button onClick={()=>bulkPublish(false)} disabled={!selected.size} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><Save className="w-3.5 h-3.5"/>Save Drafts</button>
         <button onClick={()=>bulkPublish(true)} disabled={!selected.size} className="px-3 py-2 rounded-xl bg-emerald-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5"/>Public Publish Live</button>
-        <button onClick={()=>{setForm(emptyProduct());setValidationErrors({});setValidationModalOpen(false);setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
+        <button onClick={()=>{setForm({ ...emptyProduct(), isNewArrival: true, promotionScheduleEnabled: false, promotionStartAt: '', promotionEndAt: '' });setValidationErrors({});setValidationModalOpen(false);setEditing(null);setModalOpen(true);}} className="px-4 py-2 rounded-xl bg-indigo-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/>ADD PRODUCT</button>
       </div>
     </div>
 
