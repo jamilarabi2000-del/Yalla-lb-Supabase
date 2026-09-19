@@ -258,7 +258,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
                   setBusy(false);
                 }
               }} className="space-y-4">
-                <input value={code} onChange={e => setCode(e.target.value.replace(/\\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus placeholder="123456" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" />
+                <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus placeholder="123456" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" />
                 {stepUpError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828]">{stepUpError}</div>}
                 <button disabled={busy || code.length !== 6} className="gold-btn w-full py-3 rounded-xl font-bold disabled:opacity-50">{busy ? 'Verifying…' : 'Verify Step-Up'}</button>
               </form>
