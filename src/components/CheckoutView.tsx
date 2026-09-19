@@ -154,8 +154,7 @@ export const CheckoutView: React.FC = () => {
           defaultCity: formData.city,
           defaultAddress: formData.street,
           defaultBuilding: formData.building,
-          defaultFloorApartment: formData.floorApartment,
-          defaultNotes: formData.notes
+            defaultNotes: formData.notes
         }));
       } catch {}
     }
@@ -223,7 +222,6 @@ export const CheckoutView: React.FC = () => {
       const cityVal = user?.defaultCity || '';
       const streetVal = user?.defaultAddress || '';
       const buildingVal = user?.defaultBuilding || '';
-      const floorApartmentVal = (user as any)?.defaultFloorApartment || '';
       const notesVal = user?.defaultNotes || '';
 
       setFormData(prev => ({
@@ -235,7 +233,7 @@ export const CheckoutView: React.FC = () => {
         city: prev.city || cityVal,
         street: prev.street || streetVal,
         building: prev.building || buildingVal,
-        floorApartment: prev.floorApartment || floorApartmentVal,
+        floorApartment: prev.floorApartment,
         notes: prev.notes || notesVal
       }));
     } else {
@@ -282,7 +280,6 @@ export const CheckoutView: React.FC = () => {
             defaultCity: formData.city || user.defaultCity,
             defaultAddress: formData.street || user.defaultAddress,
             defaultBuilding: formData.building || user.defaultBuilding,
-            defaultFloorApartment: formData.floorApartment || (user as any).defaultFloorApartment,
             defaultNotes: formData.notes || user.defaultNotes
           }).catch((err) => {
             console.error("[CheckoutView] Error syncing guest data to user profile:", err);
