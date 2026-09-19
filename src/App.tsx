@@ -236,7 +236,7 @@ const MainAppContent: React.FC = () => {
     syncRouteFromUrl();
     window.addEventListener('popstate', syncRouteFromUrl);
     return () => window.removeEventListener('popstate', syncRouteFromUrl);
-  }, [openProductDetail, setActiveTab, setSelectedProductDetail, setSelectedCategory, setLanguage, searchQuery, setSearchQuery]);
+  }, [setLanguage, setSearchQuery]);
 
   // Resolve a direct product deep link after the Supabase catalogue finishes hydrating.
   useEffect(() => {
