@@ -1588,39 +1588,31 @@ export const supabaseCatalogService = {
    */
   async deleteCategory(
     id: string,
-  ): Promise<void> {
-    if (!id) {
-      throw new Error(
-        'Category ID is required.',
-      );
-    }
+    reassignCategoryId?: string,
+    deleteAttachedProducts?: boolean,
+  ): Promise<{ affectedProducts: number; reassignedProducts: number; deletedProducts: number }> {
+    if (!id) throw new Error('Category ID is required.');
 
-    const {
-      data: categoriesRows,
-      error: error,
-    } = await supabase
-      .from('categories')
-      .delete()
-      .eq(
-        'id',
-        id,
-      )
-      .select('id');
+    const { data, error } = await supabase.rpc('admin_delete_category', {
+      p_category_id: id,
+      p_reassign_category_id: reassignCategoryId || null,
+      p_delete_attached_products: deleteAttachedProducts === true,
+    });
 
     if (error) {
-      console.error(
-        '[supabaseCatalogService] deleteCategory:',
-        error,
-      );
-
+      console.error('[supabaseCatalogService] deleteCategory:', error);
       throw error;
     }
 
-    if (!categoriesRows?.length) {
-      throw new Error(
-        'The category was not deleted. Your administrator session may not be verified.',
-      );
+    if (!data) {
+      throw new Error('The category deletion did not return a result.');
     }
+
+    return {
+      affectedProducts: Number(data.affected_products ?? 0),
+      reassignedProducts: Number(data.reassigned_products ?? 0),
+      deletedProducts: Number(data.deleted_products ?? 0),
+    };
   },
 
   /** Create or update a delivery region. */
