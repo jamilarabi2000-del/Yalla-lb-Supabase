@@ -345,3 +345,23 @@ describe('Admin writes fail loudly when RLS filters them', () => {
     expect(catalog).toContain('The product was not deleted');
   });
 });
+
+describe('TOTP enrollment screen', () => {
+  const guard = read('src/components/AdminGuard.tsx');
+
+  it('does not double-wrap the QR data URI', () => {
+    // supabase.auth.mfa.enroll() returns qr_code already as a data URI.
+    // Unconditionally wrapping it produced
+    // "data:image/svg+xml;charset=utf-8,data%3Aimage%2F..." which renders as a
+    // broken image, leaving manual secret entry as the only way to enroll.
+    expect(guard).toContain("qrCode.trimStart().startsWith('data:')");
+    expect(guard).not.toMatch(/src=\{`data:image\/svg\+xml;charset=utf-8,\$\{encodeURIComponent\(qrCode\)\}`\}/);
+  });
+
+  it('keeps the setup key hidden until explicitly revealed', () => {
+    // The secret IS the second factor; showing it by default puts it into every
+    // screenshot and screen share of the enrollment page.
+    expect(guard).toContain('isSecretVisible');
+    expect(guard).toContain('Show setup key');
+  });
+});

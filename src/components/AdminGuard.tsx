@@ -35,6 +35,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const [challengeId, setChallengeId] = useState('');
   const [qrCode, setQrCode] = useState('');
   const [secret, setSecret] = useState('');
+  const [isSecretVisible, setIsSecretVisible] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [busy, setBusy] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -174,6 +175,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       setFactorId(data.id);
       setQrCode(data.totp?.qr_code || '');
       setSecret(data.totp?.secret || '');
+      setIsSecretVisible(false);
     } catch (err: any) {
       setError(err?.message || 'Could not start authenticator enrollment.');
     } finally {
@@ -204,6 +206,8 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       setCode('');
       setQrCode('');
       setSecret('');
+    setIsSecretVisible(false);
+      setIsSecretVisible(false);
       setMode('login');
     } catch (err: any) {
       setError(err?.message || 'Authenticator verification failed.');
@@ -292,6 +296,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setPassword('');
     setQrCode('');
     setSecret('');
+    setIsSecretVisible(false);
     setChallengeId('');
     bootstrappedRef.current = false;
   };
@@ -383,12 +388,42 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         {qrCode && (
           <div className="space-y-4">
             <div className="flex justify-center p-4 bg-white border rounded-2xl">
-              <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrCode)}`} alt="Authenticator QR code" className="w-52 h-52" />
+              {/*
+                supabase.auth.mfa.enroll() already returns qr_code as a data
+                URI. Wrapping it in another one yields
+                "data:image/svg+xml;charset=utf-8,data%3Aimage%2F..." which no
+                browser can render. Only encode when the value is a bare <svg>.
+              */}
+              <img
+                src={qrCode.trimStart().startsWith('data:')
+                  ? qrCode
+                  : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrCode)}`}
+                alt="Authenticator QR code"
+                className="w-52 h-52"
+              />
             </div>
             {secret && (
               <div className="text-xs text-[#666666]">
-                Can&apos;t scan? Enter this secret manually:
-                <div className="mt-2 p-3 bg-[#F7F7F8] rounded-xl font-mono break-all text-center">{secret}</div>
+                {/*
+                  The secret IS the second factor. Keep it off-screen by
+                  default so it cannot be captured by a screenshot, a screen
+                  share or someone standing behind you.
+                */}
+                <button
+                  type="button"
+                  onClick={() => setIsSecretVisible(v => !v)}
+                  className="text-[#8F7137] font-semibold"
+                >
+                  {isSecretVisible ? 'Hide setup key' : "Can't scan? Show setup key"}
+                </button>
+                {isSecretVisible && (
+                  <>
+                    <div className="mt-2 p-3 bg-[#F7F7F8] rounded-xl font-mono break-all text-center">{secret}</div>
+                    <p className="mt-2 text-[#C62828]">
+                      Treat this like a password. Anyone who sees it can generate your codes.
+                    </p>
+                  </>
+                )}
               </div>
             )}
             <form onSubmit={verifyEnrollment} className="space-y-4">
