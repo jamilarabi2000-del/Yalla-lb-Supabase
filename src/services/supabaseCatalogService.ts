@@ -1681,40 +1681,13 @@ export const supabaseCatalogService = {
   /**
    * Delete seller.
    */
-  async deleteSeller(
-    id: string,
-  ): Promise<void> {
-    if (!id) {
-      throw new Error(
-        'Seller ID is required.',
-      );
-    }
-
-    const {
-      data: sellersRows,
-      error: error,
-    } = await supabase
-      .from('sellers')
-      .delete()
-      .eq(
-        'id',
-        id,
-      )
-      .select('id');
-
-    if (error) {
-      console.error(
-        '[supabaseCatalogService] deleteSeller:',
-        error,
-      );
-
-      throw error;
-    }
-
-    if (!sellersRows?.length) {
-      throw new Error(
-        'The seller was not deleted. Your administrator session may not be verified.',
-      );
-    }
-  },
-};
+  async deleteSeller(id: string, reassignSellerId?: string): Promise<{ reassignedProducts: number }> {
+    if (!id) throw new Error('Seller ID is required.');
+    const { data, error } = await supabase.rpc('admin_delete_seller', {
+      p_seller_id: id,
+      p_reassign_seller_id: reassignSellerId || null,
+    });
+    if (error) throw error;
+    if (!data) throw new Error('The seller deletion did not return a result.');
+    return { reassignedProducts: Number(data.reassigned_products ?? 0) };
+  },};
