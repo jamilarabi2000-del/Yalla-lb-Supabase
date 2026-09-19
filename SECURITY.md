@@ -48,19 +48,35 @@ entry always wins over an `allow`.
 
 ### Administrator second factor
 
-Administrator sign-in is password **then** email OTP. Both factors are proven
-against Supabase Auth, and the OTP is verified on the **primary** Supabase
-client so the resulting session JWT carries the second factor in its `amr`
-claim.
+Administrator sign-in is password **then** a Supabase-native TOTP factor
+(`supabase.auth.mfa`). MFA is verified on the **primary** Supabase client so the
+session reaches AAL2 and the claim is visible to the database. Verifying on a
+throwaway client would leave the primary JWT at `aal1`, and the database could
+not distinguish a verified administrator from someone who only knows the
+password.
 
-This matters: an OTP verified on a throwaway client leaves the primary JWT
-password-only, and the database cannot then distinguish an OTP-verified admin
-from someone who only knows the password.
+- `private.session_has_second_factor()` reads `aal` / `amr` from the session JWT.
+- `private.is_admin_verified()` = `is_admin()` AND `session_has_second_factor()`.
+- `private.has_recent_step_up(interval)` = a second-factor session AND a row in
+  `private.admin_step_up` inside the window.
 
-- `private.session_has_second_factor()` reads `amr` / `aal` from the session JWT.
-- `private.has_recent_step_up(interval)` reads `private.admin_step_up`, written
-  by `private.record_admin_step_up()` after verification.
-- `private.is_admin_verified()` requires `is_admin()` **and** either of the above.
+**Verification is bound to the session, never to the user.** `admin_step_up` is
+keyed by `user_id`, so any rule of the form "verified OR a recent row exists"
+lets a password-only session inherit a row written by a different, properly
+verified session. The stored row may only ever *narrow* access, never grant it.
+
+Enforcement is applied at two independent layers, because one alone is
+insufficient:
+
+1. **RLS** — restrictive policies for INSERT/UPDATE/DELETE on every
+   admin-writable table, shaped as `is_admin_verified() OR NOT is_admin()` so
+   customers and sellers are untouched. SELECT is never restricted, so an
+   administrator can always reach the console to complete the factor.
+2. **SECURITY DEFINER RPCs** — these are owned by `postgres`, which carries
+   `rolbypassrls`, so RLS cannot constrain them at all. `create_product_atomic`
+   (both schemas), `admin_reorder_products`, `admin_set_product_promotion`,
+   `next_yalla_item_code` and `record_inventory_change` each gate on
+   `is_admin_verified()` directly.
 
 Destructive operations (`private.admin_delete_order`,
 `private.admin_delete_products`) additionally require a *fresh* step-up.

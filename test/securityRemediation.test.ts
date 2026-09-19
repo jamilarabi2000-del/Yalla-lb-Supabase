@@ -113,20 +113,30 @@ describe('Privileged RPCs target the schema that grants EXECUTE', () => {
 describe('Admin second factor reaches the database', () => {
   const guard = read('src/components/AdminGuard.tsx');
 
-  it('verifies the OTP on the primary client so the session JWT carries amr', () => {
-    expect(guard).toContain('supabase.auth.verifyOtp(');
-    expect(guard).not.toContain('adminOtpClient.auth.verifyOtp(');
+  it('verifies MFA on the primary client so the session reaches AAL2', () => {
+    // private.session_has_second_factor() reads `aal` / `amr` from the session
+    // JWT. Verifying on a throwaway client leaves the primary JWT password-only
+    // and the whole database enforcement layer becomes unreachable.
+    expect(guard).toContain('supabase.auth.mfa.verify(');
+    expect(guard).toContain('supabase.auth.mfa.challenge(');
+    expect(guard).not.toContain('adminOtpClient');
   });
 
   it('records the server-side step-up after verification', () => {
-    expect(guard).toContain("rpc('record_admin_step_up')");
+    expect(guard).toContain("rpc('record_admin_step_up_aal2')");
   });
 
-  it('does not mint a password-only session during step-up', () => {
-    // signInWithPassword on the PRIMARY client would replace the OTP session
-    // and silently discard its second-factor claim.
-    expect(guard).not.toContain('supabase.auth.signInWithPassword({ email: authUser.email');
-    expect(guard).toContain('adminOtpClient.auth.signInWithPassword({ email: authUser.email');
+  it('does not mint a password-only session anywhere after sign-in', () => {
+    // signInWithPassword must appear exactly once: the initial sign-in. A
+    // second call (an old password-based step-up) would replace the AAL2
+    // session and silently drop the second factor.
+    const calls = guard.match(/signInWithPassword\(/g) ?? [];
+    expect(calls.length).toBe(1);
+  });
+
+  it('gates rendering on the verified flag, not on browser storage', () => {
+    expect(guard).toContain("authStatus === 'authenticated_admin' && isVerified");
+    expect(guard).not.toContain('isMfaSessionValid');
   });
 });
 
@@ -226,5 +236,45 @@ describe('Diagnostic logger', () => {
 
   it('only exposes the log buffer on window in development', () => {
     expect(logger).toContain('import.meta.env.DEV');
+  });
+});
+
+describe('Administrator verification is bound to the session, not the user', () => {
+  const bind = read('supabase/migrations/20260919040000_bind_step_up_to_session.sql');
+  const enforce = read('supabase/migrations/20260919020000_require_verified_admin_for_writes.sql');
+
+  it('is_admin_verified has no user-scoped fallback', () => {
+    // private.admin_step_up is keyed by user_id, so an `or has_recent_step_up()`
+    // branch let a password-only session inherit a row written by a different,
+    // properly verified session — re-opening the bypass.
+    expect(bind).toContain('private.is_admin() and private.session_has_second_factor()');
+    expect(bind).not.toMatch(/is_admin_verified[\s\S]*?or\s+private\.has_recent_step_up/);
+  });
+
+  it('has_recent_step_up also demands a second-factor session', () => {
+    expect(bind).toContain('select private.session_has_second_factor()');
+    expect(bind).toContain('and exists (');
+  });
+
+  it('enforcement covers RLS and the RLS-bypassing definer RPCs', () => {
+    // SECURITY DEFINER functions are owned by postgres, which has rolbypassrls,
+    // so restrictive policies cannot constrain them. Both layers are required.
+    expect(enforce).toContain('as restrictive for insert');
+    expect(enforce).toContain('as restrictive for update');
+    expect(enforce).toContain('as restrictive for delete');
+    for (const fn of ['admin_reorder_products', 'admin_set_product_promotion',
+                      'create_product_atomic', 'next_yalla_item_code',
+                      'record_inventory_change']) {
+      expect(enforce).toContain(fn);
+    }
+  });
+
+  it('leaves non-admins unaffected and never restricts SELECT', () => {
+    expect(enforce).toContain('or not (select private.is_admin())');
+    expect(enforce).not.toContain('as restrictive for select');
+  });
+
+  it('fails loudly if an RPC gate stops matching', () => {
+    expect(enforce).toContain('VERIFIED_ADMIN_GATE_NOT_APPLIED');
   });
 });

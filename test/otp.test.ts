@@ -13,21 +13,30 @@ import {
 
 const read = (relativePath: string) => fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf-8');
 
-describe('Supabase Email Authentication & Step-Up Security', () => {
-  it('uses password login plus standard Supabase email OTP and no third-party dispatch', () => {
+describe('Supabase Native MFA & Step-Up Security', () => {
+  it('uses password login plus native Supabase TOTP, on the primary client', () => {
     const guard = read('src/components/AdminGuard.tsx');
     expect(guard).toContain('supabase.auth.signInWithPassword');
-    expect(guard).toContain('adminOtpClient.auth.signInWithOtp');
-    expect(guard).toContain("type: 'email'");
-    expect(guard).toContain('verifyOtp');
-    expect(guard).toContain('shouldCreateUser: false');
-    expect(guard).toContain('cleanOtp.length < 6 || cleanOtp.length > 10');
-    expect(guard).toContain('maxLength={10}');
+    expect(guard).toContain('supabase.auth.mfa.enroll');
+    expect(guard).toContain('supabase.auth.mfa.challenge');
+    expect(guard).toContain('supabase.auth.mfa.verify');
+    expect(guard).toContain('getAuthenticatorAssuranceLevel');
+    expect(guard).toContain("factorType: 'totp'");
+    // Verifying on an isolated client would leave the primary JWT at aal1 and
+    // the database could not tell a verified admin from a password-only one.
+    expect(guard).not.toContain('adminOtpClient');
     expect(guard).not.toContain('supabase.auth.reauthenticate');
     expect(guard).not.toContain("type: 'reauthentication'");
     expect(guard).not.toContain('PhoneMultiFactorGenerator');
     expect(guard).not.toContain('nodemailer');
     expect(guard).not.toContain('resend.com');
+  });
+
+  it('gates the console on AAL2 and records the step-up server-side', () => {
+    const guard = read('src/components/AdminGuard.tsx');
+    expect(guard).toContain("aal.currentLevel === 'aal2'");
+    expect(guard).toContain("rpc('record_admin_step_up_aal2')");
+    expect(guard).toContain('isVerified');
   });
 
   it('checks the administrator role only after authentication', () => {
