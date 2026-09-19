@@ -9,12 +9,11 @@ export interface AtomicProductCreateInput {
 
 export const supabaseProductService = {
   async createProduct(input: AtomicProductCreateInput): Promise<string> {
-    // Routed through the `private` schema deliberately. Both entry points
-    // perform their own `private.is_admin()` check, but the public wrapper
-    // additionally overwrites artisan/origin/brand with '' when the caller
-    // omits them, discarding the RPC's own defaults.
+    // public.create_product_atomic is a thin delegate to the private
+    // implementation, which performs the verified-admin check. It is reached
+    // through `public` because only that schema is guaranteed to be exposed
+    // through the Data API.
     const { data, error } = await supabase
-      .schema('private')
       .rpc('create_product_atomic', {
         p_product: input.product,
         p_private: input.privateData ?? {},

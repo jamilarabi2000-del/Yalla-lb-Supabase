@@ -37,41 +37,24 @@ const supabaseClient = createClient(
 );
 
 /**
- * Runtime compatibility boundary for the legacy Firebase-shaped UI.
- * Database/RLS authorization remains enforced by Supabase.
+ * Every RPC the browser calls lives in the `public` schema.
  *
- * Checkout is transparently routed through the inventory-audited gateway so
- * every stock decrement is recorded as a sale in the same transaction.
+ * `public` is the only schema guaranteed to be exposed through the Data API —
+ * whether `private` is exposed is a dashboard setting that is invisible from
+ * the code, so depending on it makes checkout, product creation and the
+ * administrator step-up silently unreachable if it is ever off. The
+ * implementations stay in `private`; `public` holds a thin delegate per
+ * operation, each of which keeps the private function's own authorization.
+ * See 20260919080000_public_api_wrappers_for_private_rpcs.sql.
  *
- * IMPORTANT: auth.signInWithOtp is deliberately NOT intercepted here.
+ * Checkout in particular must go through public.checkout_create_order, which
+ * delegates to private.checkout_create_order_gateway so that every stock
+ * decrement is recorded as a sale in the same transaction. A runtime Proxy
+ * used to rewrite that function name on the way out; the wrapper makes it
+ * unnecessary, so the Proxy is gone and this is now a plain client.
+ *
+ * IMPORTANT: auth.signInWithOtp is deliberately NOT intercepted anywhere.
  * OTP behavior must remain scoped to the calling flow; a global wrapper that
  * signs out an existing session can break normal login/signup verification.
  */
-const supabaseRuntime = new Proxy(supabaseClient as any, {
-  get(target, property, receiver) {
-    if (property !== 'schema') return Reflect.get(target, property, receiver);
-
-    return (schemaName: string) => {
-      const schemaClient = target.schema(schemaName);
-      if (schemaName !== 'private') return schemaClient;
-
-      return new Proxy(schemaClient as any, {
-        get(schemaTarget, schemaProperty, schemaReceiver) {
-          if (schemaProperty !== 'rpc') {
-            return Reflect.get(schemaTarget, schemaProperty, schemaReceiver);
-          }
-
-          return (functionName: string, args?: Record<string, unknown>, options?: unknown) => {
-            const effectiveName =
-              functionName === 'checkout_create_order'
-                ? 'checkout_create_order_gateway'
-                : functionName;
-            return schemaTarget.rpc(effectiveName, args, options);
-          };
-        },
-      });
-    };
-  },
-});
-
-export const supabase: any = supabaseRuntime;
+export const supabase: any = supabaseClient;

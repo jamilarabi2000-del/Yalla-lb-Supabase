@@ -95,12 +95,14 @@ describe('Rich text sanitization delegates to DOMPurify', () => {
 describe('Privileged RPCs target the schema that grants EXECUTE', () => {
   const platform = read('src/services/platformService.ts');
 
-  it('calls has_permission and record_inventory_change on the private schema', () => {
-    // public.has_permission grants EXECUTE only to postgres/service_role, and
-    // public.record_inventory_change no longer exists.
-    expect(platform).not.toMatch(/supabase\.rpc\('has_permission'/);
-    expect(platform).not.toMatch(/supabase\.rpc\('record_inventory_change'/);
-    expect(platform).toContain(".schema('private')");
+  it('calls privileged RPCs through the public API schema', () => {
+    // Whether `private` is exposed through the Data API is a dashboard
+    // setting, invisible from the code. Addressing it directly makes these
+    // calls silently unreachable if it is ever off, so every privileged RPC
+    // goes through a public SECURITY INVOKER delegate instead.
+    expect(platform).not.toContain(".schema('private')");
+    expect(platform).toMatch(/supabase\s*\n?\s*\.rpc\('has_permission'/);
+    expect(platform).toMatch(/supabase\.rpc\('record_inventory_change'/);
   });
 
   it('does not fall back to a coarse admin flag when the check fails', () => {
@@ -383,5 +385,54 @@ describe('TOTP enrollment cleanup reads the right bucket', () => {
     // second time enrollment is attempted on the same day.
     expect(guard).not.toMatch(/friendlyName:.*toISOString\(\)\.slice\(0, 10\)/);
     expect(guard).toMatch(/friendlyName:.*replace\(\/\[:\.\]\/g/);
+  });
+});
+
+describe('Every browser RPC goes through the public API schema', () => {
+  // `public` is the only schema guaranteed to be exposed through the Data API.
+  // Whether `private` is exposed is a dashboard setting invisible from the
+  // code, so addressing it directly makes checkout, product creation and the
+  // administrator step-up silently unreachable if it is ever turned off.
+  const sources = [
+    'src/lib/supabase.ts',
+    'src/components/AdminGuard.tsx',
+    'src/services/supabaseOrderService.ts',
+    'src/services/supabaseProductService.ts',
+    'src/services/platformService.ts',
+  ];
+
+  it('no client code addresses the private schema', () => {
+    const offenders: string[] = [];
+    for (const file of sources) {
+      const body = read(file);
+      // Allow the word in prose; only a real call is a problem.
+      if (/\.schema\(\s*['"]private['"]\s*\)/.test(body)) offenders.push(file);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('the runtime Proxy that rewrote the checkout RPC name is gone', () => {
+    // Strip comments first: the block explaining the removal legitimately
+    // names both the Proxy and the gateway, and asserting on raw text would
+    // fail on its own documentation.
+    const code = read('src/lib/supabase.ts')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(code).not.toContain('new Proxy');
+    expect(code).not.toContain('checkout_create_order_gateway');
+    expect(code).toContain('export const supabase: any = supabaseClient;');
+  });
+
+  it('the wrapper migration keeps the implementations private', () => {
+    const m = read('supabase/migrations/20260919080000_public_api_wrappers_for_private_rpcs.sql');
+    for (const fn of ['record_admin_step_up_aal2', 'checkout_create_order', 'admin_delete_order',
+                      'record_inventory_change', 'has_permission', 'create_product_atomic']) {
+      expect(m).toContain(`create or replace function public.${fn}`);
+      expect(m).toContain(`private.${fn === 'checkout_create_order' ? 'checkout_create_order_gateway' : fn}(`);
+    }
+    // Delegates must not re-implement authorization, and must not be reachable
+    // by anonymous callers.
+    expect(m.match(/security invoker/g)?.length).toBe(6);
+    expect(m.match(/from public, anon;/g)?.length).toBe(6);
   });
 });

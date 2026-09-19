@@ -57,7 +57,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   /** Persist the step-up so destructive RPCs that demand a *fresh* factor pass. */
   const recordStepUp = useCallback(async () => {
-    const { error: rpcError } = await supabase.schema('private').rpc('record_admin_step_up_aal2');
+    const { error: rpcError } = await supabase.rpc('record_admin_step_up_aal2');
     // Non-fatal: the AAL2 claim in the session JWT is already the primary proof
     // that private.is_admin_verified() reads. This row only adds freshness for
     // delete operations.

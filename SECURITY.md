@@ -107,7 +107,33 @@ drafts and hidden items.
 
 ---
 
-## 4. Server-authoritative commerce
+## 4. The API surface the browser uses
+
+Every RPC the client calls lives in the **`public`** schema. `public` is the
+only schema guaranteed to be exposed through the Data API; whether `private`
+is exposed is a dashboard setting invisible from the code, so depending on it
+would make checkout, product creation and the administrator step-up silently
+unreachable if it were ever turned off.
+
+The implementations stay in `private`. `public` holds one thin
+`SECURITY INVOKER` delegate per operation:
+
+| Public delegate | Private implementation |
+| :--- | :--- |
+| `record_admin_step_up_aal2()` | `private.record_admin_step_up_aal2()` |
+| `checkout_create_order(...)` | `private.checkout_create_order_gateway(...)` |
+| `admin_delete_order(uuid)` | `private.admin_delete_order(uuid)` |
+| `record_inventory_change(...)` | `private.record_inventory_change(...)` |
+| `has_permission(text, uuid)` | `private.has_permission(text, uuid)` |
+| `create_product_atomic(...)` | `private.create_product_atomic(...)` |
+
+The delegates make no authorization decisions — each private target already
+enforces its own — and they are `SECURITY INVOKER` so RLS and grants stay in
+force for the caller. All six are revoked from `public` and `anon`.
+
+---
+
+## 5. Server-authoritative commerce
 
 `private.checkout_create_order()` is the only path that creates an order;
 `public.orders` has no `INSERT` policy and no `INSERT` grant.
@@ -125,7 +151,7 @@ enforces a forward-only fulfilment state machine. Sellers may advance
 
 ---
 
-## 5. Abuse and rate limiting
+## 6. Abuse and rate limiting
 
 | Surface | Control |
 | :--- | :--- |
@@ -140,7 +166,7 @@ enforces a forward-only fulfilment state machine. Sellers may advance
 
 ---
 
-## 6. Client-side hardening
+## 7. Client-side hardening
 
 These reduce blast radius. None of them is an authorization control.
 
@@ -161,7 +187,7 @@ These reduce blast radius. None of them is an authorization control.
 
 ---
 
-## 7. Secrets
+## 8. Secrets
 
 - Only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` reach the
   browser. `test/security.test.ts` and `test/securityHardeningContract.test.ts`
@@ -172,7 +198,7 @@ These reduce blast radius. None of them is an authorization control.
 
 ---
 
-## 8. Known gaps
+## 9. Known gaps
 
 | Gap | Status |
 | :--- | :--- |
@@ -182,7 +208,7 @@ These reduce blast radius. None of them is an authorization control.
 
 ---
 
-## 9. Reporting
+## 10. Reporting
 
 Report suspected vulnerabilities privately to the repository owner. Please do
 not open a public issue.

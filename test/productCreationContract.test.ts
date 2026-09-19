@@ -5,9 +5,13 @@ import path from 'node:path';
 const read = (p: string) => fs.readFileSync(path.resolve(process.cwd(), p), 'utf8');
 
 describe('Atomic product creation', () => {
-  it('routes product creation through the private Supabase RPC', () => {
+  it('routes product creation through the public delegate to the private RPC', () => {
+    // public.create_product_atomic is a SECURITY INVOKER delegate to
+    // private.create_product_atomic, which holds the verified-admin check.
+    // Only `public` is guaranteed to be exposed through the Data API, so the
+    // client must not address `private` directly.
     const service = read('src/services/supabaseProductService.ts');
-    expect(service).toContain(".schema('private')");
+    expect(service).not.toContain(".schema('private')");
     expect(service).toContain(".rpc('create_product_atomic'");
     expect(service).not.toContain("from('products').insert");
     expect(service).not.toContain("from('product_private').insert");

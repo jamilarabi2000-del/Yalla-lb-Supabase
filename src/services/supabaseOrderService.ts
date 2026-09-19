@@ -44,7 +44,9 @@ import { CartItem, Order, OrderStatus, PaymentMethod, Currency, Product } from '
  *     -> PostgREST does not accept a dotted, schema-qualified function name
  * Both failed, and both fell through to `return {}` — so checkout reported
  * success while creating nothing, then fell back to a dead Firebase callable.
- * The correct form is supabase.schema('private').rpc('checkout_create_order').
+ * The correct form is supabase.rpc('checkout_create_order'), the public
+ * delegate to private.checkout_create_order_gateway. Only `public` is
+ * guaranteed to be exposed through the Data API.
  */
 
 /** RFC 4122 shape. `products.id` is uuid; Firebase slugs like `prod-2` are not. */
@@ -316,7 +318,7 @@ export const supabaseOrderService = {
       );
     }
 
-    const { data, error } = await supabase.schema('private').rpc('checkout_create_order', {
+    const { data, error } = await supabase.rpc('checkout_create_order', {
       // The RPC reads the region from region_id, then regionId, then
       // governorate. Both keys are sent so an id or a display name resolves.
       p_shipping: {
@@ -490,7 +492,6 @@ export const supabaseOrderService = {
     }
 
     const { data, error } = await supabase
-      .schema('private')
       .rpc('admin_delete_order', { p_order_id: orderId });
 
     if (error) {
