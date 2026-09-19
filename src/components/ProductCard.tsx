@@ -12,7 +12,6 @@ interface ProductCardProps {
 
 const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveButton, onRemove, isFavoriteView }) => {
   const { 
-    formatPrice,
     currencyRate, 
     openProductDetail,
     setSelectedProductForModal,
