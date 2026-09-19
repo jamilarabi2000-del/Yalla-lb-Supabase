@@ -1441,27 +1441,15 @@ export const CheckoutView: React.FC = () => {
                       </div>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('credit_card')}
-                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
-                        paymentMethod === 'credit_card'
-                          ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
-                          : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
-                      }`}
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#8F7137] shrink-0">
-                        <CreditCard className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#171717]">
-                          {isArabic ? 'بطاقة مصرفية / ائتمان' : 'Credit / Debit Card'}
-                        </div>
-                        <div className="text-[11px] text-[#737373]">
-                          {isArabic ? 'دفع آمن ومشفر' : 'Secure online gateway'}
-                        </div>
-                      </div>
-                    </button>
+                    {/*
+                      No card option is offered. The storefront takes no online
+                      payment: there is no gateway integration, no card details are
+                      collected, and orders carry no payment state. A "Credit / Debit
+                      Card - Secure online gateway" button used to sit here and
+                      created an ordinary unpaid order, promising a charge that never
+                      happened. Do not reinstate it without a real gateway; the server
+                      rejects the value regardless (see checkout_create_order).
+                    */}
                   </div>
                 </div>
               )}

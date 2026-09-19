@@ -135,7 +135,7 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
           { key: 'checkoutSteps', label: 'Checkout Steps Indicator', desc: 'Step 1 & Step 2 breadcrumbs' },
           { key: 'checkoutAddressForm', label: 'Shipping Address Form', desc: 'Governorate, city, street, WhatsApp phone' },
           { key: 'checkoutDeliverySpeed', label: 'Delivery Speed Selector', desc: 'Standard, Express Beirut, Diaspora Air' },
-          { key: 'checkoutPaymentMethod', label: 'Payment Method Selector', desc: 'Cash USD, Cash LBP, Wish/OMT, Card' },
+          { key: 'checkoutPaymentMethod', label: 'Payment Method Selector', desc: 'Cash USD, Cash LBP, Wish/OMT' },
           { key: 'checkoutOrderSummary', label: 'Order Summary Box', desc: 'Subtotal, delivery fee, total breakdown' },
           { key: 'checkoutGuarantees', label: 'Security & Heritage Badges', desc: 'Authenticity & satisfaction guarantees' }
         ];

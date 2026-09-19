@@ -136,7 +136,18 @@ export interface ShippingDetails {
   deliverySpeed: 'standard' | 'express_beirut' | 'diaspora_air';
 }
 
-export type PaymentMethod = 'cod_usd' | 'cod_lbp' | 'wish_omt' | 'credit_card';
+/**
+ * Payment methods the storefront offers and the server accepts.
+ *
+ * `credit_card` is deliberately absent. No gateway is integrated, no card
+ * details are collected and orders carry no payment state, so offering it
+ * created an ordinary unpaid order while promising a charge. The enum value
+ * still exists in Postgres (values cannot be dropped in place) but
+ * private.checkout_create_order now rejects it. Keeping it out of this union
+ * makes reintroducing the option a compile error rather than a silent
+ * runtime promise.
+ */
+export type PaymentMethod = 'cod_usd' | 'cod_lbp' | 'wish_omt';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'crafting' | 'courier_assigned' | 'in_transit' | 'delivered' | 'cancelled' | 'returned';
 

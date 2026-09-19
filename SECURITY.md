@@ -144,6 +144,35 @@ idempotency key, ≤50 line items, ≤99 per line, ≤200 units total, ≤$10,00
 order value, region/delivery-speed consistency, and a discount ceiling of 70%
 of subtotal.
 
+### Payments
+
+**The storefront takes no online payment.** No gateway is integrated, no card
+details are ever collected, and `public.orders` carries no payment state — no
+paid flag, no transaction id, no provider reference. An order records only the
+method the customer chose; reconciliation happens offline.
+
+Supported methods are `cod_usd`, `cod_lbp` and `wish_omt`. A
+`credit_card` option labelled "Secure online gateway" used to appear in
+checkout: it collected nothing, charged nothing, and produced an ordinary
+unpaid order indistinguishable from a paid one. It has been removed.
+
+Removing a button is presentation only, so the set is enforced in the
+database. `private.enforce_supported_payment_method()` runs
+`BEFORE INSERT OR UPDATE OF payment_method` on `public.orders` and raises
+`UNSUPPORTED_PAYMENT_METHOD`. It is a trigger rather than a check inside
+`checkout_create_order` so that every insert path is covered — orders are
+inserted only by `SECURITY DEFINER` functions owned by `postgres`, which carry
+`rolbypassrls`, and triggers still fire for them where an RLS policy could
+not. On `UPDATE` an unchanged column passes, so a row already holding an
+unsupported value can still be corrected.
+
+The `credit_card` label remains in the Postgres enum because enum values
+cannot be dropped in place; it is simply unreachable. `PaymentMethod` in
+`src/types.ts` omits it, so reintroducing the option is a compile error.
+
+Do not reinstate a card option without a real gateway **and** payment-state
+columns on `orders`.
+
 `private.protect_order_integrity()` then pins every financial column and
 enforces a forward-only fulfilment state machine. Sellers may advance
 `pending → confirmed → crafting → courier_assigned → in_transit`; `delivered`,
@@ -203,6 +232,8 @@ These reduce blast radius. None of them is an authorization control.
 | Gap | Status |
 | :--- | :--- |
 | Leaked-password protection (HaveIBeenPwned) | **Not enabled** — requires a paid Supabase plan. |
+| Online card payment | **Not built.** No gateway, no payment state on `orders`. Checkout offers cash on delivery and Whish/OMT only, enforced by `trg_enforce_supported_payment_method`. |
+| `payment-webhook` edge function | **Never deployed.** Written and replay-protected in the repository, but not running. Nothing calls it and there is no payment state for it to reconcile. |
 | `supabase/migrations/` is not replayable | See `supabase/migrations/README.md`. The live database is authoritative until re-baselined. |
 | Migration-integrity CI | Requires the `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` and `SUPABASE_PROJECT_ID` repository secrets; skips with a warning until they are set. |
 

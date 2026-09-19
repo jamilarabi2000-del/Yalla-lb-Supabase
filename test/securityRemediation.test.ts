@@ -436,3 +436,56 @@ describe('Every browser RPC goes through the public API schema', () => {
     expect(m.match(/from public, anon;/g)?.length).toBe(6);
   });
 });
+
+describe('Checkout offers no payment method the system cannot take', () => {
+  // The storefront integrates no payment gateway: no card details are
+  // collected and public.orders carries no payment state (no paid flag, no
+  // transaction id, no provider reference). A "Credit / Debit Card - Secure
+  // online gateway" option used to sit in checkout and produced an ordinary
+  // unpaid order, promising a charge that never happened.
+  const checkout = read('src/components/CheckoutView.tsx');
+  const types = read('src/types.ts');
+
+  const stripComments = (s: string) =>
+    s.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
+     .replace(/\/\*[\s\S]*?\*\//g, '')
+     .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('does not offer a card option in checkout', () => {
+    const code = stripComments(checkout);
+    expect(code).not.toContain('credit_card');
+    expect(code).not.toContain('Secure online gateway');
+  });
+
+  it('keeps credit_card out of the PaymentMethod union so it cannot compile back', () => {
+    const union = stripComments(types).match(/export type PaymentMethod\s*=\s*([^;]+);/);
+    expect(union).toBeTruthy();
+    expect(union![1]).not.toContain('credit_card');
+    for (const method of ['cod_usd', 'cod_lbp', 'wish_omt']) {
+      expect(union![1]).toContain(method);
+    }
+  });
+
+  it('enforces the supported set in the database, not just the UI', () => {
+    // Removing the button is presentation only: private.checkout_create_order
+    // inserted p_payment_method verbatim, so any JWT holder could post an
+    // order marked credit_card straight to the Data API.
+    const m = read('supabase/migrations/20260919090000_reject_unsupported_payment_methods.sql');
+    expect(m).toContain('create trigger trg_enforce_supported_payment_method');
+    expect(m).toContain('before insert or update of payment_method on public.orders');
+    expect(m).toContain('UNSUPPORTED_PAYMENT_METHOD');
+    // The guard must name exactly the methods the storefront offers.
+    for (const method of ['cod_usd', 'cod_lbp', 'wish_omt']) {
+      expect(m).toContain(`'${method}'::public.payment_method`);
+    }
+    expect(m).not.toContain("'credit_card'::public.payment_method");
+    // An unchanged column on UPDATE must pass, or a legacy row could never be
+    // corrected once it held an unsupported value.
+    expect(m).toContain('new.payment_method is not distinct from old.payment_method');
+  });
+
+  it('does not advertise a card option in the admin CMS copy', () => {
+    expect(read('src/components/admin/cms/CMSVisibilityTab.tsx')).not.toContain('OMT/Whish, Credit Card');
+    expect(read('src/components/AdminQuickEditor.tsx')).not.toContain('Wish/OMT, Card');
+  });
+});
