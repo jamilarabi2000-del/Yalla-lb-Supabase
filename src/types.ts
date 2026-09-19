@@ -142,8 +142,10 @@ export interface ShippingDetails {
  * `credit_card` is deliberately absent. No gateway is integrated, no card
  * details are collected and orders carry no payment state, so offering it
  * created an ordinary unpaid order while promising a charge. The enum value
- * still exists in Postgres (values cannot be dropped in place) but
- * private.checkout_create_order now rejects it. Keeping it out of this union
+ * still exists in Postgres (values cannot be dropped in place) but a trigger
+ * on public.orders, trg_enforce_supported_payment_method, rejects it -- the
+ * guard is on the table, not inside checkout_create_order, so that every
+ * insert path is covered. Keeping it out of this union
  * makes reintroducing the option a compile error rather than a silent
  * runtime promise.
  */

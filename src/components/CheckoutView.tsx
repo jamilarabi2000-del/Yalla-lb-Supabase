@@ -1447,8 +1447,12 @@ export const CheckoutView: React.FC = () => {
                       collected, and orders carry no payment state. A "Credit / Debit
                       Card - Secure online gateway" button used to sit here and
                       created an ordinary unpaid order, promising a charge that never
-                      happened. Do not reinstate it without a real gateway; the server
-                      rejects the value regardless (see checkout_create_order).
+                      happened. Do not reinstate it without a real gateway: the
+                      database rejects the value regardless, via the trigger
+                      trg_enforce_supported_payment_method on public.orders. The
+                      guard is on the table rather than inside checkout_create_order
+                      so that every insert path is covered -- do not remove it after
+                      finding no check in that function.
                     */}
                   </div>
                 </div>
