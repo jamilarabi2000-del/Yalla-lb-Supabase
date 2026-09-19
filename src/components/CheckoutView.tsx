@@ -88,7 +88,7 @@ export const CheckoutView: React.FC = () => {
   const [checkoutCouponInput, setCheckoutCouponInput] = useState('');
   const [isApplyingCheckoutCoupon, setIsApplyingCheckoutCoupon] = useState(false);
 
-  const [deliverySpeed, setDeliverySpeed] = useState<'express_beirut' | 'standard' | 'diaspora_air'>('express_beirut');
+  const [deliverySpeed, setDeliverySpeed] = useState<'standard' | 'diaspora_air'>('standard');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod_usd');
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string | null>(null);
 
@@ -131,7 +131,9 @@ export const CheckoutView: React.FC = () => {
     street: '',
     building: '',
     floorApartment: '',
-    notes: ''
+    notes: '',
+    country: 'Lebanon',
+    postalCode: ''
   });
 
   // Save recipient fields to local cache as the user types to prevent loss and enable seamless checkout-profile sync on login
@@ -238,18 +240,32 @@ export const CheckoutView: React.FC = () => {
       }));
     } else {
       // Guest mode: clear personal data
-      setFormData({
-        firstName: '',
-        lastName: '',
-        phone: '',
-        email: '',
-        governorate: 'beirut',
-        city: 'Achrafieh, Beirut',
-        street: '',
-        building: '',
-        floorApartment: '',
-        notes: ''
-      });
+      try {
+        const raw = localStorage.getItem('yallalb_saved_checkout_data');
+        const cached = raw ? JSON.parse(raw) : null;
+        if (cached && typeof cached === 'object') {
+          setFormData(prev => ({
+            ...prev,
+            firstName: typeof cached.firstName === 'string' ? cached.firstName : prev.firstName,
+            lastName: typeof cached.lastName === 'string' ? cached.lastName : prev.lastName,
+            phone: typeof cached.phone === 'string' ? cached.phone : prev.phone,
+            governorate: typeof cached.defaultGovernorate === 'string' ? cached.defaultGovernorate : prev.governorate,
+            city: typeof cached.defaultCity === 'string' ? cached.defaultCity : prev.city,
+            street: typeof cached.defaultAddress === 'string' ? cached.defaultAddress : prev.street,
+            building: typeof cached.defaultBuilding === 'string' ? cached.defaultBuilding : prev.building,
+            notes: typeof cached.defaultNotes === 'string' ? cached.defaultNotes : prev.notes,
+            country: typeof cached.country === 'string' ? cached.country : prev.country,
+            postalCode: typeof cached.postalCode === 'string' ? cached.postalCode : prev.postalCode,
+          }));
+          return;
+        }
+      } catch {}
+      setFormData(prev => ({
+        ...prev,
+        firstName: '', lastName: '', phone: '', email: '',
+        governorate: 'beirut', city: 'Achrafieh, Beirut', street: '', building: '',
+        floorApartment: '', notes: '', country: 'Lebanon', postalCode: ''
+      }));
     }
   }, [firebaseUser, user]);
 
@@ -287,7 +303,7 @@ export const CheckoutView: React.FC = () => {
         }
       }
     }
-  }, [firebaseUser, firebaseUser?.uid]);
+  }, [firebaseUser, user, formData.firstName, formData.lastName, formData.phone, formData.governorate, formData.city, formData.street, formData.building, formData.notes]);
 
   const quickCities = [
     'Achrafieh, Beirut',
@@ -302,7 +318,10 @@ export const CheckoutView: React.FC = () => {
   ];
 
   // Region & Delivery fee calculation
-  const matchedRegion = LEBANON_REGIONS.find(r => r.id === formData.governorate)
+  const isDiaspora = deliverySpeed === 'diaspora_air';
+  const matchedRegion = isDiaspora
+    ? LEBANON_REGIONS.find(r => r.id === 'diaspora_global')
+    : LEBANON_REGIONS.find(r => r.id === formData.governorate)
     || LEBANON_REGIONS.find(r => r.id === user?.defaultGovernorate)
     || LEBANON_REGIONS.find(r => r.majorCities.some(c => (formData.city || '').toLowerCase().includes(c.toLowerCase().split(' ')[0])))
     || LEBANON_REGIONS[0];
@@ -314,7 +333,7 @@ export const CheckoutView: React.FC = () => {
     subtotalUSD: cartTotalUSD
   });
 
-  const finalTotalUSD = cartTotalUSD + (cart.length > 0 ? deliveryFeeUSD : 0);
+  const finalTotalUSD = Math.max(0, cartTotalUSD - discountUSD + (cart.length > 0 ? deliveryFeeUSD : 0));
 
   const [showOtpModal, setShowOtpModal] = useState<boolean>(false);
   const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
@@ -480,6 +499,8 @@ export const CheckoutView: React.FC = () => {
     const finalCity = formData.city.trim() || user?.defaultCity || '';
 
     const missingDetails: string[] = [];
+    if (isDiaspora && !formData.country.trim()) missingDetails.push(isArabic ? 'الدولة' : 'country');
+    if (isDiaspora && !formData.postalCode.trim()) missingDetails.push(isArabic ? 'الرمز البريدي' : 'postal code');
     if (!fName) missingDetails.push(isArabic ? 'الاسم الأول' : 'first name');
     if (!finalPhone) missingDetails.push(isArabic ? 'رقم الهاتف' : 'phone number');
     if (!finalStreet) missingDetails.push(isArabic ? 'العنوان' : 'street address');
@@ -512,12 +533,14 @@ export const CheckoutView: React.FC = () => {
           lastName: lName,
           phone: finalPhone,
           email: finalEmail,
-          governorate: formData.governorate || matchedRegion?.id || 'beirut',
+          governorate: isDiaspora ? 'diaspora_global' : (formData.governorate || matchedRegion?.id || 'beirut'),
           city: finalCity,
           street: finalStreet,
           building: formData.building.trim() || 'N/A',
           floorApartment: formData.floorApartment.trim() || undefined,
           deliveryNotes: formData.notes.trim() || '',
+          country: isDiaspora ? formData.country.trim() : 'Lebanon',
+          postalCode: isDiaspora ? formData.postalCode.trim() : undefined,
           deliverySpeed: deliverySpeed
         },
         paymentMethod: paymentMethod,
@@ -528,10 +551,8 @@ export const CheckoutView: React.FC = () => {
         totalLBP: Math.round(finalTotalUSD * lbpRate),
         discountUSD: discountUSD,
         appliedCoupon: appliedCouponCode || undefined,
-        estimatedDelivery: deliverySpeed === 'express_beirut' 
-          ? 'Within 2 Hours (Beirut Express)' 
-          : deliverySpeed === 'standard' 
-          ? '24-48 Hours (All Lebanon)' 
+        estimatedDelivery: deliverySpeed === 'standard'
+          ? '24-48 Hours (All Lebanon)'
           : '3-5 Business Days (DHL Diaspora Air)'
       }, idempotencyKey);
 
@@ -561,7 +582,7 @@ export const CheckoutView: React.FC = () => {
         }));
       } catch {}
 
-      setOrderComplete(newOrder.id);
+      setOrderComplete(newOrder.trackingNumber || newOrder.id);
     } catch {
       showToast('An error occurred while placing your order. Please try again.', 'warning');
     } finally {
@@ -883,7 +904,7 @@ export const CheckoutView: React.FC = () => {
                           placeholder="name@example.com"
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
+                          className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
                         />
                       </div>
 
@@ -982,7 +1003,7 @@ export const CheckoutView: React.FC = () => {
                             placeholder="e.g. Walid"
                             value={signupFirstName}
                             onChange={(e) => setSignupFirstName(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
+                            className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
                           />
                         </div>
                         <div>
@@ -1201,12 +1222,12 @@ export const CheckoutView: React.FC = () => {
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-medium"
                       />
                     </div>
-                  </div>
+                  </div>}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                        {isArabic ? 'رقم الهاتف اللبناني / واتساب *' : 'Lebanese Mobile Phone / WhatsApp *'}
+                        {isArabic ? (isDiaspora ? 'رقم هاتف المستلم الدولي *' : 'رقم الهاتف اللبناني / واتساب *') : (isDiaspora ? 'Recipient International Phone *' : 'Lebanese Mobile Phone / WhatsApp *')}
                       </label>
                       <div className="relative flex items-center">
                         <div className="absolute left-3 flex items-center gap-1 pointer-events-none text-[#737373] font-bold text-xs select-none">
@@ -1215,7 +1236,7 @@ export const CheckoutView: React.FC = () => {
                         <input
                           type="tel"
                           id="checkout-phone-input"
-                          placeholder="+961 70 123 456"
+                          placeholder={isDiaspora ? '+33 6 12 34 56 78' : '+961 70 123 456'}
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                           className="w-full pl-10 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-mono"
@@ -1238,35 +1259,70 @@ export const CheckoutView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                      {isArabic ? 'المحافظة *' : 'Governorate *'}
-                    </label>
-                    <select
-                      id="checkout-governorate-select"
-                      value={formData.governorate}
-                      onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
-                    >
-                      {LEBANON_REGIONS.filter(r => r.id !== 'diaspora_global').map(region => (
-                        <option key={region.id} value={region.id}>{isArabic ? region.nameAr : region.nameEn}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                      {isArabic ? 'المدينة / المنطقة / المحافظة *' : 'City / Governorate *'}
-                    </label>
-                    <input
-                      type="text"
-                      id="checkout-city-input"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      placeholder="e.g. Achrafieh, Beirut"
-                      className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
-                    />
-                  </div>
+                  {isDiaspora ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                            {isArabic ? 'الدولة *' : 'Country *'}
+                          </label>
+                          <input
+                            type="text"
+                            id="checkout-country-input"
+                            value={formData.country}
+                            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                            placeholder="e.g. France"
+                            className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                            {isArabic ? 'الرمز البريدي *' : 'Postal Code *'}
+                          </label>
+                          <input
+                            type="text"
+                            id="checkout-postal-code-input"
+                            value={formData.postalCode}
+                            onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                            placeholder="e.g. 75008"
+                            className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                          {isArabic ? 'المدينة *' : 'City *'}
+                        </label>
+                        <input
+                          type="text"
+                          id="checkout-city-input"
+                          value={formData.city}
+                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                          placeholder="e.g. Paris"
+                          className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                          required
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                        {isArabic ? 'المحافظة *' : 'Governorate *'}
+                      </label>
+                      <select
+                        id="checkout-governorate-select"
+                        value={formData.governorate}
+                        onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
+                        className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                      >
+                        {LEBANON_REGIONS.filter(r => r.id !== 'diaspora_global').map(region => (
+                          <option key={region.id} value={region.id}>{isArabic ? region.nameAr : region.nameEn}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -1342,31 +1398,11 @@ export const CheckoutView: React.FC = () => {
                     <span>{isArabic ? 'سرعة التوصيل والشحن' : 'Delivery Speed & Schedule'}</span>
                   </h3>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setDeliverySpeed('express_beirut')}
-                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
-                        deliverySpeed === 'express_beirut'
-                          ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
-                          : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-[#171717]">
-                          {isArabic ? 'بيروت السريع' : 'Beirut Express'}
-                        </span>
-                        <span className="text-[11px] font-bold text-[#8F7137]">$3.00</span>
-                      </div>
-                      <p className="text-[11px] text-[#737373]">
-                        {isArabic ? 'خلال ساعتين في بيروت' : 'Within 2 Hours in Beirut'}
-                      </p>
-                    </button>
-
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setDeliverySpeed('standard')}
-                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      className={`min-h-12 p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                         deliverySpeed === 'standard'
                           ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
                           : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
@@ -1379,14 +1415,14 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-[11px] font-bold text-[#8F7137]">$2.00</span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
-                        {isArabic ? '24 - 48 ساعة لكافة المناطق' : '24 - 48 Hours Nationwide'}
+                        {isArabic ? '24 - 48 ساعة لكافة المناطق، مجاناً للطلبات فوق $50' : '24 - 48 Hours Nationwide · Free for orders $50+'}
                       </p>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setDeliverySpeed('diaspora_air')}
-                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      className={`min-h-12 p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                         deliverySpeed === 'diaspora_air'
                           ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
                           : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
@@ -1394,12 +1430,12 @@ export const CheckoutView: React.FC = () => {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-[#171717]">
-                          {isArabic ? 'شحن الاغتراب' : 'Diaspora Air Express'}
+                          {isArabic ? 'الشحن الجوي للمغتربين' : 'Diaspora Air · DHL'}
                         </span>
                         <span className="text-[11px] font-bold text-[#8F7137]">$28.00</span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
-                        {isArabic ? '3 - 5 أيام عمل دولياً' : '3 - 5 Business Days DHL'}
+                        {isArabic ? '3 - 5 أيام عمل دولياً' : '3 - 5 Business Days · International'}
                       </p>
                     </button>
                   </div>
@@ -1640,7 +1676,7 @@ export const CheckoutView: React.FC = () => {
                   type="submit"
                   id="place-order-btn"
                   disabled={isSubmitting}
-                  className="w-full py-3.5 rounded-lg bg-[#171717] hover:bg-[#8F7137] text-white font-bold uppercase text-xs tracking-wider shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full min-h-12 py-3.5 rounded-lg bg-[#171717] hover:bg-[#8F7137] text-white font-bold uppercase text-xs tracking-wider shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <ShieldCheck className="w-4 h-4 text-[#16803C]" />
                   <span>
