@@ -227,16 +227,35 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setIsSubmitting(true);
     setOtpError(null);
     try {
-      const { data, error } = await adminOtpClient.auth.verifyOtp({ email: email.trim().toLowerCase(), token: cleanOtp, type: 'email' });
-      if (error) throw error;
-      if (!data.user) throw new Error('OTP verification did not return an authenticated administrator.');
-      await verifyAdminRole(data.user.id);
-      const primarySession = await supabase.auth.getSession();
-      if (!primarySession.data.session?.user?.id) {
+      // Capture the password-session identity BEFORE verifying, because a
+      // successful verifyOtp replaces the session on this client.
+      const passwordSession = await supabase.auth.getSession();
+      const passwordUserId = passwordSession.data.session?.user?.id;
+      if (!passwordUserId) {
         throw new Error('The administrator password session was lost. Please sign in again.');
       }
-      if (primarySession.data.session.user.id !== data.user.id) {
+
+      // Verify on the PRIMARY client, not an isolated one. The resulting
+      // session JWT carries the second factor in its `amr` claim, which is what
+      // private.session_has_second_factor() reads. Verifying on a throwaway
+      // client leaves the primary JWT password-only, so the database can never
+      // tell the OTP apart from a plain password login.
+      const { data, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: cleanOtp, type: 'email' });
+      if (error) throw error;
+      if (!data.user) throw new Error('OTP verification did not return an authenticated administrator.');
+      if (data.user.id !== passwordUserId) {
+        await supabase.auth.signOut();
         throw new Error('The verification code does not belong to the signed-in administrator.');
+      }
+      await verifyAdminRole(data.user.id);
+
+      // Record the step-up server-side so destructive RPCs that require a
+      // *fresh* factor can proceed. Best-effort: the session JWT is already the
+      // primary proof, so a failure here must not block a valid sign-in.
+      try {
+        await supabase.schema('private').rpc('record_admin_step_up');
+      } catch {
+        // Non-fatal; private.session_has_second_factor() still holds.
       }
 
       setAdminMfaSession(data.user.id);
@@ -274,9 +293,14 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setIsStepUpVerifying(true);
     setStepUpError(null);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: authUser.email, password: stepUpPassword });
+      // Verify the password on the ISOLATED client. Re-authenticating on the
+      // primary client would mint a fresh password-only session and silently
+      // discard the second-factor `amr` claim the admin console depends on.
+      const { data, error } = await adminOtpClient.auth.signInWithPassword({ email: authUser.email, password: stepUpPassword });
       if (error) throw error;
       if (!data.user) throw new Error('Re-authentication failed.');
+      if (data.user.id !== authUser.uid) throw new Error('Re-authentication did not match the signed-in administrator.');
+      await adminOtpClient.auth.signOut();
       await verifyAdminRole(data.user.id);
       setAdminMfaSession(data.user.id);
       lastActivityRef.current = Date.now();

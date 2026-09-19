@@ -27,6 +27,8 @@ function getAllowedOrigins(): Set<string> {
   );
 }
 
+let warnedAboutOpenCors = false;
+
 function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin');
   const allowed = getAllowedOrigins();
@@ -36,7 +38,26 @@ function corsHeaders(req: Request): Record<string, string> {
     'Vary': 'Origin',
   };
 
-  if (origin && allowed.has(origin.replace(/\/$/, ''))) {
+  if (!origin) return headers;
+
+  if (allowed.size === 0) {
+    // No allowlist configured. CORS is not the control that protects this
+    // endpoint — the caller must present an admin Bearer token, which a
+    // foreign origin cannot read out of the app's own localStorage. So echo
+    // the origin rather than breaking the console, and tell the operator how
+    // to turn on strict mode.
+    if (!warnedAboutOpenCors) {
+      warnedAboutOpenCors = true;
+      console.warn(
+        'admin-seller-provision: no APP_URL / SITE_URL / ALLOWED_ORIGINS configured; ' +
+        'falling back to reflecting the request Origin. Set one to enforce an allowlist.',
+      );
+    }
+    headers['Access-Control-Allow-Origin'] = origin;
+    return headers;
+  }
+
+  if (allowed.has(origin.replace(/\/$/, ''))) {
     headers['Access-Control-Allow-Origin'] = origin;
   }
 
@@ -312,7 +333,7 @@ Deno.serve(async (req: Request) => {
           targetUid,
           applicationId,
           requestedEmail: email,
-          attemptAuditId,
+          attemptAuditId: auditAttemptId,
           status: 'completed',
         }),
         target_id: targetUid,
@@ -341,7 +362,7 @@ Deno.serve(async (req: Request) => {
         actorId,
         sellerId,
         targetUid,
-        attemptAuditId,
+        attemptAuditId: auditAttemptId,
         error: auditCompleteError,
       });
       return json(req, { error: 'Provisioning completed, but audit recording failed. Please review the admin activity log.' }, 500);

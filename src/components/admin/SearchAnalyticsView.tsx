@@ -79,7 +79,7 @@ export const SearchAnalyticsView: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'search_logs' }, () => {
         if (active) { setLive(true); load(); }
       })
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         if (active) setLive(status === 'SUBSCRIBED');
       });
     return () => {

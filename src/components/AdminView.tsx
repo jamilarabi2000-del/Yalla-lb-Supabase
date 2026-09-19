@@ -140,7 +140,7 @@ function NotificationsManager(){const[items,setItems]=useState<any[]>([]);const 
 const cmsMap: Record<string,string>={pages_cms:'home',page_home:'home',page_products:'productsPage',page_detail:'productDetailPage',page_checkout:'checkoutPage',page_account:'accountPage',page_news:'newsSection',page_navbar:'navbar',page_footer:'footer',page_custom_blocks:'customBlocks',page_visibility:'visibility',page_seo:'seo'};
 function CMSSection({tab}:{tab:AdminTab}){return <section className="space-y-4"><div className="bg-white border rounded-2xl p-5"><h2 className="text-2xl font-black">{tabs.find(t=>t.id===tab)?.label}</h2><p className="text-sm text-slate-500 mt-1">Supabase-backed CMS editor.</p></div><PageCMSManager initialTab={cmsMap[tab]||'home'}/></section>}
 
-export const AdminView:React.FC=()=>{const shop=useShop() as any;const[tab,setTab]=useState<AdminTab>('dashboard');const[allowed,setAllowed]=useState(true);useEffect(()=>{hasPermission('security.view').then(v=>setAllowed(v||!!shop.isAdminUser)).catch(()=>setAllowed(!!shop.isAdminUser))},[shop.isAdminUser]);const counts={orders:(shop.orders||[]).length,products:(shop.products||[]).length,categories:(shop.categories||[]).length};const [isMobileSidebarOpen,setIsMobileSidebarOpen]=useState(false);const content = () => {
+export const AdminView:React.FC=()=>{const shop=useShop() as any;const[tab,setTab]=useState<AdminTab>('dashboard');const[allowed,setAllowed]=useState(false);useEffect(()=>{let live=true;hasPermission('security.view').then(v=>{if(live)setAllowed(v===true)}).catch(()=>{if(live)setAllowed(false)});return()=>{live=false}},[shop.isAdminUser]);const counts={orders:(shop.orders||[]).length,products:(shop.products||[]).length,categories:(shop.categories||[]).length};const [isMobileSidebarOpen,setIsMobileSidebarOpen]=useState(false);const content = () => {
   switch (tab) {
     case 'dashboard':
       return <EcommerceOverview onNavigateToTab={(t: any) => setTab(t === 'ecommerce' ? 'dashboard' : t)} />;
@@ -160,7 +160,7 @@ export const AdminView:React.FC=()=>{const shop=useShop() as any;const[tab,setTa
     case 'sellers':
       return <SellersView />;
     case 'discounts':
-      return <DiscountsManager initialTab="rules" />;
+      return <DiscountsManager />;
     case 'bundles':
       return <ProductBundlesManager />;
     case 'active_carts':

@@ -8,7 +8,9 @@ export type PlatformPermission =
   | 'security.view' | 'roles.manage' | 'notifications.manage';
 
 export async function hasPermission(permission: PlatformPermission, userId?: string | null) {
-  const { data, error } = await supabase.rpc('has_permission', { p_permission: permission, p_user_id: userId ?? undefined });
+  const { data, error } = await supabase
+    .schema('private')
+    .rpc('has_permission', { p_permission: permission, p_user_id: userId ?? undefined });
   if (error) throw error;
   return data === true;
 }
@@ -17,7 +19,7 @@ export async function recordInventoryChange(input: {
   productId: string; quantityChange: number; reason: string;
   referenceType?: string; referenceId?: string; note?: string;
 }) {
-  const { data, error } = await supabase.rpc('record_inventory_change', {
+  const { data, error } = await supabase.schema('private').rpc('record_inventory_change', {
     p_product_id: input.productId,
     p_quantity_change: input.quantityChange,
     p_reason: input.reason,

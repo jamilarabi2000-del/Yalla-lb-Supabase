@@ -6,6 +6,9 @@ const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const webhookSecret = Deno.env.get('PAYMENT_WEBHOOK_SECRET')!;
 const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
+/** Accept events within five minutes of now, in either direction. */
+const MAX_CLOCK_SKEW_SECONDS = 300;
+
 async function hmacHex(secret: string, body: string) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
@@ -31,6 +34,19 @@ serve(async (req) => {
   let payload: any;
   try { payload = JSON.parse(raw); } catch { return new Response('Invalid JSON', { status: 400 }); }
 
+  // Replay protection. A valid signature is reusable forever unless the signed
+  // body is also bound to a point in time and to a single event identity.
+  const timestamp = Number(payload.timestamp ?? 0);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return new Response('Missing event timestamp', { status: 422 });
+  }
+  if (Math.abs(Date.now() / 1000 - timestamp) > MAX_CLOCK_SKEW_SECONDS) {
+    return new Response('Stale or future-dated event', { status: 401 });
+  }
+
+  const eventId = String(payload.event_id ?? '').trim();
+  if (!eventId) return new Response('Missing event id', { status: 422 });
+
   // Provider adapters should normalize into this contract before this boundary.
   const orderId = String(payload.order_id || '');
   const paymentStatus = String(payload.payment_status || '').toLowerCase();
@@ -38,11 +54,19 @@ serve(async (req) => {
 
   const { error } = await supabase.from('order_events').insert({
     order_id: orderId,
+    provider_event_id: eventId,
     to_status: paymentStatus === 'paid' ? 'confirmed' : paymentStatus === 'failed' ? 'cancelled' : 'new',
     note: `Payment webhook: ${paymentStatus}`,
-    metadata: { source: 'payment-webhook', provider_event_id: payload.event_id ?? null },
+    metadata: { source: 'payment-webhook', provider_event_id: eventId },
   });
-  if (error) return new Response('Webhook persistence failed', { status: 500 });
+
+  // A unique violation means this exact event was already applied. That is a
+  // successful no-op, not an error, so the provider stops retrying.
+  if (error?.code === '23505') return Response.json({ ok: true, duplicate: true });
+  if (error) {
+    console.error('Webhook persistence failed', error);
+    return new Response('Webhook persistence failed', { status: 500 });
+  }
 
   return Response.json({ ok: true });
 });

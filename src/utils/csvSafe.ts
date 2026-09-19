@@ -1,6 +1,6 @@
 export const csvSafe = (v: unknown): string => {
   const s = v == null ? '' : String(v);
-  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return /^[=+\-@\t\r\n|]/.test(s) ? `'${s}` : s;
 };
 
 export const sanitizeRowForCsv = <T extends Record<string, any>>(row: T): T => {

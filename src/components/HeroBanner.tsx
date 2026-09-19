@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useShop } from '../context/ShopContext';
-import { isSafeUrl } from '../lib/safeUrl';
+import { isSafeUrl, sanitizeUrl } from '../lib/safeUrl';
 import { 
   ChevronLeft,
   ChevronRight,
@@ -349,7 +349,7 @@ export const HeroBanner: React.FC = () => {
     }
     const customTarget = targetOverride || (heroData as any)?.targetUrl || currentSlide.targetCategory || 'all';
     
-    if (customTarget.startsWith('/') && !customTarget.startsWith('//')) {
+    if (/^\/(?![\\/])/.test(customTarget)) {
       if (customTarget === '/checkout') {
         setActiveTab('checkout');
       } else if (customTarget === '/account') {
@@ -358,7 +358,7 @@ export const HeroBanner: React.FC = () => {
         setActiveTab('products');
         setSelectedCategory('all');
       } else if (isSafeUrl(customTarget)) {
-        window.location.href = customTarget;
+        window.location.href = sanitizeUrl(customTarget, '/');
         return;
       }
     } else {
@@ -371,14 +371,9 @@ export const HeroBanner: React.FC = () => {
 
   const handleSecondaryActionClick = () => {
     const secondaryTarget = (heroData as any)?.secondaryTargetUrl || 'artisans';
-    if (secondaryTarget.startsWith('/') || secondaryTarget.startsWith('http://') || secondaryTarget.startsWith('https://')) {
-      if (secondaryTarget.startsWith('/') && !secondaryTarget.startsWith('//')) {
-        window.location.href = secondaryTarget;
-        return;
-      } else if (isSafeUrl(secondaryTarget)) {
-        window.location.href = secondaryTarget;
-        return;
-      }
+    if (/^(\/|https?:\/\/)/.test(secondaryTarget) && isSafeUrl(secondaryTarget)) {
+      window.location.href = sanitizeUrl(secondaryTarget, '/');
+      return;
     }
     setSelectedCategory(secondaryTarget);
     setSearchQuery('');

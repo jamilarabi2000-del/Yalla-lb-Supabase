@@ -40,13 +40,12 @@ function redactPII(data: any): any {
   if (!data || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(redactPII);
   const redacted = { ...data };
-  const piiKeys = [
-    'fullName', 'firstName', 'lastName', 'customerName', 'recipientName', 'userName', 'profileName',
-    'phone', 'email', 'street', 'building', 'floorApartment', 'deliveryNotes', 'address',
-    'defaultAddress', 'defaultNotes', 'shipping', 'recipient', 'customer', 'user', 'profile'
-  ];
+  // Substring match, not exact match: an exact allowlist silently leaked
+  // phoneNumber, emailAddress, addressLine1, whatsappNumber and friends.
+  const piiPattern =
+    /(name|phone|whatsapp|mobile|email|mail|street|building|floor|apartment|address|note|recipient|customer|user|profile|shipping|city|town|village|district|governorate|postal|zip|password|token|secret)/i;
   for (const key of Object.keys(redacted)) {
-    if (piiKeys.includes(key)) redacted[key] = '[REDACTED_PII]';
+    if (piiPattern.test(key)) redacted[key] = '[REDACTED_PII]';
     else if (typeof redacted[key] === 'object') redacted[key] = redactPII(redacted[key]);
   }
   return redacted;
@@ -60,7 +59,9 @@ class DatabaseLoggerService {
   private maxLogs = 200;
 
   constructor() {
-    if (typeof window !== 'undefined') (window as any).__YALLA_DB_LOGGER = this;
+    // Never expose the log buffer on window in production: any XSS could read
+    // the whole diagnostic history in one property access.
+    if (typeof window !== 'undefined' && import.meta.env.DEV) (window as any).__YALLA_DB_LOGGER = this;
   }
 
   public subscribe(listener: LogListener): () => void {

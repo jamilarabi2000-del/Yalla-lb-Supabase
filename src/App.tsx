@@ -99,7 +99,7 @@ const MainAppContent: React.FC = () => {
     const styles = siteContent.theme.textStyles || {};
     const esc = (v: any) => typeof v === 'string' ? v.replace(/[;{}]/g, '') : '';
     const cssFor = (slot: any, selectors: string) => {
-      const s = styles[slot] || {};
+      const s = (styles as Record<string, any>)[slot] || {};
       const rules = [
         ['font-family', s.fontFamily], ['font-size', s.fontSize], ['font-weight', s.fontWeight],
         ['font-style', s.fontStyle], ['color', s.color], ['text-align', s.textAlign],

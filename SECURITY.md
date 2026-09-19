@@ -1,92 +1,147 @@
-# Yalla Lebanon — Security & Architecture Specification
+# Yalla Lebanon — Security Model
 
-## 1. Executive Summary & Security Model
-
-Yalla Lebanon is an e-commerce platform bridging Lebanese artisan workshops with domestic and international customers. The current tier operates as a high-security Single Page Application (SPA) powered by Cloud Firestore and Firebase Authentication with comprehensive database rules, cryptographic rate limiting, and client-side defensive checks.
-
----
-
-## 2. Server-Side Execution Model: R-1 & R-2 Production Roadmap
-
-### Finding R-1: Authoritative Discount & Coupon Recalculation
-- **Context**: In client-side architectures, Firestore rules enforce that `discountUSD <= subtotalUSD * 0.95`. Because Firestore rules lack procedural iteration loops and multi-collection joins, calculating intricate multi-item bundle dependencies directly within security rules is constrained.
-- **Production Target Architecture (Blaze Plan)**:
-  1. Transition order placement to a callable Firebase Cloud Function (`/api/placeOrder` or `createOrderCallable`).
-  2. The function loads the authentic product prices directly from the database using the Firebase Admin SDK, recalculates active coupon and bundle rules, and generates the immutable order record.
-  3. Firestore rules for `/orders` transition from client writes to `allow create: if false;` (admin-only creation via the Admin SDK).
-
-### Finding R-2: Atomic Stock Decrementing
-- **Context**: Product document writes are strictly restricted to administrators (`allow update: if isAdmin();`). Permitting client-side shoppers to write to `/products` would expose catalog stock to malicious zeroing attacks.
-- **Production Target Architecture (Blaze Plan)**:
-  1. The Cloud Function order handler performs a multi-document Firestore transaction using `admin.firestore().runTransaction()`.
-  2. It atomically reads current stock, asserts availability (`stock >= requestedQty`), decrements each product, and commits the order in a single atomic batch.
+> **Scope.** This document describes the security model of the **Supabase**
+> build. Earlier revisions of this file described a Firebase/Firestore
+> architecture (`firestore.rules`, Cloud Functions, App Check) that this
+> project no longer uses; none of those controls exist. Treat any surviving
+> reference to Firebase elsewhere in the repository as stale.
 
 ---
 
-## 3. Defense-in-Depth Implementation Matrix
+## 1. Architecture
 
-| Vulnerability Vector | Risk Level | Applied Defense | Verification |
-| :--- | :---: | :--- | :--- |
-| **C-1: Rule Deployability** | Critical | Configured `firebase.json` target mapping to production Firestore databases | Rules deployed live |
-| **C-2: Order Price Manipulation** | Critical | Pinned key sets, bounded delivery fee ($\le \$50$), status locked to `pending` | `rules.test.ts` & `security.test.ts` |
-| **H-1: Artisan Credential Exposure** | High | Partitioned private data to `/seller_private/{id}`, filtered public `/sellers` | Unit tests & schema validation |
-| **H-2: Review Impersonation & Flooding** | High | Pinned review ID to `<uid>_<productId>`, author validation, bounded lengths | Idempotent deterministic IDs |
-| **H-3: Seller Order Overwrites** | High | Replaced blocklist with strict status-only allowlist | Rule verification |
-| **M-1 / M-2: Mass Assignment** | Medium | Strict `hasOnly()` across all collections; pinned `userId` on search logs | Schema enforcement |
-| **M-3: Seller Applications Form** | Medium | Added dedicated `/seller_applications` creation rule with character caps | Deployed rules |
-| **M-4: Promo Reset Exploit** | Medium | `ordersPlaced` in user profiles restricted to non-decreasing transitions ($+1$ or identical) | Invariant test |
-| **M-5: Password Policy** | Medium | Centralized `src/lib/passwordPolicy.ts` enforcing 8+ characters, letters & numbers | Password test |
-| **M-6: Account Enumeration Oracle** | Medium | Removed `fetchSignInMethodsForEmail` from the application import surface | Code audit |
-| **M-7: Content Security Policy** | Medium | Enforced strict CSP, `base-uri 'self'`, COOP `same-origin-allow-popups` | HTML meta tags |
-| **M-8: Profile UID Mutation** | Medium | Added `uid` to protected key set in `firestore.rules` | Invariant test |
-| **L-2: Malicious URL Schemes** | Low | Scheme allowlist in `src/lib/safeUrl.ts` (`http:`, `https:`, `mailto:`, `tel:`) | Unit tests |
-| **L-3: Local Storage Leakage** | Low | Public projection filtering applied to client-side artisan caches | Invariant test |
-| **Order Line-Item Cap** | Invariant | Server-authoritative cap of 50 (`MAX_LINE_ITEMS` in `functions/src/placeOrder.ts`); the client constant `MAX_ORDER_LINE_ITEMS` mirrors it purely as a pre-flight UX check | Canary test asserts the two constants stay in sync |
+A React 19 single-page application talks directly to Supabase. There is no
+application server. Authorization therefore lives entirely in PostgreSQL:
+
+| Layer | Responsibility |
+| :--- | :--- |
+| React SPA | Presentation and UX gating only. **Never** an authorization boundary. |
+| Supabase Auth | Identity, sessions, second factor (`amr` / `aal` claims in the JWT). |
+| PostgREST | Exposes the `public` and `private` schemas as a REST API. |
+| RLS policies | The authorization boundary for every table. |
+| `SECURITY DEFINER` RPCs | Multi-step operations (checkout, product creation, deletes) that must be atomic and server-authoritative. |
+| Edge Functions | The only place a service-role key is used. |
+
+Because PostgREST exposes the database directly, **any client-side check can be
+bypassed by calling the REST API with a valid JWT.** Every control that matters
+is expressed as an RLS policy or inside a `SECURITY DEFINER` function.
 
 ---
 
-## 4. Production Checklist Before Live Launch
+## 2. Roles and privilege
 
-1. **Enable Firebase App Check with reCAPTCHA Enterprise**:
-   - Register your web app in Firebase Console > **App Check**.
-   - Create a reCAPTCHA Enterprise Key and add the public site key to `.env` (`VITE_RECAPTCHA_SITE_KEY`).
-   - Enable Firestore enforcement to block non-browser bot requests.
+Roles live in `public.profiles.role` (`admin` / `seller` / `customer`) and are
+resolved by `private.is_admin()` and `private.is_seller()`.
 
-2. **Restrict Google Cloud API Keys**:
-   - Navigate to Google Cloud Console > **APIs & Services** > **Credentials**.
-   - Select the Web API Key used by Firebase.
-   - Configure **Application Restrictions** to HTTP referrers: `https://yalla.lb/*` and `https://*.run.app/*`.
-   - Configure **API Restrictions** exclusively to *Firebase Authentication* and *Cloud Firestore API*.
+Privilege escalation is blocked by two independent mechanisms:
 
-3. **Deploy Cloud Functions Order Processor (Blaze Plan)**:
-   - When ready to upgrade, deploy the transactional order placement function to handle R-1 (coupon verification) and R-2 (atomic stock decrement).
+- `public.protect_profile_role()` silently restores `role` and `seller_id` on
+  any self-update.
+- `private.protect_profile_security_fields()` raises
+  `PROFILE_SECURITY_FIELDS_FORBIDDEN` if `role`, `seller_id`, `email_verified`
+  or `is_otp_verified` change for a non-admin.
+- The `profiles_insert` policy pins new rows to `role = 'customer'`.
+
+Fine-grained permissions layer on top via `public.role_permissions` and
+`public.user_permissions`, resolved by `private.has_permission(key)`. A `deny`
+entry always wins over an `allow`.
+
+### Administrator second factor
+
+Administrator sign-in is password **then** email OTP. Both factors are proven
+against Supabase Auth, and the OTP is verified on the **primary** Supabase
+client so the resulting session JWT carries the second factor in its `amr`
+claim.
+
+This matters: an OTP verified on a throwaway client leaves the primary JWT
+password-only, and the database cannot then distinguish an OTP-verified admin
+from someone who only knows the password.
+
+- `private.session_has_second_factor()` reads `amr` / `aal` from the session JWT.
+- `private.has_recent_step_up(interval)` reads `private.admin_step_up`, written
+  by `private.record_admin_step_up()` after verification.
+- `private.is_admin_verified()` requires `is_admin()` **and** either of the above.
+
+Destructive operations (`private.admin_delete_order`,
+`private.admin_delete_products`) additionally require a *fresh* step-up.
 
 ---
 
-## 5. Firebase Authentication SMS Multi-Factor Authentication (MFA) Requirements
+## 3. Server-authoritative commerce
 
-Administrator authentication is secured via a two-tier authentication architecture:
-- **First Factor**: Email and password authenticated via Firebase Authentication, with identity claims verified via Firebase custom user claims (`request.auth.token.admin == true`).
-- **Second Factor (MFA)**: SMS Multi-Factor Authentication (OTP) generated, transmitted, and verified natively by **Firebase Authentication** using official Firebase Web Authentication SDK APIs:
-  - `multiFactor()`
-  - `PhoneAuthProvider`
-  - `PhoneMultiFactorGenerator`
-  - `RecaptchaVerifier`
-  - `getMultiFactorResolver()`
-  - `resolver.resolveSignIn()`
+`private.checkout_create_order()` is the only path that creates an order;
+`public.orders` has no `INSERT` policy and no `INSERT` grant.
 
-### Strict Security Invariants
-1. **Zero Third-Party SMS Gateways**: No third-party SMS or email providers (Twilio, SendGrid, Resend, AWS SNS, etc.) are used in the OTP implementation.
-2. **No Custom OTP Storage or Generation**: OTP codes are generated, handled, and verified exclusively inside Firebase Authentication. No OTP values are logged, hashed, or stored in Cloud Firestore or server state.
-3. **Fail-Closed Policy**: If Firebase MFA is unconfigured or unavailable, access fails closed. No fallback authentication or bypass buttons are permitted.
-4. **Authoritative Access Control**: `request.auth.token.admin == true` remains the immutable requirement for administrative Firestore writes.
+It reads prices from `public.products` and ignores any client-supplied amount.
+It also enforces: `FOR UPDATE` row locks on every line item, a UUID
+idempotency key, ≤50 line items, ≤99 per line, ≤200 units total, ≤$10,000
+order value, region/delivery-speed consistency, and a discount ceiling of 70%
+of subtotal.
 
-### Firebase Console Configuration Checklist
-To support administrator SMS MFA in production, ensure the Firebase project is configured as follows:
-- [x] **Firebase Authentication**: Enabled with Email/Password and Phone providers active.
-- [x] **Identity Platform**: Upgrade project to Identity Platform in Authentication Settings to enable multi-factor capabilities.
-- [x] **SMS Multi-Factor Authentication**: In Firebase Console > Authentication > Settings > Sign-in method > Multi-factor authentication, enable SMS as a second factor.
-- [x] **SMS Region Policy**: In Authentication > Settings > SMS Settings, ensure target caller regions (Lebanon `+961` and relevant international codes) are permitted.
-- [x] **Authorized Domains**: Add production domain (e.g., `https://yalla.lb`) and Cloud Run container domains to Authorized Domains.
-- [x] **Admin Verification**: Ensure administrator user accounts have their email address verified.
-- [x] **Phone Factor Enrollment**: Enroll the administrator's authorized mobile phone number as an active MFA factor.
+`private.protect_order_integrity()` then pins every financial column and
+enforces a forward-only fulfilment state machine. Sellers may advance
+`pending → confirmed → crafting → courier_assigned → in_transit`; `delivered`,
+`cancelled` and `returned` are administrator-only.
+
+---
+
+## 4. Abuse and rate limiting
+
+| Surface | Control |
+| :--- | :--- |
+| `search_logs` | 60 anonymous inserts / minute / IP |
+| `seller_applications` | 5 anonymous inserts / minute / IP |
+| `analytics_events` | 60 anonymous inserts / minute / IP, payload ≤4 KiB |
+| `checkout_attempts` | `private.rate_limit_checkout_attempt()` |
+| `reviews` | `private.rate_limit_review_insert()`, purchase required via `private.can_review_product()` |
+| `orders.shipping` | ≤8 KiB |
+| Payment webhook | HMAC-SHA256, ±300 s timestamp window, unique `provider_event_id` |
+
+---
+
+## 5. Client-side hardening
+
+These reduce blast radius. None of them is an authorization control.
+
+- **Transport headers** (`vercel.json`, `netlify.toml`): CSP with
+  `frame-ancestors 'none'`, `object-src 'none'` and `base-uri 'self'`; HSTS;
+  `X-Content-Type-Options`; `X-Frame-Options`; `Referrer-Policy`;
+  `Permissions-Policy`; COOP/CORP.
+- **Rich text**: `src/utils/sanitizeRichText.ts` delegates to DOMPurify with a
+  small document-subset allowlist. Hand-rolled parse→strip→re-serialize
+  sanitizers are vulnerable to mutation XSS via foreign-content namespace
+  confusion; do not reintroduce one.
+- **URLs**: `src/lib/safeUrl.ts` rejects every scheme-relative form
+  (`//host`, `/\host`, `\/host`, `\\host`) and resolves relative URLs to
+  confirm they stay on-origin, rather than trusting a leading `/`.
+- **CSV export**: `src/utils/csvSafe.ts` prefixes `= + - @ TAB CR LF |`.
+- **Diagnostics**: `src/utils/dbLogger.ts` redacts PII by pattern and exposes
+  its buffer on `window` only in development builds.
+
+---
+
+## 6. Secrets
+
+- Only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` reach the
+  browser. `test/security.test.ts` and `test/securityHardeningContract.test.ts`
+  fail the build if a service-role or secret key appears in `src/`.
+- The service-role key is used only in `supabase/functions/*` and in
+  `scripts/*.mjs`, always from the environment.
+- Gitleaks runs on every push and pull request.
+
+---
+
+## 7. Known gaps
+
+| Gap | Status |
+| :--- | :--- |
+| Leaked-password protection (HaveIBeenPwned) | **Not enabled** — requires a paid Supabase plan. |
+| `supabase/migrations/` is not replayable | See `supabase/migrations/README.md`. The live database is authoritative until re-baselined. |
+| Migration-integrity CI | Requires the `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` and `SUPABASE_PROJECT_ID` repository secrets; skips with a warning until they are set. |
+
+---
+
+## 8. Reporting
+
+Report suspected vulnerabilities privately to the repository owner. Please do
+not open a public issue.
