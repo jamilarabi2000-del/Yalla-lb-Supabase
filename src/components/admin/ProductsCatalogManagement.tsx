@@ -313,6 +313,27 @@ export const ProductsCatalogManagement: React.FC = () => {
     finally { setSaving(false); }
   };
 
+  const getPublishValidationErrors = (product: Product): string[] => {
+    const errors: string[] = [];
+    const name = String(product.name || '').trim();
+    const categoryId = String(product.category || '').trim();
+    const price = Number(product.priceUSD);
+    const stock = Number(product.stock);
+    const artisan = String(product.artisan || '').trim().toLowerCase();
+    const sellerItemCode = String(product.sellerItemCode || '').trim();
+    const image = String(product.image || '').trim();
+
+    if (!name) errors.push('Product title');
+    if (!categoryId || !categories.some((c: any) => c.id === categoryId)) errors.push('Category');
+    if (!Number.isFinite(price) || price < 1) errors.push('Price (minimum $1.00)');
+    if (!Number.isInteger(stock) || stock < 0) errors.push('Stock (0 or more)');
+    if (!artisan || artisan === 'independent artisan' || artisan === 'lebanese artisan') errors.push('Seller Name (English)');
+    if (!sellerItemCode) errors.push('Seller Product Code');
+    if (!image) errors.push('Primary image');
+
+    return errors;
+  };
+
   const bulkPublish = async (published: boolean) => {
     if (!visibleSelected.length) return;
 
@@ -337,22 +358,8 @@ export const ProductsCatalogManagement: React.FC = () => {
     const validProducts: Product[] = [];
 
     for (const product of selectedProducts) {
-      const missing: string[] = [];
       const name = String(product.name || '').trim();
-      const categoryId = String(product.category || '').trim();
-      const price = Number(product.priceUSD);
-      const stock = Number(product.stock);
-      const artisan = String(product.artisan || '').trim().toLowerCase();
-      const sellerItemCode = String(product.sellerItemCode || '').trim();
-      const image = String(product.image || '').trim();
-
-      if (!name) missing.push('Product title');
-      if (!categoryId || !categories.some((c: any) => c.id === categoryId)) missing.push('Category');
-      if (!Number.isFinite(price) || price < 1) missing.push('Price (minimum $1.00)');
-      if (!Number.isInteger(stock) || stock < 0) missing.push('Stock (0 or more)');
-      if (!artisan || artisan === 'independent artisan' || artisan === 'lebanese artisan') missing.push('Artisan / Seller');
-      if (!sellerItemCode) missing.push('Seller Product Code');
-      if (!image) missing.push('Primary image');
+      const missing = getPublishValidationErrors(product);
 
       if (missing.length) {
         failures.push({ id: product.id, name: name || 'Unnamed product', missing });
@@ -575,7 +582,21 @@ export const ProductsCatalogManagement: React.FC = () => {
         <div className="flex gap-1.5 mt-3 pt-2 border-t border-slate-100">
           <button onClick={() => saveQuick(p)} className="flex-1 px-2 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black">Save Price/Stock</button>
           <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600" title="Edit"><Pencil className="w-3.5 h-3.5"/></button>
-          <button onClick={async () => { try { await updateProduct(p.id, { isPublished: !published }); } catch (e: any) { showToast(e?.message || 'Could not change publication status.', 'error'); } }} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600" title={published ? 'Hide' : 'Publish'}>{published ? <EyeOff className="w-3.5 h-3.5"/> : <Eye className="w-3.5 h-3.5"/>}</button>
+          <button onClick={async () => {
+            if (!published) {
+              const missing = getPublishValidationErrors(p);
+              if (missing.length) {
+                showToast('Cannot publish "' + (p.name || 'Unnamed product') + '": ' + missing.join(', '), 'warning');
+                return;
+              }
+            }
+            try {
+              await updateProduct(p.id, { isPublished: !published });
+              showToast(published ? 'Product hidden.' : 'Product published live.', 'success');
+            } catch (e: any) {
+              showToast(e?.message || 'Could not change publication status.', 'error');
+            }
+          }} className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600" title={published ? 'Hide' : 'Publish'}>{published ? <EyeOff className="w-3.5 h-3.5"/> : <Eye className="w-3.5 h-3.5"/>}</button>
           <button onClick={() => { if (window.confirm('Delete this product? This cannot be undone.')) void deleteProduct(p.id); }} className="p-1.5 rounded-lg bg-rose-50 text-rose-600" title="Delete"><Trash2 className="w-3.5 h-3.5"/></button>
         </div>
       </div>
@@ -801,7 +822,24 @@ export const ProductsCatalogManagement: React.FC = () => {
         onMoveProduct={moveSequenceProduct}
         onSetProductRank={setSequenceRank}
         lastMovedProductId={lastMovedProductId}
-        onTogglePublish={async (id) => { await updateProduct(id, { isPublished: !(products.find(p => p.id === id)?.isPublished !== false) }); }}
+        onTogglePublish={async (id) => {
+          const product = products.find(p => p.id === id);
+          if (!product) return;
+          const published = product.isPublished !== false;
+          if (!published) {
+            const missing = getPublishValidationErrors(product);
+            if (missing.length) {
+              showToast('Cannot publish "' + (product.name || 'Unnamed product') + '": ' + missing.join(', '), 'warning');
+              return;
+            }
+          }
+          try {
+            await updateProduct(id, { isPublished: !published });
+            showToast(published ? 'Product hidden.' : 'Product published live.', 'success');
+          } catch (e: any) {
+            showToast(e?.message || 'Could not change publication status.', 'error');
+          }
+        }}
         onEditProduct={openEdit}
         onQuickPriceStock={saveQuick}
         onDeleteProduct={async (p) => { if (window.confirm(`Delete "${p.name}"? This cannot be undone.`)) await deleteProduct(p.id); }}
