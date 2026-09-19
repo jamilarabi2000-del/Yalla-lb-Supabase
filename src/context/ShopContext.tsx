@@ -3661,25 +3661,24 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const supaUser = supaUserData?.user;
       if (!supaUser) return;
 
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', supaUser.id)
-        .maybeSingle();
+      // Use the same authoritative profile read as initial auth hydration.
+      // A failed read must never be interpreted as a missing profile or
+      // silently downgrade an existing admin/seller.
+      const profile = await supabaseUserDataService.fetchProfile(supaUser.id);
 
       let profileRole: 'admin' | 'seller' | 'customer' = 'customer';
       let profileSellerId: string | null = null;
       let profileData: Record<string, any> = {};
 
-      if (profile && !error) {
-        profileData = profile;
+      if (profile) {
+        profileData = profile as Record<string, any>;
         if (profile.role === 'admin') {
           profileRole = 'admin';
         } else if (profile.role === 'seller') {
           profileRole = 'seller';
         }
-        if (profile.seller_id || profile.sellerId) {
-          profileSellerId = profile.seller_id || profile.sellerId;
+        if (profile.sellerId) {
+          profileSellerId = profile.sellerId;
         }
       }
 
