@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { parseStock, parsePrice } from '../src/utils/importerResolvers';
 import { isProductVisibleOnStorefront } from '../src/lib/storefrontVisibility';
 import { Product, Seller } from '../src/types';
@@ -86,5 +88,23 @@ describe('Storefront Visibility Rule', () => {
   it('shows all products if visual edit mode is enabled', () => {
     const unpublished = { ...dummyProduct, isPublished: false };
     expect(isProductVisibleOnStorefront(unpublished, [], true)).toBe(true);
+  });
+});
+
+describe('products.brand reaches the UI model', () => {
+  const service = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/services/supabaseCatalogService.ts'), 'utf-8');
+
+  it('selects brand in both the public and admin projections', () => {
+    // Mapping brand without selecting it makes row.brand permanently undefined,
+    // so the column must appear in both column lists.
+    const lists = service.match(/const (?:PUBLIC|ADMIN)_PRODUCT_COLUMNS = `[\s\S]*?`;/g) ?? [];
+    expect(lists.length).toBe(2);
+    for (const list of lists) expect(list).toContain('brand,');
+  });
+
+  it('maps brand onto the product, normalising the NOT NULL empty default', () => {
+    expect(service).toContain('brand: row.brand');
+    expect(service).toContain(': undefined');
   });
 });
