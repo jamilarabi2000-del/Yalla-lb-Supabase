@@ -3881,6 +3881,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [selectedProductDetail, selectedCategory]);
 
   const goBack = useCallback(() => {
+    // URL history is the source of truth for browser-addressable navigation.
+    // This keeps the in-app Back control aligned with browser Back/Forward.
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
     const prevEntry = navHistoryRef.current.pop();
     if (prevEntry) {
       setSelectedProductDetail(prevEntry.selectedProduct);
