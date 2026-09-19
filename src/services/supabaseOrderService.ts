@@ -428,15 +428,18 @@ export const supabaseOrderService = {
   },
 
   /** Orders visible to the caller. RLS decides scope: own, seller's, or all. */
-  async fetchOrders(): Promise<Order[]> {
-    // No .eq('user_id', ...) filter: `orders_read` already restricts rows to
-    // the owner, an admin, or a seller listed in seller_ids. Filtering here
-    // would make the client the authorization boundary, which it must not be.
+  async fetchOrders(limit = 50, offset = 0): Promise<Order[]> {
+    // No .eq('user_id', ...) filter: RLS already restricts visibility to the
+    // owner, seller, or administrator. Pagination keeps order history bounded
+    // while preserving the database as the authorization boundary.
+    const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
+    const safeOffset = Math.max(0, Math.floor(offset));
+
     const { data, error } = await supabase
       .from('orders')
       .select(ORDER_SELECT)
       .order('created_at', { ascending: false })
-      .limit(500);
+      .range(safeOffset, safeOffset + safeLimit - 1);
 
     if (error) {
       console.error('[orders] fetchOrders failed:', error);

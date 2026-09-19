@@ -11,7 +11,12 @@ const ADMIN_ROLES = new Set(['admin']);
 const PRIVILEGED_ROLES = new Set(['admin', 'seller']);
 
 function getAllowedOrigins(): Set<string> {
+  // Production aliases are explicit defaults; additional domains must be
+  // configured through ALLOWED_ORIGINS / APP_URL / SITE_URL. Never reflect an
+  // arbitrary request Origin.
   const raw = [
+    'https://yalla-lb-supabase.vercel.app',
+    'https://yalla-lb-supabase-jamilarabi2000-4313.vercel.app',
     Deno.env.get('APP_URL'),
     Deno.env.get('SITE_URL'),
     Deno.env.get('ALLOWED_ORIGINS'),
@@ -27,8 +32,6 @@ function getAllowedOrigins(): Set<string> {
   );
 }
 
-let warnedAboutOpenCors = false;
-
 function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin');
   const allowed = getAllowedOrigins();
@@ -40,23 +43,8 @@ function corsHeaders(req: Request): Record<string, string> {
 
   if (!origin) return headers;
 
-  if (allowed.size === 0) {
-    // No allowlist configured. CORS is not the control that protects this
-    // endpoint — the caller must present an admin Bearer token, which a
-    // foreign origin cannot read out of the app's own localStorage. So echo
-    // the origin rather than breaking the console, and tell the operator how
-    // to turn on strict mode.
-    if (!warnedAboutOpenCors) {
-      warnedAboutOpenCors = true;
-      console.warn(
-        'admin-seller-provision: no APP_URL / SITE_URL / ALLOWED_ORIGINS configured; ' +
-        'falling back to reflecting the request Origin. Set one to enforce an allowlist.',
-      );
-    }
-    headers['Access-Control-Allow-Origin'] = origin;
-    return headers;
-  }
-
+  // Unknown origins receive no ACAO header. The browser will enforce
+  // same-origin/CORS restrictions rather than being granted reflected access.
   if (allowed.has(origin.replace(/\/$/, ''))) {
     headers['Access-Control-Allow-Origin'] = origin;
   }

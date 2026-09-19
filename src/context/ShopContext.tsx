@@ -488,6 +488,9 @@ interface ShopContextType {
 
   // Orders
   orders: Order[];
+  hasMoreOrders: boolean;
+  isLoadingMoreOrders: boolean;
+  loadMoreOrders: () => Promise<void>;
   placeOrder: (orderData: Omit<Order, 'id' | 'date' | 'trackingNumber' | 'status'>, customIdempotencyKey?: string) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
@@ -1014,6 +1017,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // The authoritative list is loaded from public.orders, where RLS decides
   // which rows the signed-in user may see.
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [hasMoreOrders, setHasMoreOrders] = useState(true);
+  const [isLoadingMoreOrders, setIsLoadingMoreOrders] = useState(false);
 
   const [user, setUser] = useState<UserProfile>(() => {
     try {
@@ -2705,6 +2710,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
      */
     if (!authUser) {
       setOrders([]);
+      setHasMoreOrders(false);
+      setIsLoadingMoreOrders(false);
       return;
     }
 
@@ -2713,8 +2720,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loadOrders = async () => {
       try {
-        const rows = await supabaseOrderService.fetchOrders();
-        if (isMounted) setOrders(rows);
+        const rows = await supabaseOrderService.fetchOrders(50, 0);
+        if (isMounted) {
+          setOrders(rows);
+          setHasMoreOrders(rows.length === 50);
+        }
       } catch (err) {
         console.error('[ShopContext] Failed to load orders:', err);
       }
@@ -2742,6 +2752,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       supabase.removeChannel(channel);
     };
   }, [authUser, isAdminUser, isSellerUser, sellerId]);
+
+  const loadMoreOrders = useCallback(async () => {
+    if (isLoadingMoreOrders || !hasMoreOrders || !authUser) return;
+    setIsLoadingMoreOrders(true);
+    try {
+      const rows = await supabaseOrderService.fetchOrders(50, orders.length);
+      setOrders(prev => [...prev, ...rows]);
+      setHasMoreOrders(rows.length === 50);
+    } catch (err) {
+      console.error('[ShopContext] Failed to load more orders:', err);
+    } finally {
+      setIsLoadingMoreOrders(false);
+    }
+  }, [authUser, orders.length, hasMoreOrders, isLoadingMoreOrders]);
 
   // Auth & User / Cart / Wishlist synchronization using Supabase Auth
   useEffect(() => {
@@ -4801,11 +4825,25 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       summary: `Deleting ${ids.length} rows from products...`
     });
 
+    if (!isAdminUser) {
+      throw new Error('Only a verified administrator may perform bulk product deletion.');
+    }
+    const authorized = await assertHighRiskAuthorization(authUser?.uid);
+    if (!authorized) {
+      showToast('High-risk action cancelled or verification expired.', 'error');
+      throw new Error('High-risk authorization failed');
+    }
+
     const targets = products.filter(p => ids.includes(p.id));
     const previousProducts = products;
     try {
-      for (const id of ids) {
-        await supabaseCatalogService.deleteProduct(id);
+      const { data, error } = await supabase.rpc('admin_bulk_delete_products', {
+        p_product_ids: ids,
+      });
+      if (error) throw error;
+      const deletedCount = Number(data ?? 0);
+      if (deletedCount !== ids.length) {
+        throw new Error(`Bulk deletion removed ${deletedCount} of ${ids.length} selected products.`);
       }
     } catch (err: any) {
       console.error('[ShopContext] bulk product delete failed:', err);
@@ -5063,6 +5101,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isInWishlist,
     clearWishlist,
     orders,
+    hasMoreOrders,
+    isLoadingMoreOrders,
+    loadMoreOrders,
     placeOrder,
     updateOrderStatus,
     deleteOrder,
@@ -5170,6 +5211,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isCartOpen,
     wishlist,
     orders,
+    hasMoreOrders,
+    isLoadingMoreOrders,
+    loadMoreOrders,
     user,
     checkPhoneUniqueness,
     authUser,
