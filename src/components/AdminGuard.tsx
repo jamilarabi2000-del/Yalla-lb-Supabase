@@ -162,14 +162,27 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     try {
       // Clear any half-finished enrollment so retrying never hits
       // "factor already exists".
-      const { data: existing } = await supabase.auth.mfa.listFactors();
-      for (const stale of (existing?.totp || []).filter((f: any) => f.status !== 'verified')) {
-        await supabase.auth.mfa.unenroll({ factorId: stale.id });
+      //
+      // This MUST read `all`, not `totp`. listFactors() buckets a factor into
+      // `totp` only when status === 'verified', so `totp` is a verified-only
+      // list and filtering it for unverified entries always yields nothing —
+      // leaving the abandoned factor in place to collide on the next attempt.
+      const { data: existing, error: listError } = await supabase.auth.mfa.listFactors();
+      if (listError) throw listError;
+
+      const abandoned = (existing?.all ?? []).filter(
+        (f: any) => f.factor_type === 'totp' && f.status !== 'verified',
+      );
+      for (const stale of abandoned) {
+        const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: stale.id });
+        if (unenrollError) throw unenrollError;
       }
 
       const { data, error: enrollError } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: `Yalla Administrator ${new Date().toISOString().slice(0, 10)}`,
+        // Friendly names are unique per user, so anything coarser than a
+        // timestamp collides when enrollment is attempted twice in one day.
+        friendlyName: `Yalla Administrator ${new Date().toISOString().replace(/[:.]/g, '-')}`,
       });
       if (enrollError) throw enrollError;
       setFactorId(data.id);

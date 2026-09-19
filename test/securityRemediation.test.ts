@@ -365,3 +365,23 @@ describe('TOTP enrollment screen', () => {
     expect(guard).toContain('Show setup key');
   });
 });
+
+describe('TOTP enrollment cleanup reads the right bucket', () => {
+  const guard = read('src/components/AdminGuard.tsx');
+
+  it('clears abandoned factors from `all`, not the verified-only `totp` list', () => {
+    // supabase-js buckets a factor into data.totp ONLY when status ===
+    // 'verified'. Filtering data.totp for unverified entries therefore always
+    // yields nothing, so an abandoned enrollment survives and the next attempt
+    // fails with "a factor with the friendly name ... already exists".
+    expect(guard).toContain('existing?.all');
+    expect(guard).not.toMatch(/existing\?\.totp\s*\|\|\s*\[\]\)\.filter\([^)]*status\s*!==\s*'verified'/);
+  });
+
+  it('uses a friendly name that cannot collide on a retry', () => {
+    // Friendly names are unique per user, so a date-only name collides the
+    // second time enrollment is attempted on the same day.
+    expect(guard).not.toMatch(/friendlyName:.*toISOString\(\)\.slice\(0, 10\)/);
+    expect(guard).toMatch(/friendlyName:.*replace\(\/\[:\.\]\/g/);
+  });
+});
