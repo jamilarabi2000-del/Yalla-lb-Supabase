@@ -1176,47 +1176,36 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAdminUser]);
 
   const addDiscountRule = async (ruleData: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const id = 'rule-' + secureRandomString(7);
-    const newRule: DiscountRule = {
-      ...ruleData,
-      id
-    };
+    const ruleWithMeta = { ...ruleData, id: 'rule-' + secureRandomString(7), couponCode, maxTotalUses, maxUsesPerUser };
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error saving discount rule to Supabase:", err);
-      showToast('Failed to save discount rule to database', 'warning');
-      throw err;
+      await supabaseCommerceService.createDiscountRule(ruleWithMeta);
+      setDiscountRules(prev => [ruleWithMeta, ...prev]);
+      await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${ruleWithMeta.name}`);
+    } catch (err:any) {
+      showToast(`Failed to save discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
     }
-    const ruleWithMeta = { ...newRule, couponCode, maxTotalUses, maxUsesPerUser };
-    setDiscountRules(prev => [ruleWithMeta, ...prev]);
-    await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${newRule.name}`);
   };
 
   const updateDiscountRule = async (id: string, updates: Partial<DiscountRule>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const target = discountRules.find(r => r.id === id);
-    if (!target) return;
-    const updatedRule: DiscountRule = { ...target, ...updates };
-
+    const target = discountRules.find(r => r.id === id); if (!target) return;
+    const ruleWithMeta = { ...target, ...updates, ...(couponCode !== undefined ? {couponCode} : {}), ...(maxTotalUses !== undefined ? {maxTotalUses} : {}), ...(maxUsesPerUser !== undefined ? {maxUsesPerUser} : {}) };
     try {
-      const ruleWithMeta = { ...updatedRule, ...(couponCode !== undefined ? { couponCode } : {}), ...(maxTotalUses !== undefined ? { maxTotalUses } : {}), ...(maxUsesPerUser !== undefined ? { maxUsesPerUser } : {}) };
+      await supabaseCommerceService.updateDiscountRule(id, ruleWithMeta);
       setDiscountRules(prev => prev.map(r => r.id === id ? ruleWithMeta : r));
-    } catch (err) {
-      console.error("[ShopContext] Error updating discount rule in Supabase:", err);
-      showToast('Failed to update discount rule in database', 'warning');
-      throw err;
+      await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
+    } catch (err:any) {
+      showToast(`Failed to update discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
   };
 
   const deleteDiscountRule = async (id: string) => {
     try {
+      await supabaseCommerceService.deleteDiscountRule(id);
       setDiscountRules(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
-      console.error("[ShopContext] Error deleting discount rule from Supabase:", err);
-      showToast('Failed to delete discount rule from database', 'warning');
-      throw err;
+      await logAdminActivity('meta_change', 'Deleted Discount Rule', `Deleted discount ID: ${id}`);
+    } catch (err:any) {
+      showToast(`Failed to delete discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Deleted Discount Rule', `Deleted discount ID: ${id}`);
   };
 
   // Product Bundles & Combo Deals State
@@ -1288,56 +1277,36 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAdminUser]);
 
   const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const id = 'bundle-' + secureRandomString(7);
-    const newBundle: ProductBundle = {
-      ...bundleData,
-      id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem('yallalb_bundles_initialized', 'true');
-    setProductBundles(prev => [newBundle, ...prev]);
-
+    const newBundle: ProductBundle = {...bundleData,id:'bundle-'+secureRandomString(7),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error saving bundle to Supabase:", err);
-      showToast('Failed to create combo deal in database', 'warning');
-      throw err;
+      await supabaseCommerceService.createProductBundle(newBundle);
+      setProductBundles(prev=>[newBundle,...prev]);
+      await logAdminActivity('meta_change','Created Combo Deal',`Created bundle: ${newBundle.name}`);
+    } catch(err:any) {
+      showToast(`Failed to create combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Created Combo Deal', `Created bundle: ${newBundle.name}`);
   };
 
-  const updateProductBundle = async (id: string, updates: Partial<ProductBundle>) => {
-    const target = productBundles.find(b => b.id === id);
-    if (!target) return;
-    const updatedBundle: ProductBundle = { ...target, ...updates, updatedAt: new Date().toISOString() };
-
-    setProductBundles(prev => prev.map(b => b.id === id ? updatedBundle : b));
-
+  const updateProductBundle = async (id:string, updates:Partial<ProductBundle>) => {
+    const target=productBundles.find(b=>b.id===id); if(!target) return;
+    const updatedBundle={...target,...updates,updatedAt:new Date().toISOString()};
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error updating bundle in Supabase:", err);
-      showToast('Failed to update combo deal in database', 'warning');
-      throw err;
+      await supabaseCommerceService.updateProductBundle(id,updatedBundle);
+      setProductBundles(prev=>prev.map(b=>b.id===id?updatedBundle:b));
+      await logAdminActivity('meta_change','Updated Combo Deal',`Updated bundle ID: ${id}`);
+    } catch(err:any) {
+      showToast(`Failed to update combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Updated Combo Deal', `Updated bundle ID: ${id}`);
   };
 
-  const deleteProductBundle = async (id: string) => {
-    setProductBundles(prev => {
-      const next = prev.filter(b => b.id !== id);
-      try {
-        localStorage.setItem('yallalb_product_bundles', JSON.stringify(next));
-        localStorage.setItem('yallalb_bundles_initialized', 'true');
-      } catch {}
-      return next;
-    });
-
+  const deleteProductBundle = async (id:string) => {
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error deleting bundle from Supabase:", err);
+      await supabaseCommerceService.deleteProductBundle(id);
+      setProductBundles(prev=>prev.filter(b=>b.id!==id));
+      await logAdminActivity('meta_change','Deleted Combo Deal',`Deleted bundle ID: ${id}`);
+    } catch(err:any) {
+      showToast(`Failed to delete combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Deleted Combo Deal', `Deleted bundle ID: ${id}`);
   };
 
   // Categories & Details Management State. Cache or empty, never the bundled
