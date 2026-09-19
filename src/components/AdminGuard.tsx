@@ -231,7 +231,44 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     return <div className="min-h-screen flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-6 h-6 animate-spin text-[#B89753]" /></div>;
   }
 
-  if (authStatus === 'authenticated_admin' && aal2) return <>{children}</>;
+  if (authStatus === 'authenticated_admin' && aal2) {
+    return (
+      <>
+        {children}
+        {showStepUp && (
+          <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white border border-[#E5E5E5] p-7 rounded-3xl max-w-sm w-full space-y-5 shadow-2xl">
+              <div className="text-center space-y-2">
+                <div className="mx-auto w-14 h-14 rounded-2xl gold-gradient-bg flex items-center justify-center text-white"><ShieldAlert className="w-6 h-6" /></div>
+                <h2 className="text-xl font-bold">Re-verify Administrator</h2>
+                <p className="text-sm text-[#666666]">Enter the current 6-digit code from your authenticator app.</p>
+              </div>
+              <form onSubmit={async e => {
+                e.preventDefault();
+                setBusy(true);
+                setStepUpError(null);
+                try {
+                  await verifyCode();
+                  setShowStepUp(false);
+                  resolverRef.current?.(true);
+                  resolverRef.current = null;
+                } catch (err: any) {
+                  setStepUpError(err?.message || 'MFA step-up verification failed.');
+                } finally {
+                  setBusy(false);
+                }
+              }} className="space-y-4">
+                <input value={code} onChange={e => setCode(e.target.value.replace(/\\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus placeholder="123456" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" />
+                {stepUpError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828]">{stepUpError}</div>}
+                <button disabled={busy || code.length !== 6} className="gold-btn w-full py-3 rounded-xl font-bold disabled:opacity-50">{busy ? 'Verifying…' : 'Verify Step-Up'}</button>
+              </form>
+              <button onClick={() => { setShowStepUp(false); resolverRef.current?.(false); resolverRef.current = null; }} className="w-full text-sm text-[#666666]">Cancel</button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   if (mode === 'mfa') return (
     <div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center p-4">
