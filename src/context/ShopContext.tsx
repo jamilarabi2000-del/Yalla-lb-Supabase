@@ -2730,21 +2730,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    const loadMoreOrders = async () => {
-      if (!isMounted || isLoadingMoreOrders || !hasMoreOrders) return;
-      setIsLoadingMoreOrders(true);
-      try {
-        const rows = await supabaseOrderService.fetchOrders(50, orders.length);
-        if (!isMounted) return;
-        setOrders(prev => [...prev, ...rows]);
-        setHasMoreOrders(rows.length === 50);
-      } catch (err) {
-        console.error('[ShopContext] Failed to load more orders:', err);
-      } finally {
-        if (isMounted) setIsLoadingMoreOrders(false);
-      }
-    };
-
     loadOrders();
 
     const scheduleRefresh = () => {
@@ -2767,6 +2752,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       supabase.removeChannel(channel);
     };
   }, [authUser, isAdminUser, isSellerUser, sellerId]);
+
+  const loadMoreOrders = useCallback(async () => {
+    if (isLoadingMoreOrders || !hasMoreOrders || !authUser) return;
+    setIsLoadingMoreOrders(true);
+    try {
+      const rows = await supabaseOrderService.fetchOrders(50, orders.length);
+      setOrders(prev => [...prev, ...rows]);
+      setHasMoreOrders(rows.length === 50);
+    } catch (err) {
+      console.error('[ShopContext] Failed to load more orders:', err);
+    } finally {
+      setIsLoadingMoreOrders(false);
+    }
+  }, [authUser, orders.length, hasMoreOrders, isLoadingMoreOrders]);
 
   // Auth & User / Cart / Wishlist synchronization using Supabase Auth
   useEffect(() => {
