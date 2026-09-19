@@ -929,6 +929,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastPersistedCartRef = useRef<string | null>(null);
   const lastPersistedWishlistRef = useRef<string | null>(null);
 
+  /**
+   * Immediate auth owner for delayed cart/wishlist writes.
+   *
+   * React state updates are asynchronous. A debounced callback can therefore
+   * outlive the render that scheduled it and fire after sign-out/account
+   * switching. The callback must validate the owner at execution time, not
+   * only when the effect was created.
+   */
+  const activePersistenceUserIdRef = useRef<string | null>(null);
+
   // Live cart projection: always resolve fresh product properties from the live catalog
   const cart = useMemo<CartItem[]>(() => {
     if (storedCart.length === 0) return storedCart;
@@ -2753,6 +2763,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleAuthUser = (supaUser: SupabaseUser | null) => {
       if (!isMounted) return;
+      activePersistenceUserIdRef.current = supaUser?.id ?? null;
       authGeneration += 1;
       const myGeneration = authGeneration;
       const isCurrent = () => isMounted && myGeneration === authGeneration;
@@ -3008,10 +3019,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (payload === lastPersistedCartRef.current) return;
 
     const handler = setTimeout(() => {
+      // The callback may run after sign-out or account switching. Never allow
+      // a delayed write belonging to the previous account to execute under a
+      // new auth session.
+      if (activePersistenceUserIdRef.current !== userId) return;
+
       supabaseUserDataService
         .saveCart(userId, storedCart)
         .then(() => {
-          lastPersistedCartRef.current = payload;
+          // The request may resolve after the account has changed. Do not let
+          // an old user's successful write poison the new user's
+          // last-persisted marker.
+          if (activePersistenceUserIdRef.current === userId) {
+            lastPersistedCartRef.current = payload;
+          }
         })
         .catch((err: unknown) => {
           // Surfaced, not swallowed: the user needs to know the cart they are
@@ -3041,10 +3062,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (payload === lastPersistedWishlistRef.current) return;
 
     const handler = setTimeout(() => {
+      // Same owner check as the cart: delayed callbacks must not cross an
+      // auth boundary.
+      if (activePersistenceUserIdRef.current !== userId) return;
+
       supabaseUserDataService
         .saveWishlist(userId, wishlist)
         .then(() => {
-          lastPersistedWishlistRef.current = payload;
+          if (activePersistenceUserIdRef.current === userId) {
+            lastPersistedWishlistRef.current = payload;
+          }
         })
         .catch((err: unknown) => {
           console.error('[ShopContext] Failed to save wishlist to Supabase:', err);
