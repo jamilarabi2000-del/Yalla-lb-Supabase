@@ -1,7 +1,10 @@
 node_modules/
 build/
 functions/lib/
-# dist/ is included for deployment artifact packaging
+# Build output. Vercel and Netlify both run `npm run build` themselves
+# (netlify.toml: publish = "dist"), so a committed bundle would only ever be
+# stale, and a reviewer cannot verify it against the committed source.
+dist/
 coverage/
 .DS_Store
 *.log
