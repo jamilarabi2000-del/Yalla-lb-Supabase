@@ -119,7 +119,13 @@ export function downloadFullMasterReport(
   products: Product[],
   sellers: Seller[],
   orders: Order[],
-  filenamePrefix = 'yalla_full_master_report'
+  filenamePrefix = 'yalla_full_master_report',
+  /**
+   * Live USD -> LBP rate. Callers pass `lbpRate` from the shop context; the
+   * constant is only the fallback the server also uses, and a report built
+   * from it misstates every price once the stored rate changes.
+   */
+  lbpRate: number = LBP_USD_RATE
 ) {
   // Pre-calculate sales stats per product SKU
   const salesMap = new Map<string, {
@@ -209,7 +215,7 @@ export function downloadFullMasterReport(
     else if (product.stock <= 5) stockStatus = 'Low Stock (<5 units)';
 
     const stockAssetValue = (product.stock * (product.priceUSD || 0)).toFixed(2);
-    const unitPriceLBP = ((product.priceUSD || 0) * LBP_USD_RATE).toLocaleString('en-US');
+    const unitPriceLBP = ((product.priceUSD || 0) * lbpRate).toLocaleString('en-US');
 
     return {
       product_id: product.id,
