@@ -2826,25 +2826,42 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let profileData: Record<string, any> = {};
 
         try {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', supaUser.id)
-            .maybeSingle();
-
-          if (profile && !error) {
-            profileData = profile;
+          // Profile reads are authoritative. A database/RLS/network failure must
+          // not be treated as "no profile", because that could downgrade an
+          // existing admin/seller to customer and then hydrate/write other
+          // account state from an unverified local fallback.
+          const profile = await supabaseUserDataService.fetchProfile(supaUser.id);
+          if (profile) {
+            profileData = profile as Record<string, any>;
             if (profile.role === 'admin') {
               profileRole = 'admin';
             } else if (profile.role === 'seller') {
               profileRole = 'seller';
             }
-            if (profile.seller_id || profile.sellerId) {
-              profileSellerId = profile.seller_id || profile.sellerId;
+            if (profile.sellerId) {
+              profileSellerId = profile.sellerId;
             }
           }
         } catch (profileErr) {
-          console.warn("[ShopContext] Error loading Supabase user profile from database:", profileErr);
+          console.error('[ShopContext] Authoritative profile hydration failed:', profileErr);
+          if (isCurrent()) {
+            // Keep the authenticated Supabase identity, but do not synthesize
+            // profile/role state and do not hydrate cart/wishlist. The write
+            // gates remain closed, preventing local state from overwriting
+            // authoritative account rows while the profile read is unavailable.
+            setCartHydratedForUserId(null);
+            setIsAdminUser(false);
+            setIsSellerUser(false);
+            setSellerId(null);
+            setIsLoadingAuth(false);
+            showToast(
+              language === 'ar'
+                ? 'تعذر تحميل بيانات حسابك. لم يتم حفظ تغييرات الحساب حتى تتوفر قاعدة البيانات.'
+                : 'Could not load your account profile. Account changes will not be saved until the database is available.',
+              'error'
+            );
+          }
+          return;
         }
 
         if (!isCurrent()) return;
