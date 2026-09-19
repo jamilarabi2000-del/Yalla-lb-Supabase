@@ -515,7 +515,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const setField = (key: string, value: any) => setForm((v: any) => ({ ...v, [key]: value }));
   const uploadProductImage = async (file: File, target: 'primary' | 'additional') => {
     try {
-      showToast('Uploading image to Yalla media storage…', 'info');
+      showToast('Uploading image to Yalla media storage…', 'warning');
       const url = await uploadImageToSupabase(file, 'products');
       if (target === 'primary') {
         setField('image', url);
