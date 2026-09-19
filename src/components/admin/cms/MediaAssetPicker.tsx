@@ -2,6 +2,7 @@ import { safeHref } from '../../../lib/safeUrl';
 import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, Upload, Check, Sparkles, X, ExternalLink, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { optimizeImageFile, formatBytes } from '../../../utils/imageOptimizer';
+import { uploadImageToSupabase } from '../../../services/supabaseMediaService';
 
 export interface HeritageAssetPreset {
   id: string;
@@ -159,8 +160,9 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
         maxSizeBytes: isBanner ? 85 * 1024 : 60 * 1024
       });
 
-      onChange(result.dataUrl);
-      setTempUrl(result.dataUrl);
+      const storedUrl = await uploadImageToSupabase(result.dataUrl, 'cms');
+      onChange(storedUrl);
+      setTempUrl(storedUrl);
       setOptimizeStats({
         original: formatBytes(result.originalSizeBytes),
         optimized: formatBytes(result.optimizedSizeBytes),
