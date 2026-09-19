@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://yjmpjuskgbbshrvhgmys.supabase.co; media-src 'self' blob: https://yjmpjuskgbbshrvhgmys.supabase.co; connect-src 'self' https://yjmpjuskgbbshrvhgmys.supabase.co wss://yjmpjuskgbbshrvhgmys.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://yjmpjuskgbbshrvhgmys.supabase.co https://i.ibb.co https://images.unsplash.com; media-src 'self' blob: https://yjmpjuskgbbshrvhgmys.supabase.co; connect-src 'self' https://yjmpjuskgbbshrvhgmys.supabase.co wss://yjmpjuskgbbshrvhgmys.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
         },
         {
           "key": "Strict-Transport-Security",
