@@ -51,7 +51,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     const { data, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aalError) throw aalError;
     if (data.currentLevel === 'aal2') {
-      setAal2(true);
+      await recordNativeStepUp();
       return;
     }
     const { data: factors, error: factorError } = await supabase.auth.mfa.listFactors();
@@ -75,8 +75,14 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const verifyCode = async () => {
     const cleanCode = code.replace(/\D/g, '');
     if (cleanCode.length !== 6) throw new Error('Enter the 6-digit code from your authenticator app.');
-    if (!factorId || !challengeId) await startChallenge();
-    const activeChallengeId = challengeId;
+    let activeChallengeId = challengeId;
+    if (!factorId) throw new Error('No verified authenticator factor is available.');
+    if (!activeChallengeId) {
+      const challenge = await supabase.auth.mfa.challenge({ factorId });
+      if (challenge.error) throw challenge.error;
+      activeChallengeId = challenge.data.id;
+      setChallengeId(activeChallengeId);
+    }
     const { error } = await supabase.auth.mfa.verify({
       factorId,
       challengeId: activeChallengeId,
