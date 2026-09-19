@@ -5195,7 +5195,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateSeller,
     toggleSellerActive,
     deleteSeller,
-    bulkImportProducts
+    bulkImportProducts,
+    lbpRate
   }), [
     activeTab,
     selectedProductDetail,
