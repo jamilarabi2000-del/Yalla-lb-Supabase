@@ -40,38 +40,30 @@ export function syncDomHead(siteContent: SiteContent | null | undefined, languag
   if (typeof document === 'undefined') return;
 
   // 1. Dynamic Favicon Icon Synchronization
+  // Keep favicon link nodes stable. Removing/re-adding them on every CMS/state
+  // update makes Chromium treat the favicon as a fresh resource repeatedly and
+  // can leave the tab in a perpetual loading state when the URL is remote.
   const rawFavicon = siteContent?.seo?.faviconUrl?.trim() || siteContent?.navbar?.faviconUrl?.trim() || DEFAULT_FAVICON;
   const validatedFavicon = safeImageUrl(rawFavicon) || DEFAULT_FAVICON;
+  const mimeType = getMimeTypeFromUrl(validatedFavicon);
 
-  if (validatedFavicon) {
-    const mimeType = getMimeTypeFromUrl(validatedFavicon);
+  const ensureIconLink = (rel: string, includeType: boolean) => {
+    const selector = rel === 'apple-touch-icon' ? 'link[rel="apple-touch-icon"]' : 'link[rel="' + rel + '"]';
+    let link = document.head.querySelector<HTMLLinkElement>(selector);
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = rel;
+      document.head.appendChild(link);
+    }
+    if (includeType && link.type !== mimeType) link.type = mimeType;
+    if (link.href !== validatedFavicon) link.href = validatedFavicon;
+    return link;
+  };
 
-    // Browsers often cache favicon by node reference: removing old link nodes and appending fresh ones forces tab icon refresh
-    const existingIconLinks = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon'], link[rel='apple-touch-icon']");
-    existingIconLinks.forEach((link) => {
-      link.parentNode?.removeChild(link);
-    });
+  ensureIconLink('icon', true);
+  ensureIconLink('shortcut icon', true);
+  ensureIconLink('apple-touch-icon', false);
 
-    // Create fresh rel="icon"
-    const standardIcon = document.createElement('link');
-    standardIcon.rel = 'icon';
-    standardIcon.type = mimeType;
-    standardIcon.href = validatedFavicon;
-    document.head.appendChild(standardIcon);
-
-    // Create fresh rel="shortcut icon"
-    const shortcutIcon = document.createElement('link');
-    shortcutIcon.rel = 'shortcut icon';
-    shortcutIcon.type = mimeType;
-    shortcutIcon.href = validatedFavicon;
-    document.head.appendChild(shortcutIcon);
-
-    // Create fresh rel="apple-touch-icon"
-    const appleTouchIcon = document.createElement('link');
-    appleTouchIcon.rel = 'apple-touch-icon';
-    appleTouchIcon.href = validatedFavicon;
-    document.head.appendChild(appleTouchIcon);
-  }
 
   // 2. Titles & Meta Descriptions
   const seo = siteContent?.seo;

@@ -801,14 +801,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasSeededProductsRef = useRef<boolean>(false);
   const hasSeededOrdersRef = useRef<boolean>(false);
 
-  // Verify the database is reachable on boot.
-  useEffect(() => {
-    supabaseAdminService.ping().then((ok) => {
-      if (!ok) {
-        console.error('[ShopContext] Supabase is not reachable. Check the project URL, key and network.');
-      }
-    });
-  }, []);
+  // Do not perform an extra database probe during public app boot.
+  // The catalogue/auth/CMS requests already establish backend availability.
+  // A separate admin-service request only adds latency and noise to storefront startup.
 
   // UI state
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
