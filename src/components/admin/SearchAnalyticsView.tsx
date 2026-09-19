@@ -165,14 +165,32 @@ export const SearchAnalyticsView: React.FC = () => {
   };
 
   const clearHistory = async () => {
-    const { error } = await supabase.from('search_logs').delete().not('id', 'is', null);
-    if (!error) {
-      setRows([]);
-      try { localStorage.removeItem(CACHE_KEY); } catch {}
-      setClearOpen(false);
-    } else {
+    // Ask for the deleted rows back. A purge that RLS filters is not an error
+    // to PostgREST, so without this an unverified administrator would see the
+    // table clear on screen while every row survived in the database.
+    const { data: purged, error } = await supabase
+      .from('search_logs')
+      .delete()
+      .not('id', 'is', null)
+      .select('id');
+
+    if (error) {
       shop.showToast?.(error.message || 'Unable to clear search history', 'error');
+      return;
     }
+
+    if (!purged?.length && rows.length > 0) {
+      shop.showToast?.(
+        'Search history was not cleared. Your administrator session may not be verified.',
+        'error',
+      );
+      return;
+    }
+
+    setRows([]);
+    try { localStorage.removeItem(CACHE_KEY); } catch {}
+    setClearOpen(false);
+    shop.showToast?.(`Cleared ${purged?.length ?? 0} search records.`, 'success');
   };
 
   const presets = ['Zaatar Baladi','Olive Oil Koura','Soap of Tripoli','Debs El Remman','Kishk','Cedar Wood'];

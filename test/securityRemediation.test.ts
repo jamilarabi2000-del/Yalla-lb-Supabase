@@ -290,12 +290,19 @@ describe('Admin writes fail loudly when RLS filters them', () => {
     'app_settings', 'permissions', 'role_permissions', 'user_permissions',
   ].join('|');
 
+  // Components matter as much as services here: several write to admin tables
+  // directly, and the first version of this test only looked at src/services,
+  // which is exactly how the seller-application writes slipped through.
   const sources = [
     'src/services/supabaseOrderService.ts',
     'src/services/supabaseCatalogService.ts',
     'src/services/supabaseCmsService.ts',
     'src/services/platformService.ts',
     'src/context/ShopContext.tsx',
+    'src/components/admin/SellersView.tsx',
+    'src/components/admin/SearchAnalyticsView.tsx',
+    'src/components/admin/ReviewsManager.tsx',
+    'src/components/admin/ProductsCatalogManagement.tsx',
   ];
 
   it('no admin-table mutation requests rows and then discards them', () => {

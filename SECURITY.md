@@ -111,6 +111,7 @@ enforces a forward-only fulfilment state machine. Sellers may advance
 | `checkout_attempts` | `private.rate_limit_checkout_attempt()` |
 | `reviews` | `private.rate_limit_review_insert()`, purchase required via `private.can_review_product()` |
 | `orders.shipping` | ≤8 KiB |
+| `search_logs` purge | Verified-administrator DELETE only (`search_logs_admin_delete`) |
 | Payment webhook | HMAC-SHA256, ±300 s timestamp window, unique `provider_event_id` |
 
 ---
