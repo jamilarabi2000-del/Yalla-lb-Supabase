@@ -1969,22 +1969,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (affectedProducts.length > 0 && !reassignSellerId) {
       throw new Error(`${affectedProducts.length} product(s) belong to this seller. Choose a seller to move them to.`);
     }
+
     const previousSellers = [...sellers];
     const previousProducts = [...products];
 
-    // Persist product reassignment before deleting the seller. This prevents
-    // the UI from claiming products were moved when the database still points
-    // at the seller being deleted.
     try {
-      if (affectedProducts.length > 0 && reassignSellerId) {
-        for (const product of affectedProducts) {
-          await supabaseProductPatchService.patchProduct(product.id, {
-            sellerId: reassignSellerId,
-          });
-        }
-      }
-
-      await supabaseCatalogService.deleteSeller(id);
+      await supabaseCatalogService.deleteSeller(id, reassignSellerId);
 
       setProducts(current =>
         current.map(product =>
@@ -1993,13 +1983,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             : product
         )
       );
-      setSellers(sellers.filter(s => s.id !== id));
-    } catch (supaErr: any) {
+      setSellers(current => current.filter(s => s.id !== id));
+    } catch (err: any) {
       setSellers(previousSellers);
       setProducts(previousProducts);
-      console.error('[ShopContext] deleteSeller persistence failed:', supaErr);
-      showToast(`Could not delete seller: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
+      console.error('[ShopContext] deleteSeller persistence failed:', err);
+      showToast(`Could not delete seller: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
     }
 
     await logAdminActivity(
