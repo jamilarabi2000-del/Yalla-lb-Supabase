@@ -489,3 +489,347 @@ describe('Checkout offers no payment method the system cannot take', () => {
     expect(read('src/components/AdminQuickEditor.tsx')).not.toContain('Wish/OMT, Card');
   });
 });
+
+describe('The catalogue cache never outlives a privileged session', () => {
+  // fetchProducts() selects ADMIN_PRODUCT_COLUMNS for an administrator or
+  // seller -- cost_price_usd, seller_item_code, low_stock_threshold,
+  // custom_stock_label -- and returns unpublished rows. localStorage is
+  // per-origin, not per-session: it survives sign out, and ShopContext seeds
+  // `products` straight from it before any fetch or auth check runs.
+  const shop = read('src/context/ShopContext.tsx');
+
+  it('routes every catalogue cache write through the privilege-aware helper', () => {
+    expect(shop).not.toContain('localStorage.setItem(CATALOG_CACHE_KEYS');
+    expect(shop.match(/writeCatalogCache\(CATALOG_CACHE_KEYS\./g)?.length).toBeGreaterThan(15);
+  });
+
+  it('the helper refuses to write, and clears, for an admin or seller', () => {
+    const helper = shop.slice(
+      shop.indexOf('const writeCatalogCache ='),
+      shop.indexOf('const writeCatalogCache =') + 600
+    );
+    expect(helper).toContain('isAdminUser || isSellerUser');
+    // It must remove the key, not merely decline to write it: a public cache
+    // from before the role change would otherwise survive unnoticed.
+    expect(helper).toContain('removeItem(key)');
+    const guardIdx = helper.indexOf('isAdminUser || isSellerUser');
+    const writeIdx = helper.indexOf('setItem(key');
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(writeIdx).toBeGreaterThan(guardIdx); // guard precedes the write
+  });
+
+  it('drops the catalogue cache on sign out', () => {
+    const signOut = shop.slice(
+      shop.indexOf('const signOutUser ='),
+      shop.indexOf('const refreshUserProfile =')
+    );
+    expect(signOut).toContain('CATALOG_CACHE_KEYS');
+    expect(signOut).toContain('removeItem');
+  });
+
+  it('purges the cache keys retired by this fix', () => {
+    // A build before this one wrote privileged rows into the v2 keys, where
+    // they persist on devices that never sign out again.
+    expect(shop).toContain('RETIRED_CATALOG_CACHE_KEYS');
+    for (const key of ['yallalb_products_v2', 'yallalb_categories_v2', 'yallalb_sellers_v2']) {
+      expect(shop).toContain(key);
+    }
+    expect(shop).toContain('RETIRED_CATALOG_CACHE_KEYS.forEach');
+    // The live keys must no longer be the retired ones.
+    const live = shop.slice(shop.indexOf('const CATALOG_CACHE_KEYS'), shop.indexOf('} as const;'));
+    expect(live).not.toContain('_v2');
+  });
+});
+
+describe('Discount rules actually reach the database', () => {
+  const svc = read('src/services/supabaseCommerceService.ts');
+  const shop = read('src/context/ShopContext.tsx');
+
+  it('stores the promotion in the jsonb column the server reads', () => {
+    // private.checkout_create_order reads the promotion out of
+    // discount_rules.rule and nowhere else. The previous mapper selected
+    // row.type / row.value / row.target_value, none of which exist on the
+    // table, so every rule came back { type: undefined, value: 0 }.
+    for (const key of ['type', 'value', 'target', 'targetValue', 'minPurchaseUSD',
+                       'startDate', 'endDate', 'isNewUserOnly', 'buyQty', 'getQty',
+                       'getDiscountPercent', 'couponCode']) {
+      expect(svc).toContain(`'${key}'`);
+    }
+    expect(svc).toContain('rule: toRuleJson(');
+    // Strip comments: the block explaining the old mapper legitimately names
+    // the columns that do not exist, and asserting on raw text would fail on
+    // its own documentation.
+    const svcCode = svc
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(svcCode).not.toContain('row.target_value');
+    expect(svcCode).not.toContain('row.min_purchase_usd');
+    expect(svcCode).not.toContain('row.coupon_code');
+  });
+
+  it('exposes real create/update/delete, not read-only helpers', () => {
+    for (const fn of ['createDiscountRule', 'updateDiscountRule', 'deleteDiscountRule']) {
+      expect(svc).toContain(`async ${fn}(`);
+    }
+    expect(svc).toContain("from('discount_rules')");
+    expect(svc).toContain("from('coupons')");
+  });
+
+  it('treats a zero-row write as failure, since RLS returns success with no rows', () => {
+    const writes = svc.match(/async (create|update|delete)DiscountRule\(/g) ?? [];
+    expect(writes.length).toBe(3);
+    // Each write must both project rows back and reject an empty result.
+    expect(svc.match(/Complete administrator verification and try again/g)?.length)
+      .toBeGreaterThanOrEqual(4);
+  });
+
+  it('removes a rule\'s coupons before the rule itself', () => {
+    // The FK is ON DELETE SET NULL, so dropping the rule alone leaves a code
+    // that passes the INVALID_COUPON check but resolves to a null rule: it
+    // appears to work, discounts nothing, and still burns a use.
+    const del = svc.slice(svc.indexOf('async deleteDiscountRule('));
+    const couponIdx = del.indexOf("from('coupons')");
+    const ruleIdx = del.indexOf("from('discount_rules')");
+    expect(couponIdx).toBeGreaterThan(-1);
+    expect(ruleIdx).toBeGreaterThan(couponIdx);
+  });
+
+  it('refuses to steal a coupon code from another rule', () => {
+    expect(svc).toContain('is already in use by another discount rule');
+  });
+
+  it('ShopContext persists instead of only touching React state', () => {
+    const add = shop.slice(shop.indexOf('const addDiscountRule ='),
+                           shop.indexOf('const updateDiscountRule ='));
+    expect(add).toContain('supabaseCommerceService.createDiscountRule');
+    // The original had `try {` immediately followed by `} catch` -- an empty
+    // block that wrote nothing at all.
+    expect(add).not.toMatch(/try\s*\{\s*\}\s*catch/);
+    expect(add).not.toContain("'rule-' + secureRandomString");
+
+    const upd = shop.slice(shop.indexOf('const updateDiscountRule ='),
+                           shop.indexOf('const deleteDiscountRule ='));
+    expect(upd).toContain('supabaseCommerceService.updateDiscountRule');
+
+    const del = shop.slice(shop.indexOf('const deleteDiscountRule ='),
+                           shop.indexOf('const deleteDiscountRule =') + 700);
+    expect(del).toContain('supabaseCommerceService.deleteDiscountRule');
+  });
+});
+
+describe('Combo deals reach the database and match the server', () => {
+  const svc = read('src/services/supabaseCommerceService.ts');
+  const shop = read('src/context/ShopContext.tsx');
+  const svcCode = svc
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('maps the columns the table actually has', () => {
+    // checkout_create_order reads product_ids (uuid[]) and price_usd from
+    // rows where is_published. The old mapper read row.bundle_price_usd and
+    // row.is_active, neither of which exists, so every bundle came back
+    // priced 0 and inactive.
+    expect(svcCode).not.toContain('row.bundle_price_usd');
+    // Scope is_active to the bundle mapper: discount_rules really does have
+    // an is_active column, so a blanket assertion would force that correct
+    // mapping to be broken later.
+    const bundleMapper = svcCode.slice(
+      svcCode.indexOf('const mapProductBundleRow ='),
+      svcCode.indexOf('const toBundleRow ='),
+    );
+    expect(bundleMapper).not.toContain('row.is_active');
+    expect(bundleMapper).toContain('Number(row.price_usd ?? 0)');
+    expect(bundleMapper).toContain('Boolean(row.is_published)');
+  });
+
+  it('no longer drops the slider, image and scheduling fields', () => {
+    for (const col of ['image_url', 'show_in_slider', 'show_button_in_slider',
+                       'slider_button_text', 'slider_button_text_ar',
+                       'start_at', 'end_at']) {
+      expect(svc).toContain(col);
+    }
+  });
+
+  it('exposes real create/update/delete that treat zero rows as failure', () => {
+    for (const fn of ['createProductBundle', 'updateProductBundle', 'deleteProductBundle']) {
+      expect(svc).toContain(`async ${fn}(`);
+    }
+    expect(svc.match(/Combo deal was not (saved|updated|deleted)/g)?.length).toBe(3);
+  });
+
+  it('never sends a client-minted id against the uuid column', () => {
+    expect(shop).not.toContain("'bundle-' + secureRandomString");
+    const row = svc.slice(svc.indexOf('const toBundleRow ='), svc.indexOf('export interface DiscountCouponInput'));
+    expect(row).not.toMatch(/\['id',/);
+  });
+
+  it('ShopContext persists instead of writing to localStorage', () => {
+    const add = shop.slice(shop.indexOf('const addProductBundle ='),
+                           shop.indexOf('const updateProductBundle ='));
+    expect(add).toContain('supabaseCommerceService.createProductBundle');
+    expect(add).not.toMatch(/try\s*\{\s*\}\s*catch/);
+
+    const del = shop.slice(shop.indexOf('const deleteProductBundle ='),
+                           shop.indexOf('const deleteProductBundle =') + 600);
+    expect(del).toContain('supabaseCommerceService.deleteProductBundle');
+    // Bundles must not be cached: an admin reads unpublished ones, and
+    // localStorage outlives the session.
+    expect(shop).not.toContain("localStorage.setItem('yallalb_product_bundles'");
+    expect(shop).not.toContain('yallalb_bundles_initialized');
+  });
+
+  it('shows an empty storefront rather than fabricated combo deals', () => {
+    // Two hardcoded bundles used to seed this state, priced against product
+    // ids that cannot exist (product_ids is uuid[]).
+    const shopCode = shop
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(shopCode).not.toContain('bundle-gourmet-breakfast');
+    expect(shopCode).not.toContain('bundle-coffee-ritual-set');
+    expect(shopCode).not.toContain("'prod-2'");
+    expect(shop).toContain('const [productBundles, setProductBundles] = useState<ProductBundle[]>([]);');
+  });
+});
+
+describe('BOGO discounts cannot over-discount the basket', () => {
+  const bogo = read('supabase/migrations/20260919100000_fix_bogo_discount_overcharge.sql');
+  const brand = read('supabase/migrations/20260919110000_unify_brand_target_predicate.sql');
+
+  it('removes the cross-line term that made free units transferable', () => {
+    // v_groups was a single total summed over every qualifying line, and each
+    // line then discounted up to v_groups * getQty of its own units. Cart of
+    // 2 x $10 and 2 x $50 on "buy 1 get 1": $120 discount on a $120 subtotal.
+    expect(bogo).toContain('v_groups*v_get');          // named as the thing removed
+    expect(bogo).toContain('BOGO_FIX_CROSS_LINE_TERM_REMAINS');
+    // The replacement is the per-line formula the product branch already used.
+    expect(bogo).toContain("floor((x->>''quantity'')::numeric/(v_buy+v_get))*v_get");
+  });
+
+  it('filters the discount to the items the rule targets', () => {
+    // The else branch had no WHERE at all, so a rule aimed at one category
+    // discounted every line: $110 taken where $10 was due.
+    expect(bogo).toContain("where v_target in (''all'',''checkout'') or exists");
+    expect(bogo).toContain('BOGO_FIX_NOT_APPLIED');
+  });
+
+  it('asserts its own patterns so a stale migration fails loudly', () => {
+    for (const guard of ['BOGO_FIX_FUNCTION_NOT_FOUND', 'BOGO_FIX_PATTERN_NOT_MATCHED',
+                         'BOGO_FIX_VERIFY_FAILED']) {
+      expect(bogo).toContain(guard);
+    }
+    expect(brand).toContain('BRAND_UNIFY_VERIFY_FAILED');
+  });
+
+  it('leaves the three target-matching sites in agreement', () => {
+    // v_base, the BOGO group count and the BOGO discount each decide what a
+    // rule targets. They disagreed about `brand`, so one rule could price one
+    // way as a percentage and another as BOGO.
+    expect(brand).toContain('BRAND_UNIFY_NOT_THREE_SITES');
+    expect(brand).toContain('BRAND_UNIFY_BASE_COUNT_UNEXPECTED');
+    expect(brand).toContain('BRAND_UNIFY_BOGO_COUNT_UNEXPECTED');
+    // The unified predicate must include the dedicated brand column.
+    expect(brand).toContain("lower(coalesce(p.brand,''''))");
+  });
+});
+
+describe('The LBP rate shown matches the rate charged', () => {
+  // private.checkout_create_order prices total_lbp from
+  // app_settings.lbp_usd_rate. The storefront multiplied by a hardcoded
+  // constant, so the two agreed only while nobody touched the stored value --
+  // and there is no admin screen for it, so it is changed by direct SQL.
+  const svc = read('src/services/supabaseCommerceService.ts');
+  const shop = read('src/context/ShopContext.tsx');
+  const checkout = read('src/components/CheckoutView.tsx');
+
+  const strip = (s: string) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('reads the rate from app_settings', () => {
+    expect(svc).toContain('fetchLbpUsdRate');
+    expect(svc).toContain("eq('key', 'lbp_usd_rate')");
+    // A missing or unusable setting must keep the caller's fallback, never
+    // price at zero.
+    expect(svc).toContain('Number.isFinite(rate) && rate > 0 ? rate : null');
+  });
+
+  it('converts through the live rate, not the constant', () => {
+    const code = strip(shop);
+    expect(code).toContain('const [lbpRate, setLbpRate]');
+    expect(code).toContain("currency === 'LBP' ? lbpRate : 1");
+    expect(code).toContain('Math.round(amountUSD * lbpRate)');
+    // The constant survives only as the initial fallback.
+    expect(code).not.toContain('amountUSD * LBP_USD_RATE');
+  });
+
+  it('checkout quotes the shopper at the live rate', () => {
+    const code = strip(checkout);
+    expect(code).not.toContain('LBP_USD_RATE');
+    expect(code.match(/finalTotalUSD \* lbpRate/g)?.length).toBe(2);
+  });
+
+  it('no customer-facing or admin view multiplies by the constant', () => {
+    for (const f of ['src/components/CheckoutView.tsx',
+                     'src/components/admin/SalesAnalyticsView.tsx',
+                     'src/components/admin/routes/OrdersRoute.tsx']) {
+      expect(strip(read(f))).not.toContain('LBP_USD_RATE');
+    }
+  });
+
+  it('shows the recorded LBP total for an order that has one', () => {
+    // An LBP order stores what the server actually charged. Recomputing it
+    // from today's rate misreports every historical order once it moves.
+    const orders = read('src/components/admin/routes/OrdersRoute.tsx');
+    expect(orders).toContain('order.totalLBP > 0 ? order.totalLBP');
+    expect(orders).toContain('selectedInvoiceOrder.totalLBP > 0');
+  });
+});
+
+describe('Promotions cannot claim the same units twice', () => {
+  const m = read('supabase/migrations/20260919120000_bundle_quantities_and_promotion_stacking.sql');
+
+  it('counts a bundle by distinct product and how many it needs', () => {
+    // least() against the same availability once per occurrence meant a
+    // bundle of [A, A] treated ONE unit of A as a complete set, and two units
+    // as TWO sets.
+    expect(m).toContain('count(*)::int as need');
+    expect(m).toContain('unnest(v_bundle_ids)');
+    expect(m).toContain('req.need');
+    expect(m).toContain('STACKING_FIX_BUNDLE_LOOP_REMAINS');
+  });
+
+  it('still yields zero sets for a product that is missing or unpublished', () => {
+    expect(m).toContain('count(*) filter (where p.id is null)>0 then 0');
+    expect(m).toContain('is_published=true');
+  });
+
+  it('makes BOGO read the availability ledger bundles decrement', () => {
+    // v_avail tracks units not yet consumed by a promotion. Bundles decrement
+    // it; the rule loop used to ignore it, so bundled units were handed out
+    // again as free ones.
+    expect(m).toContain('v_avail->>g.pid::text');
+    expect(m).toContain('STACKING_FIX_BOGO_STILL_USES_RAW_QUANTITY');
+  });
+
+  it('aggregates by product before reading availability', () => {
+    // v_item_rows carries a row per product AND option, so a per-row read of
+    // a per-product availability would count the same remaining units twice
+    // for a product bought in two options.
+    expect(m).toContain('group by 1) g');
+    expect(m).toContain('max((x->>\'unit_price_usd\')::numeric) as unit_price');
+  });
+
+  it('drops the dead group-count query', () => {
+    expect(m).toContain('c_groups_old');
+    expect(m).toContain('dead v_groups query still runs');
+  });
+
+  it('asserts every pattern so a stale migration fails loudly', () => {
+    for (const g of ['STACKING_FIX_BUNDLE_PATTERN_NOT_MATCHED',
+                     'STACKING_FIX_BOGO_PATTERN_NOT_MATCHED',
+                     'STACKING_FIX_GROUPS_PATTERN_NOT_MATCHED',
+                     'STACKING_FIX_NOT_APPLIED',
+                     'STACKING_FIX_VERIFY_FAILED']) {
+      expect(m).toContain(g);
+    }
+  });
+});

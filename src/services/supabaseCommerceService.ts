@@ -17,6 +17,17 @@ const bundleRow = (b: any) => ({
 });
 
 export const supabaseCommerceService = {
+  /** Read the authoritative USD -> LBP rate used by checkout_create_order. */
+  async fetchLbpUsdRate(): Promise<number | null> {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'lbp_usd_rate')
+      .maybeSingle();
+    if (error) throw error;
+    const rate = Number(data?.value);
+    return Number.isFinite(rate) && rate > 0 ? rate : null;
+  },
   async fetchDiscountRules() {
     const {data,error}=await supabase.from('discount_rules').select('*').order('created_at',{ascending:false});
     if(error) throw error;

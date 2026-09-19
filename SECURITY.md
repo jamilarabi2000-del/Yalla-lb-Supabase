@@ -173,10 +173,94 @@ cannot be dropped in place; it is simply unreachable. `PaymentMethod` in
 Do not reinstate a card option without a real gateway **and** payment-state
 columns on `orders`.
 
+### Discounts and coupons
+
+Totals are never client-supplied. `checkout_create_order` recomputes every
+discount from `public.discount_rules` and `public.coupons`, then caps the
+result at 70% of subtotal. Customers cannot read `discount_rules` at all
+(`discounts_admin` is `is_admin()` for every command), so the rules are an
+administrator surface only.
+
+A rule is stored as `name` and `is_active` columns plus a **`rule` jsonb**
+holding the promotion itself. The server reads only
+`rule->>'type' | 'value' | 'target' | 'targetValue' | 'minPurchaseUSD' |
+'startDate' | 'endDate' | 'isNewUserOnly' | 'buyQty' | 'getQty' |
+'getDiscountPercent' | 'couponCode'`. A rule written as flat columns is
+silently ignored. Keep `DISCOUNT_RULE_JSON_KEYS` in
+`src/services/supabaseCommerceService.ts` in step with those lookups.
+
+A BOGO rule discounts, per targeted line, `floor(qty / (buy + get)) * get`
+units. Two defects made it do otherwise, both fixed in
+`20260919100000`: the discount was summed over every cart line rather than the
+targeted ones (a rule aimed at one category took $110 where $10 was due), and
+free units were licensed across lines from a single global group count (a cart
+of 2x$10 and 2x$50 computed $120 off a $120 subtotal — the whole order, capped
+only by the 70% ceiling).
+
+`v_avail` is the ledger of units not yet consumed by a promotion. A bundle
+decrements it, so two bundles cannot claim the same goods, and the BOGO
+discount reads it rather than raw cart quantities — otherwise units already
+repriced by a bundle are handed out again as free ones. A cart of 4 x $10 with
+a `[A,A]` bundle at $15 took $28 of $40 that way; it now takes $10.
+
+A bundle's `product_ids` may list the same product more than once. Required
+quantity is therefore counted per distinct product, and complete sets are
+`min(floor(available / needed))`. Counting per occurrence let a two-item
+bundle be completed by a single unit.
+
+Rules remain additive with respect to one another, and percentage/fixed rules
+still apply to the whole `v_base`: those are value-based promotions an
+administrator chose to run together, bounded by the 70% ceiling. A bundle is
+different in kind — it has already repriced specific units.
+
+Three places decide what a rule targets: the `v_base` query for
+percentage/fixed rules, the BOGO group count, and the BOGO discount. They must
+stay identical or one rule prices differently depending on its type;
+`20260919110000` unified them. A `brand` target matches `brand`, `artisan`,
+`origin` **or** `name`. Matching on `name` is loose — "Cedar Honey" matches a
+brand rule for "cedar" — and is kept only because narrowing it would change
+the sole behaviour this function has had. Revisit it as a product decision.
+
+Combo deals live in `public.product_bundles`. `checkout_create_order` selects
+`where is_published = true order by display_order, id` and prices them from
+`product_ids` (a `uuid[]`) and `price_usd`. Unlike discount rules these *are*
+storefront-facing — `bundles_read` is `is_published` — so a bundle the
+database does not hold is a price the shopper is shown and will not get.
+Bundles are never cached to `localStorage`: an administrator reads
+unpublished ones through `bundles_admin`.
+
+A coupon-gated rule needs **both** halves: the code inside the rule's jsonb,
+which is what selects the rule, and a row in `public.coupons`, which is what
+validates and meters it. A code with no `coupons` row does not merely fail to
+discount — `checkout_create_order` raises `INVALID_COUPON` and the shopper
+cannot complete the order. Deleting a rule therefore deletes its coupons
+first: the foreign key is `ON DELETE SET NULL`, so dropping the rule alone
+leaves a code that passes validation, resolves to a null rule, discounts
+nothing and still burns one of its uses.
+
 `private.protect_order_integrity()` then pins every financial column and
 enforces a forward-only fulfilment state machine. Sellers may advance
 `pending → confirmed → crafting → courier_assigned → in_transit`; `delivered`,
 `cancelled` and `returned` are administrator-only.
+
+---
+
+### Currency
+
+`checkout_create_order` prices `total_lbp` from `app_settings.lbp_usd_rate`,
+falling back to 89500. The storefront reads the same setting through the shop
+context (`lbpRate`), with `LBP_USD_RATE` in `src/data/regions.ts` as the
+first-paint fallback — the same number the server falls back to.
+
+Do not multiply by `LBP_USD_RATE` in a component. The two values agreed only
+by coincidence before this was wired up, and there is no admin screen for the
+setting, so it is changed by direct SQL — a change that never reaches a
+redeploy. From that moment a hardcoded rate quotes the shopper one LBP total
+while the courier collects another, and these are cash-on-delivery orders.
+
+An order that was placed in LBP records what was charged in `total_lbp`.
+Display that stored value rather than recomputing from today's rate, or every
+historical order is misreported the next time the rate moves.
 
 ---
 
@@ -210,6 +294,17 @@ These reduce blast radius. None of them is an authorization control.
 - **URLs**: `src/lib/safeUrl.ts` rejects every scheme-relative form
   (`//host`, `/\host`, `\/host`, `\\host`) and resolves relative URLs to
   confirm they stay on-origin, rather than trusting a leading `/`.
+- **Catalogue cache**: `ShopContext` caches the catalogue in `localStorage`
+  for a warm start. An administrator or seller session caches **nothing** and
+  clears what is there — `fetchProducts()` selects `ADMIN_PRODUCT_COLUMNS` for
+  those roles, which carries `cost_price_usd`, `seller_item_code`,
+  `low_stock_threshold` and `custom_stock_label`, and returns unpublished
+  rows. `localStorage` is per-origin, not per-session: it survives sign-out,
+  and the `products` state is seeded straight from it before any fetch or auth
+  check runs. The cache is also dropped on sign-out, and the keys it used
+  before this rule are purged at load. Route every write through
+  `writeCatalogCache()`; never call `localStorage.setItem` on a cache key
+  directly.
 - **CSV export**: `src/utils/csvSafe.ts` prefixes `= + - @ TAB CR LF |`.
 - **Diagnostics**: `src/utils/dbLogger.ts` redacts PII by pattern and exposes
   its buffer on `window` only in development builds.

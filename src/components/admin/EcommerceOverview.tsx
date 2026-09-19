@@ -53,7 +53,8 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
     syncAllProductsToDatabase, 
     isVisualEditMode, 
     setIsVisualEditMode,
-    showToast = () => {}
+    showToast = () => {},
+    lbpRate
   } = useShop();
 
   const [isSyncingDb, setIsSyncingDb] = useState(false);
@@ -83,7 +84,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
   };
 
   const handleExportMaster = () => {
-    downloadFullMasterReport(products, sellers, orders);
+    downloadFullMasterReport(products, sellers, orders, undefined, lbpRate);
     showToast('Master Report downloaded! Includes full Product, Seller, Stock, and Sales telemetry.', 'success');
   };
 

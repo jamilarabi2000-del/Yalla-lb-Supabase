@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useShop } from '../../context/ShopContext';
 import { Order, Product, Seller } from '../../types';
-import { LBP_USD_RATE } from '../../data/regions';
 import {
   TrendingUp,
   Calendar,
@@ -58,6 +57,7 @@ export const SalesAnalyticsView: React.FC = () => {
     sellers = [], 
     categories = [],
     formatPrice,
+    convertUSDToLBP,
     showToast = () => {}
   } = useShop();
 
@@ -898,7 +898,7 @@ export const SalesAnalyticsView: React.FC = () => {
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">Gross Sales Revenue</span>
           <div className="text-xl sm:text-2xl font-black text-slate-900">{formatPrice(kpis.grossRevenueUSD)}</div>
           <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
-            {(kpis.grossRevenueUSD * LBP_USD_RATE).toLocaleString('en-US')} LBP
+            {convertUSDToLBP(kpis.grossRevenueUSD).toLocaleString('en-US')} LBP
           </span>
         </div>
 

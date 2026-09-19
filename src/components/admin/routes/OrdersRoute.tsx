@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useShop } from '../../../context/ShopContext';
 import { useDialog } from '../../../hooks/useDialog';
 import { Order, OrderStatus } from '../../../types';
-import { LBP_USD_RATE } from '../../../data/regions';
 import { downloadOrdersReport } from '../../../utils/exportMasterReport';
 import { 
   Truck, 
@@ -188,7 +187,7 @@ export const OrdersRoute: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <div className="font-black text-slate-900">{formatPrice(order.totalUSD)}</div>
                         <div className="text-[10px] text-slate-400 font-medium">
-                          ≈ {(order.totalUSD * LBP_USD_RATE).toLocaleString()} LBP
+                          {order.totalLBP > 0 ? '' : '≈ '}{(order.totalLBP > 0 ? order.totalLBP : convertUSDToLBP(order.totalUSD)).toLocaleString()} LBP
                         </div>
                       </td>
                       <td className="py-3.5 px-4">
@@ -386,7 +385,7 @@ export const OrdersRoute: React.FC = () => {
                 <div className="text-right">
                   <div className="font-black text-amber-400 text-base">${selectedInvoiceOrder.totalUSD.toFixed(2)} USD</div>
                   <div className="text-[11px] text-slate-400">
-                    ≈ {(selectedInvoiceOrder.totalUSD * LBP_USD_RATE).toLocaleString()} LBP
+                    {selectedInvoiceOrder.totalLBP > 0 ? '' : '≈ '}{(selectedInvoiceOrder.totalLBP > 0 ? selectedInvoiceOrder.totalLBP : convertUSDToLBP(selectedInvoiceOrder.totalUSD)).toLocaleString()} LBP
                   </div>
                 </div>
               </div>
