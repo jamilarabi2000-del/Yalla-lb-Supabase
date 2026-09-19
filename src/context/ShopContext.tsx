@@ -2927,6 +2927,26 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setWishlist([]);
         }
 
+        // Capture a genuine guest cart before the account row is hydrated.
+        // If the account already has a saved cart, we merge rather than
+        // silently throwing away the shopper's guest basket.
+        let guestCart: CartItem[] = [];
+        let guestWishlist: string[] = [];
+        if (localOwner === 'guest') {
+          try {
+            const rawGuestCart = getGuestStorage(GUEST_CART_KEY, LEGACY_CART_KEY);
+            const parsedGuestCart = rawGuestCart ? JSON.parse(rawGuestCart) : [];
+            if (Array.isArray(parsedGuestCart)) guestCart = parsedGuestCart;
+
+            const rawGuestWishlist = getGuestStorage(GUEST_WISHLIST_KEY, LEGACY_WISHLIST_KEY);
+            const parsedGuestWishlist = rawGuestWishlist ? JSON.parse(rawGuestWishlist) : [];
+            if (Array.isArray(parsedGuestWishlist)) guestWishlist = parsedGuestWishlist;
+          } catch {
+            guestCart = [];
+            guestWishlist = [];
+          }
+        }
+
         try {
           const [savedCart, savedWishlist] = await Promise.all([
             supabaseUserDataService.fetchCart(supaUser.id),
@@ -2935,21 +2955,52 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!isCurrent()) return;
 
-          // null means "no row saved yet" (an expected empty result), not
-          // failure — in that case a guest cart carried into sign-in is kept
-          // and the effect below saves it to the account.
-          if (savedCart) {
-            setCart(savedCart);
-            // Mark it already persisted: it came straight from the row, so the
-            // effect has nothing to write back.
-            lastPersistedCartRef.current = JSON.stringify(savedCart);
+          let hydratedCart: CartItem[] | null = savedCart;
+          let hydratedWishlist: string[] | null = savedWishlist;
+
+          if (savedCart && guestCart.length > 0) {
+            const merged = [...savedCart];
+            for (const guestItem of guestCart) {
+              const existing = merged.find(
+                item =>
+                  item.product.id === guestItem.product.id &&
+                  item.selectedOption === guestItem.selectedOption
+              );
+              if (existing) {
+                existing.quantity += guestItem.quantity;
+              } else {
+                merged.push(guestItem);
+              }
+            }
+            hydratedCart = merged;
+          } else if (!savedCart && guestCart.length > 0) {
+            hydratedCart = guestCart;
+          }
+
+          if (savedWishlist && guestWishlist.length > 0) {
+            hydratedWishlist = Array.from(new Set([...savedWishlist, ...guestWishlist]));
+          } else if (!savedWishlist && guestWishlist.length > 0) {
+            hydratedWishlist = guestWishlist;
+          }
+
+          if (hydratedCart) {
+            setCart(hydratedCart);
+            // A merge adds guest state to an existing account row, so it must
+            // be written. An untouched saved row does not need an echo write.
+            lastPersistedCartRef.current =
+              savedCart && hydratedCart !== savedCart
+                ? JSON.stringify(savedCart)
+                : JSON.stringify(hydratedCart);
           } else {
             lastPersistedCartRef.current = null;
           }
 
-          if (savedWishlist) {
-            setWishlist(savedWishlist);
-            lastPersistedWishlistRef.current = JSON.stringify(savedWishlist);
+          if (hydratedWishlist) {
+            setWishlist(hydratedWishlist);
+            lastPersistedWishlistRef.current =
+              savedWishlist && hydratedWishlist !== savedWishlist
+                ? JSON.stringify(savedWishlist)
+                : JSON.stringify(hydratedWishlist);
           } else {
             lastPersistedWishlistRef.current = null;
           }
