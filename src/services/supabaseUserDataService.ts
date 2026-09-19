@@ -18,23 +18,50 @@ export const supabaseUserDataService = {
     const payload: Record<string, any> = { id: userId, first_name: profile.firstName ?? profile.name?.split(' ')[0], last_name: profile.lastName ?? (profile.name?.split(' ').slice(1).join(' ') || undefined), email: profile.email, phone: profile.phone, avatar: profile.avatar, default_governorate: profile.defaultGovernorate, default_city: profile.defaultCity, default_address: profile.defaultAddress, default_building: profile.defaultBuilding, default_notes: profile.defaultNotes, updated_at: new Date().toISOString() };
     Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
     const { error } = await supabase.from('profiles').upsert(payload);
-    if (error) console.warn('[supabaseUserDataService] upsertProfile error:', errorMessage(error));
+    if (error) {
+      console.error('[supabaseUserDataService] upsertProfile failed:', error);
+      throw toUserFacingError(error, 'Unable to save your profile right now.');
+    }
   },
 
   async fetchCart(userId: string): Promise<CartItem[] | null> {
-    try { const { data, error } = await supabase.from('carts').select('items').eq('user_id', userId).maybeSingle(); if (error) { console.warn('[supabaseUserDataService] fetchCart error:', errorMessage(error)); return null; } return data && Array.isArray(data.items) ? data.items as CartItem[] : null; } catch (err) { console.warn('[supabaseUserDataService] fetchCart error:', errorMessage(err)); return null; }
+    const { data, error } = await supabase.from('carts').select('items').eq('user_id', userId).maybeSingle();
+    if (error) {
+      console.error('[supabaseUserDataService] fetchCart failed:', error);
+      throw toUserFacingError(error, 'Unable to load your saved cart right now.');
+    }
+    return data && Array.isArray(data.items) ? data.items as CartItem[] : null;
   },
 
   async saveCart(userId: string, items: CartItem[]): Promise<void> {
-    try { const { error } = await supabase.from('carts').upsert({ user_id: userId, items, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }); if (error) console.warn('[supabaseUserDataService] saveCart error:', errorMessage(error)); } catch (err) { console.warn('[supabaseUserDataService] saveCart error:', errorMessage(err)); }
+    const { error } = await supabase.from('carts').upsert(
+      { user_id: userId, items, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    if (error) {
+      console.error('[supabaseUserDataService] saveCart failed:', error);
+      throw toUserFacingError(error, 'Unable to save your cart right now.');
+    }
   },
 
   async fetchWishlist(userId: string): Promise<string[] | null> {
-    try { const { data, error } = await supabase.from('wishlists').select('product_ids').eq('user_id', userId).maybeSingle(); if (error) { console.warn('[supabaseUserDataService] fetchWishlist error:', errorMessage(error)); return null; } return data && Array.isArray(data.product_ids) ? data.product_ids as string[] : null; } catch (err) { console.warn('[supabaseUserDataService] fetchWishlist error:', errorMessage(err)); return null; }
+    const { data, error } = await supabase.from('wishlists').select('product_ids').eq('user_id', userId).maybeSingle();
+    if (error) {
+      console.error('[supabaseUserDataService] fetchWishlist failed:', error);
+      throw toUserFacingError(error, 'Unable to load your saved wishlist right now.');
+    }
+    return data && Array.isArray(data.product_ids) ? data.product_ids as string[] : null;
   },
 
   async saveWishlist(userId: string, productIds: string[]): Promise<void> {
-    try { const { error } = await supabase.from('wishlists').upsert({ user_id: userId, product_ids: productIds, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }); if (error) console.warn('[supabaseUserDataService] saveWishlist error:', errorMessage(error)); } catch (err) { console.warn('[supabaseUserDataService] saveWishlist error:', errorMessage(err)); }
+    const { error } = await supabase.from('wishlists').upsert(
+      { user_id: userId, product_ids: productIds, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    if (error) {
+      console.error('[supabaseUserDataService] saveWishlist failed:', error);
+      throw toUserFacingError(error, 'Unable to save your wishlist right now.');
+    }
   },
 
   async fetchReviews(productId?: string): Promise<Review[]> {
