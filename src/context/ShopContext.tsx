@@ -4826,9 +4826,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sellerId: sellerId || undefined
     };
     const sanitizedUser = sanitizeDocumentData(updatedUser);
-    setUser(updatedUser);
 
     if (!authUser) {
+      // Guest checkout details are intentionally browser-local only.
+      setUser(updatedUser);
       try {
         localStorage.setItem('yallalb_saved_checkout_data', JSON.stringify(sanitizedUser));
       } catch {}
@@ -4837,7 +4838,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const userKey = authUser.uid;
 
-    const { startTime } = dbLogger.logDbWriteStart({
+    dbLogger.logDbWriteStart({
       operation: 'upsert',
       targetPath: `profiles/${userKey}`,
       sourceComponent: 'ShopContext',
@@ -4846,11 +4847,14 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       payload: sanitizedUser
     });
 
-    // public.profiles is the only profile store; the Firestore `users` mirror
-    // that stood here is gone. upsertProfile omits every privilege field, and
-    // protect_profile_role() pins them for non-admins regardless.
+    // Database first: never expose a profile change in React/localStorage until
+    // the authoritative Supabase write succeeds. This prevents a failed RLS or
+    // network request from leaving the UI claiming that unsaved data was saved.
+    // upsertProfile omits privilege fields; protect_profile_role() remains the
+    // database-side authority for role/seller ownership.
     try {
       await supabaseUserDataService.upsertProfile(userKey, sanitizedUser as Partial<UserProfile>);
+      setUser(updatedUser);
     } catch (err) {
       console.error('[ShopContext] Failed to save the user profile:', err);
       showToast('Could not save your details. Please try again.', 'error');
