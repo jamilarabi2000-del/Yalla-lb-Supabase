@@ -7,11 +7,35 @@ const errorMessage = (err: unknown) => toUserFacingError(err).message;
 
 export const supabaseUserDataService = {
   async fetchProfile(userId: string): Promise<Partial<UserProfile> | null> {
-    try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      if (error || !data) return null;
-      return { uid: data.id, name: data.name || (data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : ''), firstName: data.first_name || data.firstName || '', lastName: data.last_name || data.lastName || '', email: data.email || '', phone: data.phone || '', avatar: data.avatar || data.avatar_url || '', defaultGovernorate: data.default_governorate || data.defaultGovernorate || '', defaultCity: data.default_city || data.defaultCity || '', defaultAddress: data.default_address || data.defaultAddress || '', defaultBuilding: data.default_building || data.defaultBuilding || '', defaultNotes: data.default_notes || data.defaultNotes || '', role: data.role === 'admin' ? 'admin' : data.role === 'seller' ? 'seller' : 'customer', sellerId: data.seller_id || data.sellerId || undefined };
-    } catch (err) { console.warn('[supabaseUserDataService] fetchProfile error:', errorMessage(err)); return null; }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[supabaseUserDataService] fetchProfile failed:', error);
+      throw toUserFacingError(error, 'Unable to load your profile right now.');
+    }
+
+    if (!data) return null;
+
+    return {
+      uid: data.id,
+      name: data.name || (data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : ''),
+      firstName: data.first_name || data.firstName || '',
+      lastName: data.last_name || data.lastName || '',
+      email: data.email || '',
+      phone: data.phone || '',
+      avatar: data.avatar || data.avatar_url || '',
+      defaultGovernorate: data.default_governorate || data.defaultGovernorate || '',
+      defaultCity: data.default_city || data.defaultCity || '',
+      defaultAddress: data.default_address || data.defaultAddress || '',
+      defaultBuilding: data.default_building || data.defaultBuilding || '',
+      defaultNotes: data.default_notes || data.defaultNotes || '',
+      role: data.role === 'admin' ? 'admin' : data.role === 'seller' ? 'seller' : 'customer',
+      sellerId: data.seller_id || data.sellerId || undefined,
+    };
   },
 
   async upsertProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
