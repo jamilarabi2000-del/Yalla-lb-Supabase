@@ -159,8 +159,9 @@ export const ProductsView: React.FC = () => {
         const matchesOrigin = product.origin.toLowerCase().includes(query);
         const matchesTags = product.tags.some(t => t.toLowerCase().includes(query));
         const matchesKeywords = product.keywords ? product.keywords.some(k => k.toLowerCase().includes(query)) : false;
+        const matchesArabicKeywords = product.arabicKeywords ? product.arabicKeywords.some(k => k.toLowerCase().includes(query)) : false;
         const matchesDesc = product.description.toLowerCase().includes(query);
-        if (!matchesName && !matchesAr && !matchesArtisan && !matchesOrigin && !matchesTags && !matchesKeywords && !matchesDesc) {
+        if (!matchesName && !matchesAr && !matchesArtisan && !matchesOrigin && !matchesTags && !matchesKeywords && !matchesArabicKeywords && !matchesDesc) {
           return false;
         }
       }
@@ -370,6 +371,7 @@ export const ProductsView: React.FC = () => {
                   <option value="featured">{language === 'ar' ? 'المنتجات المميزة' : 'Featured Items'}</option>
                   <option value="price_low">{language === 'ar' ? 'السعر: من الأقل للأعلى' : 'Price: Low to High'}</option>
                   <option value="price_high">{language === 'ar' ? 'السعر: من الأعلى للأقل' : 'Price: High to Low'}</option>
+                  <option value="rating">{language === 'ar' ? 'التقييم' : 'Rating'}</option>
                 </select>
               </div>
 
