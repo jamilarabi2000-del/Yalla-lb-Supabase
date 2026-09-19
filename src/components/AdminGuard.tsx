@@ -1,106 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert } from 'lucide-react';
+import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { adminOtpClient } from '../lib/adminOtpClient';
 import { useShop } from '../context/ShopContext';
-import {
-  clearAdminMfaSession,
-  isMfaSessionValid,
-  registerMfaPromptHandler,
-  setAdminMfaSession,
-} from '../utils/adminMfa';
+import { clearAdminMfaSession, registerMfaPromptHandler } from '../utils/adminMfa';
 
 interface AdminGuardProps { children: React.ReactNode; }
-type AuthMode = 'login' | 'otp' | 'verify_email_notice';
-
-type PendingAdminOtpStage = { email: string; createdAt: number };
-const ADMIN_OTP_STAGE_KEY = 'yalla_admin_otp_stage';
-const ADMIN_OTP_STAGE_MAX_AGE_MS = 10 * 60 * 1000;
-const ADMIN_OTP_LAST_SENT_KEY = 'yalla_admin_otp_last_sent';
-const ADMIN_OTP_RESEND_COOLDOWN_MS = 60 * 1000;
-
-const readPendingAdminOtpStage = (): PendingAdminOtpStage | null => {
-  try {
-    const raw = sessionStorage.getItem(ADMIN_OTP_STAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<PendingAdminOtpStage>;
-    const targetEmail = String(parsed.email || '').trim().toLowerCase();
-    const createdAt = Number(parsed.createdAt);
-    if (!targetEmail || !Number.isFinite(createdAt) || Date.now() - createdAt > ADMIN_OTP_STAGE_MAX_AGE_MS) {
-      sessionStorage.removeItem(ADMIN_OTP_STAGE_KEY);
-      return null;
-    }
-    return { email: targetEmail, createdAt };
-  } catch {
-    return null;
-  }
-};
-
-const writePendingAdminOtpStage = (email: string) => {
-  try {
-    sessionStorage.setItem(ADMIN_OTP_STAGE_KEY, JSON.stringify({ email: email.trim().toLowerCase(), createdAt: Date.now() }));
-  } catch {
-    // sessionStorage can be unavailable in hardened/private browser contexts.
-  }
-};
-
-const clearPendingAdminOtpStage = () => {
-  try { sessionStorage.removeItem(ADMIN_OTP_STAGE_KEY); } catch { /* no-op */ }
-};
-
-const readOtpLastSentAt = () => {
-  try {
-    const value = Number(sessionStorage.getItem(ADMIN_OTP_LAST_SENT_KEY));
-    return Number.isFinite(value) ? value : 0;
-  } catch {
-    return 0;
-  }
-};
-
-const writeOtpLastSentAt = (timestamp: number) => {
-  try { sessionStorage.setItem(ADMIN_OTP_LAST_SENT_KEY, String(timestamp)); } catch { /* no-op */ }
-};
-
-const clearOtpLastSentAt = () => {
-  try { sessionStorage.removeItem(ADMIN_OTP_LAST_SENT_KEY); } catch { /* no-op */ }
-};
-
-const getOtpCooldownSeconds = () => Math.max(0, Math.ceil((ADMIN_OTP_RESEND_COOLDOWN_MS - (Date.now() - readOtpLastSentAt())) / 1000));
+type AuthMode = 'login' | 'mfa' | 'enroll';
 
 const ADMIN_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
-const OTP_SEND_TIMEOUT_MS = 15_000;
 const ADMIN_ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { authStatus, authUser, signOutUser } = useShop();
-  // Always start at the credential screen. An OTP stage is created only after
-  // the current page's password authentication succeeds.
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isResendingOtp, setIsResendingOtp] = useState(false);
-  const [otpCooldownSeconds, setOtpCooldownSeconds] = useState(getOtpCooldownSeconds());
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [showStepUpModal, setShowStepUpModal] = useState(false);
-  const [stepUpPassword, setStepUpPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [factorId, setFactorId] = useState('');
+  const [challengeId, setChallengeId] = useState('');
+  const [qrCode, setQrCode] = useState('');
+  const [secret, setSecret] = useState('');
+  const [aal2, setAal2] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showStepUp, setShowStepUp] = useState(false);
   const [stepUpError, setStepUpError] = useState<string | null>(null);
-  const [isStepUpVerifying, setIsStepUpVerifying] = useState(false);
   const resolverRef = useRef<((success: boolean) => void) | null>(null);
   const lastActivityRef = useRef(Date.now());
-  const otpSendLockRef = useRef(false);
 
   const userId = authUser?.uid;
-  const isMfaVerified = isMfaSessionValid(userId);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setOtpCooldownSeconds(getOtpCooldownSeconds()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   const verifyAdminRole = async (uid: string) => {
     const { data, error } = await supabase.from('profiles').select('role').eq('id', uid).maybeSingle();
@@ -108,15 +37,144 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     if (data?.role !== 'admin') throw new Error('This account does not have administrator privileges.');
   };
 
-  useEffect(() => registerMfaPromptHandler((resolve) => {
-    resolverRef.current = resolve;
-    setStepUpPassword('');
-    setStepUpError(null);
-    setShowStepUpModal(true);
-  }), []);
+  const recordNativeStepUp = async () => {
+    const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalError) throw aalError;
+    if (aal.currentLevel !== 'aal2') throw new Error('MFA verification did not reach AAL2.');
+    const { error } = await supabase.schema('private').rpc('record_admin_step_up_aal2');
+    if (error) throw error;
+    setAal2(true);
+    lastActivityRef.current = Date.now();
+  };
+
+  const loadMfaState = async () => {
+    const { data, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalError) throw aalError;
+    if (data.currentLevel === 'aal2') {
+      setAal2(true);
+      return;
+    }
+    const { data: factors, error: factorError } = await supabase.auth.mfa.listFactors();
+    if (factorError) throw factorError;
+    const verifiedTotp = (factors?.totp || []).find((factor: any) => factor.status === 'verified');
+    if (verifiedTotp) {
+      setFactorId(verifiedTotp.id);
+      setMode('mfa');
+      return;
+    }
+    setMode('enroll');
+  };
+
+  const startChallenge = async (id = factorId) => {
+    if (!id) throw new Error('No verified authenticator factor is available.');
+    const { data, error } = await supabase.auth.mfa.challenge({ factorId: id });
+    if (error) throw error;
+    setChallengeId(data.id);
+  };
+
+  const verifyCode = async () => {
+    const cleanCode = code.replace(/\D/g, '');
+    if (cleanCode.length !== 6) throw new Error('Enter the 6-digit code from your authenticator app.');
+    if (!factorId || !challengeId) await startChallenge();
+    const activeChallengeId = challengeId;
+    const { error } = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: activeChallengeId,
+      code: cleanCode,
+    });
+    if (error) throw error;
+    await recordNativeStepUp();
+    setCode('');
+    setChallengeId('');
+    setMode('login');
+  };
+
+  const enrollTotp = async () => {
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'Yalla Administrator',
+    });
+    if (error) throw error;
+    setFactorId(data.id);
+    setQrCode(data.totp?.qr_code || '');
+    setSecret(data.totp?.secret || '');
+    setMode('enroll');
+  };
+
+  const verifyEnrollment = async () => {
+    if (!factorId) throw new Error('MFA enrollment has not started.');
+    const challenge = await supabase.auth.mfa.challenge({ factorId });
+    if (challenge.error) throw challenge.error;
+    const cleanCode = code.replace(/\D/g, '');
+    if (cleanCode.length !== 6) throw new Error('Enter the 6-digit code from your authenticator app.');
+    const result = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.data.id,
+      code: cleanCode,
+    });
+    if (result.error) throw result.error;
+    await recordNativeStepUp();
+    setCode('');
+    setQrCode('');
+    setSecret('');
+    setChallengeId('');
+    setMode('login');
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+      if (signInError) throw signInError;
+      if (!data.user) throw new Error('No authenticated administrator was returned.');
+      await verifyAdminRole(data.user.id);
+      await loadMfaState();
+    } catch (err: any) {
+      const message = String(err?.message || '');
+      setError(message.toLowerCase().includes('invalid login credentials')
+        ? 'Invalid administrator email or password.'
+        : message || 'Administrator authentication failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
-    if (authStatus !== 'authenticated_admin' || !userId || !isMfaVerified) return;
+    registerMfaPromptHandler((resolve) => {
+      resolverRef.current = resolve;
+      setStepUpError(null);
+      setCode('');
+      setShowStepUp(true);
+      void (async () => {
+        try {
+          const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+          if (error) throw error;
+          if (data.currentLevel === 'aal2') {
+            await recordNativeStepUp();
+            setShowStepUp(false);
+            resolverRef.current?.(true);
+            resolverRef.current = null;
+            return;
+          }
+          const { data: factors, error: factorError } = await supabase.auth.mfa.listFactors();
+          if (factorError) throw factorError;
+          const factor = (factors?.totp || []).find((item: any) => item.status === 'verified');
+          if (!factor) throw new Error('No verified authenticator is enrolled for this administrator.');
+          setFactorId(factor.id);
+          await startChallenge(factor.id);
+        } catch (err: any) {
+          setStepUpError(err?.message || 'Could not start MFA step-up verification.');
+        }
+      })();
+    });
+  }, []);
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated_admin' || !userId || !aal2) return;
     lastActivityRef.current = Date.now();
     const markActivity = () => { lastActivityRef.current = Date.now(); };
     ADMIN_ACTIVITY_EVENTS.forEach(event => window.addEventListener(event, markActivity, { passive: true }));
@@ -125,235 +183,70 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       window.clearInterval(timer);
       ADMIN_ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, markActivity));
       clearAdminMfaSession(userId);
-      clearPendingAdminOtpStage();
-      clearOtpLastSentAt();
+      setAal2(false);
       setMode('login');
-      setOtp('');
-      setPassword('');
-      setLoginError('Your administrator session expired after 30 minutes of inactivity. Please sign in again.');
+      setCode('');
       await signOutUser();
+      setError('Your administrator session expired after 30 minutes of inactivity. Please sign in again.');
     }, 30_000);
     return () => {
       window.clearInterval(timer);
       ADMIN_ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, markActivity));
     };
-  }, [authStatus, userId, isMfaVerified, signOutUser]);
+  }, [authStatus, userId, aal2, signOutUser]);
 
-  const sendLoginOtp = async (target?: string) => {
-    const targetEmail = (target || email).trim().toLowerCase();
-    if (!targetEmail) throw new Error('No administrator email is available for OTP verification.');
+  if (authStatus === 'loading') {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-6 h-6 animate-spin text-[#B89753]" /></div>;
+  }
 
-    if (otpSendLockRef.current) {
-      throw new Error('A security-code request is already in progress. Please wait.');
-    }
+  if (authStatus === 'authenticated_admin' && aal2) return <>{children}</>;
 
-    const cooldownSeconds = getOtpCooldownSeconds();
-    if (cooldownSeconds > 0) {
-      throw new Error(`Please wait ${cooldownSeconds} seconds before requesting another security code.`);
-    }
-
-    otpSendLockRef.current = true;
-    writePendingAdminOtpStage(targetEmail);
-    setEmail(targetEmail);
-    setOtp('');
-    setOtpError(null);
-    setMode('otp');
-    setIsSendingOtp(true);
-    try {
-      const result = await Promise.race([
-        adminOtpClient.auth.signInWithOtp({ email: targetEmail, options: { shouldCreateUser: false } }),
-        new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('The security-code request timed out. Please try again.')), OTP_SEND_TIMEOUT_MS)),
-      ]);
-      if (result.error) throw result.error;
-      writeOtpLastSentAt(Date.now());
-      setOtpCooldownSeconds(Math.ceil(ADMIN_OTP_RESEND_COOLDOWN_MS / 1000));
-    } catch (error: any) {
-      const code = String(error?.code || '').toLowerCase();
-      const message = String(error?.message || 'Could not send the security code. Please try again.');
-      if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || message.toLowerCase().includes('rate limit')) {
-        setOtpError('Supabase is temporarily rate-limiting security-code emails. Please wait before requesting another code.');
-      } else {
-        setOtpError(message);
-      }
-      throw error;
-    } finally {
-      otpSendLockRef.current = false;
-      setIsSendingOtp(false);
-    }
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpSendLockRef.current || isSubmitting) return;
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail) return setLoginError('Please enter your administrator email address.');
-    if (!password) return setLoginError('Please enter your administrator password.');
-
-    clearPendingAdminOtpStage();
-    setIsSubmitting(true);
-    setLoginError(null);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-      if (error) throw error;
-      if (!data.user) throw new Error('No authenticated administrator was returned.');
-
-      writePendingAdminOtpStage(cleanEmail);
-      await verifyAdminRole(data.user.id);
-      await sendLoginOtp(cleanEmail);
-    } catch (err: any) {
-      const message = String(err?.message || '').toLowerCase();
-      if (message.includes('invalid login credentials')) {
-        clearPendingAdminOtpStage();
-        setLoginError('Invalid administrator email or password.');
-      } else if (message.includes('email not confirmed')) {
-        clearPendingAdminOtpStage();
-        setMode('verify_email_notice');
-      } else if (message.includes('rate limit') || message.includes('too many')) {
-        setOtpError('Supabase is temporarily rate-limiting security-code emails. Please wait before requesting another code.');
-      } else if (message.includes('already in progress')) {
-        setOtpError('A security-code request is already in progress. Please wait.');
-      } else {
-        setLoginError(err?.message || 'Administrator authentication failed.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanOtp = otp.replace(/\D/g, '');
-    if (cleanOtp.length < 6 || cleanOtp.length > 10) return setOtpError('Enter the complete security code sent to your email.');
-    setIsSubmitting(true);
-    setOtpError(null);
-    try {
-      const { data, error } = await adminOtpClient.auth.verifyOtp({ email: email.trim().toLowerCase(), token: cleanOtp, type: 'email' });
-      if (error) throw error;
-      if (!data.user) throw new Error('OTP verification did not return an authenticated administrator.');
-      await verifyAdminRole(data.user.id);
-      const primarySession = await supabase.auth.getSession();
-      if (!primarySession.data.session?.user?.id) {
-        throw new Error('The administrator password session was lost. Please sign in again.');
-      }
-      if (primarySession.data.session.user.id !== data.user.id) {
-        throw new Error('The verification code does not belong to the signed-in administrator.');
-      }
-
-      setAdminMfaSession(data.user.id);
-      clearPendingAdminOtpStage();
-      clearOtpLastSentAt();
-      setOtp('');
-      setPassword('');
-      setMode('login');
-    } catch (err: any) {
-      const message = String(err?.message || '').toLowerCase();
-      setOtpError(message.includes('expired') || message.includes('invalid') || message.includes('otp')
-        ? 'Invalid or expired verification code. Please request a new code and try again.'
-        : (err?.message || 'OTP verification failed.'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const resendLoginOtp = async () => {
-    if (isResendingOtp || isSendingOtp || otpCooldownSeconds > 0) return;
-    setIsResendingOtp(true);
-    setOtpError(null);
-    try { await sendLoginOtp(); }
-    catch (err: any) {
-      const message = String(err?.message || 'Could not send a new verification code. Please wait before requesting another code.');
-      setOtpError(message);
-    }
-    finally { setIsResendingOtp(false); }
-  };
-
-  const handleStepUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authUser?.email) return setStepUpError('No active administrator session.');
-    if (!stepUpPassword) return setStepUpError('Please enter your administrator password.');
-    setIsStepUpVerifying(true);
-    setStepUpError(null);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: authUser.email, password: stepUpPassword });
-      if (error) throw error;
-      if (!data.user) throw new Error('Re-authentication failed.');
-      await verifyAdminRole(data.user.id);
-      setAdminMfaSession(data.user.id);
-      lastActivityRef.current = Date.now();
-      setShowStepUpModal(false);
-      resolverRef.current?.(true);
-      resolverRef.current = null;
-    } catch (err: any) {
-      setStepUpError(err?.message?.toLowerCase().includes('invalid login credentials') ? 'Incorrect administrator password.' : (err?.message || 'Step-up verification failed.'));
-    } finally { setIsStepUpVerifying(false); }
-  };
-
-  const cancelStepUp = () => {
-    setShowStepUpModal(false);
-    resolverRef.current?.(false);
-    resolverRef.current = null;
-  };
-
-  if (mode === 'otp') return (
+  if (mode === 'mfa') return (
     <div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center p-4">
-      <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-sm w-full space-y-7 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
+      <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-sm w-full space-y-6 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
         <div className="text-center space-y-3">
           <div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white"><ShieldAlert className="w-7 h-7" /></div>
-          <h1 className="text-2xl font-bold">Verify Your Identity</h1>
-          <p className="text-sm text-[#666666]">Enter the security code sent to your administrator email.</p>
-          <p className="px-3 py-2 bg-[#F3E5AB] rounded-xl font-mono text-xs text-[#8F7137] break-all">{email}</p>
+          <h1 className="text-2xl font-bold">Authenticator Verification</h1>
+          <p className="text-sm text-[#666666]">Enter the 6-digit code from your authenticator app.</p>
         </div>
-        {isSendingOtp && <div className="p-3 rounded-xl bg-[#F7F7F8] border border-[#E5E5E5] text-sm text-[#666666] flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Sending security code…</div>}
-        <form onSubmit={handleVerifyOtp} className="space-y-4">
-          <label htmlFor="admin-otp" className="block text-sm font-semibold text-[#333333]">Security code</label>
-          <input id="admin-otp" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={otp} disabled={isSendingOtp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter security code" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" autoFocus={!isSendingOtp} />
-          {otpError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{otpError}</div>}
-          <button disabled={isSubmitting || isSendingOtp || otp.length < 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}</button>
+        <form onSubmit={async e => { e.preventDefault(); setBusy(true); setError(null); try { await verifyCode(); } catch (err: any) { setError(err?.message || 'MFA verification failed.'); } finally { setBusy(false); } }} className="space-y-4">
+          <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus placeholder="123456" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" />
+          {error && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
+          <button disabled={busy || code.length !== 6} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Verify & Continue <ArrowRight className="w-4 h-4" /></>}</button>
         </form>
-        <div className="space-y-3 text-center">
-          <button onClick={resendLoginOtp} disabled={isResendingOtp || isSendingOtp || otpCooldownSeconds > 0} className="text-sm text-[#8F7137] font-semibold disabled:opacity-50">
-            {isResendingOtp ? 'Sending new code…' : otpCooldownSeconds > 0 ? `Resend security code (${otpCooldownSeconds}s)` : 'Resend security code'}
-          </button>
-          <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setOtp(''); setPassword(''); setMode('login'); }} className="block w-full text-sm text-[#666666]">Cancel and Sign Out</button>
-        </div>
+        <button onClick={async () => { await supabase.auth.signOut(); setMode('login'); setCode(''); }} className="w-full text-sm text-[#666666]">Cancel and Sign Out</button>
       </div>
     </div>
   );
 
-  if (mode === 'verify_email_notice') return (
+  if (mode === 'enroll') return (
     <div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center p-4">
-      <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-md w-full text-center space-y-5">
-        <Mail className="mx-auto w-10 h-10 text-[#B89753]" />
-        <h1 className="text-xl font-bold">Email Verification Required</h1>
-        <p className="text-sm text-[#666666]">Verify your administrator email before accessing the console.</p>
-        <button onClick={async () => { const { data, error } = await supabase.auth.getUser(); if (error) return setLoginError(error.message); if (!data.user?.email_confirmed_at) return setLoginError('Email is still unverified. Please check your inbox.'); await verifyAdminRole(data.user.id); await sendLoginOtp(data.user.email || email); }} className="gold-btn w-full py-3 rounded-xl font-bold">I verified my email — continue</button>
-        {loginError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828]">{loginError}</div>}
-        <button onClick={async () => { clearPendingAdminOtpStage(); clearOtpLastSentAt(); clearAdminMfaSession(userId); await supabase.auth.signOut(); setMode('login'); }} className="text-sm text-[#666666]">Back to login</button>
+      <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-md w-full space-y-6 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
+        <div className="text-center space-y-3"><div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white"><ShieldAlert className="w-7 h-7" /></div><h1 className="text-2xl font-bold">Set Up Authenticator</h1><p className="text-sm text-[#666666]">Scan this QR code with Google Authenticator, Microsoft Authenticator, 1Password, or another TOTP app.</p></div>
+        {!qrCode && <button onClick={async () => { setBusy(true); setError(null); try { await enrollTotp(); } catch (err: any) { setError(err?.message || 'Could not start MFA enrollment.'); } finally { setBusy(false); } }} disabled={busy} className="gold-btn w-full py-3 rounded-xl font-bold">{busy ? 'Preparing…' : 'Start MFA Setup'}</button>}
+        {qrCode && <div className="space-y-4">
+          <div className="flex justify-center p-4 bg-white border rounded-2xl"><img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrCode)}`} alt="Authenticator QR code" className="w-52 h-52" /></div>
+          {secret && <div className="text-xs text-[#666666]">Can't scan? Enter this secret manually:<div className="mt-2 p-3 bg-[#F7F7F8] rounded-xl font-mono break-all text-center">{secret}</div></div>}
+          <form onSubmit={async e => { e.preventDefault(); setBusy(true); setError(null); try { await verifyEnrollment(); } catch (err: any) { setError(err?.message || 'MFA enrollment verification failed.'); } finally { setBusy(false); } }} className="space-y-4">
+            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="Enter 6-digit code" className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-4 text-center text-2xl tracking-[0.25em] font-mono" />
+            <button disabled={busy || code.length !== 6} className="gold-btn w-full py-3 rounded-xl font-bold disabled:opacity-50">{busy ? 'Verifying…' : 'Enable Authenticator'}</button>
+          </form>
+        </div>}
+        {error && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
+        <button onClick={async () => { await supabase.auth.signOut(); setMode('login'); }} className="w-full text-sm text-[#666666]">Cancel and Sign Out</button>
       </div>
     </div>
   );
-
-  if (authStatus === 'loading') return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-6 h-6 animate-spin text-[#B89753]" /></div>
-  );
-
-  if (authStatus === 'authenticated_admin' && isMfaVerified) return <>{children}</>;
 
   return (
     <div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center p-4">
       <div className="bg-white border border-[#E5E5E5] p-8 rounded-3xl max-w-md w-full space-y-7 shadow-[0_12px_32px_-12px_rgba(184,151,83,0.18)]">
-        <div className="text-center space-y-3"><div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white"><Lock className="w-7 h-7" /></div><h1 className="text-2xl font-bold">Administrator Access</h1><p className="text-sm text-[#666666]">Enter your administrator credentials to continue.</p></div>
+        <div className="text-center space-y-3"><div className="mx-auto w-16 h-16 rounded-[22px] gold-gradient-bg flex items-center justify-center text-white"><Lock className="w-7 h-7" /></div><h1 className="text-2xl font-bold">Administrator Access</h1><p className="text-sm text-[#666666]">Sign in with your administrator credentials.</p></div>
         <form onSubmit={handleSignIn} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="admin-email" className="block text-sm font-semibold text-[#333333]">Email</label>
-            <input id="admin-email" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="Enter administrator email" disabled={isSubmitting} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 outline-none focus:border-[#B89753]" />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="admin-password" className="block text-sm font-semibold text-[#333333]">Password</label>
-            <div className="relative"><input id="admin-password" type={isPasswordVisible ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Enter administrator password" disabled={isSubmitting} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 pr-12 outline-none focus:border-[#B89753]" /><button type="button" aria-label={isPasswordVisible ? 'Hide password' : 'Show password'} onClick={() => setIsPasswordVisible(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666]">{isPasswordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div>
-          </div>
-          {loginError && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{loginError}</div>}
-          <button disabled={isSubmitting} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}</button>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" placeholder="Administrator email" disabled={busy} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3" />
+          <div className="relative"><input type={passwordVisible ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" placeholder="Administrator password" disabled={busy} className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-4 py-3 pr-12" /><button type="button" aria-label={passwordVisible ? 'Hide password' : 'Show password'} onClick={() => setPasswordVisible(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#666666]">{passwordVisible ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div>
+          {error && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#C62828] flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
+          <button disabled={busy} className="gold-btn w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}</button>
         </form>
       </div>
     </div>
