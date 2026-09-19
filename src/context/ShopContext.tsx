@@ -2118,30 +2118,47 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          // 1. Immediately update in-memory products and localStorage so UI updates instantly
-          setProducts(prevProducts => {
-            const nextMap = new Map<string, Product>();
-            prevProducts.forEach(p => nextMap.set(p.id, p));
-            validRows.forEach(item => {
-              nextMap.set(item.sku, item.product);
-            });
-            const merged = Array.from(nextMap.values());
+          // Persist each validated row first. Existing SKUs use the safe partial
+          // patch service; new SKUs use the complete create/upsert path.
+          // Local state is updated only for rows that actually reached Supabase.
+          const successfulRows: any[] = [];
+          for (const item of validRows) {
             try {
-              localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
+              if (item.isUpdate) {
+                await supabaseProductPatchService.patchProduct(item.sku, item.product);
+              } else {
+                await supabaseCatalogService.upsertProduct(item.product);
+              }
+              successfulRows.push(item);
+            } catch (err: any) {
+              errors.push(
+                `Row for SKU "${item.sku}" ("${item.product.name}"): ${err?.message || 'Supabase write failed'}`
+              );
+            }
+          }
 
-          // Each row was already written to Supabase by upsertProduct above,
-          // so the Firestore batch that stood here is gone. Only the counters
-          // from its `else` branch are kept, since the caller reports them.
-          validRows.forEach(item => {
+          if (successfulRows.length > 0) {
+            setProducts(prevProducts => {
+              const nextMap = new Map<string, Product>();
+              prevProducts.forEach(p => nextMap.set(p.id, p));
+              successfulRows.forEach(item => nextMap.set(item.sku, item.product));
+              const merged = Array.from(nextMap.values());
+              try {
+                localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
+              } catch {}
+              return merged;
+            });
+          }
+
+          successfulRows.forEach(item => {
             if (item.isUpdate) updated++;
             else created++;
           });
 
-          const previousSnapshots = validRows.map(r => products.find(p => p.id === r.sku)).filter(Boolean);
-          const updatedSnapshots = validRows.map(r => r.product);
+          const previousSnapshots = successfulRows
+            .map(r => products.find(p => p.id === r.sku))
+            .filter(Boolean);
+          const updatedSnapshots = successfulRows.map(r => r.product);
 
           await logAdminActivity(
             'product_bulk_update',
