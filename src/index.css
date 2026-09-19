@@ -34,7 +34,8 @@
 
 @layer base {
   html { background: var(--bg-primary); color: var(--text-main); }
-  body { background: var(--bg-primary); color: var(--text-main); font-family: 'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow-x: hidden; }
+  body { background: var(--bg-primary); color: var(--text-main); font-family: 'Plus Jakarta Sans', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow-x: hidden; }
+  h1,h2,h3,h4,h5,h6 { font-family: 'Playfair Display', 'Tajawal', Georgia, serif; }
   input,select,textarea { color: var(--text-main); background: var(--bg-surface); }
   input::placeholder,textarea::placeholder { color: var(--text-muted); opacity: 1; }
   option { color: var(--text-main); background: var(--bg-surface); }
@@ -83,5 +84,52 @@
 .animate-bounce-short { animation:bounceShort .42s cubic-bezier(.16,1,.3,1) forwards; }
 .font-arabic,[dir="rtl"] { font-family:'Cairo','Tajawal','Plus Jakarta Sans',-apple-system,sans-serif; line-height:1.7; }
 
+/* Yalla typography hierarchy */
+.text-display { font-family:'Playfair Display','Tajawal',Georgia,serif; }
+.text-body-ui { font-family:'Plus Jakarta Sans','Cairo',sans-serif; }
+.form-label { font-size:11px; line-height:1rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.micro-label { font-size:8px; line-height:.75rem; }
+.secondary-currency { font-size:10px; line-height:.875rem; color:var(--text-muted); }
+
+/* Layout and interaction tokens */
+.storefront-container { width:100%; max-width:1536px; margin-inline:auto; padding-inline:1rem; }
+.hero-stage-container { width:100%; max-width:1100px; margin-inline:auto; }
+.content-hub-container { width:100%; max-width:1280px; margin-inline:auto; }
+.quick-view-container { width:100%; max-width:672px; }
+.security-dialog-container { width:100%; max-width:448px; }
+.order-success-container { width:100%; max-width:576px; }
+.admin-sidebar-width { width:18rem; }
+
+.hero-carousel-height { height:200px; }
+.product-media-square { aspect-ratio:1 / 1; object-fit:cover; }
+.product-media-square img { transition:transform .3s cubic-bezier(.16,1,.3,1); }
+.product-media-square:hover img { transform:scale(1.05); }
+.detail-media-stage { min-height:360px; }
+.gallery-thumbnail { width:64px; height:64px; flex:0 0 64px; }
+.cart-thumbnail { width:48px; height:48px; flex:0 0 48px; border:1px solid var(--border-color); border-radius:8px; }
+.navbar-height { min-height:64px; }
+.search-bar-height { height:40px; }
+.touch-target { min-width:40px; min-height:40px; }
+.touch-target-lg { min-width:44px; min-height:44px; }
+
+@media (min-width:640px) {
+  .hero-carousel-height { height:260px; }
+}
+@media (min-width:1024px) {
+  .hero-carousel-height { height:400px; }
+}
+@media (min-width:1280px) {
+  .hero-carousel-height { height:420px; }
+}
+
+@media (max-width:767px) {
+  input:not([type="checkbox"]):not([type="radio"]),select,textarea { font-size:max(16px,1em); }
+}
+@media (min-width:640px) {
+  .storefront-container { padding-inline:1.5rem; }
+}
+@media (min-width:1024px) {
+  .storefront-container { padding-inline:2rem; }
+}
+
 @media (prefers-reduced-motion:reduce) { * { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
-@media (max-width:767px) { input:not([type="checkbox"]):not([type="radio"]),select,textarea { font-size:max(16px,1em); } }
