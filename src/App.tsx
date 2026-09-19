@@ -292,14 +292,16 @@ const MainAppContent: React.FC = () => {
             </div>
           </section>
         ) : (
-        {activeTab === 'home' && <HomeView />}
-        {activeTab === 'products' && <ProductsView />}
-        {activeTab === 'product_detail' && <ProductDetailView />}
-        {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><CheckoutView /></Suspense>}
-        {activeTab === 'account' && <AccountViewController />}
-        {activeTab === 'favorites' && <FavoritesView />}
-        {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><SellerLoginView /></Suspense>}
-        {activeTab === 'admin' && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
+          <>
+            {activeTab === 'home' && <HomeView />}
+            {activeTab === 'products' && <ProductsView />}
+            {activeTab === 'product_detail' && <ProductDetailView />}
+            {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><CheckoutView /></Suspense>}
+            {activeTab === 'account' && <AccountViewController />}
+            {activeTab === 'favorites' && <FavoritesView />}
+            {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><SellerLoginView /></Suspense>}
+            {activeTab === 'admin' && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
+          </>
         )}
       </main>
       <ProductModal />
