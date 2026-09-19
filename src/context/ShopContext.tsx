@@ -86,6 +86,7 @@ import {
 
 import { CheckoutError } from '../services/supabaseOrderService';
 import { supabaseAdminService } from '../services/supabaseAdminService';
+import { supabaseProductPatchService } from '../services/supabaseProductPatchService';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
 
 import {
@@ -4467,7 +4468,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // upsertProduct drops undefined keys, and leaves product_private and
     // product_images alone unless those fields were supplied.
     try {
-      await supabaseCatalogService.upsertProduct({ ...updates, id });
+      await supabaseProductPatchService.patchProduct(id, updates);
     } catch (supaErr: any) {
       if (existing) {
         setProducts(prev => {
