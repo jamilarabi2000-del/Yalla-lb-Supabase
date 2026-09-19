@@ -473,7 +473,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     id: p.id, seller_item_code: p.sellerItemCode || '', name_en: p.name, name_ar: p.arabicName || '', seller: p.seller || p.artisan || '', category: categoryLabel(p), price_usd: p.priceUSD || 0, stock: p.stock || 0, status: p.isPublished === false ? 'Draft' : 'Published', image: p.image || ''
   })), `yalla_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
 
-  const downloadMaster = () => downloadFullMasterReport(products, sellers, orders, 'yalla_full_master_report');
+  const downloadMaster = () => downloadFullMasterReport(products, sellers, orders, 'yalla_full_master_report', shop.lbpRate);
 
   const handleBulkUpload = (file?: File) => {
     if (!file) return;
