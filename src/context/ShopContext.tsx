@@ -1742,16 +1742,37 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const reorderCategories = async (newOrder: CategoryItem[]) => {
     const normalized = newOrder.map((cat, idx) => ({ ...cat, displayOrder: idx + 1 }));
+    const previous = [...categories];
+
     setCategories(normalized);
 
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('yallalb_categories_cache', JSON.stringify(normalized));
+      // Persist every display_order change to Supabase before treating the
+      // reorder as successful. If any write is rejected, restore the previous
+      // in-memory order and let the caller surface the error.
+      for (const category of normalized) {
+        await supabaseCatalogService.upsertCategory({
+          id: category.id,
+          displayOrder: category.displayOrder,
+        });
       }
-    } catch {}
 
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('yallalb_categories_cache', JSON.stringify(normalized));
+        }
+      } catch {}
 
-    await logAdminActivity('category_update', 'Categories reordered', `Admin reordered ${newOrder.length} categories.`);
+      await logAdminActivity(
+        'category_update',
+        'Categories reordered',
+        `Admin reordered ${newOrder.length} categories.`
+      );
+    } catch (err: any) {
+      setCategories(previous);
+      showToast(`Could not save category order: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
   };
 
   const reorderProducts = async (orderedProducts: Product[]) => {
