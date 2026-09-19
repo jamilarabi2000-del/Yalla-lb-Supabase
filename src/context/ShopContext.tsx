@@ -275,10 +275,29 @@ const getInitialCategory = (): string => {
  * Supabase remains the authoritative source.
  */
 const CATALOG_CACHE_KEYS = {
-  products: 'yallalb_products_v2',
-  categories: 'yallalb_categories_v2',
-  sellers: 'yallalb_sellers_v2'
+  products: 'yallalb_products_v3',
+  categories: 'yallalb_categories_v3',
+  sellers: 'yallalb_sellers_v3'
 } as const;
+
+/**
+ * Keys retired by the privileged-cache fix below. A build before it wrote
+ * administrator and seller catalogue rows -- cost prices included -- into the
+ * v2 keys, where they outlived the session. Bumping the key abandons those
+ * caches; PURGE_ON_LOAD deletes them outright so the data does not simply sit
+ * there unread.
+ */
+const RETIRED_CATALOG_CACHE_KEYS = [
+  'yallalb_products_v2',
+  'yallalb_categories_v2',
+  'yallalb_sellers_v2'
+] as const;
+
+if (typeof window !== 'undefined') {
+  try {
+    RETIRED_CATALOG_CACHE_KEYS.forEach(key => window.localStorage.removeItem(key));
+  } catch {}
+}
 
 
 /**
@@ -428,6 +447,8 @@ interface ShopContextType {
   ) => number;
   currencySymbol: string;
   currencyRate: number;
+  /** Live USD -> LBP rate from app_settings; falls back to LBP_USD_RATE. */
+  lbpRate: number;
 
   // Cart
   cart: CartItem[];
@@ -832,6 +853,33 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   /**
+   * Writes a catalogue list to localStorage -- but never a privileged one.
+   *
+   * fetchProducts() selects ADMIN_PRODUCT_COLUMNS for an administrator or
+   * seller, which carries cost_price_usd, seller_item_code,
+   * low_stock_threshold and custom_stock_label, and returns unpublished and
+   * draft rows. localStorage is per-origin, not per-session: it survives sign
+   * out, so caching that projection left cost prices and unpublished products
+   * on the device for whoever opened the browser next, and the useState
+   * initializer above seeds straight from it before any fetch or auth check
+   * runs.
+   *
+   * So a privileged session caches nothing and clears what is there. The
+   * in-memory list is untouched -- the console still has every column it
+   * needs; only the copy that outlives the session goes away.
+   */
+  const writeCatalogCache = (key: string, value: unknown) => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (isAdminUser || isSellerUser) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  };
+
+  /**
    * Whether the catalogue on screen has been confirmed against Supabase.
    *
    * 'loading' until the first read settles, so the storefront can say "loading"
@@ -1113,7 +1161,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const restoredProduct = act.snapshotBefore as Product;
         setProducts(prev => prev.map(p => p.id === act.targetId ? { ...restoredProduct } : p));
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products.map(p => p.id === act.targetId ? { ...restoredProduct } : p)));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (products.map(p => p.id === act.targetId ? { ...restoredProduct } : p)));
         } catch {}
       } else if (act.actionType === 'product_add' && act.targetId) {
         setProducts(prev => prev.filter(p => p.id !== act.targetId));
@@ -1219,48 +1267,23 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Product Bundles & Combo Deals State
-  const [productBundles, setProductBundles] = useState<ProductBundle[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_product_bundles');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'bundle-gourmet-breakfast',
-        name: 'Lebanese Gourmet Breakfast Bundle',
-        nameAr: 'باقة الفطور اللبناني الفاخر',
-        description: 'Authentic Koura Extra Virgin Olive Oil, Chouf Zaatar Herb Mix, and Raw Mountain Honey packaged together.',
-        descriptionAr: 'زيت زيتون كورة بكر ممتاز، خلطة زعتر الشوف، وعسل جبلي بري نقي.',
-        badgeText: 'COMBO DEAL - SAVE 20%',
-        badgeTextAr: 'صفقة كومبو - خصم ٢٠٪',
-        productIds: ['prod-2', 'prod-12', 'prod-15'],
-        bundlePriceUSD: 34.38,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'bundle-coffee-ritual-set',
-        name: 'Artisan Morning Coffee Ritual Set',
-        nameAr: 'طقم طقوس القهوة الصباحية الحرفي',
-        description: 'Handmade Ceramic Pour-Over Dripper with Server and freshly roasted Lebanese Cardamom Coffee.',
-        descriptionAr: 'طقم تحضير القهوة السيراميكي اليدوي مع قهوة لبنانية محمصة بالهيل.',
-        badgeText: 'ARTISAN COFFEE COMBO',
-        badgeTextAr: 'كومبو القهوة الحرفية',
-        productIds: ['prod-4', 'prod-16'],
-        bundlePriceUSD: 64.79,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      }
-    ];
-  });
-
-  const hasSeededBundlesRef = useRef(false);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('yallalb_product_bundles', JSON.stringify(productBundles));
-    } catch {}
-  }, [productBundles]);
+  /**
+   * Combo deals, from public.product_bundles.
+   *
+   * Starts empty and is filled by the fetch below -- never from a bundled
+   * demo list. Two hardcoded bundles used to seed this state and an effect
+   * wrote them straight to localStorage, so every visitor was shown combo
+   * deals that did not exist, priced against product ids ('prod-2', ...) that
+   * cannot match anything: product_bundles.product_ids is uuid[], so those
+   * rows could never have been stored in the first place. An empty database
+   * must show an empty storefront, not a fake one.
+   *
+   * Nothing is cached to localStorage either. An administrator reads
+   * unpublished bundles through bundles_admin, and localStorage is
+   * per-origin, not per-session -- caching that list would leave drafts on
+   * the device after sign out, exactly as the catalogue cache did.
+   */
+  const [productBundles, setProductBundles] = useState<ProductBundle[]>([]);
 
   useEffect(() => {
     /**
@@ -1338,7 +1361,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(categories));
+      writeCatalogCache(CATALOG_CACHE_KEYS.categories, (categories));
     } catch {}
   }, [categories]);
 
@@ -1512,7 +1535,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCatalogStatus('ready');
         setCatalogError(null);
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(normalized));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (normalized));
         } catch {}
       } catch (err) {
         if (!isMounted) return;
@@ -1570,7 +1593,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isMounted) return;
         setCategories(fresh); // empty is a real answer and is applied
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(fresh));
+          writeCatalogCache(CATALOG_CACHE_KEYS.categories, (fresh));
         } catch {}
       } catch (err) {
         if (!isMounted) return;
@@ -1814,7 +1837,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(updatedProducts));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (updatedProducts));
         }
       } catch {}
 
@@ -1874,7 +1897,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(sellers));
+      writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (sellers));
     } catch {}
   }, [sellers]);
 
@@ -1897,7 +1920,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const fresh = await supabaseCatalogService.fetchSellers();
       setSellers(fresh.map((seller, idx) => ensureSellerCode(seller, idx)));
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(fresh));
+        writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (fresh));
       } catch {}
     } catch (err) {
       console.error('[ShopContext] Seller refresh failed:', err);
@@ -2509,7 +2532,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Local storage persistence
   useEffect(() => {
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products));
+      writeCatalogCache(CATALOG_CACHE_KEYS.products, (products));
     } catch {}
   }, [products]);
 
@@ -2594,7 +2617,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCatalogStatus('ready');
         setCatalogError(null);
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(fresh));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (fresh));
         } catch {}
       } catch (err) {
         if (!isMounted) return;
