@@ -2137,6 +2137,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ? String(addlVideosRaw ?? '').split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
               : undefined;
 
+            const description = String(row.description_en ?? row.description ?? '').trim();
+            const craftStory = String(row.description_ar ?? row.craftstory ?? row.arabic_description ?? '').trim();
             const nowIso = new Date().toISOString();
             const product: Product = {
               id: sku,
@@ -2152,7 +2154,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               priceUSD,
               originalPriceUSD: row.original_price_usd !== undefined ? parsePrice(row.original_price_usd) : undefined,
               stock: Math.floor(stock),
-              ...(mainImage !== undefined ? { image: mainImage } : {}),
+              image: mainImage ?? '',
               ...(hasAdditionalImagesColumn ? { additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : [] } : {}),
               ...(videoUrl !== undefined ? { videoUrl } : {}),
               ...(hasAdditionalVideosColumn ? { additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : [] } : {}),
@@ -5053,6 +5055,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const lbpRate = LBP_USD_RATE;
+
   const providerValue = useMemo(() => ({
     activeTab,
     setActiveTab,
@@ -5191,7 +5195,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateSeller,
     toggleSellerActive,
     deleteSeller,
-    bulkImportProducts
+    bulkImportProducts,
+    lbpRate
   }), [
     activeTab,
     selectedProductDetail,
@@ -5241,7 +5246,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addBundleToCart,
     categories,
     regions,
-    sellers
+    sellers,
+    lbpRate
   ]);
 
   return (

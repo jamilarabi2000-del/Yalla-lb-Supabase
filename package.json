@@ -42,7 +42,6 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
-    "vitest": "^4.1.11",
-    "@vitejs/plugin-react": "^5.0.4"
+    "vitest": "^4.1.11"
   }
 }
