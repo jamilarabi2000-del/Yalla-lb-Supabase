@@ -547,7 +547,6 @@ export const CheckoutView: React.FC = () => {
         defaultCity: formData.city,
         defaultAddress: formData.street,
         defaultBuilding: formData.building,
-        defaultFloorApartment: formData.floorApartment,
         defaultNotes: formData.notes
       }).catch(() => {});
       try {
