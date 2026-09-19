@@ -448,7 +448,16 @@ export const supabaseOrderService = {
     const payload: Record<string, unknown> = { status };
     if (adminNotes !== undefined) payload.admin_notes = adminNotes;
 
-    const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
+    // A write RLS filters succeeds with zero rows, so ask for the row back:
+    // an unverified administrator must not see a status change 'succeed'.
+    const { data: updated, error } = await supabase
+      .from('orders')
+      .update(payload)
+      .eq('id', orderId)
+      .select('id');
+    if (!error && (!updated || updated.length === 0)) {
+      throw new Error(`[orders] updateOrder: order ${orderId} was not updated. Your session may not be verified for administrator changes.`);
+    }
     if (error) {
       console.error('[orders] updateOrderStatus failed:', error);
       throw error;

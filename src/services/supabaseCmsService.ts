@@ -87,8 +87,15 @@ export const supabaseCmsService = {
     });
     if (versionError) throw versionError;
 
-    const { error } = await supabase.from('cms_site_content').upsert({ id: 'main', content, published: true, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    // A write that RLS filters is not an error to PostgREST: it succeeds
+    // with zero rows. Ask for the row back so an unverified administrator
+    // session fails loudly instead of appearing to save.
+    const { data: saved, error } = await supabase
+      .from('cms_site_content')
+      .upsert({ id: 'main', content, published: true, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+      .select('id');
     if (error) throw error;
+    if (!saved?.length) throw new Error('Site content was not saved. Your administrator session may not be verified.');
   },
 
   async restoreSiteContent(content: SiteContent): Promise<void> {
@@ -112,14 +119,21 @@ export const supabaseCmsService = {
       if (snapshotError) throw snapshotError;
     }
 
-    const { error } = await supabase.from('cms_site_content').upsert({
+    // A write that RLS filters is not an error to PostgREST: it succeeds
+    // with zero rows. Ask for the row back so an unverified administrator
+    // session fails loudly instead of appearing to save.
+    const { data: saved, error } = await supabase
+      .from('cms_site_content')
+      .upsert({
       id: 'main',
       content,
       published: true,
       updated_by: userId,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'id' });
+    }, { onConflict: 'id' })
+      .select('id');
     if (error) throw error;
+    if (!saved?.length) throw new Error('Site content was not saved. Your administrator session may not be verified.');
   },
 
   async upsertCustomBlock(block: Partial<CmsBlockRecord> & { id: string }): Promise<CMSCustomBlock> {
@@ -148,7 +162,14 @@ export const supabaseCmsService = {
   },
 
   async deleteCustomBlock(id: string): Promise<void> {
-    const { error } = await supabase.from('cms_custom_blocks').delete().eq('id', id);
+    const { data: removed, error } = await supabase
+      .from('cms_custom_blocks')
+      .delete()
+      .eq('id', id)
+      .select('id');
     if (error) throw error;
+    if (!removed?.length) {
+      throw new Error('The block was not deleted. Your administrator session may not be verified.');
+    }
   },
 };

@@ -75,6 +75,14 @@ export async function getOrderTimeline(orderId: string) {
 }
 
 export async function saveProductSeo(productId: string, values: Record<string, unknown>) {
-  const { error } = await supabase.from('product_seo').upsert({ product_id: productId, ...values, updated_at: new Date().toISOString() });
+  // A write RLS filters succeeds with zero rows; ask for the row back so an
+  // unverified administrator session fails loudly instead of appearing to save.
+  const { data, error } = await supabase
+    .from('product_seo')
+    .upsert({ product_id: productId, ...values, updated_at: new Date().toISOString() })
+    .select('product_id');
   if (error) throw error;
+  if (!data?.length) {
+    throw new Error('SEO settings were not saved. Your administrator session may not be verified.');
+  }
 }

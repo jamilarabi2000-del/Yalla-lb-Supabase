@@ -278,3 +278,63 @@ describe('Administrator verification is bound to the session, not the user', () 
     expect(enforce).toContain('VERIFIED_ADMIN_GATE_NOT_APPLIED');
   });
 });
+
+describe('Admin writes fail loudly when RLS filters them', () => {
+  // PostgREST does not treat a policy-filtered write as an error: it returns
+  // success with zero rows. Now that restrictive policies gate admin writes on
+  // a verified session, any admin write without .select() would let an
+  // unverified administrator watch a change "succeed" and silently vanish.
+  const ADMIN_TABLES = [
+    'orders', 'regions', 'products', 'categories', 'coupons', 'discount_rules',
+    'sellers', 'cms_site_content', 'cms_custom_blocks', 'product_seo',
+    'app_settings', 'permissions', 'role_permissions', 'user_permissions',
+  ].join('|');
+
+  const sources = [
+    'src/services/supabaseOrderService.ts',
+    'src/services/supabaseCatalogService.ts',
+    'src/services/supabaseCmsService.ts',
+    'src/services/platformService.ts',
+    'src/context/ShopContext.tsx',
+  ];
+
+  it('no admin-table mutation requests rows and then discards them', () => {
+    // Weaker than it looks if you only assert `.select(` is present: the call
+    // can still destructure `{ error }` alone and throw the rows away, which
+    // restores the exact silent-success bug. Assert `data:` is bound too.
+    const discarded: string[] = [];
+    for (const file of sources) {
+      const body = fs.readFileSync(path.resolve(process.cwd(), file), 'utf-8');
+      const blocks = body.match(
+        /const \{\n[\s\S]{0,120}?\} = await supabase\n[\s\S]*?\.select\('id'\);/g) ?? [];
+      for (const block of blocks) {
+        if (/\.from\(\s*'product_images'/.test(block)) continue; // may legitimately affect 0 rows
+        const head = block.slice(0, block.indexOf('} = await supabase'));
+        if (!head.includes('data:')) discarded.push(`${file}: ${block.slice(0, 80)}`);
+      }
+    }
+    expect(discarded).toEqual([]);
+  });
+
+  it('every admin-table mutation asks for the affected rows back', () => {
+    const pattern = new RegExp(
+      `\\.from\\('(?:${ADMIN_TABLES})'\\)[\\s\\S]{0,260}?\\.(?:delete|update|upsert)\\([\\s\\S]{0,260}?;`,
+      'g');
+
+    const offenders: string[] = [];
+    for (const file of sources) {
+      const body = fs.readFileSync(path.resolve(process.cwd(), file), 'utf-8');
+      for (const call of body.match(pattern) ?? []) {
+        if (!call.includes('.select(')) offenders.push(`${file}: ${call.slice(0, 90)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('deleting a product reports failure rather than a phantom success', () => {
+    const catalog = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/services/supabaseCatalogService.ts'), 'utf-8');
+    expect(catalog).toContain('deletedRows');
+    expect(catalog).toContain('The product was not deleted');
+  });
+});

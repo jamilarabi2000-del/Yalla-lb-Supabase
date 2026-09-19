@@ -1373,6 +1373,7 @@ export const supabaseCatalogService = {
       });
 
     const {
+      data: productRows,
       error: productError,
     } = await supabase
       .from('products')
@@ -1382,7 +1383,8 @@ export const supabaseCatalogService = {
           onConflict:
             'id',
         },
-      );
+      )
+      .select('id');
 
     if (productError) {
       console.error(
@@ -1391,6 +1393,12 @@ export const supabaseCatalogService = {
       );
 
       throw productError;
+    }
+
+    if (!productRows?.length) {
+      throw new Error(
+        'The product was not saved. Your administrator session may not be verified.',
+      );
     }
 
     /**
@@ -1509,8 +1517,16 @@ export const supabaseCatalogService = {
 
     /**
      * Finally remove the main product.
+     *
+     * `.select()` is not cosmetic here. A DELETE that RLS filters out is not an
+     * error to PostgREST — it succeeds and reports zero rows. Without asking
+     * for the deleted rows back, an administrator whose session is not
+     * second-factor verified, or a seller (who has no DELETE policy on
+     * products at all), would see the row vanish from the UI while it remained
+     * in the database, reappearing on the next refresh.
      */
     const {
+      data: deletedRows,
       error: productError,
     } = await supabase
       .from('products')
@@ -1518,7 +1534,8 @@ export const supabaseCatalogService = {
       .eq(
         'id',
         productId,
-      );
+      )
+      .select('id');
 
     if (productError) {
       console.error(
@@ -1527,6 +1544,13 @@ export const supabaseCatalogService = {
       );
 
       throw productError;
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+      throw new Error(
+        'The product was not deleted. Your session may not be verified for ' +
+          'administrator changes, or the product belongs to another workshop.',
+      );
     }
   },
 
@@ -1597,7 +1621,8 @@ export const supabaseCatalogService = {
       });
 
     const {
-      error,
+      data: categoriesRows,
+      error: error,
     } = await supabase
       .from('categories')
       .upsert(
@@ -1606,7 +1631,8 @@ export const supabaseCatalogService = {
           onConflict:
             'id',
         },
-      );
+      )
+      .select('id');
 
     if (error) {
       console.error(
@@ -1615,6 +1641,12 @@ export const supabaseCatalogService = {
       );
 
       throw error;
+    }
+
+    if (!categoriesRows?.length) {
+      throw new Error(
+        'The category was not saved. Your administrator session may not be verified.',
+      );
     }
   },
 
@@ -1631,14 +1663,16 @@ export const supabaseCatalogService = {
     }
 
     const {
-      error,
+      data: categoriesRows,
+      error: error,
     } = await supabase
       .from('categories')
       .delete()
       .eq(
         'id',
         id,
-      );
+      )
+      .select('id');
 
     if (error) {
       console.error(
@@ -1647,6 +1681,12 @@ export const supabaseCatalogService = {
       );
 
       throw error;
+    }
+
+    if (!categoriesRows?.length) {
+      throw new Error(
+        'The category was not deleted. Your administrator session may not be verified.',
+      );
     }
   },
 
@@ -1663,14 +1703,14 @@ export const supabaseCatalogService = {
       estimated_time_en: region.estimatedTimeEn,
       estimated_time_ar: region.estimatedTimeAr,
     });
-    const { error } = await supabase.from('regions').upsert(payload, { onConflict: 'id' });
+    const { error } = await supabase.from('regions').upsert(payload, { onConflict: 'id' }).select('id');
     if (error) throw error;
   },
 
   /** Delete a delivery region. */
   async deleteRegion(id: string): Promise<void> {
     if (!id) throw new Error('Region ID is required.');
-    const { error } = await supabase.from('regions').delete().eq('id', id);
+    const { error } = await supabase.from('regions').delete().eq('id', id).select('id');
     if (error) throw error;
   },
 
@@ -1763,7 +1803,8 @@ export const supabaseCatalogService = {
       });
 
     const {
-      error,
+      data: sellersRows,
+      error: error,
     } = await supabase
       .from('sellers')
       .upsert(
@@ -1772,7 +1813,8 @@ export const supabaseCatalogService = {
           onConflict:
             'id',
         },
-      );
+      )
+      .select('id');
 
     if (error) {
       console.error(
@@ -1781,6 +1823,12 @@ export const supabaseCatalogService = {
       );
 
       throw error;
+    }
+
+    if (!sellersRows?.length) {
+      throw new Error(
+        'The seller was not saved. Your administrator session may not be verified.',
+      );
     }
   },
 
@@ -1797,14 +1845,16 @@ export const supabaseCatalogService = {
     }
 
     const {
-      error,
+      data: sellersRows,
+      error: error,
     } = await supabase
       .from('sellers')
       .delete()
       .eq(
         'id',
         id,
-      );
+      )
+      .select('id');
 
     if (error) {
       console.error(
@@ -1813,6 +1863,12 @@ export const supabaseCatalogService = {
       );
 
       throw error;
+    }
+
+    if (!sellersRows?.length) {
+      throw new Error(
+        'The seller was not deleted. Your administrator session may not be verified.',
+      );
     }
   },
 };
