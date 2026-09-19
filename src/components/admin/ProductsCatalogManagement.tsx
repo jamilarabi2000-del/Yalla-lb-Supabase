@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import { useShop } from '../../context/ShopContext';
 import { downloadFullMasterReport } from '../../utils/exportMasterReport';
 import { checkDuplicateProductNumber } from '../../lib/productValidation';
+import { validateExternalImageUrl } from '../../lib/imageUrlValidation';
 import { supabaseProductService } from '../../services/supabaseProductService';
 import { supabase } from '../../lib/supabase';
 import type { Product } from '../../types';
@@ -184,8 +185,10 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!String(form.seller || '').trim()) errors.seller = 'Seller Name (English) is required.';
     if (!String(form.sellerItemCode || '').trim()) errors.sellerItemCode = 'Seller Product Code is required.';
     if (!editing?.id && !String(form.yallaItemCode || '').trim()) errors.yallaItemCode = 'Yalla Item Code could not be generated. Close and reopen the form.';
-    if (!String(form.image || '').trim()) errors.image = 'Primary Image URL is required.';
-    if (String(form.image || '').trim() && imageLooksLikeWebPage(String(form.image || ''))) errors.image = 'Use a direct image URL, not an .html webpage.';
+    const imageValidation = validateExternalImageUrl(String(form.image || ''), true);
+    if (!imageValidation.valid) errors.image = imageValidation.error || 'Enter a valid HTTPS image URL.';
+    const invalidAdditionalImage = (form.additionalImages || []).find((url: string) => !validateExternalImageUrl(url).valid);
+    if (invalidAdditionalImage) errors.image = 'All additional image URLs must be valid HTTPS image URLs.';
     if (form.promotionScheduleEnabled) {
       const now = new Date();
       const startAt = form.promotionStartAt ? new Date(form.promotionStartAt) : null;
@@ -514,6 +517,10 @@ export const ProductsCatalogManagement: React.FC = () => {
   const addMediaUrl = (key: 'additionalImages' | 'videos', value: string) => {
     const url = value.trim();
     if (!url) return;
+    if (key === 'additionalImages') {
+      const validation = validateExternalImageUrl(url);
+      if (!validation.valid) { showToast(validation.error || 'Enter a valid HTTPS image URL.', 'error'); return; }
+    }
     setForm((v: any) => ({ ...v, [key]: [...(v[key] || []), url] }));
   };
   const removeMediaUrl = (key: 'additionalImages' | 'videos', index: number) => setForm((v: any) => ({ ...v, [key]: (v[key] || []).filter((_: string, i: number) => i !== index) }));
@@ -526,7 +533,6 @@ export const ProductsCatalogManagement: React.FC = () => {
     regularPrice > 0 && discount >= 0 && discount <= 100
       ? Math.round((regularPrice * (1 - discount / 100)) * 100) / 100
       : 0;
-  const imageLooksLikeWebPage = (url: string) => /\.html?(?:[?#]|$)/i.test(url.trim());
   const normalizeSeller = (seller: any) => seller ? { nameEn: seller.nameEn || '', nameAr: seller.nameAr || '', region: seller.region || seller.district || seller.governorate || 'Lebanon' } : null;
 
   const Modal = () => {
@@ -656,7 +662,7 @@ export const ProductsCatalogManagement: React.FC = () => {
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-black">7</span><div><h4 className="font-black">Packaging &amp; Specifications</h4><p className="text-[11px] text-slate-500">Use tags for storefront filters and search chips.</p></div></div><label className="text-xs font-black text-slate-600">Search &amp; Filter Tags<textarea rows={2} value={form.tagsInput || ''} onChange={e=>setField('tagsInput',e.target.value)} placeholder="Artisanal, Mouneh, Cold Pressed, Organic, Vegan, Cedar Terroir" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label></section>
 
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-black">8</span><div><h4 className="font-black">Multi-Asset Media Gallery</h4><p className="text-[11px] text-slate-500">Add product photos and YouTube, Vimeo or direct MP4 videos.</p></div></div>
-            <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5"><div><label id="product-field-image" className="text-xs font-black text-slate-600">Primary Image URL *<RequiredBadge field="image"/><input value={form.image || ''} onChange={e=>{setField('image',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,image:''}));}} placeholder="https://…" className={fieldClass('image')}/></label>{form.image && <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-2"><img src={form.image} alt="Primary product preview" className="w-full h-48 object-contain rounded-xl" onError={e=>{(e.currentTarget as HTMLImageElement).style.display='none';}}/>{imageLooksLikeWebPage(form.image) && <p className="text-[10px] text-rose-600 font-bold mt-2">This looks like an .html webpage URL, not a direct image file. Use a direct image URL.</p>}</div>}
+            <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5"><div><label id="product-field-image" className="text-xs font-black text-slate-600">Primary Image URL *<RequiredBadge field="image"/><input value={form.image || ''} onChange={e=>{setField('image',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,image:''}));}} placeholder="https://…" className={fieldClass('image')}/></label>{form.image && <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 p-2"><img src={form.image} alt="Primary product preview" className="w-full h-48 object-contain rounded-xl" onError={e=>{(e.currentTarget as HTMLImageElement).style.display='none';}}/></div>}
               <div className="mt-3 flex gap-2"><input ref={addImageRef} value={imageDraft} onChange={e=>setImageDraft(e.target.value)} placeholder="Additional image URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('additionalImages',imageDraft);setImageDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Photo</button></div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">{(form.additionalImages || []).map((url:string,i:number)=><div key={url+i} className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-50"><img src={url} alt={`Gallery ${i+1}`} className="w-full h-24 object-contain"/><button type="button" onClick={()=>removeMediaUrl('additionalImages',i)} className="absolute top-1 right-1 p-1 rounded-full bg-white shadow text-rose-600"><X className="w-3 h-3"/></button></div>)}</div></div>
               <div><label className="text-xs font-black text-slate-600">Product Video Integration<input value={form.videoUrl || ''} onChange={e=>setField('videoUrl',e.target.value)} placeholder="https://youtube.com/... / Vimeo / .mp4" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label><div className="mt-3 flex gap-2"><input ref={addVideoRef} value={videoDraft} onChange={e=>setVideoDraft(e.target.value)} placeholder="Additional video URL" className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs"/><button type="button" onClick={()=>{addMediaUrl('videos',videoDraft);setVideoDraft('');}} className="px-3 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-black">Add Video</button></div><div className="mt-3 space-y-2">{(form.videos || []).map((url:string,i:number)=><div key={url+i} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs"><span className="px-2 py-1 rounded-full bg-slate-100 font-black">VIDEO {i+1}</span><span className="truncate flex-1">{url}</span><button type="button" onClick={()=>removeMediaUrl('videos',i)} className="text-rose-600"><X className="w-4 h-4"/></button></div>)}</div></div></div>

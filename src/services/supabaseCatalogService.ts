@@ -1558,96 +1558,29 @@ export const supabaseCatalogService = {
    * Create or update a category.
    */
   async upsertCategory(
-    category: Partial<CategoryItem> & {
-      id: string;
-    },
+    category: Partial<CategoryItem> & { id: string },
   ): Promise<void> {
-    if (!category.id) {
-      throw new Error(
-        'Category ID is required.',
-      );
-    }
+    if (!category.id) throw new Error('Category ID is required.');
 
-    const payload =
-      removeUndefined({
-        id:
-          category.id,
+    const payload = removeUndefined({
+      id: category.id,
+      ...(Object.prototype.hasOwnProperty.call(category, 'nameEn') ? { name_en: category.nameEn } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'nameAr') ? { name_ar: category.nameAr } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'icon') ? { icon: category.icon } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'description') ? { description: category.description } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'descriptionAr') ? { description_ar: category.descriptionAr } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'subcategories') ? { subcategories: category.subcategories } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'bannerUrl') ? { banner_url: category.bannerUrl } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'arabicKeywords') ? { arabic_keywords: category.arabicKeywords } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'englishKeywords') ? { english_keywords: category.englishKeywords } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'isPublished') ? { is_published: category.isPublished } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'displayOrder') ? { display_order: category.displayOrder } : {}),
+      updated_at: new Date().toISOString(),
+    });
 
-        name_en:
-          category.nameEn ??
-          '',
-
-        name_ar:
-          category.nameAr ??
-          '',
-
-        icon:
-          category.icon ??
-          '',
-
-        description:
-          category.description ??
-          '',
-
-        description_ar:
-          category.descriptionAr,
-
-        subcategories:
-          category.subcategories ??
-          [],
-
-        banner_url:
-          category.bannerUrl ??
-          '',
-
-        arabic_keywords:
-          category.arabicKeywords ??
-          [],
-
-        english_keywords:
-          category.englishKeywords ??
-          [],
-
-        is_published:
-          category.isPublished ??
-          true,
-
-        display_order:
-          category.displayOrder ??
-          0,
-
-        updated_at:
-          new Date().toISOString(),
-      });
-
-    const {
-      data: categoriesRows,
-      error: error,
-    } = await supabase
-      .from('categories')
-      .upsert(
-        payload,
-        {
-          onConflict:
-            'id',
-        },
-      )
-      .select('id');
-
-    if (error) {
-      console.error(
-        '[supabaseCatalogService] upsertCategory:',
-        error,
-      );
-
-      throw error;
-    }
-
-    if (!categoriesRows?.length) {
-      throw new Error(
-        'The category was not saved. Your administrator session may not be verified.',
-      );
-    }
+    const { data, error } = await supabase.from('categories').upsert(payload, { onConflict: 'id' }).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('The category was not saved. Your administrator session may not be verified.');
   },
 
   /**
@@ -1655,39 +1588,31 @@ export const supabaseCatalogService = {
    */
   async deleteCategory(
     id: string,
-  ): Promise<void> {
-    if (!id) {
-      throw new Error(
-        'Category ID is required.',
-      );
-    }
+    reassignCategoryId?: string,
+    deleteAttachedProducts?: boolean,
+  ): Promise<{ affectedProducts: number; reassignedProducts: number; deletedProducts: number }> {
+    if (!id) throw new Error('Category ID is required.');
 
-    const {
-      data: categoriesRows,
-      error: error,
-    } = await supabase
-      .from('categories')
-      .delete()
-      .eq(
-        'id',
-        id,
-      )
-      .select('id');
+    const { data, error } = await supabase.rpc('admin_delete_category', {
+      p_category_id: id,
+      p_reassign_category_id: reassignCategoryId || null,
+      p_delete_attached_products: deleteAttachedProducts === true,
+    });
 
     if (error) {
-      console.error(
-        '[supabaseCatalogService] deleteCategory:',
-        error,
-      );
-
+      console.error('[supabaseCatalogService] deleteCategory:', error);
       throw error;
     }
 
-    if (!categoriesRows?.length) {
-      throw new Error(
-        'The category was not deleted. Your administrator session may not be verified.',
-      );
+    if (!data) {
+      throw new Error('The category deletion did not return a result.');
     }
+
+    return {
+      affectedProducts: Number(data.affected_products ?? 0),
+      reassignedProducts: Number(data.reassigned_products ?? 0),
+      deletedProducts: Number(data.deleted_products ?? 0),
+    };
   },
 
   /** Create or update a delivery region. */
@@ -1695,180 +1620,80 @@ export const supabaseCatalogService = {
     if (!region.id) throw new Error('Region ID is required.');
     const payload = removeUndefined({
       id: region.id,
-      name_en: region.nameEn ?? '',
-      name_ar: region.nameAr ?? '',
-      major_cities: region.majorCities ?? [],
-      express_available: region.expressAvailable ?? false,
-      base_delivery_usd: region.baseDeliveryUSD ?? 0,
-      estimated_time_en: region.estimatedTimeEn,
-      estimated_time_ar: region.estimatedTimeAr,
+      ...(Object.prototype.hasOwnProperty.call(region, 'nameEn') ? { name_en: region.nameEn } : {}),
+      ...(Object.prototype.hasOwnProperty.call(region, 'nameAr') ? { name_ar: region.nameAr } : {}),
+      ...(Object.prototype.hasOwnProperty.call(region, 'majorCities') ? { major_cities: region.majorCities } : {}),
+      ...(Object.prototype.hasOwnProperty.call(region, 'expressAvailable') ? { express_available: region.expressAvailable } : {}),
+      ...(Object.prototype.hasOwnProperty.call(region, 'baseDeliveryUSD') ? { base_delivery_usd: region.baseDeliveryUSD } : {}),
+      ...(Object.prototype.hasOwnProperty.call(region, 'estimatedTimeEn') ? { estimated_time_en: region.estimatedTimeEn } : {}),
+      ...(Object.prototype.hasOwnProperty.call(region, 'estimatedTimeAr') ? { estimated_time_ar: region.estimatedTimeAr } : {}),
+      updated_at: new Date().toISOString(),
     });
-    const { error } = await supabase.from('regions').upsert(payload, { onConflict: 'id' }).select('id');
+    const { data, error } = await supabase.from('regions').upsert(payload, { onConflict: 'id' }).select('id');
     if (error) throw error;
+    if (!data?.length) throw new Error('The region was not saved. Your administrator session may not be verified.');
   },
 
   /** Delete a delivery region. */
   async deleteRegion(id: string): Promise<void> {
     if (!id) throw new Error('Region ID is required.');
-    const { error } = await supabase.from('regions').delete().eq('id', id).select('id');
+    const { data, error } = await supabase
+      .from('regions')
+      .delete()
+      .eq('id', id)
+      .select('id');
     if (error) throw error;
+    if (!data?.length) {
+      throw new Error('The region was not deleted. Your administrator session may not be verified.');
+    }
   },
-
   /**
    * Create or update a seller.
    *
    * Intended for authorized admin operations.
    */
-  async upsertSeller(
-    seller: Partial<Seller> & {
-      id: string;
-    },
-  ): Promise<void> {
-    if (!seller.id) {
-      throw new Error(
-        'Seller ID is required.',
-      );
-    }
-
-    const payload =
-      removeUndefined({
-        id:
-          seller.id,
-
-        seller_code:
-          seller.sellerCode,
-
-        name_en:
-          seller.nameEn ??
-          '',
-
-        name_ar:
-          seller.nameAr,
-
-        logo_url:
-          seller.logoUrl,
-
-        banner_image:
-          seller.bannerImage,
-
-        bio_en:
-          seller.bioEn,
-
-        bio_ar:
-          seller.bioAr,
-
-        governorate:
-          seller.governorate,
-
-        district:
-          seller.district,
-
-        village:
-          seller.village,
-
-        exact_address:
-          seller.exactAddress,
-
-        region:
-          seller.region,
-
-        contact_phone:
-          seller.contactPhone,
-
-        contact_email:
-          seller.contactEmail,
-
-        craft_category:
-          seller.craftCategory,
-
-        commission_pct:
-          seller.commissionPct,
-
-        is_active:
-          seller.isActive ??
-          true,
-
-        has_account:
-          seller.hasAccount ??
-          false,
-
-        account_email:
-          seller.accountEmail,
-
-        account_uid:
-          seller.accountUid,
-
-        updated_at:
-          new Date().toISOString(),
-      });
-
-    const {
-      data: sellersRows,
-      error: error,
-    } = await supabase
-      .from('sellers')
-      .upsert(
-        payload,
-        {
-          onConflict:
-            'id',
-        },
-      )
-      .select('id');
-
-    if (error) {
-      console.error(
-        '[supabaseCatalogService] upsertSeller:',
-        error,
-      );
-
-      throw error;
-    }
-
-    if (!sellersRows?.length) {
-      throw new Error(
-        'The seller was not saved. Your administrator session may not be verified.',
-      );
-    }
+  async upsertSeller(seller: Partial<Seller> & { id: string }): Promise<void> {
+    if (!seller.id) throw new Error('Seller ID is required.');
+    const has = (key: keyof Seller) => Object.prototype.hasOwnProperty.call(seller, key);
+    const payload = removeUndefined({
+      id: seller.id,
+      ...(has('sellerCode') ? { seller_code: seller.sellerCode } : {}),
+      ...(has('nameEn') ? { name_en: seller.nameEn } : {}),
+      ...(has('nameAr') ? { name_ar: seller.nameAr } : {}),
+      ...(has('logoUrl') ? { logo_url: seller.logoUrl } : {}),
+      ...(has('bannerImage') ? { banner_image: seller.bannerImage } : {}),
+      ...(has('bioEn') ? { bio_en: seller.bioEn } : {}),
+      ...(has('bioAr') ? { bio_ar: seller.bioAr } : {}),
+      ...(has('governorate') ? { governorate: seller.governorate } : {}),
+      ...(has('district') ? { district: seller.district } : {}),
+      ...(has('village') ? { village: seller.village } : {}),
+      ...(has('exactAddress') ? { exact_address: seller.exactAddress } : {}),
+      ...(has('region') ? { region: seller.region } : {}),
+      ...(has('contactPhone') ? { contact_phone: seller.contactPhone } : {}),
+      ...(has('contactEmail') ? { contact_email: seller.contactEmail } : {}),
+      ...(has('craftCategory') ? { craft_category: seller.craftCategory } : {}),
+      ...(has('commissionPct') ? { commission_pct: seller.commissionPct } : {}),
+      ...(has('isActive') ? { is_active: seller.isActive } : {}),
+      ...(has('hasAccount') ? { has_account: seller.hasAccount } : {}),
+      ...(has('accountEmail') ? { account_email: seller.accountEmail } : {}),
+      ...(has('accountUid') ? { account_uid: seller.accountUid } : {}),
+      updated_at: new Date().toISOString(),
+    });
+    const { data, error } = await supabase.from('sellers').upsert(payload, { onConflict: 'id' }).select('id');
+    if (error) throw error;
+    if (!data?.length) throw new Error('The seller was not saved. Your administrator session may not be verified.');
   },
 
   /**
    * Delete seller.
    */
-  async deleteSeller(
-    id: string,
-  ): Promise<void> {
-    if (!id) {
-      throw new Error(
-        'Seller ID is required.',
-      );
-    }
-
-    const {
-      data: sellersRows,
-      error: error,
-    } = await supabase
-      .from('sellers')
-      .delete()
-      .eq(
-        'id',
-        id,
-      )
-      .select('id');
-
-    if (error) {
-      console.error(
-        '[supabaseCatalogService] deleteSeller:',
-        error,
-      );
-
-      throw error;
-    }
-
-    if (!sellersRows?.length) {
-      throw new Error(
-        'The seller was not deleted. Your administrator session may not be verified.',
-      );
-    }
-  },
-};
+  async deleteSeller(id: string, reassignSellerId?: string): Promise<{ reassignedProducts: number }> {
+    if (!id) throw new Error('Seller ID is required.');
+    const { data, error } = await supabase.rpc('admin_delete_seller', {
+      p_seller_id: id,
+      p_reassign_seller_id: reassignSellerId || null,
+    });
+    if (error) throw error;
+    if (!data) throw new Error('The seller deletion did not return a result.');
+    return { reassignedProducts: Number(data.reassigned_products ?? 0) };
+  },};

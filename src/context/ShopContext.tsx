@@ -86,6 +86,7 @@ import {
 
 import { CheckoutError } from '../services/supabaseOrderService';
 import { supabaseAdminService } from '../services/supabaseAdminService';
+import { supabaseProductPatchService } from '../services/supabaseProductPatchService';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
 
 import {
@@ -928,6 +929,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastPersistedCartRef = useRef<string | null>(null);
   const lastPersistedWishlistRef = useRef<string | null>(null);
 
+  /**
+   * Immediate auth owner for delayed cart/wishlist writes.
+   *
+   * React state updates are asynchronous. A debounced callback can therefore
+   * outlive the render that scheduled it and fire after sign-out/account
+   * switching. The callback must validate the owner at execution time, not
+   * only when the effect was created.
+   */
+  const activePersistenceUserIdRef = useRef<string | null>(null);
+
   // Live cart projection: always resolve fresh product properties from the live catalog
   const cart = useMemo<CartItem[]>(() => {
     if (storedCart.length === 0) return storedCart;
@@ -1175,47 +1186,36 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAdminUser]);
 
   const addDiscountRule = async (ruleData: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const id = 'rule-' + secureRandomString(7);
-    const newRule: DiscountRule = {
-      ...ruleData,
-      id
-    };
+    const ruleWithMeta = { ...ruleData, id: 'rule-' + secureRandomString(7), couponCode, maxTotalUses, maxUsesPerUser };
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error saving discount rule to Supabase:", err);
-      showToast('Failed to save discount rule to database', 'warning');
-      throw err;
+      await supabaseCommerceService.createDiscountRule(ruleWithMeta);
+      setDiscountRules(prev => [ruleWithMeta, ...prev]);
+      await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${ruleWithMeta.name}`);
+    } catch (err:any) {
+      showToast(`Failed to save discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
     }
-    const ruleWithMeta = { ...newRule, couponCode, maxTotalUses, maxUsesPerUser };
-    setDiscountRules(prev => [ruleWithMeta, ...prev]);
-    await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${newRule.name}`);
   };
 
   const updateDiscountRule = async (id: string, updates: Partial<DiscountRule>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const target = discountRules.find(r => r.id === id);
-    if (!target) return;
-    const updatedRule: DiscountRule = { ...target, ...updates };
-
+    const target = discountRules.find(r => r.id === id); if (!target) return;
+    const ruleWithMeta = { ...target, ...updates, ...(couponCode !== undefined ? {couponCode} : {}), ...(maxTotalUses !== undefined ? {maxTotalUses} : {}), ...(maxUsesPerUser !== undefined ? {maxUsesPerUser} : {}) };
     try {
-      const ruleWithMeta = { ...updatedRule, ...(couponCode !== undefined ? { couponCode } : {}), ...(maxTotalUses !== undefined ? { maxTotalUses } : {}), ...(maxUsesPerUser !== undefined ? { maxUsesPerUser } : {}) };
+      await supabaseCommerceService.updateDiscountRule(id, ruleWithMeta);
       setDiscountRules(prev => prev.map(r => r.id === id ? ruleWithMeta : r));
-    } catch (err) {
-      console.error("[ShopContext] Error updating discount rule in Supabase:", err);
-      showToast('Failed to update discount rule in database', 'warning');
-      throw err;
+      await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
+    } catch (err:any) {
+      showToast(`Failed to update discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
   };
 
   const deleteDiscountRule = async (id: string) => {
     try {
+      await supabaseCommerceService.deleteDiscountRule(id);
       setDiscountRules(prev => prev.filter(r => r.id !== id));
-    } catch (err) {
-      console.error("[ShopContext] Error deleting discount rule from Supabase:", err);
-      showToast('Failed to delete discount rule from database', 'warning');
-      throw err;
+      await logAdminActivity('meta_change', 'Deleted Discount Rule', `Deleted discount ID: ${id}`);
+    } catch (err:any) {
+      showToast(`Failed to delete discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Deleted Discount Rule', `Deleted discount ID: ${id}`);
   };
 
   // Product Bundles & Combo Deals State
@@ -1287,56 +1287,36 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAdminUser]);
 
   const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const id = 'bundle-' + secureRandomString(7);
-    const newBundle: ProductBundle = {
-      ...bundleData,
-      id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem('yallalb_bundles_initialized', 'true');
-    setProductBundles(prev => [newBundle, ...prev]);
-
+    const newBundle: ProductBundle = {...bundleData,id:'bundle-'+secureRandomString(7),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error saving bundle to Supabase:", err);
-      showToast('Failed to create combo deal in database', 'warning');
-      throw err;
+      await supabaseCommerceService.createProductBundle(newBundle);
+      setProductBundles(prev=>[newBundle,...prev]);
+      await logAdminActivity('meta_change','Created Combo Deal',`Created bundle: ${newBundle.name}`);
+    } catch(err:any) {
+      showToast(`Failed to create combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Created Combo Deal', `Created bundle: ${newBundle.name}`);
   };
 
-  const updateProductBundle = async (id: string, updates: Partial<ProductBundle>) => {
-    const target = productBundles.find(b => b.id === id);
-    if (!target) return;
-    const updatedBundle: ProductBundle = { ...target, ...updates, updatedAt: new Date().toISOString() };
-
-    setProductBundles(prev => prev.map(b => b.id === id ? updatedBundle : b));
-
+  const updateProductBundle = async (id:string, updates:Partial<ProductBundle>) => {
+    const target=productBundles.find(b=>b.id===id); if(!target) return;
+    const updatedBundle={...target,...updates,updatedAt:new Date().toISOString()};
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error updating bundle in Supabase:", err);
-      showToast('Failed to update combo deal in database', 'warning');
-      throw err;
+      await supabaseCommerceService.updateProductBundle(id,updatedBundle);
+      setProductBundles(prev=>prev.map(b=>b.id===id?updatedBundle:b));
+      await logAdminActivity('meta_change','Updated Combo Deal',`Updated bundle ID: ${id}`);
+    } catch(err:any) {
+      showToast(`Failed to update combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Updated Combo Deal', `Updated bundle ID: ${id}`);
   };
 
-  const deleteProductBundle = async (id: string) => {
-    setProductBundles(prev => {
-      const next = prev.filter(b => b.id !== id);
-      try {
-        localStorage.setItem('yallalb_product_bundles', JSON.stringify(next));
-        localStorage.setItem('yallalb_bundles_initialized', 'true');
-      } catch {}
-      return next;
-    });
-
+  const deleteProductBundle = async (id:string) => {
     try {
-    } catch (err) {
-      console.error("[ShopContext] Error deleting bundle from Supabase:", err);
+      await supabaseCommerceService.deleteProductBundle(id);
+      setProductBundles(prev=>prev.filter(b=>b.id!==id));
+      await logAdminActivity('meta_change','Deleted Combo Deal',`Deleted bundle ID: ${id}`);
+    } catch(err:any) {
+      showToast(`Failed to delete combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
     }
-    await logAdminActivity('meta_change', 'Deleted Combo Deal', `Deleted bundle ID: ${id}`);
   };
 
   // Categories & Details Management State. Cache or empty, never the bundled
@@ -1724,64 +1704,97 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const target = categories.find(c => c.id === id);
     const affectedProducts = products.filter(p => p.category === id);
+    const shouldDeleteProducts =
+      deleteAttachedProducts === true || reassignCategoryId === '__delete_products__';
+    const effectiveReassignId =
+      reassignCategoryId && reassignCategoryId !== '__delete_products__'
+        ? reassignCategoryId
+        : undefined;
 
-    const shouldDeleteProducts = deleteAttachedProducts === true || reassignCategoryId === '__delete_products__';
-
-    if (affectedProducts.length > 0 && !reassignCategoryId && !shouldDeleteProducts) {
-      throw new Error(`${affectedProducts.length} product(s) are in this category. Choose an action for the attached products.`);
+    if (affectedProducts.length > 0 && !effectiveReassignId && !shouldDeleteProducts) {
+      throw new Error(
+        `${affectedProducts.length} product(s) are in this category. Choose an action for the attached products.`
+      );
     }
 
     const previousCategories = [...categories];
-    const nextCategories = categories.filter(c => c.id !== id);
-    setCategories(nextCategories);
+    const previousProducts = [...products];
 
-    // Authoritative delete. products.category_id is ON DELETE SET NULL / the
-    // reassignment above has already moved affected products, so this only
-    // removes the category row itself.
     try {
-      await supabaseCatalogService.deleteCategory(id);
-    } catch (supaErr: any) {
+      const result = await supabaseCatalogService.deleteCategory(
+        id,
+        effectiveReassignId,
+        shouldDeleteProducts
+      );
+
+      const nextCategories = categories.filter(c => c.id !== id);
+      setCategories(nextCategories);
+
+      if (shouldDeleteProducts) {
+        const affectedIds = new Set(affectedProducts.map(p => p.id));
+        setProducts(products.filter(p => !affectedIds.has(p.id)));
+      } else if (effectiveReassignId) {
+        setProducts(
+          products.map(p => p.category === id ? { ...p, category: effectiveReassignId } : p)
+        );
+      }
+
+      try {
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(
+          shouldDeleteProducts
+            ? products.filter(p => !new Set(affectedProducts.map(ap => ap.id)).has(p.id))
+            : effectiveReassignId
+              ? products.map(p => p.category === id ? { ...p, category: effectiveReassignId } : p)
+              : products
+        ));
+      } catch {}
+
+      await logAdminActivity(
+        'category_delete',
+        `Category "${target?.nameEn || id}" deleted`,
+        `Removed category "${target?.nameEn || id}". ${result.deletedProducts ? `Permanently deleted ${result.deletedProducts} attached product(s).` : result.reassignedProducts ? `Reassigned ${result.reassignedProducts} associated product(s) to "${effectiveReassignId}".` : ''}`
+      );
+    } catch (err: any) {
       setCategories(previousCategories);
-      console.error('[ShopContext] deleteCategory Supabase delete failed:', supaErr);
-      showToast(`Could not delete category: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
+      setProducts(previousProducts);
+      showToast(`Could not delete category: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
     }
-
-    if (shouldDeleteProducts) {
-      const affectedIds = new Set(affectedProducts.map(p => p.id));
-      const nextProducts = products.filter(p => !affectedIds.has(p.id));
-      setProducts(nextProducts);
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
-      } catch {}
-    } else if (reassignCategoryId && reassignCategoryId !== '__delete_products__') {
-      const nextProducts = products.map(p => p.category === id ? { ...p, category: reassignCategoryId } : p);
-      setProducts(nextProducts);
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
-      } catch {}
-    }
-
-
-    await logAdminActivity(
-      'category_delete',
-      `Category "${target?.nameEn || id}" deleted`,
-      `Removed category "${target?.nameEn || id}". ${shouldDeleteProducts ? `Permanently deleted ${affectedProducts.length} attached product(s).` : reassignCategoryId ? `Reassigned associated products to "${reassignCategoryId}".` : ''}`
-    );
   };
 
   const reorderCategories = async (newOrder: CategoryItem[]) => {
     const normalized = newOrder.map((cat, idx) => ({ ...cat, displayOrder: idx + 1 }));
+    const previous = [...categories];
+
     setCategories(normalized);
 
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('yallalb_categories_cache', JSON.stringify(normalized));
+      // Persist every display_order change to Supabase before treating the
+      // reorder as successful. If any write is rejected, restore the previous
+      // in-memory order and let the caller surface the error.
+      for (const category of normalized) {
+        await supabaseCatalogService.upsertCategory({
+          id: category.id,
+          displayOrder: category.displayOrder,
+        });
       }
-    } catch {}
 
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.setItem('yallalb_categories_cache', JSON.stringify(normalized));
+        }
+      } catch {}
 
-    await logAdminActivity('category_update', 'Categories reordered', `Admin reordered ${newOrder.length} categories.`);
+      await logAdminActivity(
+        'category_update',
+        'Categories reordered',
+        `Admin reordered ${newOrder.length} categories.`
+      );
+    } catch (err: any) {
+      setCategories(previous);
+      showToast(`Could not save category order: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
   };
 
   const reorderProducts = async (orderedProducts: Product[]) => {
@@ -1947,10 +1960,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
     const previousSellers = [...sellers];
+    try {
+      await supabaseCatalogService.upsertSeller({ id: sellerId, isActive });
+    } catch (err: any) {
+      console.error('[ShopContext] toggleSellerActive failed:', err);
+      setSellers(previousSellers);
+      showToast(`Could not update seller status: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+
     const nextSellers = sellers.map(s => s.id === sellerId ? { ...s, isActive, updatedAt: new Date().toISOString() } : s);
     setSellers(nextSellers);
-
-    await logAdminActivity('meta_change', `Seller "${sellerId}" active status toggled to ${isActive}`, '');
+    await logAdminActivity('meta_change', `Seller "${sellerId}" active status toggled to ${isActive}`, 'Persisted seller activation state.');
   };
 
   const deleteSeller = async (id: string, reassignSellerId?: string) => {
@@ -1958,21 +1979,36 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (affectedProducts.length > 0 && !reassignSellerId) {
       throw new Error(`${affectedProducts.length} product(s) belong to this seller. Choose a seller to move them to.`);
     }
-    const previousSellers = [...sellers];
-    const nextSellers = sellers.filter(s => s.id !== id);
-    setSellers(nextSellers);
 
-    // Authoritative delete.
+    const previousSellers = [...sellers];
+    const previousProducts = [...products];
+
     try {
-      await supabaseCatalogService.deleteSeller(id);
-    } catch (supaErr: any) {
+      await supabaseCatalogService.deleteSeller(id, reassignSellerId);
+
+      setProducts(current =>
+        current.map(product =>
+          product.sellerId === id && reassignSellerId
+            ? { ...product, sellerId: reassignSellerId }
+            : product
+        )
+      );
+      setSellers(current => current.filter(s => s.id !== id));
+    } catch (err: any) {
       setSellers(previousSellers);
-      console.error('[ShopContext] deleteSeller Supabase delete failed:', supaErr);
-      showToast(`Could not delete seller: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
+      setProducts(previousProducts);
+      console.error('[ShopContext] deleteSeller persistence failed:', err);
+      showToast(`Could not delete seller: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
     }
 
-    await logAdminActivity('meta_change', `Seller "${id}" deleted`, `Reassigned ${affectedProducts.length} products to ${reassignSellerId || 'none'}.`);
+    await logAdminActivity(
+      'meta_change',
+      `Seller "${id}" deleted`,
+      affectedProducts.length > 0
+        ? `Reassigned ${affectedProducts.length} products to ${reassignSellerId}.`
+        : 'No products were assigned to this seller.'
+    );
   };
 
   const bulkImportProducts = async (
@@ -2054,58 +2090,96 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
 
-            const description = (row.description_en || row.description || 'Imported artisanal product.').toString().trim();
-            const craftStory = (row.description_ar || row.craftstory || row.arabic_description || 'حرفية أصيلة.').toString().trim();
-
-            seenSkusInFile.add(normSku);
-            seenItemCodesInFile.add(sellerCodeKey);
-
-            const mainImage = (row.image_url || row.image || 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80').toString().trim();
-            const addlImagesRaw = row.additional_images || row.images || row.gallery;
-            const additionalImages = addlImagesRaw
-              ? String(addlImagesRaw).split(/[|,]/).map((u: string) => u.trim()).filter(Boolean)
+            const hasMainImageColumn = row.image_url !== undefined || row.image !== undefined;
+            const mainImage = hasMainImageColumn
+              ? String(row.image_url ?? row.image ?? '').trim()
+              : undefined;
+            const addlImagesRaw = row.additional_images ?? row.images ?? row.gallery;
+            const hasAdditionalImagesColumn = row.additional_images !== undefined || row.images !== undefined || row.gallery !== undefined;
+            const additionalImages = hasAdditionalImagesColumn
+              ? String(addlImagesRaw ?? '').split(/[|,]/).map((u: string) => u.trim()).filter(Boolean)
               : undefined;
 
-            const videoUrl = (row.video_url || row.video || '').toString().trim() || undefined;
-            const addlVideosRaw = row.additional_videos || row.videos;
-            const additionalVideos = addlVideosRaw
-              ? String(addlVideosRaw).split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
+            const videoUrl = (row.video_url ?? row.video) !== undefined
+              ? String(row.video_url ?? row.video ?? '').trim() || undefined
+              : undefined;
+            const addlVideosRaw = row.additional_videos ?? row.videos;
+            const hasAdditionalVideosColumn = row.additional_videos !== undefined || row.videos !== undefined;
+            const additionalVideos = hasAdditionalVideosColumn
+              ? String(addlVideosRaw ?? '').split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
               : undefined;
 
             const nowIso = new Date().toISOString();
+            const product: Product = {
+              id: sku,
+              sellerItemCode,
+              name,
+              arabicName: (row.name_ar || row.arabic_name || name).toString().trim(),
+              artisan: resolvedSeller.sellerName,
+              seller: resolvedSeller.sellerName,
+              arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || '',
+              sellerId: resolvedSeller.sellerId,
+              sellerActive: true,
+              category: resolvedCategory.categoryId,
+              priceUSD,
+              originalPriceUSD: row.original_price_usd !== undefined ? parsePrice(row.original_price_usd) : undefined,
+              stock: Math.floor(stock),
+              ...(mainImage !== undefined ? { image: mainImage } : {}),
+              ...(hasAdditionalImagesColumn ? { additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : [] } : {}),
+              ...(videoUrl !== undefined ? { videoUrl } : {}),
+              ...(hasAdditionalVideosColumn ? { additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : [] } : {}),
+              ...(hasAdditionalVideosColumn || videoUrl !== undefined
+                ? { videos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : (videoUrl ? [videoUrl] : []) }
+                : {}),
+              description,
+              craftStory,
+              tags: row.tags !== undefined
+                ? String(row.tags).split(/[|,]/).map((t: string) => t.trim()).filter(Boolean)
+                : ['Artisanal'],
+              rating: 0,
+              reviewsCount: 0,
+              origin: (row.origin || row.origin_terroir || 'Lebanon').toString().trim(),
+              weightOrVolume: (row.weight_or_volume || row.weight || row.volume || '').toString().trim() || undefined,
+              isPublished,
+              createdAt: existingProduct?.createdAt || nowIso,
+              updatedAt: nowIso
+            };
+
+            // Existing SKUs must receive only columns explicitly supplied by the CSV.
+            // This prevents omitted image/description/tag/etc. columns from erasing
+            // real database values. New SKUs still receive the complete product shape.
+            const existingUpdates: Partial<Product> = {
+              ...(row.name_en !== undefined || row.name !== undefined || row.title !== undefined ? { name } : {}),
+              ...(row.name_ar !== undefined || row.arabic_name !== undefined ? { arabicName: product.arabicName } : {}),
+              ...(row.seller_id !== undefined || row.seller !== undefined || row.seller_artisan !== undefined || options?.targetSellerId ? {
+                sellerId: resolvedSeller.sellerId, seller: resolvedSeller.sellerName, artisan: resolvedSeller.sellerName,
+                arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || ''
+              } : {}),
+              ...(row.category !== undefined || row.category_id !== undefined || options?.fallbackCategoryId ? { category: resolvedCategory.categoryId } : {}),
+              ...(row.price_usd !== undefined || row.price !== undefined || row.unit_price !== undefined ? { priceUSD } : {}),
+              ...(row.original_price_usd !== undefined ? { originalPriceUSD: product.originalPriceUSD } : {}),
+              ...(row.stock !== undefined || row.qty !== undefined ? { stock: Math.floor(stock) } : {}),
+              ...(row.is_published !== undefined || row.status !== undefined ? { isPublished } : {}),
+              ...(row.seller_item_code !== undefined || row.seller_code !== undefined || row.item_code !== undefined ? { sellerItemCode } : {}),
+              ...(row.description_en !== undefined || row.description !== undefined ? { description } : {}),
+              ...(row.description_ar !== undefined || row.craftstory !== undefined || row.arabic_description !== undefined ? { craftStory } : {}),
+              ...(row.tags !== undefined ? { tags: product.tags } : {}),
+              ...(row.origin !== undefined || row.origin_terroir !== undefined ? { origin: product.origin } : {}),
+              ...(row.weight_or_volume !== undefined || row.weight !== undefined || row.volume !== undefined ? { weightOrVolume: product.weightOrVolume } : {}),
+              ...(hasMainImageColumn ? { image: mainImage || '' } : {}),
+              ...(hasAdditionalImagesColumn ? { additionalImages: product.additionalImages } : {}),
+              ...(videoUrl !== undefined ? { videoUrl } : {}),
+              ...(hasAdditionalVideosColumn ? { additionalVideos: product.additionalVideos, videos: product.videos } : {})
+            };
+            const localResult = isExistingSku
+              ? { ...existingProduct, ...existingUpdates, updatedAt: nowIso }
+              : product;
 
             validRows.push({
               sku,
-              product: {
-                id: sku,
-                sellerItemCode,
-                name,
-                arabicName: (row.name_ar || row.arabic_name || name).toString().trim(),
-                artisan: resolvedSeller.sellerName,
-                seller: resolvedSeller.sellerName,
-                arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || '',
-                sellerId: resolvedSeller.sellerId,
-                sellerActive: true,
-                category: resolvedCategory.categoryId,
-                priceUSD,
-                originalPriceUSD: row.original_price_usd ? parsePrice(row.original_price_usd) : undefined,
-                stock: Math.floor(stock),
-                image: mainImage,
-                additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : undefined,
-                videoUrl,
-                additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : undefined,
-                videos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : (videoUrl ? [videoUrl] : undefined),
-                description,
-                craftStory,
-                tags: row.tags ? String(row.tags).split(/[|,]/).map((t: string) => t.trim()).filter(Boolean) : ['Artisanal'],
-                rating: 0,
-                reviewsCount: 0,
-                origin: (row.origin || row.origin_terroir || 'Lebanon').toString().trim(),
-                weightOrVolume: (row.weight_or_volume || row.weight || row.volume || '').toString().trim() || undefined,
-                isPublished,
-                createdAt: existingProduct?.createdAt || nowIso,
-                updatedAt: nowIso
-              },
+              product,
+              updates: isExistingSku ? existingUpdates : product,
+              localResult,
               isUpdate: isExistingSku
             });
           });
@@ -2115,30 +2189,47 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          // 1. Immediately update in-memory products and localStorage so UI updates instantly
-          setProducts(prevProducts => {
-            const nextMap = new Map<string, Product>();
-            prevProducts.forEach(p => nextMap.set(p.id, p));
-            validRows.forEach(item => {
-              nextMap.set(item.sku, item.product);
-            });
-            const merged = Array.from(nextMap.values());
+          // Persist each validated row first. Existing SKUs use the safe partial
+          // patch service; new SKUs use the complete create/upsert path.
+          // Local state is updated only for rows that actually reached Supabase.
+          const successfulRows: any[] = [];
+          for (const item of validRows) {
             try {
-              localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
+              if (item.isUpdate) {
+                await supabaseProductPatchService.patchProduct(item.sku, item.updates);
+              } else {
+                await supabaseCatalogService.upsertProduct(item.product);
+              }
+              successfulRows.push(item);
+            } catch (err: any) {
+              errors.push(
+                `Row for SKU "${item.sku}" ("${item.product.name}"): ${err?.message || 'Supabase write failed'}`
+              );
+            }
+          }
 
-          // Each row was already written to Supabase by upsertProduct above,
-          // so the Firestore batch that stood here is gone. Only the counters
-          // from its `else` branch are kept, since the caller reports them.
-          validRows.forEach(item => {
+          if (successfulRows.length > 0) {
+            setProducts(prevProducts => {
+              const nextMap = new Map<string, Product>();
+              prevProducts.forEach(p => nextMap.set(p.id, p));
+              successfulRows.forEach(item => nextMap.set(item.sku, item.localResult));
+              const merged = Array.from(nextMap.values());
+              try {
+                localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
+              } catch {}
+              return merged;
+            });
+          }
+
+          successfulRows.forEach(item => {
             if (item.isUpdate) updated++;
             else created++;
           });
 
-          const previousSnapshots = validRows.map(r => products.find(p => p.id === r.sku)).filter(Boolean);
-          const updatedSnapshots = validRows.map(r => r.product);
+          const previousSnapshots = successfulRows
+            .map(r => products.find(p => p.id === r.sku))
+            .filter(Boolean);
+          const updatedSnapshots = successfulRows.map(r => r.localResult);
 
           await logAdminActivity(
             'product_bulk_update',
@@ -2672,6 +2763,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleAuthUser = (supaUser: SupabaseUser | null) => {
       if (!isMounted) return;
+      activePersistenceUserIdRef.current = supaUser?.id ?? null;
       authGeneration += 1;
       const myGeneration = authGeneration;
       const isCurrent = () => isMounted && myGeneration === authGeneration;
@@ -2745,25 +2837,42 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let profileData: Record<string, any> = {};
 
         try {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', supaUser.id)
-            .maybeSingle();
-
-          if (profile && !error) {
-            profileData = profile;
+          // Profile reads are authoritative. A database/RLS/network failure must
+          // not be treated as "no profile", because that could downgrade an
+          // existing admin/seller to customer and then hydrate/write other
+          // account state from an unverified local fallback.
+          const profile = await supabaseUserDataService.fetchProfile(supaUser.id);
+          if (profile) {
+            profileData = profile as Record<string, any>;
             if (profile.role === 'admin') {
               profileRole = 'admin';
             } else if (profile.role === 'seller') {
               profileRole = 'seller';
             }
-            if (profile.seller_id || profile.sellerId) {
-              profileSellerId = profile.seller_id || profile.sellerId;
+            if (profile.sellerId) {
+              profileSellerId = profile.sellerId;
             }
           }
         } catch (profileErr) {
-          console.warn("[ShopContext] Error loading Supabase user profile from database:", profileErr);
+          console.error('[ShopContext] Authoritative profile hydration failed:', profileErr);
+          if (isCurrent()) {
+            // Keep the authenticated Supabase identity, but do not synthesize
+            // profile/role state and do not hydrate cart/wishlist. The write
+            // gates remain closed, preventing local state from overwriting
+            // authoritative account rows while the profile read is unavailable.
+            setCartHydratedForUserId(null);
+            setIsAdminUser(false);
+            setIsSellerUser(false);
+            setSellerId(null);
+            setIsLoadingAuth(false);
+            showToast(
+              language === 'ar'
+                ? 'تعذر تحميل بيانات حسابك. لم يتم حفظ تغييرات الحساب حتى تتوفر قاعدة البيانات.'
+                : 'Could not load your account profile. Account changes will not be saved until the database is available.',
+              'error'
+            );
+          }
+          return;
         }
 
         if (!isCurrent()) return;
@@ -2818,6 +2927,26 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setWishlist([]);
         }
 
+        // Capture a genuine guest cart before the account row is hydrated.
+        // If the account already has a saved cart, we merge rather than
+        // silently throwing away the shopper's guest basket.
+        let guestCart: CartItem[] = [];
+        let guestWishlist: string[] = [];
+        if (localOwner === 'guest') {
+          try {
+            const rawGuestCart = getGuestStorage(GUEST_CART_KEY, LEGACY_CART_KEY);
+            const parsedGuestCart = rawGuestCart ? JSON.parse(rawGuestCart) : [];
+            if (Array.isArray(parsedGuestCart)) guestCart = parsedGuestCart;
+
+            const rawGuestWishlist = getGuestStorage(GUEST_WISHLIST_KEY, LEGACY_WISHLIST_KEY);
+            const parsedGuestWishlist = rawGuestWishlist ? JSON.parse(rawGuestWishlist) : [];
+            if (Array.isArray(parsedGuestWishlist)) guestWishlist = parsedGuestWishlist;
+          } catch {
+            guestCart = [];
+            guestWishlist = [];
+          }
+        }
+
         try {
           const [savedCart, savedWishlist] = await Promise.all([
             supabaseUserDataService.fetchCart(supaUser.id),
@@ -2826,21 +2955,52 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!isCurrent()) return;
 
-          // null means "no row saved yet" (an expected empty result), not
-          // failure — in that case a guest cart carried into sign-in is kept
-          // and the effect below saves it to the account.
-          if (savedCart) {
-            setCart(savedCart);
-            // Mark it already persisted: it came straight from the row, so the
-            // effect has nothing to write back.
-            lastPersistedCartRef.current = JSON.stringify(savedCart);
+          let hydratedCart: CartItem[] | null = savedCart;
+          let hydratedWishlist: string[] | null = savedWishlist;
+
+          if (savedCart && guestCart.length > 0) {
+            const merged = [...savedCart];
+            for (const guestItem of guestCart) {
+              const existing = merged.find(
+                item =>
+                  item.product.id === guestItem.product.id &&
+                  item.selectedOption === guestItem.selectedOption
+              );
+              if (existing) {
+                existing.quantity += guestItem.quantity;
+              } else {
+                merged.push(guestItem);
+              }
+            }
+            hydratedCart = merged;
+          } else if (!savedCart && guestCart.length > 0) {
+            hydratedCart = guestCart;
+          }
+
+          if (savedWishlist && guestWishlist.length > 0) {
+            hydratedWishlist = Array.from(new Set([...savedWishlist, ...guestWishlist]));
+          } else if (!savedWishlist && guestWishlist.length > 0) {
+            hydratedWishlist = guestWishlist;
+          }
+
+          if (hydratedCart) {
+            setCart(hydratedCart);
+            // A merge adds guest state to an existing account row, so it must
+            // be written. An untouched saved row does not need an echo write.
+            lastPersistedCartRef.current =
+              savedCart && hydratedCart !== savedCart
+                ? JSON.stringify(savedCart)
+                : JSON.stringify(hydratedCart);
           } else {
             lastPersistedCartRef.current = null;
           }
 
-          if (savedWishlist) {
-            setWishlist(savedWishlist);
-            lastPersistedWishlistRef.current = JSON.stringify(savedWishlist);
+          if (hydratedWishlist) {
+            setWishlist(hydratedWishlist);
+            lastPersistedWishlistRef.current =
+              savedWishlist && hydratedWishlist !== savedWishlist
+                ? JSON.stringify(savedWishlist)
+                : JSON.stringify(hydratedWishlist);
           } else {
             lastPersistedWishlistRef.current = null;
           }
@@ -2910,10 +3070,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (payload === lastPersistedCartRef.current) return;
 
     const handler = setTimeout(() => {
+      // The callback may run after sign-out or account switching. Never allow
+      // a delayed write belonging to the previous account to execute under a
+      // new auth session.
+      if (activePersistenceUserIdRef.current !== userId) return;
+
       supabaseUserDataService
         .saveCart(userId, storedCart)
         .then(() => {
-          lastPersistedCartRef.current = payload;
+          // The request may resolve after the account has changed. Do not let
+          // an old user's successful write poison the new user's
+          // last-persisted marker.
+          if (activePersistenceUserIdRef.current === userId) {
+            lastPersistedCartRef.current = payload;
+          }
         })
         .catch((err: unknown) => {
           // Surfaced, not swallowed: the user needs to know the cart they are
@@ -2943,10 +3113,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (payload === lastPersistedWishlistRef.current) return;
 
     const handler = setTimeout(() => {
+      // Same owner check as the cart: delayed callbacks must not cross an
+      // auth boundary.
+      if (activePersistenceUserIdRef.current !== userId) return;
+
       supabaseUserDataService
         .saveWishlist(userId, wishlist)
         .then(() => {
-          lastPersistedWishlistRef.current = payload;
+          if (activePersistenceUserIdRef.current === userId) {
+            lastPersistedWishlistRef.current = payload;
+          }
         })
         .catch((err: unknown) => {
           console.error('[ShopContext] Failed to save wishlist to Supabase:', err);
@@ -3563,25 +3739,24 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const supaUser = supaUserData?.user;
       if (!supaUser) return;
 
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', supaUser.id)
-        .maybeSingle();
+      // Use the same authoritative profile read as initial auth hydration.
+      // A failed read must never be interpreted as a missing profile or
+      // silently downgrade an existing admin/seller.
+      const profile = await supabaseUserDataService.fetchProfile(supaUser.id);
 
       let profileRole: 'admin' | 'seller' | 'customer' = 'customer';
       let profileSellerId: string | null = null;
       let profileData: Record<string, any> = {};
 
-      if (profile && !error) {
-        profileData = profile;
+      if (profile) {
+        profileData = profile as Record<string, any>;
         if (profile.role === 'admin') {
           profileRole = 'admin';
         } else if (profile.role === 'seller') {
           profileRole = 'seller';
         }
-        if (profile.seller_id || profile.sellerId) {
-          profileSellerId = profile.seller_id || profile.sellerId;
+        if (profile.sellerId) {
+          profileSellerId = profile.sellerId;
         }
       }
 
@@ -4136,12 +4311,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const previousOrders = [...orders];
 
-    // Optimistic local state update
+    // Authoritative write first. Do not report success from local state alone.
+    try {
+      await supabaseOrderService.updateOrderStatus(orderId, status);
+    } catch (err: any) {
+      console.error('[ShopContext] updateOrderStatus failed:', err);
+      showToast(`Could not update order status: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+
     setOrders(prev => {
       const next = prev.map(ord => (ord.id === orderId ? { ...ord, status } : ord));
-      try {
-        localStorage.setItem('yallalb_orders', JSON.stringify(next));
-      } catch {}
+      try { localStorage.setItem('yallalb_orders', JSON.stringify(next)); } catch {}
       return next;
     });
 
@@ -4467,7 +4648,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // upsertProduct drops undefined keys, and leaves product_private and
     // product_images alone unless those fields were supplied.
     try {
-      await supabaseCatalogService.upsertProduct({ ...updates, id });
+      await supabaseProductPatchService.patchProduct(id, updates);
     } catch (supaErr: any) {
       if (existing) {
         setProducts(prev => {
@@ -4590,20 +4771,34 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       summary: `Deleting ${ids.length} rows from products...`
     });
 
+    const targets = products.filter(p => ids.includes(p.id));
+    const previousProducts = products;
+    try {
+      for (const id of ids) {
+        await supabaseCatalogService.deleteProduct(id);
+      }
+    } catch (err: any) {
+      console.error('[ShopContext] bulk product delete failed:', err);
+      setProducts(previousProducts);
+      showToast(`Could not complete bulk deletion: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+
     setProducts(prev => {
       const next = prev.filter(p => !ids.includes(p.id));
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
-      } catch {}
+      try { localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next)); } catch {}
       return next;
     });
 
     await logAdminActivity(
       'product_delete',
-      `Bulk deleted ${ids.length} products`,
-      `Permanently removed ${ids.length} products from catalog.`
+      `Bulk deleted ${targets.length} products`,
+      `Permanently removed ${targets.length} products from catalog.`,
+      'bulk_product_delete',
+      targets,
+      null
     );
-    showToast(`${ids.length} products deleted!`);
+    showToast(`${targets.length} products deleted!`);
   };
 
   /**
@@ -4748,9 +4943,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sellerId: sellerId || undefined
     };
     const sanitizedUser = sanitizeDocumentData(updatedUser);
-    setUser(updatedUser);
 
     if (!authUser) {
+      // Guest checkout details are intentionally browser-local only.
+      setUser(updatedUser);
       try {
         localStorage.setItem('yallalb_saved_checkout_data', JSON.stringify(sanitizedUser));
       } catch {}
@@ -4759,7 +4955,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const userKey = authUser.uid;
 
-    const { startTime } = dbLogger.logDbWriteStart({
+    dbLogger.logDbWriteStart({
       operation: 'upsert',
       targetPath: `profiles/${userKey}`,
       sourceComponent: 'ShopContext',
@@ -4768,11 +4964,14 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       payload: sanitizedUser
     });
 
-    // public.profiles is the only profile store; the Firestore `users` mirror
-    // that stood here is gone. upsertProfile omits every privilege field, and
-    // protect_profile_role() pins them for non-admins regardless.
+    // Database first: never expose a profile change in React/localStorage until
+    // the authoritative Supabase write succeeds. This prevents a failed RLS or
+    // network request from leaving the UI claiming that unsaved data was saved.
+    // upsertProfile omits privilege fields; protect_profile_role() remains the
+    // database-side authority for role/seller ownership.
     try {
       await supabaseUserDataService.upsertProfile(userKey, sanitizedUser as Partial<UserProfile>);
+      setUser(updatedUser);
     } catch (err) {
       console.error('[ShopContext] Failed to save the user profile:', err);
       showToast('Could not save your details. Please try again.', 'error');
