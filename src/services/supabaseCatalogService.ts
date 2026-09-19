@@ -1637,10 +1637,16 @@ export const supabaseCatalogService = {
   /** Delete a delivery region. */
   async deleteRegion(id: string): Promise<void> {
     if (!id) throw new Error('Region ID is required.');
-    const { error } = await supabase.from('regions').delete().eq('id', id).select('id');
+    const { data, error } = await supabase
+      .from('regions')
+      .delete()
+      .eq('id', id)
+      .select('id');
     if (error) throw error;
+    if (!data?.length) {
+      throw new Error('The region was not deleted. Your administrator session may not be verified.');
+    }
   },
-
   /**
    * Create or update a seller.
    *
