@@ -12,6 +12,7 @@ export interface Product {
   sellerId?: string;
   sellerActive?: boolean;
   origin: string; // e.g. "Beirut Central", "Tripoli", "Koura", "Batroun"
+  brand?: string; // maps to products.brand
   category: string;
   priceUSD: number;
   originalPriceUSD?: number;
