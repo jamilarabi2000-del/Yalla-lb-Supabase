@@ -489,3 +489,54 @@ describe('Checkout offers no payment method the system cannot take', () => {
     expect(read('src/components/AdminQuickEditor.tsx')).not.toContain('Wish/OMT, Card');
   });
 });
+
+describe('The catalogue cache never outlives a privileged session', () => {
+  // fetchProducts() selects ADMIN_PRODUCT_COLUMNS for an administrator or
+  // seller -- cost_price_usd, seller_item_code, low_stock_threshold,
+  // custom_stock_label -- and returns unpublished rows. localStorage is
+  // per-origin, not per-session: it survives sign out, and ShopContext seeds
+  // `products` straight from it before any fetch or auth check runs.
+  const shop = read('src/context/ShopContext.tsx');
+
+  it('routes every catalogue cache write through the privilege-aware helper', () => {
+    expect(shop).not.toContain('localStorage.setItem(CATALOG_CACHE_KEYS');
+    expect(shop.match(/writeCatalogCache\(CATALOG_CACHE_KEYS\./g)?.length).toBeGreaterThan(15);
+  });
+
+  it('the helper refuses to write, and clears, for an admin or seller', () => {
+    const helper = shop.slice(
+      shop.indexOf('const writeCatalogCache ='),
+      shop.indexOf('const writeCatalogCache =') + 600
+    );
+    expect(helper).toContain('isAdminUser || isSellerUser');
+    // It must remove the key, not merely decline to write it: a public cache
+    // from before the role change would otherwise survive unnoticed.
+    expect(helper).toContain('removeItem(key)');
+    const guardIdx = helper.indexOf('isAdminUser || isSellerUser');
+    const writeIdx = helper.indexOf('setItem(key');
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(writeIdx).toBeGreaterThan(guardIdx); // guard precedes the write
+  });
+
+  it('drops the catalogue cache on sign out', () => {
+    const signOut = shop.slice(
+      shop.indexOf('const signOutUser ='),
+      shop.indexOf('const refreshUserProfile =')
+    );
+    expect(signOut).toContain('CATALOG_CACHE_KEYS');
+    expect(signOut).toContain('removeItem');
+  });
+
+  it('purges the cache keys retired by this fix', () => {
+    // A build before this one wrote privileged rows into the v2 keys, where
+    // they persist on devices that never sign out again.
+    expect(shop).toContain('RETIRED_CATALOG_CACHE_KEYS');
+    for (const key of ['yallalb_products_v2', 'yallalb_categories_v2', 'yallalb_sellers_v2']) {
+      expect(shop).toContain(key);
+    }
+    expect(shop).toContain('RETIRED_CATALOG_CACHE_KEYS.forEach');
+    // The live keys must no longer be the retired ones.
+    const live = shop.slice(shop.indexOf('const CATALOG_CACHE_KEYS'), shop.indexOf('} as const;'));
+    expect(live).not.toContain('_v2');
+  });
+});

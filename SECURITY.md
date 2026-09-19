@@ -210,6 +210,17 @@ These reduce blast radius. None of them is an authorization control.
 - **URLs**: `src/lib/safeUrl.ts` rejects every scheme-relative form
   (`//host`, `/\host`, `\/host`, `\\host`) and resolves relative URLs to
   confirm they stay on-origin, rather than trusting a leading `/`.
+- **Catalogue cache**: `ShopContext` caches the catalogue in `localStorage`
+  for a warm start. An administrator or seller session caches **nothing** and
+  clears what is there — `fetchProducts()` selects `ADMIN_PRODUCT_COLUMNS` for
+  those roles, which carries `cost_price_usd`, `seller_item_code`,
+  `low_stock_threshold` and `custom_stock_label`, and returns unpublished
+  rows. `localStorage` is per-origin, not per-session: it survives sign-out,
+  and the `products` state is seeded straight from it before any fetch or auth
+  check runs. The cache is also dropped on sign-out, and the keys it used
+  before this rule are purged at load. Route every write through
+  `writeCatalogCache()`; never call `localStorage.setItem` on a cache key
+  directly.
 - **CSV export**: `src/utils/csvSafe.ts` prefixes `= + - @ TAB CR LF |`.
 - **Diagnostics**: `src/utils/dbLogger.ts` redacts PII by pattern and exposes
   its buffer on `window` only in development builds.

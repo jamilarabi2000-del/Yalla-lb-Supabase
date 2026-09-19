@@ -274,10 +274,29 @@ const getInitialCategory = (): string => {
  * Supabase remains the authoritative source.
  */
 const CATALOG_CACHE_KEYS = {
-  products: 'yallalb_products_v2',
-  categories: 'yallalb_categories_v2',
-  sellers: 'yallalb_sellers_v2'
+  products: 'yallalb_products_v3',
+  categories: 'yallalb_categories_v3',
+  sellers: 'yallalb_sellers_v3'
 } as const;
+
+/**
+ * Keys retired by the privileged-cache fix below. A build before it wrote
+ * administrator and seller catalogue rows -- cost prices included -- into the
+ * v2 keys, where they outlived the session. Bumping the key abandons those
+ * caches; PURGE_ON_LOAD deletes them outright so the data does not simply sit
+ * there unread.
+ */
+const RETIRED_CATALOG_CACHE_KEYS = [
+  'yallalb_products_v2',
+  'yallalb_categories_v2',
+  'yallalb_sellers_v2'
+] as const;
+
+if (typeof window !== 'undefined') {
+  try {
+    RETIRED_CATALOG_CACHE_KEYS.forEach(key => window.localStorage.removeItem(key));
+  } catch {}
+}
 
 
 /**
@@ -831,6 +850,33 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   /**
+   * Writes a catalogue list to localStorage -- but never a privileged one.
+   *
+   * fetchProducts() selects ADMIN_PRODUCT_COLUMNS for an administrator or
+   * seller, which carries cost_price_usd, seller_item_code,
+   * low_stock_threshold and custom_stock_label, and returns unpublished and
+   * draft rows. localStorage is per-origin, not per-session: it survives sign
+   * out, so caching that projection left cost prices and unpublished products
+   * on the device for whoever opened the browser next, and the useState
+   * initializer above seeds straight from it before any fetch or auth check
+   * runs.
+   *
+   * So a privileged session caches nothing and clears what is there. The
+   * in-memory list is untouched -- the console still has every column it
+   * needs; only the copy that outlives the session goes away.
+   */
+  const writeCatalogCache = (key: string, value: unknown) => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (isAdminUser || isSellerUser) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  };
+
+  /**
    * Whether the catalogue on screen has been confirmed against Supabase.
    *
    * 'loading' until the first read settles, so the storefront can say "loading"
@@ -1102,7 +1148,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const restoredProduct = act.snapshotBefore as Product;
         setProducts(prev => prev.map(p => p.id === act.targetId ? { ...restoredProduct } : p));
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products.map(p => p.id === act.targetId ? { ...restoredProduct } : p)));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (products.map(p => p.id === act.targetId ? { ...restoredProduct } : p)));
         } catch {}
       } else if (act.actionType === 'product_add' && act.targetId) {
         setProducts(prev => prev.filter(p => p.id !== act.targetId));
@@ -1358,7 +1404,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(categories));
+      writeCatalogCache(CATALOG_CACHE_KEYS.categories, (categories));
     } catch {}
   }, [categories]);
 
@@ -1532,7 +1578,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCatalogStatus('ready');
         setCatalogError(null);
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(normalized));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (normalized));
         } catch {}
       } catch (err) {
         if (!isMounted) return;
@@ -1590,7 +1636,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isMounted) return;
         setCategories(fresh); // empty is a real answer and is applied
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(fresh));
+          writeCatalogCache(CATALOG_CACHE_KEYS.categories, (fresh));
         } catch {}
       } catch (err) {
         if (!isMounted) return;
@@ -1752,13 +1798,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const nextProducts = products.filter(p => !affectedIds.has(p.id));
       setProducts(nextProducts);
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (nextProducts));
       } catch {}
     } else if (reassignCategoryId && reassignCategoryId !== '__delete_products__') {
       const nextProducts = products.map(p => p.category === id ? { ...p, category: reassignCategoryId } : p);
       setProducts(nextProducts);
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (nextProducts));
       } catch {}
     }
 
@@ -1801,7 +1847,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(updatedProducts));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (updatedProducts));
         }
       } catch {}
 
@@ -1861,7 +1907,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(sellers));
+      writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (sellers));
     } catch {}
   }, [sellers]);
 
@@ -1884,7 +1930,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const fresh = await supabaseCatalogService.fetchSellers();
       setSellers(fresh.map((seller, idx) => ensureSellerCode(seller, idx)));
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.sellers, JSON.stringify(fresh));
+        writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (fresh));
       } catch {}
     } catch (err) {
       console.error('[ShopContext] Seller refresh failed:', err);
@@ -2124,7 +2170,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
             const merged = Array.from(nextMap.values());
             try {
-              localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
+              writeCatalogCache(CATALOG_CACHE_KEYS.products, (merged));
             } catch {}
             return merged;
           });
@@ -2418,7 +2464,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Local storage persistence
   useEffect(() => {
     try {
-      localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(products));
+      writeCatalogCache(CATALOG_CACHE_KEYS.products, (products));
     } catch {}
   }, [products]);
 
@@ -2503,7 +2549,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCatalogStatus('ready');
         setCatalogError(null);
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(fresh));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (fresh));
         } catch {}
       } catch (err) {
         if (!isMounted) return;
@@ -3549,6 +3595,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         localStorage.removeItem('yallalb_orders');
         localStorage.removeItem('yallalb_saved_checkout_data');
+        // The catalogue cache may hold the privileged projection if this
+        // session was an administrator or seller. The role-change effect
+        // refetches and overwrites it, but only when the refetch succeeds and
+        // the tab stays open; closing it straight after signing out is
+        // ordinary. Drop it here rather than rely on that.
+        Object.values(CATALOG_CACHE_KEYS).forEach(key => localStorage.removeItem(key));
       } catch {}
       showToast('Signed out successfully', 'info');
     } catch (error: any) {
@@ -4345,7 +4397,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = [newProduct, ...prev];
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (next));
       } catch {}
       return next;
     });
@@ -4363,7 +4415,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProducts(prev => {
         const next = prev.filter(p => p.id !== id);
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, (next));
         } catch {}
         return next;
       });
@@ -4456,7 +4508,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = prev.map(p => (p.id === id ? { ...p, ...mergedUpdates } : p));
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (next));
       } catch {}
       return next;
     });
@@ -4473,7 +4525,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProducts(prev => {
           const next = prev.map(p => (p.id === id ? existing : p));
           try {
-            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+            writeCatalogCache(CATALOG_CACHE_KEYS.products, (next));
           } catch {}
           return next;
         });
@@ -4533,7 +4585,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = prev.filter(p => p.id !== id);
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (next));
       } catch {}
       return next;
     });
@@ -4550,7 +4602,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProducts(prev => {
           const next = [target, ...prev.filter(p => p.id !== id)];
           try {
-            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+            writeCatalogCache(CATALOG_CACHE_KEYS.products, (next));
           } catch {}
           return next;
         });
@@ -4593,7 +4645,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = prev.filter(p => !ids.includes(p.id));
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (next));
       } catch {}
       return next;
     });
@@ -4633,8 +4685,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCatalogError(null);
 
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(freshProducts));
-        localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(freshCategories));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (freshProducts));
+        writeCatalogCache(CATALOG_CACHE_KEYS.categories, (freshCategories));
       } catch {}
 
       showToast(
