@@ -175,8 +175,16 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
       reader.onload = (e) => {
         if (e.target?.result) {
           const dataUrl = e.target.result as string;
-          onChange(dataUrl);
-          setTempUrl(dataUrl);
+          void uploadImageToSupabase(dataUrl, 'cms')
+            .then((storedUrl) => {
+              onChange(storedUrl);
+              setTempUrl(storedUrl);
+            })
+            .catch((uploadError) => {
+              console.error('[MediaAssetPicker] Storage upload failed:', uploadError);
+              onChange(dataUrl);
+              setTempUrl(dataUrl);
+            });
         }
       };
       reader.readAsDataURL(file);
