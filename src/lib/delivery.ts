@@ -20,8 +20,8 @@ export interface DeliveryCalculationParams {
 }
 
 /**
- * Single authoritative delivery fee calculator for all Lebanon governorates and diaspora shipping.
- * Guarantees that any domestic Lebanese order meeting the $50 free-delivery threshold receives $0 delivery fee.
+ * Checkout delivery rules: Lebanon Standard is $2 below $50 and free at/above $50;
+ * Diaspora Air is always $28. Beirut Express is intentionally out of scope.
  */
 export function calcDeliveryFeeUSD({ speed, regionId, matchedRegion, subtotalUSD }: DeliveryCalculationParams): number {
   const isDiaspora = regionId === 'diaspora_global' || speed === 'diaspora_air' || speed === 'diaspora_global';
@@ -34,15 +34,10 @@ export function calcDeliveryFeeUSD({ speed, regionId, matchedRegion, subtotalUSD
     return 0;
   }
 
-  if (matchedRegion) {
-    if (speed === 'express_beirut') {
-      return matchedRegion.expressAvailable ? matchedRegion.baseDeliveryUSD : matchedRegion.baseDeliveryUSD + 1.5;
-    }
-    return matchedRegion.baseDeliveryUSD;
-  }
+  if (speed === 'standard') return DELIVERY_FEES.standard;
 
-  if (speed === 'express_beirut') return DELIVERY_FEES.express_beirut;
-  return DELIVERY_FEES.standard;
+  // Beirut Express is intentionally out of checkout scope.
+  return 0;
 }
 
 export function deliveryFeeUSD(speed: keyof typeof DELIVERY_FEES | string, subtotalUSD: number): number {
