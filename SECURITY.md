@@ -189,6 +189,14 @@ holding the promotion itself. The server reads only
 silently ignored. Keep `DISCOUNT_RULE_JSON_KEYS` in
 `src/services/supabaseCommerceService.ts` in step with those lookups.
 
+Combo deals live in `public.product_bundles`. `checkout_create_order` selects
+`where is_published = true order by display_order, id` and prices them from
+`product_ids` (a `uuid[]`) and `price_usd`. Unlike discount rules these *are*
+storefront-facing — `bundles_read` is `is_published` — so a bundle the
+database does not hold is a price the shopper is shown and will not get.
+Bundles are never cached to `localStorage`: an administrator reads
+unpublished ones through `bundles_admin`.
+
 A coupon-gated rule needs **both** halves: the code inside the rule's jsonb,
 which is what selects the rule, and a row in `public.coupons`, which is what
 validates and meters it. A code with no `coupons` row does not merely fail to

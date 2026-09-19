@@ -1289,48 +1289,23 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Product Bundles & Combo Deals State
-  const [productBundles, setProductBundles] = useState<ProductBundle[]>(() => {
-    try {
-      const saved = localStorage.getItem('yallalb_product_bundles');
-      if (saved !== null) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'bundle-gourmet-breakfast',
-        name: 'Lebanese Gourmet Breakfast Bundle',
-        nameAr: 'باقة الفطور اللبناني الفاخر',
-        description: 'Authentic Koura Extra Virgin Olive Oil, Chouf Zaatar Herb Mix, and Raw Mountain Honey packaged together.',
-        descriptionAr: 'زيت زيتون كورة بكر ممتاز، خلطة زعتر الشوف، وعسل جبلي بري نقي.',
-        badgeText: 'COMBO DEAL - SAVE 20%',
-        badgeTextAr: 'صفقة كومبو - خصم ٢٠٪',
-        productIds: ['prod-2', 'prod-12', 'prod-15'],
-        bundlePriceUSD: 34.38,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'bundle-coffee-ritual-set',
-        name: 'Artisan Morning Coffee Ritual Set',
-        nameAr: 'طقم طقوس القهوة الصباحية الحرفي',
-        description: 'Handmade Ceramic Pour-Over Dripper with Server and freshly roasted Lebanese Cardamom Coffee.',
-        descriptionAr: 'طقم تحضير القهوة السيراميكي اليدوي مع قهوة لبنانية محمصة بالهيل.',
-        badgeText: 'ARTISAN COFFEE COMBO',
-        badgeTextAr: 'كومبو القهوة الحرفية',
-        productIds: ['prod-4', 'prod-16'],
-        bundlePriceUSD: 64.79,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      }
-    ];
-  });
-
-  const hasSeededBundlesRef = useRef(false);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('yallalb_product_bundles', JSON.stringify(productBundles));
-    } catch {}
-  }, [productBundles]);
+  /**
+   * Combo deals, from public.product_bundles.
+   *
+   * Starts empty and is filled by the fetch below -- never from a bundled
+   * demo list. Two hardcoded bundles used to seed this state and an effect
+   * wrote them straight to localStorage, so every visitor was shown combo
+   * deals that did not exist, priced against product ids ('prod-2', ...) that
+   * cannot match anything: product_bundles.product_ids is uuid[], so those
+   * rows could never have been stored in the first place. An empty database
+   * must show an empty storefront, not a fake one.
+   *
+   * Nothing is cached to localStorage either. An administrator reads
+   * unpublished bundles through bundles_admin, and localStorage is
+   * per-origin, not per-session -- caching that list would leave drafts on
+   * the device after sign out, exactly as the catalogue cache did.
+   */
+  const [productBundles, setProductBundles] = useState<ProductBundle[]>([]);
 
   useEffect(() => {
     /**
@@ -1356,34 +1331,37 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAdminUser]);
 
-  const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const id = 'bundle-' + secureRandomString(7);
-    const newBundle: ProductBundle = {
-      ...bundleData,
-      id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem('yallalb_bundles_initialized', 'true');
-    setProductBundles(prev => [newBundle, ...prev]);
+  /**
+   * Re-reads the bundles after a write.
+   *
+   * These three mutations used to update React state and localStorage only --
+   * each had a try block with nothing in it -- so a combo deal existed in one
+   * administrator's browser and nowhere else. checkout_create_order reads
+   * public.product_bundles, so the saving was never applied at checkout.
+   */
+  const refreshProductBundles = async () => {
+    const bundles = await supabaseCommerceService.fetchProductBundles();
+    setProductBundles(bundles as ProductBundle[]);
+  };
 
+  const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
+      await supabaseCommerceService.createProductBundle({ ...bundleData });
+      await refreshProductBundles();
     } catch (err) {
       console.error("[ShopContext] Error saving bundle to Supabase:", err);
       showToast('Failed to create combo deal in database', 'warning');
       throw err;
     }
-    await logAdminActivity('meta_change', 'Created Combo Deal', `Created bundle: ${newBundle.name}`);
+    await logAdminActivity('meta_change', 'Created Combo Deal', `Created bundle: ${bundleData.name}`);
   };
 
   const updateProductBundle = async (id: string, updates: Partial<ProductBundle>) => {
     const target = productBundles.find(b => b.id === id);
     if (!target) return;
-    const updatedBundle: ProductBundle = { ...target, ...updates, updatedAt: new Date().toISOString() };
-
-    setProductBundles(prev => prev.map(b => b.id === id ? updatedBundle : b));
-
     try {
+      await supabaseCommerceService.updateProductBundle(id, { ...updates });
+      await refreshProductBundles();
     } catch (err) {
       console.error("[ShopContext] Error updating bundle in Supabase:", err);
       showToast('Failed to update combo deal in database', 'warning');
@@ -1393,18 +1371,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteProductBundle = async (id: string) => {
-    setProductBundles(prev => {
-      const next = prev.filter(b => b.id !== id);
-      try {
-        localStorage.setItem('yallalb_product_bundles', JSON.stringify(next));
-        localStorage.setItem('yallalb_bundles_initialized', 'true');
-      } catch {}
-      return next;
-    });
-
     try {
+      await supabaseCommerceService.deleteProductBundle(id);
+      await refreshProductBundles();
     } catch (err) {
       console.error("[ShopContext] Error deleting bundle from Supabase:", err);
+      showToast('Failed to delete combo deal in database', 'warning');
+      throw err;
     }
     await logAdminActivity('meta_change', 'Deleted Combo Deal', `Deleted bundle ID: ${id}`);
   };

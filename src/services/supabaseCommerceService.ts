@@ -81,6 +81,86 @@ const mapDiscountRuleRow = (row: any) => {
   };
 };
 
+/**
+ * Storage shape for a product bundle.
+ *
+ * checkout_create_order reads
+ *   select * from public.product_bundles where is_published = true
+ *   order by display_order, id
+ * and uses product_ids (uuid[]) and price_usd. The previous mapper here read
+ * row.bundle_price_usd and row.is_active, neither of which exists on the
+ * table, so every bundle came back priced 0 and inactive. `isActive` on the
+ * client maps to the `is_published` column the server filters on.
+ */
+const mapProductBundleRow = (row: any) => ({
+  id: row.id,
+  name: row.name,
+  nameAr: row.name_ar ?? undefined,
+  description: row.description ?? undefined,
+  descriptionAr: row.description_ar ?? undefined,
+  badgeText: row.badge_text ?? undefined,
+  badgeTextAr: row.badge_text_ar ?? undefined,
+  imageUrl: row.image_url ?? undefined,
+  productIds: row.product_ids || [],
+  bundlePriceUSD: Number(row.price_usd ?? 0),
+  isActive: Boolean(row.is_published),
+  showInSlider: Boolean(row.show_in_slider),
+  showButtonInSlider: Boolean(row.show_button_in_slider),
+  sliderButtonText: row.slider_button_text ?? undefined,
+  sliderButtonTextAr: row.slider_button_text_ar ?? undefined,
+  startDate: row.start_at ?? undefined,
+  endDate: row.end_at ?? undefined,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+/**
+ * Inverse of mapProductBundleRow.
+ *
+ * `partial` omits keys the caller did not supply, so an update that touches
+ * one field does not blank the rest.
+ */
+const toBundleRow = (
+  bundle: Record<string, any>,
+  partial = false,
+): Record<string, unknown> => {
+  const pairs: Array<[string, unknown]> = [
+    ['name', bundle.name],
+    ['name_ar', bundle.nameAr ?? null],
+    ['description', bundle.description ?? null],
+    ['description_ar', bundle.descriptionAr ?? null],
+    ['badge_text', bundle.badgeText ?? null],
+    ['badge_text_ar', bundle.badgeTextAr ?? null],
+    ['image_url', bundle.imageUrl ?? null],
+    ['product_ids', bundle.productIds],
+    ['price_usd', bundle.bundlePriceUSD],
+    ['is_published', bundle.isActive],
+    ['show_in_slider', bundle.showInSlider],
+    ['show_button_in_slider', bundle.showButtonInSlider],
+    ['slider_button_text', bundle.sliderButtonText ?? null],
+    ['slider_button_text_ar', bundle.sliderButtonTextAr ?? null],
+    ['start_at', bundle.startDate || null],
+    ['end_at', bundle.endDate || null],
+  ];
+
+  const row: Record<string, unknown> = {};
+  for (const [column, value] of pairs) {
+    if (partial && value === undefined) continue;
+    row[column] = value;
+  }
+
+  // These columns are NOT NULL. On a create, fall back to the table's own
+  // defaults rather than sending null.
+  if (!partial) {
+    row.product_ids = bundle.productIds ?? [];
+    row.price_usd = bundle.bundlePriceUSD ?? 0;
+    row.is_published = bundle.isActive ?? false;
+    row.show_in_slider = bundle.showInSlider ?? false;
+    row.show_button_in_slider = bundle.showButtonInSlider ?? false;
+  }
+  return row;
+};
+
 export interface DiscountCouponInput {
   code?: string;
   maxTotalUses?: number;
@@ -262,23 +342,59 @@ export const supabaseCommerceService = {
   async fetchProductBundles() {
     const { data, error } = await supabase
       .from('product_bundles')
+      // display_order then id is the order checkout_create_order applies
+      // bundles in, so the storefront lists them the same way.
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('display_order', { ascending: true })
+      .order('id', { ascending: true });
     if (error) throw error;
 
-    return (data || []).map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      nameAr: row.name_ar,
-      description: row.description,
-      descriptionAr: row.description_ar,
-      badgeText: row.badge_text,
-      badgeTextAr: row.badge_text_ar,
-      productIds: row.product_ids || [],
-      bundlePriceUSD: Number(row.bundle_price_usd ?? 0),
-      isActive: Boolean(row.is_active),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return (data || []).map(mapProductBundleRow);
+  },
+
+  async createProductBundle(bundle: Record<string, any>): Promise<string> {
+    const { data, error } = await supabase
+      .from('product_bundles')
+      // `id` is a uuid with a default; never send one. The admin UI used to
+      // mint 'bundle-<random>', which is not a uuid and could not be stored.
+      .insert(toBundleRow(bundle))
+      .select('id')
+      .single();
+    if (error) throw error;
+    // A write blocked by RLS returns success with zero rows, never an error.
+    if (!data?.id) {
+      throw new Error(
+        'Combo deal was not saved. Complete administrator verification and try again.',
+      );
+    }
+    return data.id as string;
+  },
+
+  async updateProductBundle(id: string, updates: Record<string, any>): Promise<void> {
+    const { data, error } = await supabase
+      .from('product_bundles')
+      .update(toBundleRow(updates, true))
+      .eq('id', id)
+      .select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error(
+        'Combo deal was not updated. Complete administrator verification and try again.',
+      );
+    }
+  },
+
+  async deleteProductBundle(id: string): Promise<void> {
+    const { data, error } = await supabase
+      .from('product_bundles')
+      .delete()
+      .eq('id', id)
+      .select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error(
+        'Combo deal was not deleted. Complete administrator verification and try again.',
+      );
+    }
   },
 };

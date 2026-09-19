@@ -616,3 +616,77 @@ describe('Discount rules actually reach the database', () => {
     expect(del).toContain('supabaseCommerceService.deleteDiscountRule');
   });
 });
+
+describe('Combo deals reach the database and match the server', () => {
+  const svc = read('src/services/supabaseCommerceService.ts');
+  const shop = read('src/context/ShopContext.tsx');
+  const svcCode = svc
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('maps the columns the table actually has', () => {
+    // checkout_create_order reads product_ids (uuid[]) and price_usd from
+    // rows where is_published. The old mapper read row.bundle_price_usd and
+    // row.is_active, neither of which exists, so every bundle came back
+    // priced 0 and inactive.
+    expect(svcCode).not.toContain('row.bundle_price_usd');
+    // Scope is_active to the bundle mapper: discount_rules really does have
+    // an is_active column, so a blanket assertion would force that correct
+    // mapping to be broken later.
+    const bundleMapper = svcCode.slice(
+      svcCode.indexOf('const mapProductBundleRow ='),
+      svcCode.indexOf('const toBundleRow ='),
+    );
+    expect(bundleMapper).not.toContain('row.is_active');
+    expect(bundleMapper).toContain('Number(row.price_usd ?? 0)');
+    expect(bundleMapper).toContain('Boolean(row.is_published)');
+  });
+
+  it('no longer drops the slider, image and scheduling fields', () => {
+    for (const col of ['image_url', 'show_in_slider', 'show_button_in_slider',
+                       'slider_button_text', 'slider_button_text_ar',
+                       'start_at', 'end_at']) {
+      expect(svc).toContain(col);
+    }
+  });
+
+  it('exposes real create/update/delete that treat zero rows as failure', () => {
+    for (const fn of ['createProductBundle', 'updateProductBundle', 'deleteProductBundle']) {
+      expect(svc).toContain(`async ${fn}(`);
+    }
+    expect(svc.match(/Combo deal was not (saved|updated|deleted)/g)?.length).toBe(3);
+  });
+
+  it('never sends a client-minted id against the uuid column', () => {
+    expect(shop).not.toContain("'bundle-' + secureRandomString");
+    const row = svc.slice(svc.indexOf('const toBundleRow ='), svc.indexOf('export interface DiscountCouponInput'));
+    expect(row).not.toMatch(/\['id',/);
+  });
+
+  it('ShopContext persists instead of writing to localStorage', () => {
+    const add = shop.slice(shop.indexOf('const addProductBundle ='),
+                           shop.indexOf('const updateProductBundle ='));
+    expect(add).toContain('supabaseCommerceService.createProductBundle');
+    expect(add).not.toMatch(/try\s*\{\s*\}\s*catch/);
+
+    const del = shop.slice(shop.indexOf('const deleteProductBundle ='),
+                           shop.indexOf('const deleteProductBundle =') + 600);
+    expect(del).toContain('supabaseCommerceService.deleteProductBundle');
+    // Bundles must not be cached: an admin reads unpublished ones, and
+    // localStorage outlives the session.
+    expect(shop).not.toContain("localStorage.setItem('yallalb_product_bundles'");
+    expect(shop).not.toContain('yallalb_bundles_initialized');
+  });
+
+  it('shows an empty storefront rather than fabricated combo deals', () => {
+    // Two hardcoded bundles used to seed this state, priced against product
+    // ids that cannot exist (product_ids is uuid[]).
+    const shopCode = shop
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(shopCode).not.toContain('bundle-gourmet-breakfast');
+    expect(shopCode).not.toContain('bundle-coffee-ritual-set');
+    expect(shopCode).not.toContain("'prod-2'");
+    expect(shop).toContain('const [productBundles, setProductBundles] = useState<ProductBundle[]>([]);');
+  });
+});
