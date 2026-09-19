@@ -150,6 +150,24 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   };
 
   useEffect(() => {
+    if (authStatus !== 'authenticated_admin' || !userId || aal2 || mode !== 'login') return;
+    let cancelled = false;
+    setBusy(true);
+    setError(null);
+    void (async () => {
+      try {
+        await verifyAdminRole(userId);
+        await loadMfaState();
+      } catch (err: any) {
+        if (!cancelled) setError(err?.message || 'Could not verify administrator MFA state.');
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authStatus, userId, aal2, mode]);
+
+  useEffect(() => {
     registerMfaPromptHandler((resolve) => {
       resolverRef.current = resolve;
       setStepUpError(null);
