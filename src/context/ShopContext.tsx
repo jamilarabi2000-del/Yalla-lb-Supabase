@@ -1694,50 +1694,62 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const target = categories.find(c => c.id === id);
     const affectedProducts = products.filter(p => p.category === id);
+    const shouldDeleteProducts =
+      deleteAttachedProducts === true || reassignCategoryId === '__delete_products__';
+    const effectiveReassignId =
+      reassignCategoryId && reassignCategoryId !== '__delete_products__'
+        ? reassignCategoryId
+        : undefined;
 
-    const shouldDeleteProducts = deleteAttachedProducts === true || reassignCategoryId === '__delete_products__';
-
-    if (affectedProducts.length > 0 && !reassignCategoryId && !shouldDeleteProducts) {
-      throw new Error(`${affectedProducts.length} product(s) are in this category. Choose an action for the attached products.`);
+    if (affectedProducts.length > 0 && !effectiveReassignId && !shouldDeleteProducts) {
+      throw new Error(
+        `${affectedProducts.length} product(s) are in this category. Choose an action for the attached products.`
+      );
     }
 
     const previousCategories = [...categories];
-    const nextCategories = categories.filter(c => c.id !== id);
-    setCategories(nextCategories);
+    const previousProducts = [...products];
 
-    // Authoritative delete. products.category_id is ON DELETE SET NULL / the
-    // reassignment above has already moved affected products, so this only
-    // removes the category row itself.
     try {
-      await supabaseCatalogService.deleteCategory(id);
-    } catch (supaErr: any) {
+      const result = await supabaseCatalogService.deleteCategory(
+        id,
+        effectiveReassignId,
+        shouldDeleteProducts
+      );
+
+      const nextCategories = categories.filter(c => c.id !== id);
+      setCategories(nextCategories);
+
+      if (shouldDeleteProducts) {
+        const affectedIds = new Set(affectedProducts.map(p => p.id));
+        setProducts(products.filter(p => !affectedIds.has(p.id)));
+      } else if (effectiveReassignId) {
+        setProducts(
+          products.map(p => p.category === id ? { ...p, category: effectiveReassignId } : p)
+        );
+      }
+
+      try {
+        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(
+          shouldDeleteProducts
+            ? products.filter(p => !new Set(affectedProducts.map(ap => ap.id)).has(p.id))
+            : effectiveReassignId
+              ? products.map(p => p.category === id ? { ...p, category: effectiveReassignId } : p)
+              : products
+        ));
+      } catch {}
+
+      await logAdminActivity(
+        'category_delete',
+        `Category "${target?.nameEn || id}" deleted`,
+        `Removed category "${target?.nameEn || id}". ${result.deletedProducts ? `Permanently deleted ${result.deletedProducts} attached product(s).` : result.reassignedProducts ? `Reassigned ${result.reassignedProducts} associated product(s) to "${effectiveReassignId}".` : ''}`
+      );
+    } catch (err: any) {
       setCategories(previousCategories);
-      console.error('[ShopContext] deleteCategory Supabase delete failed:', supaErr);
-      showToast(`Could not delete category: ${supaErr?.message || 'unknown error'}`, 'error');
-      throw supaErr;
+      setProducts(previousProducts);
+      showToast(`Could not delete category: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
     }
-
-    if (shouldDeleteProducts) {
-      const affectedIds = new Set(affectedProducts.map(p => p.id));
-      const nextProducts = products.filter(p => !affectedIds.has(p.id));
-      setProducts(nextProducts);
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
-      } catch {}
-    } else if (reassignCategoryId && reassignCategoryId !== '__delete_products__') {
-      const nextProducts = products.map(p => p.category === id ? { ...p, category: reassignCategoryId } : p);
-      setProducts(nextProducts);
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(nextProducts));
-      } catch {}
-    }
-
-
-    await logAdminActivity(
-      'category_delete',
-      `Category "${target?.nameEn || id}" deleted`,
-      `Removed category "${target?.nameEn || id}". ${shouldDeleteProducts ? `Permanently deleted ${affectedProducts.length} attached product(s).` : reassignCategoryId ? `Reassigned associated products to "${reassignCategoryId}".` : ''}`
-    );
   };
 
   const reorderCategories = async (newOrder: CategoryItem[]) => {
