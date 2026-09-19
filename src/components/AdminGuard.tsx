@@ -149,8 +149,15 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     }
   };
 
+  const mfaBootstrapRef = useRef(false);
+
   useEffect(() => {
-    if (authStatus !== 'authenticated_admin' || !userId || aal2 || mode !== 'login') return;
+    if (authStatus !== 'authenticated_admin' || !userId) {
+      mfaBootstrapRef.current = false;
+      return;
+    }
+    if (aal2 || mode !== 'login' || mfaBootstrapRef.current) return;
+    mfaBootstrapRef.current = true;
     let cancelled = false;
     setBusy(true);
     setError(null);
@@ -159,6 +166,7 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         await verifyAdminRole(userId);
         await loadMfaState();
       } catch (err: any) {
+        mfaBootstrapRef.current = false;
         if (!cancelled) setError(err?.message || 'Could not verify administrator MFA state.');
       } finally {
         if (!cancelled) setBusy(false);
