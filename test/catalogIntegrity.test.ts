@@ -150,3 +150,42 @@ describe('Public product projection stays within the anon column grant', () => {
     expect(pub.length).toBeGreaterThan(30);
   });
 });
+
+describe('Storefront visibility is enforced in the database', () => {
+  const migration = fs.readFileSync(
+    path.resolve(process.cwd(),
+      'supabase/migrations/20260919070000_hide_products_of_hidden_category_or_seller.sql'), 'utf-8');
+  const visibility = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/lib/storefrontVisibility.ts'), 'utf-8');
+
+  it('narrows both SELECT policies on products, not just the anon one', () => {
+    expect(migration).toContain('alter policy products_public_read');
+    expect(migration).toContain('alter policy products_authenticated_read');
+  });
+
+  it('requires a published category and an active seller', () => {
+    for (const clause of ['c.is_published', 's.is_active']) {
+      // Once for each of the two policies.
+      expect(migration.split(clause).length - 1).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('keeps unaffiliated products visible', () => {
+    // A NULL category or seller must not hide a product, matching
+    // public_catalog and checkout_create_order.
+    expect(migration).toContain('category_id is null');
+    expect(migration).toContain('seller_id is null');
+  });
+
+  it('preserves the admin and owning-seller branches', () => {
+    expect(migration).toContain('private.is_admin()');
+    expect(migration).toContain('private.is_seller()');
+  });
+
+  it('records that the client-side check is not the boundary', () => {
+    // The seller branch there is inert for visitors: RLS removes the inactive
+    // seller from the array it looks in, so the check can never fire.
+    expect(visibility).toContain('presentation only');
+    expect(visibility).toContain('RLS');
+  });
+});

@@ -12,6 +12,22 @@ export interface StorefrontProductRuleParams {
  * 1. Visual Edit Mode is active (shows drafts/hidden items with admin markers), OR
  * 2. Product isPublished !== false, AND
  * 3. The associated seller (if registered) has isActive !== false.
+ *
+ * This is presentation only, and is NOT what hides a product from visitors.
+ *
+ * The real boundary is the `products_public_read` / `products_authenticated_read`
+ * RLS policies, which require the product to be published AND its category
+ * published AND its seller active — matching `public_catalog` and
+ * `checkout_create_order`. A non-admin simply never receives a row that fails
+ * those conditions.
+ *
+ * The seller branch below cannot be relied on and is kept only as a cheap
+ * belt-and-braces pass for Visual Edit Mode, where an admin does receive
+ * hidden rows. For a visitor it is inert by construction: it looks the seller
+ * up in the fetched `sellers` array to test `isActive === false`, but RLS has
+ * already removed inactive sellers from that array, so `matchedSeller` is
+ * undefined and the branch never fires. Do not re-add a category check here
+ * expecting it to work — it would fail the same way.
  */
 export function isProductVisibleOnStorefront(
   product: Product,

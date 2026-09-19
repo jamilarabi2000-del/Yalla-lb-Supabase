@@ -83,7 +83,31 @@ Destructive operations (`private.admin_delete_order`,
 
 ---
 
-## 3. Server-authoritative commerce
+## 3. Storefront visibility
+
+A product reaches a visitor only when **all three** hold: the product is
+published, its category is published, and its seller is active. A NULL
+category or seller means "unaffiliated" and stays visible.
+
+This is enforced by the `products_public_read` and
+`products_authenticated_read` RLS policies, so every client inherits it —
+the REST API, `search_products()` (SECURITY INVOKER) and the
+`public_catalog` view (security_invoker) all agree, and it matches what
+`checkout_create_order` has always required.
+
+`isProductVisibleOnStorefront` in `src/lib/storefrontVisibility.ts` is
+presentation only. Its seller branch is inert for visitors by construction:
+it looks the seller up in the fetched `sellers` array, which RLS has already
+stripped of inactive sellers, so the check can never fire. Do not treat it as
+a boundary or extend it expecting enforcement.
+
+Administrators and owning sellers keep their own branches of
+`products_authenticated_read`, so the console and seller dashboard still see
+drafts and hidden items.
+
+---
+
+## 4. Server-authoritative commerce
 
 `private.checkout_create_order()` is the only path that creates an order;
 `public.orders` has no `INSERT` policy and no `INSERT` grant.
@@ -101,7 +125,7 @@ enforces a forward-only fulfilment state machine. Sellers may advance
 
 ---
 
-## 4. Abuse and rate limiting
+## 5. Abuse and rate limiting
 
 | Surface | Control |
 | :--- | :--- |
@@ -116,7 +140,7 @@ enforces a forward-only fulfilment state machine. Sellers may advance
 
 ---
 
-## 5. Client-side hardening
+## 6. Client-side hardening
 
 These reduce blast radius. None of them is an authorization control.
 
@@ -137,7 +161,7 @@ These reduce blast radius. None of them is an authorization control.
 
 ---
 
-## 6. Secrets
+## 7. Secrets
 
 - Only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` reach the
   browser. `test/security.test.ts` and `test/securityHardeningContract.test.ts`
@@ -148,7 +172,7 @@ These reduce blast radius. None of them is an authorization control.
 
 ---
 
-## 7. Known gaps
+## 8. Known gaps
 
 | Gap | Status |
 | :--- | :--- |
@@ -158,7 +182,7 @@ These reduce blast radius. None of them is an authorization control.
 
 ---
 
-## 8. Reporting
+## 9. Reporting
 
 Report suspected vulnerabilities privately to the repository owner. Please do
 not open a public issue.
