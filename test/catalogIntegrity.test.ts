@@ -108,3 +108,45 @@ describe('products.brand reaches the UI model', () => {
     expect(service).toContain(': undefined');
   });
 });
+
+describe('Public product projection stays within the anon column grant', () => {
+  const svc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/services/supabaseCatalogService.ts'), 'utf-8');
+
+  const projection = (name: string) => {
+    const m = svc.match(new RegExp('const ' + name + ' = `([\\s\\S]*?)`;'));
+    if (!m) throw new Error(name + ' not found');
+    return m[1]
+      .replace(/\w+!\w+\s*\([^)]*\)/g, '')       // drop embedded joins
+      .split(/[,\n]/).map(c => c.trim()).filter(c => /^\w+$/.test(c));
+  };
+
+  // anon holds COLUMN-level SELECT on products. PostgreSQL fails the whole
+  // statement if a SELECT names any column the role cannot read, so adding one
+  // of these to the public projection empties the storefront for every
+  // logged-out visitor — while staying invisible to a signed-in admin, who has
+  // a table-level grant.
+  const NEVER_PUBLIC = [
+    'cost_price_usd', 'seller_item_code', 'low_stock_threshold',
+    'low_stock_notice', 'custom_stock_label',
+  ];
+
+  it('never requests a private column for anonymous visitors', () => {
+    const pub = projection('PUBLIC_PRODUCT_COLUMNS');
+    expect(pub.filter(c => NEVER_PUBLIC.includes(c))).toEqual([]);
+  });
+
+  it('keeps the private columns available to the admin projection', () => {
+    const adm = projection('ADMIN_PRODUCT_COLUMNS');
+    for (const c of NEVER_PUBLIC) expect(adm).toContain(c);
+  });
+
+  it('documents the grant any newly public column needs', () => {
+    // Adding a column here requires a matching
+    //   grant select (<column>) on public.products to anon;
+    // See supabase/migrations/20260919060000_restore_anon_catalog_column_grants.sql
+    const pub = projection('PUBLIC_PRODUCT_COLUMNS');
+    expect(pub).toContain('yalla_item_code');
+    expect(pub.length).toBeGreaterThan(30);
+  });
+});
