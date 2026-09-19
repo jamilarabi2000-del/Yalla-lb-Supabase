@@ -178,7 +178,7 @@ const MainAppContent: React.FC = () => {
   useEffect(() => {
     const syncRouteFromUrl = () => {
       isPopStateRef.current = true;
-      const rawPath = window.location.pathname.replace(/^\\/+|\\/+$/g, '');
+      const rawPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
       const searchParams = new URLSearchParams(window.location.search);
       const urlLang = searchParams.get('lang');
       const urlSearch = searchParams.get('search');
@@ -205,7 +205,7 @@ const MainAppContent: React.FC = () => {
         return;
       }
 
-      const productMatch = rawPath.match(/^product\\/([^/]+)$/);
+      const productMatch = rawPath.match(/^product\/([^/]+)$/);
       if (productMatch) {
         const prodId = decodeURIComponent(productMatch[1]);
         const foundProduct = productsRef.current.find(p => p.id === prodId);
@@ -240,7 +240,7 @@ const MainAppContent: React.FC = () => {
 
   // Resolve a direct product deep link after the Supabase catalogue finishes hydrating.
   useEffect(() => {
-    if (notFoundPath || !window.location.pathname.match(/^\\/product\\/[^/]+$/)) return;
+    if (notFoundPath || !window.location.pathname.match(/^\/product\/[^/]+$/)) return;
     const prodId = decodeURIComponent(window.location.pathname.slice('/product/'.length));
     const foundProduct = productsRef.current.find(p => p.id === prodId);
     if (foundProduct && selectedProductDetail?.id !== foundProduct.id) {
