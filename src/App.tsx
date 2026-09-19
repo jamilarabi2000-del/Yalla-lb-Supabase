@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useEffect, useRef, useState, Suspense, lazy } from 'react';
 import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
 import { HomeView } from './components/HomeView';
@@ -72,9 +72,12 @@ const MainAppContent: React.FC = () => {
     isSellerUser,
     language,
     setLanguage,
+    searchQuery,
+    setSearchQuery,
     completeEmailLinkSignIn
   } = useShop();
   const isPopStateRef = useRef(false);
+  const [notFoundPath, setNotFoundPath] = useState<string | null>(null);
 
   useEffect(() => {
     syncDomHead(siteContent, language);
@@ -175,43 +178,77 @@ const MainAppContent: React.FC = () => {
   useEffect(() => {
     const syncRouteFromUrl = () => {
       isPopStateRef.current = true;
-      const path = window.location.pathname.replace(/^\/+/, '');
+      const rawPath = window.location.pathname.replace(/^\\/+|\\/+$/g, '');
       const searchParams = new URLSearchParams(window.location.search);
       const urlLang = searchParams.get('lang');
-      if (urlLang === 'ar' || urlLang === 'en') setLanguage(urlLang);
+      const urlSearch = searchParams.get('search');
 
-      if (path === 'admin') {
+      if (urlLang === 'ar' || urlLang === 'en') setLanguage(urlLang);
+      if (urlSearch !== null && urlSearch !== searchQuery) setSearchQuery(urlSearch);
+      setNotFoundPath(null);
+
+      if (rawPath === '' || rawPath === 'home') {
+        setSelectedProductDetail(null);
+        if (activeTabRef.current !== 'home') setActiveTab('home');
+        return;
+      }
+
+      if (rawPath === 'admin') {
         setSelectedProductDetail(null);
         setActiveTab('admin');
-      } else if (path === 'seller') {
+        return;
+      }
+
+      if (rawPath === 'seller') {
         setSelectedProductDetail(null);
         setActiveTab('seller');
-      } else if (path.startsWith('product/')) {
-        const prodId = path.replace('product/', '');
+        return;
+      }
+
+      const productMatch = rawPath.match(/^product\\/([^/]+)$/);
+      if (productMatch) {
+        const prodId = decodeURIComponent(productMatch[1]);
         const foundProduct = productsRef.current.find(p => p.id === prodId);
+        setActiveTab('product_detail');
         if (foundProduct) openProductDetail(foundProduct);
-      } else if (path.startsWith('products')) {
+        else setSelectedProductDetail(null);
+        return;
+      }
+
+      if (rawPath === 'products' || rawPath.startsWith('products/')) {
         setSelectedProductDetail(null);
         setActiveTab('products');
-        const catMatch = path.match(/^products\/(.+)$/);
-        if (catMatch) setSelectedCategory(decodeURIComponent(catMatch[1]));
-        else setSelectedCategory('all');
-      } else if (path === 'checkout' || path === 'account' || path === 'favorites' || path === 'home' || path === '') {
-        const targetTab = (path === '' || path === 'home' ? 'home' : path) as any;
-        if (activeTabRef.current !== targetTab) {
-          setSelectedProductDetail(null);
-          setActiveTab(targetTab);
-        }
-      } else {
-        setSelectedProductDetail(null);
-        setActiveTab('home');
+        const categoryPath = rawPath.slice('products/'.length);
+        setSelectedCategory(categoryPath ? decodeURIComponent(categoryPath) : 'all');
+        return;
       }
+
+      if (rawPath === 'checkout' || rawPath === 'account' || rawPath === 'favorites') {
+        setSelectedProductDetail(null);
+        setActiveTab(rawPath as any);
+        return;
+      }
+
+      setSelectedProductDetail(null);
+      setNotFoundPath('/' + rawPath);
     };
 
     syncRouteFromUrl();
     window.addEventListener('popstate', syncRouteFromUrl);
     return () => window.removeEventListener('popstate', syncRouteFromUrl);
-  }, [openProductDetail, setActiveTab, setSelectedProductDetail, setSelectedCategory, setLanguage]);
+  }, [openProductDetail, setActiveTab, setSelectedProductDetail, setSelectedCategory, setLanguage, searchQuery, setSearchQuery]);
+
+  // Resolve a direct product deep link after the Supabase catalogue finishes hydrating.
+  useEffect(() => {
+    if (notFoundPath || !window.location.pathname.match(/^\\/product\\/[^/]+$/)) return;
+    const prodId = decodeURIComponent(window.location.pathname.slice('/product/'.length));
+    const foundProduct = productsRef.current.find(p => p.id === prodId);
+    if (foundProduct && selectedProductDetail?.id !== foundProduct.id) {
+      isPopStateRef.current = true;
+      setActiveTab('product_detail');
+      openProductDetail(foundProduct);
+    }
+  }, [products, notFoundPath, selectedProductDetail, openProductDetail, setActiveTab]);
 
   useEffect(() => {
     if (isPopStateRef.current) {
@@ -221,16 +258,21 @@ const MainAppContent: React.FC = () => {
     let targetPath = activeTab === 'home' ? '' : activeTab;
     if (activeTab === 'product_detail' && selectedProductDetail) targetPath = `product/${selectedProductDetail.id}`;
     else if (activeTab === 'products' && selectedCategory && selectedCategory !== 'all') targetPath = `products/${encodeURIComponent(selectedCategory)}`;
+    if (notFoundPath) return;
     const targetUrl = targetPath === '' || targetPath === 'home' ? '/' : `/${targetPath}`;
-    const search = window.location.search || '';
-    const fullTarget = search ? `${targetUrl}${search}` : targetUrl;
+    const currentParams = new URLSearchParams(window.location.search);
+    if (activeTab !== 'products') currentParams.delete('search');
+    else if (searchQuery.trim()) currentParams.set('search', searchQuery.trim());
+    else currentParams.delete('search');
+    const serializedSearch = currentParams.toString();
+    const fullTarget = serializedSearch ? `${targetUrl}?${serializedSearch}` : targetUrl;
     try {
-      if (typeof window !== 'undefined' && window.location.pathname !== targetUrl && window.history) {
+      if (typeof window !== 'undefined' && (window.location.pathname !== targetUrl || window.location.search !== (serializedSearch ? `?${serializedSearch}` : '')) && window.history) {
         const currentDepth = (window.history.state && typeof window.history.state.depth === 'number') ? window.history.state.depth : 0;
         window.history.pushState({ appNav: true, depth: currentDepth + 1 }, '', fullTarget);
       }
     } catch {}
-  }, [activeTab, selectedProductDetail, selectedCategory]);
+  }, [activeTab, selectedProductDetail, selectedCategory, searchQuery, notFoundPath]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F7F8] text-[#111111] selection:bg-[#F3E5AB] selection:text-[#111111] font-sans antialiased">
@@ -240,6 +282,16 @@ const MainAppContent: React.FC = () => {
       </div>
       {activeTab !== 'admin' && activeTab !== 'seller' && <Navbar />}
       <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+        {notFoundPath ? (
+          <section className="min-h-[60vh] flex items-center justify-center px-4 py-16">
+            <div className="max-w-md w-full rounded-3xl border border-[#E5E5E5] bg-white p-8 text-center shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8F7137] mb-3">404</p>
+              <h1 className="text-2xl font-serif font-semibold text-[#171717] mb-3">Page not found</h1>
+              <p className="text-sm leading-6 text-[#737373] mb-6">The requested Yalla page does not exist.</p>
+              <button type="button" onClick={() => { setNotFoundPath(null); setActiveTab('home'); }} className="gold-btn rounded-xl px-5 py-3 text-sm font-black">Back to Home</button>
+            </div>
+          </section>
+        ) : (
         {activeTab === 'home' && <HomeView />}
         {activeTab === 'products' && <ProductsView />}
         {activeTab === 'product_detail' && <ProductDetailView />}
@@ -248,6 +300,7 @@ const MainAppContent: React.FC = () => {
         {activeTab === 'favorites' && <FavoritesView />}
         {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><SellerLoginView /></Suspense>}
         {activeTab === 'admin' && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
+        )}
       </main>
       <ProductModal />
       <CartDrawer />
