@@ -24,7 +24,10 @@ import {
 
 export const OrdersRoute: React.FC = () => {
   const { 
-    orders, 
+    orders,
+    hasMoreOrders,
+    isLoadingMoreOrders,
+    loadMoreOrders,
     updateOrderStatus, 
     formatPrice, 
     convertUSDToLBP, 
@@ -234,6 +237,19 @@ export const OrdersRoute: React.FC = () => {
           </div>
         )}
       </div>
+
+      {hasMoreOrders && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={loadMoreOrders}
+            disabled={isLoadingMoreOrders}
+            className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 disabled:opacity-50"
+          >
+            {isLoadingMoreOrders ? 'Loading…' : 'Load more orders'}
+          </button>
+        </div>
+      )}
 
       {/* Invoice & Order Details Inspector Modal */}
       {selectedInvoiceOrder && (
