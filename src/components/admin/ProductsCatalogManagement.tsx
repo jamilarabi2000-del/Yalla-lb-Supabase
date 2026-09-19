@@ -182,8 +182,13 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!String(form.category || '').trim()) errors.category = 'Category is required.';
     if (!Number.isFinite(price) || price < 1) errors.priceUSD = 'Price must be at least $1.00.';
     if (!Number.isInteger(stock) || stock < 0) errors.stock = 'Stock quantity must be a whole number (0 or more).';
-    if (!String(form.seller || '').trim()) errors.seller = 'Seller Name (English) is required.';
-    if (!String(form.sellerItemCode || '').trim()) errors.sellerItemCode = 'Seller Product Code is required.';
+    const selectedSeller = form.sellerId ? (sellers as any[]).find((s: any) => s.id === form.sellerId) : null;
+    if (published && (!selectedSeller || selectedSeller.isActive === false)) {
+      errors.seller = 'Select an active seller before publishing.';
+    }
+    if (published && !String(form.sellerItemCode || '').trim()) {
+      errors.sellerItemCode = 'Seller Product Code is required before publishing.';
+    }
     if (!editing?.id && !String(form.yallaItemCode || '').trim()) errors.yallaItemCode = 'Yalla Item Code could not be generated. Close and reopen the form.';
     const imageValidation = validateExternalImageUrl(String(form.image || ''), true);
     if (!imageValidation.valid) errors.image = imageValidation.error || 'Enter a valid HTTPS image URL.';
@@ -335,7 +340,10 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!categoryId || !categories.some((c: any) => c.id === categoryId)) errors.push('Category');
     if (!Number.isFinite(price) || price < 1) errors.push('Price (minimum $1.00)');
     if (!Number.isInteger(stock) || stock < 0) errors.push('Stock (0 or more)');
-    if (!resolvedSellerName || ['independent artisan', 'lebanese artisan'].includes(resolvedSellerName.toLowerCase())) errors.push('Seller Name (English)');
+    const linkedSellerActive = Boolean(linkedSeller && linkedSeller.isActive !== false);
+    if (!product.sellerId || !linkedSellerActive || !resolvedSellerName || ['independent artisan', 'lebanese artisan'].includes(resolvedSellerName.toLowerCase())) {
+      errors.push('Active Seller');
+    }
     if (!sellerItemCode) errors.push('Seller Product Code');
     if (!image) errors.push('Primary image');
 
