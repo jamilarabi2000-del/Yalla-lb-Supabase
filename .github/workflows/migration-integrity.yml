@@ -1,0 +1,40 @@
+name: Database Migration Integrity
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  migration-integrity:
+    name: Verify migration history and schema drift
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Verify migration history is reproducible
+        run: |
+          set -euo pipefail
+          supabase migration list --linked
+
+      - name: Fail on linked schema drift
+        run: |
+          set -euo pipefail
+          diff_output="$(supabase db diff --linked --schema public,private,storage || true)"
+          if [ -n "${diff_output//[[:space:]]/}" ]; then
+            echo "Schema drift detected between repository migrations and the linked database:"
+            printf '%s\n' "$diff_output"
+            exit 1
+          fi
+          echo "No linked schema drift detected."
