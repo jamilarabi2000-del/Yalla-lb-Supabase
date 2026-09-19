@@ -315,10 +315,79 @@ export const ProductsCatalogManagement: React.FC = () => {
 
   const bulkPublish = async (published: boolean) => {
     if (!visibleSelected.length) return;
-    const results = await Promise.allSettled(visibleSelected.map(id => updateProduct(id, { isPublished: published })));
-    const ok = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.length - ok;
-    showToast(failed ? ok + ' product(s) updated, ' + failed + ' failed.' : ok + ' product(s) ' + (published ? 'published live' : 'saved as drafts') + '.', failed ? 'warning' : 'success');
+
+    // Drafting does not require publication fields. Publishing is pre-validated
+    // here so the header action can explain exactly why a product is blocked
+    // instead of relying on one generic database error per failed request.
+    if (!published) {
+      try {
+        await Promise.all(visibleSelected.map(id => updateProduct(id, { isPublished: false })));
+        showToast(visibleSelected.length + ' product(s) saved as drafts.', 'success');
+      } catch (e: any) {
+        showToast(e?.message || 'Some products could not be saved as drafts.', 'error');
+      }
+      return;
+    }
+
+    const selectedProducts = visibleSelected
+      .map(id => products.find(p => p.id === id))
+      .filter(Boolean) as Product[];
+
+    const failures: Array<{ id: string; name: string; missing: string[] }> = [];
+    const validProducts: Product[] = [];
+
+    for (const product of selectedProducts) {
+      const missing: string[] = [];
+      const name = String(product.name || '').trim();
+      const categoryId = String(product.category || '').trim();
+      const price = Number(product.priceUSD);
+      const stock = Number(product.stock);
+      const artisan = String(product.artisan || '').trim().toLowerCase();
+      const sellerItemCode = String(product.sellerItemCode || '').trim();
+      const image = String(product.image || '').trim();
+
+      if (!name) missing.push('Product title');
+      if (!categoryId || !categories.some((c: any) => c.id === categoryId)) missing.push('Category');
+      if (!Number.isFinite(price) || price < 1) missing.push('Price (minimum $1.00)');
+      if (!Number.isInteger(stock) || stock < 0) missing.push('Stock (0 or more)');
+      if (!artisan || artisan === 'independent artisan' || artisan === 'lebanese artisan') missing.push('Artisan / Seller');
+      if (!sellerItemCode) missing.push('Seller Product Code');
+      if (!image) missing.push('Primary image');
+
+      if (missing.length) {
+        failures.push({ id: product.id, name: name || 'Unnamed product', missing });
+      } else {
+        validProducts.push(product);
+      }
+    }
+
+    const results = await Promise.allSettled(
+      validProducts.map(product => updateProduct(product.id, { isPublished: true }))
+    );
+    const publishedCount = results.filter(r => r.status === 'fulfilled').length;
+
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const product = validProducts[index];
+        const reason = result.reason?.message || 'Server rejected publication.';
+        failures.push({ id: product.id, name: product.name || 'Unnamed product', missing: [reason] });
+      }
+    });
+
+    if (!failures.length) {
+      showToast(publishedCount + ' product(s) published live.', 'success');
+      return;
+    }
+
+    const failureLines = failures.slice(0, 3).map(f =>
+      f.name + ': ' + f.missing.join(', ')
+    );
+    const more = failures.length > 3 ? ' +' + (failures.length - 3) + ' more' : '';
+    showToast(
+      publishedCount + ' published, ' + failures.length + ' blocked. ' +
+      failureLines.join(' | ') + more,
+      'warning'
+    );
   };
   const bulkDelete = async () => {
     if (!visibleSelected.length || !window.confirm('Delete ' + visibleSelected.length + ' visible selected product(s)? This cannot be undone.')) return;
