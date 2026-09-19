@@ -65,7 +65,26 @@ export const supabaseUserDataService = {
   },
 
   async fetchReviews(productId?: string): Promise<Review[]> {
-    try { let query = supabase.from('reviews').select('*').order('created_at', { ascending: false }); if (productId) query = query.eq('product_id', productId); const { data, error } = await query; if (error || !data) return []; return data.map((r: any) => ({ id: String(r.id), productId: String(r.product_id || r.productId), userId: String(r.user_id || r.userId), userName: String(r.user_name || r.userName || 'Customer'), rating: Number(r.rating || 5), comment: String(r.comment || ''), createdAt: r.created_at || r.createdAt || new Date().toISOString(), orderId: r.order_id || r.orderId, adminReply: r.admin_reply || r.adminReply, adminReplyAt: r.admin_reply_at || r.adminReplyAt })); } catch { return []; }
+    let query = supabase.from('reviews').select('*').order('created_at', { ascending: false });
+    if (productId) query = query.eq('product_id', productId);
+    const { data, error } = await query;
+    if (error) {
+      console.error('[supabaseUserDataService] fetchReviews failed:', error);
+      throw toUserFacingError(error, 'Unable to load reviews right now.');
+    }
+    if (!data) return [];
+    return data.map((r: any) => ({
+      id: String(r.id),
+      productId: String(r.product_id || r.productId),
+      userId: String(r.user_id || r.userId),
+      userName: String(r.user_name || r.userName || 'Customer'),
+      rating: Number(r.rating || 5),
+      comment: String(r.comment || ''),
+      createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+      orderId: r.order_id || r.orderId,
+      adminReply: r.admin_reply || r.adminReply,
+      adminReplyAt: r.admin_reply_at || r.adminReplyAt,
+    }));
   },
 
   async addReview(review: Omit<Review, 'id' | 'createdAt'> & { id?: string }): Promise<void> {
