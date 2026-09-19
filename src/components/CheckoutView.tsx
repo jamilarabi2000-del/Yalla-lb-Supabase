@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
 import { PaymentMethod } from '../types';
-import { LEBANON_REGIONS, GovernorateOption, LBP_USD_RATE } from '../data/regions';
+import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
@@ -67,7 +67,12 @@ export const CheckoutView: React.FC = () => {
     signInWithApple,
     signOutUser,
     siteContent,
-    isVisualEditMode
+    isVisualEditMode,
+    // Live USD -> LBP rate from app_settings. Do NOT use the LBP_USD_RATE
+    // constant here: checkout_create_order prices total_lbp from the stored
+    // setting, so a hardcoded rate quotes the shopper a total the courier
+    // will not collect once that setting changes.
+    lbpRate
   } = useShop();
 
   const visibility = siteContent?.visibility || {
@@ -510,7 +515,7 @@ export const CheckoutView: React.FC = () => {
         subtotalUSD: Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100,
         deliveryFeeUSD: deliveryFeeUSD,
         totalUSD: finalTotalUSD,
-        totalLBP: Math.round(finalTotalUSD * LBP_USD_RATE),
+        totalLBP: Math.round(finalTotalUSD * lbpRate),
         discountUSD: discountUSD,
         appliedCoupon: appliedCouponCode || undefined,
         estimatedDelivery: deliverySpeed === 'express_beirut' 
@@ -1583,7 +1588,7 @@ export const CheckoutView: React.FC = () => {
                         {formatPrice(finalTotalUSD)}
                       </span>
                       <div className="text-[10px] text-[#737373] font-mono">
-                        ≈ {(finalTotalUSD * LBP_USD_RATE).toLocaleString()} LBP
+                        ≈ {(finalTotalUSD * lbpRate).toLocaleString()} LBP
                       </div>
                     </div>
                   </div>
