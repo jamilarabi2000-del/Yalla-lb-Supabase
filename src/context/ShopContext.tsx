@@ -2238,7 +2238,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               successfulRows.forEach(item => nextMap.set(item.sku, item.localResult));
               const merged = Array.from(nextMap.values());
               try {
-                localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
+                writeCatalogCache(CATALOG_CACHE_KEYS.products, merged);
               } catch {}
               return merged;
             });
@@ -4549,7 +4549,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = [newProduct, ...prev];
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, next);
       } catch {}
       return next;
     });
@@ -4567,7 +4567,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProducts(prev => {
         const next = prev.filter(p => p.id !== id);
         try {
-          localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+          writeCatalogCache(CATALOG_CACHE_KEYS.products, next);
         } catch {}
         return next;
       });
@@ -4660,7 +4660,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = prev.map(p => (p.id === id ? { ...p, ...mergedUpdates } : p));
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, next);
       } catch {}
       return next;
     });
@@ -4677,7 +4677,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProducts(prev => {
           const next = prev.map(p => (p.id === id ? existing : p));
           try {
-            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+            writeCatalogCache(CATALOG_CACHE_KEYS.products, next);
           } catch {}
           return next;
         });
@@ -4737,7 +4737,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProducts(prev => {
       const next = prev.filter(p => p.id !== id);
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, next);
       } catch {}
       return next;
     });
@@ -4754,7 +4754,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProducts(prev => {
           const next = [target, ...prev.filter(p => p.id !== id)];
           try {
-            localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
+            writeCatalogCache(CATALOG_CACHE_KEYS.products, next);
           } catch {}
           return next;
         });
@@ -4809,7 +4809,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setProducts(prev => {
       const next = prev.filter(p => !ids.includes(p.id));
-      try { localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next)); } catch {}
+      try { writeCatalogCache(CATALOG_CACHE_KEYS.products, next); } catch {}
       return next;
     });
 
@@ -4851,8 +4851,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCatalogError(null);
 
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(freshProducts));
-        localStorage.setItem(CATALOG_CACHE_KEYS.categories, JSON.stringify(freshCategories));
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, freshProducts);
+        writeCatalogCache(CATALOG_CACHE_KEYS.categories, freshCategories);
       } catch {}
 
       showToast(
