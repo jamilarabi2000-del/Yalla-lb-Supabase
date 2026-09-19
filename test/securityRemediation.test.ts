@@ -540,3 +540,79 @@ describe('The catalogue cache never outlives a privileged session', () => {
     expect(live).not.toContain('_v2');
   });
 });
+
+describe('Discount rules actually reach the database', () => {
+  const svc = read('src/services/supabaseCommerceService.ts');
+  const shop = read('src/context/ShopContext.tsx');
+
+  it('stores the promotion in the jsonb column the server reads', () => {
+    // private.checkout_create_order reads the promotion out of
+    // discount_rules.rule and nowhere else. The previous mapper selected
+    // row.type / row.value / row.target_value, none of which exist on the
+    // table, so every rule came back { type: undefined, value: 0 }.
+    for (const key of ['type', 'value', 'target', 'targetValue', 'minPurchaseUSD',
+                       'startDate', 'endDate', 'isNewUserOnly', 'buyQty', 'getQty',
+                       'getDiscountPercent', 'couponCode']) {
+      expect(svc).toContain(`'${key}'`);
+    }
+    expect(svc).toContain('rule: toRuleJson(');
+    // Strip comments: the block explaining the old mapper legitimately names
+    // the columns that do not exist, and asserting on raw text would fail on
+    // its own documentation.
+    const svcCode = svc
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    expect(svcCode).not.toContain('row.target_value');
+    expect(svcCode).not.toContain('row.min_purchase_usd');
+    expect(svcCode).not.toContain('row.coupon_code');
+  });
+
+  it('exposes real create/update/delete, not read-only helpers', () => {
+    for (const fn of ['createDiscountRule', 'updateDiscountRule', 'deleteDiscountRule']) {
+      expect(svc).toContain(`async ${fn}(`);
+    }
+    expect(svc).toContain("from('discount_rules')");
+    expect(svc).toContain("from('coupons')");
+  });
+
+  it('treats a zero-row write as failure, since RLS returns success with no rows', () => {
+    const writes = svc.match(/async (create|update|delete)DiscountRule\(/g) ?? [];
+    expect(writes.length).toBe(3);
+    // Each write must both project rows back and reject an empty result.
+    expect(svc.match(/Complete administrator verification and try again/g)?.length)
+      .toBeGreaterThanOrEqual(4);
+  });
+
+  it('removes a rule\'s coupons before the rule itself', () => {
+    // The FK is ON DELETE SET NULL, so dropping the rule alone leaves a code
+    // that passes the INVALID_COUPON check but resolves to a null rule: it
+    // appears to work, discounts nothing, and still burns a use.
+    const del = svc.slice(svc.indexOf('async deleteDiscountRule('));
+    const couponIdx = del.indexOf("from('coupons')");
+    const ruleIdx = del.indexOf("from('discount_rules')");
+    expect(couponIdx).toBeGreaterThan(-1);
+    expect(ruleIdx).toBeGreaterThan(couponIdx);
+  });
+
+  it('refuses to steal a coupon code from another rule', () => {
+    expect(svc).toContain('is already in use by another discount rule');
+  });
+
+  it('ShopContext persists instead of only touching React state', () => {
+    const add = shop.slice(shop.indexOf('const addDiscountRule ='),
+                           shop.indexOf('const updateDiscountRule ='));
+    expect(add).toContain('supabaseCommerceService.createDiscountRule');
+    // The original had `try {` immediately followed by `} catch` -- an empty
+    // block that wrote nothing at all.
+    expect(add).not.toMatch(/try\s*\{\s*\}\s*catch/);
+    expect(add).not.toContain("'rule-' + secureRandomString");
+
+    const upd = shop.slice(shop.indexOf('const updateDiscountRule ='),
+                           shop.indexOf('const deleteDiscountRule ='));
+    expect(upd).toContain('supabaseCommerceService.updateDiscountRule');
+
+    const del = shop.slice(shop.indexOf('const deleteDiscountRule ='),
+                           shop.indexOf('const deleteDiscountRule =') + 700);
+    expect(del).toContain('supabaseCommerceService.deleteDiscountRule');
+  });
+});

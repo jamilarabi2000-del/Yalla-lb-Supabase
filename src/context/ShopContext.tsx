@@ -1220,21 +1220,35 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAdminUser]);
 
+  /**
+   * Re-reads the rules from Supabase after a write.
+   *
+   * These three mutations used to update React state only -- addDiscountRule
+   * had a try block with nothing in it -- so an administrator saw the rule
+   * appear, got a success toast and an activity entry, and nothing was
+   * stored. checkout_create_order reads public.discount_rules, so the
+   * promotion never applied. Re-reading rather than patching state locally
+   * keeps what is on screen equal to what the server will actually honour.
+   */
+  const refreshDiscountRules = async () => {
+    const rules = await supabaseCommerceService.fetchDiscountRules();
+    setDiscountRules(rules as DiscountRule[]);
+  };
+
   const addDiscountRule = async (ruleData: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const id = 'rule-' + secureRandomString(7);
-    const newRule: DiscountRule = {
-      ...ruleData,
-      id
-    };
     try {
+      await supabaseCommerceService.createDiscountRule(
+        { ...ruleData },
+        { code: couponCode, maxTotalUses, maxUsesPerUser },
+      );
+      await refreshDiscountRules();
     } catch (err) {
+      // DiscountsManager surfaces err.message, which names the real cause
+      // (unverified administrator, duplicate coupon code). Do not swallow it.
       console.error("[ShopContext] Error saving discount rule to Supabase:", err);
-      showToast('Failed to save discount rule to database', 'warning');
       throw err;
     }
-    const ruleWithMeta = { ...newRule, couponCode, maxTotalUses, maxUsesPerUser };
-    setDiscountRules(prev => [ruleWithMeta, ...prev]);
-    await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${newRule.name}`);
+    await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${ruleData.name}`);
   };
 
   const updateDiscountRule = async (id: string, updates: Partial<DiscountRule>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
@@ -1243,11 +1257,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedRule: DiscountRule = { ...target, ...updates };
 
     try {
-      const ruleWithMeta = { ...updatedRule, ...(couponCode !== undefined ? { couponCode } : {}), ...(maxTotalUses !== undefined ? { maxTotalUses } : {}), ...(maxUsesPerUser !== undefined ? { maxUsesPerUser } : {}) };
-      setDiscountRules(prev => prev.map(r => r.id === id ? ruleWithMeta : r));
+      await supabaseCommerceService.updateDiscountRule(
+        id,
+        { ...updatedRule },
+        {
+          // `undefined` here means "not supplied by this caller", so fall
+          // back to what the rule already carries rather than clearing it.
+          code: couponCode !== undefined ? couponCode : (target as any).couponCode,
+          maxTotalUses: maxTotalUses !== undefined ? maxTotalUses : (target as any).maxTotalUses,
+          maxUsesPerUser: maxUsesPerUser !== undefined ? maxUsesPerUser : (target as any).maxUsesPerUser,
+        },
+      );
+      await refreshDiscountRules();
     } catch (err) {
       console.error("[ShopContext] Error updating discount rule in Supabase:", err);
-      showToast('Failed to update discount rule in database', 'warning');
       throw err;
     }
     await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
@@ -1255,7 +1278,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteDiscountRule = async (id: string) => {
     try {
-      setDiscountRules(prev => prev.filter(r => r.id !== id));
+      await supabaseCommerceService.deleteDiscountRule(id);
+      await refreshDiscountRules();
     } catch (err) {
       console.error("[ShopContext] Error deleting discount rule from Supabase:", err);
       showToast('Failed to delete discount rule from database', 'warning');

@@ -173,6 +173,31 @@ cannot be dropped in place; it is simply unreachable. `PaymentMethod` in
 Do not reinstate a card option without a real gateway **and** payment-state
 columns on `orders`.
 
+### Discounts and coupons
+
+Totals are never client-supplied. `checkout_create_order` recomputes every
+discount from `public.discount_rules` and `public.coupons`, then caps the
+result at 70% of subtotal. Customers cannot read `discount_rules` at all
+(`discounts_admin` is `is_admin()` for every command), so the rules are an
+administrator surface only.
+
+A rule is stored as `name` and `is_active` columns plus a **`rule` jsonb**
+holding the promotion itself. The server reads only
+`rule->>'type' | 'value' | 'target' | 'targetValue' | 'minPurchaseUSD' |
+'startDate' | 'endDate' | 'isNewUserOnly' | 'buyQty' | 'getQty' |
+'getDiscountPercent' | 'couponCode'`. A rule written as flat columns is
+silently ignored. Keep `DISCOUNT_RULE_JSON_KEYS` in
+`src/services/supabaseCommerceService.ts` in step with those lookups.
+
+A coupon-gated rule needs **both** halves: the code inside the rule's jsonb,
+which is what selects the rule, and a row in `public.coupons`, which is what
+validates and meters it. A code with no `coupons` row does not merely fail to
+discount — `checkout_create_order` raises `INVALID_COUPON` and the shopper
+cannot complete the order. Deleting a rule therefore deletes its coupons
+first: the foreign key is `ON DELETE SET NULL`, so dropping the rule alone
+leaves a code that passes validation, resolves to a null rule, discounts
+nothing and still burns one of its uses.
+
 `private.protect_order_integrity()` then pins every financial column and
 enforces a forward-only fulfilment state machine. Sellers may advance
 `pending → confirmed → crafting → courier_assigned → in_transit`; `delivered`,
