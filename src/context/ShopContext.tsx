@@ -1937,20 +1937,45 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(`${affectedProducts.length} product(s) belong to this seller. Choose a seller to move them to.`);
     }
     const previousSellers = [...sellers];
-    const nextSellers = sellers.filter(s => s.id !== id);
-    setSellers(nextSellers);
+    const previousProducts = [...products];
 
-    // Authoritative delete.
+    // Persist product reassignment before deleting the seller. This prevents
+    // the UI from claiming products were moved when the database still points
+    // at the seller being deleted.
     try {
+      if (affectedProducts.length > 0 && reassignSellerId) {
+        for (const product of affectedProducts) {
+          await supabaseProductPatchService.patchProduct(product.id, {
+            sellerId: reassignSellerId,
+          });
+        }
+      }
+
       await supabaseCatalogService.deleteSeller(id);
+
+      setProducts(current =>
+        current.map(product =>
+          product.sellerId === id && reassignSellerId
+            ? { ...product, sellerId: reassignSellerId }
+            : product
+        )
+      );
+      setSellers(sellers.filter(s => s.id !== id));
     } catch (supaErr: any) {
       setSellers(previousSellers);
-      console.error('[ShopContext] deleteSeller Supabase delete failed:', supaErr);
+      setProducts(previousProducts);
+      console.error('[ShopContext] deleteSeller persistence failed:', supaErr);
       showToast(`Could not delete seller: ${supaErr?.message || 'unknown error'}`, 'error');
       throw supaErr;
     }
 
-    await logAdminActivity('meta_change', `Seller "${id}" deleted`, `Reassigned ${affectedProducts.length} products to ${reassignSellerId || 'none'}.`);
+    await logAdminActivity(
+      'meta_change',
+      `Seller "${id}" deleted`,
+      affectedProducts.length > 0
+        ? `Reassigned ${affectedProducts.length} products to ${reassignSellerId}.`
+        : 'No products were assigned to this seller.'
+    );
   };
 
   const bulkImportProducts = async (
