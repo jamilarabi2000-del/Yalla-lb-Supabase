@@ -1948,10 +1948,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
     const previousSellers = [...sellers];
+    try {
+      await supabaseCatalogService.upsertSeller({ id: sellerId, isActive });
+    } catch (err: any) {
+      console.error('[ShopContext] toggleSellerActive failed:', err);
+      setSellers(previousSellers);
+      showToast(`Could not update seller status: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+
     const nextSellers = sellers.map(s => s.id === sellerId ? { ...s, isActive, updatedAt: new Date().toISOString() } : s);
     setSellers(nextSellers);
-
-    await logAdminActivity('meta_change', `Seller "${sellerId}" active status toggled to ${isActive}`, '');
+    await logAdminActivity('meta_change', `Seller "${sellerId}" active status toggled to ${isActive}`, 'Persisted seller activation state.');
   };
 
   const deleteSeller = async (id: string, reassignSellerId?: string) => {
@@ -4137,12 +4145,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const previousOrders = [...orders];
 
-    // Optimistic local state update
+    // Authoritative write first. Do not report success from local state alone.
+    try {
+      await supabaseOrderService.updateOrderStatus(orderId, status);
+    } catch (err: any) {
+      console.error('[ShopContext] updateOrderStatus failed:', err);
+      showToast(`Could not update order status: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+
     setOrders(prev => {
       const next = prev.map(ord => (ord.id === orderId ? { ...ord, status } : ord));
-      try {
-        localStorage.setItem('yallalb_orders', JSON.stringify(next));
-      } catch {}
+      try { localStorage.setItem('yallalb_orders', JSON.stringify(next)); } catch {}
       return next;
     });
 
@@ -4591,20 +4605,34 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       summary: `Deleting ${ids.length} rows from products...`
     });
 
+    const targets = products.filter(p => ids.includes(p.id));
+    const previousProducts = products;
+    try {
+      for (const id of ids) {
+        await supabaseCatalogService.deleteProduct(id);
+      }
+    } catch (err: any) {
+      console.error('[ShopContext] bulk product delete failed:', err);
+      setProducts(previousProducts);
+      showToast(`Could not complete bulk deletion: ${err?.message || 'unknown error'}`, 'error');
+      throw err;
+    }
+
     setProducts(prev => {
       const next = prev.filter(p => !ids.includes(p.id));
-      try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next));
-      } catch {}
+      try { localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(next)); } catch {}
       return next;
     });
 
     await logAdminActivity(
       'product_delete',
-      `Bulk deleted ${ids.length} products`,
-      `Permanently removed ${ids.length} products from catalog.`
+      `Bulk deleted ${targets.length} products`,
+      `Permanently removed ${targets.length} products from catalog.`,
+      'bulk_product_delete',
+      targets,
+      null
     );
-    showToast(`${ids.length} products deleted!`);
+    showToast(`${targets.length} products deleted!`);
   };
 
   /**
