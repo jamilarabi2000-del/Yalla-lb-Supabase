@@ -1,0 +1,217 @@
+/*
+Theme Name: Yalla
+Theme URI: https://yalla.lb
+Description: Custom Yalla storefront theme. Reproduces the Yalla.lb design system on WordPress + WooCommerce. Design tokens are ported verbatim from the reference React application at src/index.css.
+Author: Yalla
+Version: 0.1.0
+Requires at least: 6.4
+Requires PHP: 8.1
+License: Proprietary
+Text Domain: yalla
+WC requires at least: 8.0
+*/
+
+/*
+ * This file carries the WordPress theme header and the design-token layer only.
+ * Utility classes are compiled by Tailwind into assets/css/build.css.
+ *
+ * REFERENCE: src/index.css in this repository is the authoritative source for
+ * every value below. Do not change a token here without changing it there, or
+ * the storefront drifts from the design that was signed off.
+ *
+ * Deliberately NOT ported from src/index.css:
+ *   - the legacy admin normalisation block (bg-[#1a1a2e], .bg-slate-900/950...)
+ *     which existed to re-skin the custom SPA admin. wp-admin replaces it.
+ */
+
+:root {
+  --bg-primary: #F7F7F8;
+  --bg-surface: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --text-main: #111111;
+  --text-muted: #666666;
+  --text-soft: #888888;
+  --gold: #B89753;
+  --gold-light: #F3E5AB;
+  --gold-dark: #8F7137;
+  --border-color: #E5E5E5;
+  --success: #16803C;
+  --danger: #C62828;
+  --glass: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(184, 151, 83, 0.2);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+}
+
+/* Accessibility: gold focus ring. Preserved from the reference app. */
+:is(a, button, input, select, textarea, summary, [role="button"], [role="tab"], [role="link"], [tabindex]):focus-visible {
+  outline: 2px solid #B89753 !important;
+  box-shadow: 0 0 0 4px rgba(184, 151, 83, 0.2) !important;
+  border-radius: 8px;
+}
+
+/* Accessibility: honour reduced-motion. Preserved from the reference app. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Prevents iOS Safari zooming on focus. Preserved from the reference app. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--gold-dark);
+  color: white;
+  padding: 8px 16px;
+  z-index: 100;
+  transition: top 0.2s;
+  border-radius: 0 0 8px 8px;
+  font-weight: 600;
+}
+
+.skip-link:focus { top: 0; }
+
+html {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+input,
+select,
+textarea {
+  color: var(--text-main);
+  background-color: var(--bg-surface);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-soft);
+  opacity: 1;
+}
+
+option {
+  color: var(--text-main);
+  background: var(--bg-surface);
+}
+
+.premium-card {
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.premium-card:hover {
+  border-color: rgba(184, 151, 83, 0.5);
+  box-shadow: 0 12px 24px -6px rgba(184, 151, 83, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #8F7137 0%, #B89753 50%, #755B29 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-gradient-bg {
+  background: linear-gradient(135deg, #B89753 0%, #D4B572 50%, #8F7137 100%);
+}
+
+.gold-btn {
+  background: linear-gradient(135deg, #B89753 0%, #C8A865 100%);
+  color: #FFFFFF;
+  font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.gold-btn:hover {
+  background: linear-gradient(135deg, #C8A865 0%, #8F7137 100%);
+  box-shadow: 0 6px 20px -4px rgba(184, 151, 83, 0.35);
+  transform: translateY(-1px);
+}
+
+.gold-btn:active { transform: translateY(0); }
+
+.gold-btn,
+.gold-btn.text-white,
+.gold-gradient-bg,
+.gold-gradient-bg.text-white {
+  color: #FFFFFF !important;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16803C;
+  display: inline-block;
+  box-shadow: 0 0 8px rgba(22, 128, 60, 0.4);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F1F1EF; }
+::-webkit-scrollbar-thumb { background: #D4D4D0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #B89753; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fadeIn { animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slideInRight { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-slideInLeft { animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* Directional animations mirror under RTL. Preserved from the reference app. */
+[dir="rtl"] .animate-slideInRight { animation-name: slideInLeft; }
+
+.font-arabic, [dir="rtl"] {
+  font-family: 'Cairo', 'Tajawal', 'Plus Jakarta Sans', -apple-system, sans-serif;
+  line-height: 1.7;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(184, 151, 83, 0.5) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(184, 151, 83, 0.45); border-radius: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(184, 151, 83, 0.75); }
+
+@keyframes bounceShort {
+  0% { transform: translateY(12px); opacity: 0; }
+  55% { transform: translateY(-4px); opacity: 1; }
+  75% { transform: translateY(2px); }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-bounce-short { animation: bounceShort 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
