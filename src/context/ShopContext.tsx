@@ -2057,58 +2057,96 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
 
-            const description = (row.description_en || row.description || 'Imported artisanal product.').toString().trim();
-            const craftStory = (row.description_ar || row.craftstory || row.arabic_description || 'حرفية أصيلة.').toString().trim();
-
-            seenSkusInFile.add(normSku);
-            seenItemCodesInFile.add(sellerCodeKey);
-
-            const mainImage = (row.image_url || row.image || 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80').toString().trim();
-            const addlImagesRaw = row.additional_images || row.images || row.gallery;
-            const additionalImages = addlImagesRaw
-              ? String(addlImagesRaw).split(/[|,]/).map((u: string) => u.trim()).filter(Boolean)
+            const hasMainImageColumn = row.image_url !== undefined || row.image !== undefined;
+            const mainImage = hasMainImageColumn
+              ? String(row.image_url ?? row.image ?? '').trim()
+              : undefined;
+            const addlImagesRaw = row.additional_images ?? row.images ?? row.gallery;
+            const hasAdditionalImagesColumn = row.additional_images !== undefined || row.images !== undefined || row.gallery !== undefined;
+            const additionalImages = hasAdditionalImagesColumn
+              ? String(addlImagesRaw ?? '').split(/[|,]/).map((u: string) => u.trim()).filter(Boolean)
               : undefined;
 
-            const videoUrl = (row.video_url || row.video || '').toString().trim() || undefined;
-            const addlVideosRaw = row.additional_videos || row.videos;
-            const additionalVideos = addlVideosRaw
-              ? String(addlVideosRaw).split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
+            const videoUrl = (row.video_url ?? row.video) !== undefined
+              ? String(row.video_url ?? row.video ?? '').trim() || undefined
+              : undefined;
+            const addlVideosRaw = row.additional_videos ?? row.videos;
+            const hasAdditionalVideosColumn = row.additional_videos !== undefined || row.videos !== undefined;
+            const additionalVideos = hasAdditionalVideosColumn
+              ? String(addlVideosRaw ?? '').split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
               : undefined;
 
             const nowIso = new Date().toISOString();
+            const product: Product = {
+              id: sku,
+              sellerItemCode,
+              name,
+              arabicName: (row.name_ar || row.arabic_name || name).toString().trim(),
+              artisan: resolvedSeller.sellerName,
+              seller: resolvedSeller.sellerName,
+              arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || '',
+              sellerId: resolvedSeller.sellerId,
+              sellerActive: true,
+              category: resolvedCategory.categoryId,
+              priceUSD,
+              originalPriceUSD: row.original_price_usd !== undefined ? parsePrice(row.original_price_usd) : undefined,
+              stock: Math.floor(stock),
+              ...(mainImage !== undefined ? { image: mainImage } : {}),
+              ...(hasAdditionalImagesColumn ? { additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : [] } : {}),
+              ...(videoUrl !== undefined ? { videoUrl } : {}),
+              ...(hasAdditionalVideosColumn ? { additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : [] } : {}),
+              ...(hasAdditionalVideosColumn || videoUrl !== undefined
+                ? { videos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : (videoUrl ? [videoUrl] : []) }
+                : {}),
+              description,
+              craftStory,
+              tags: row.tags !== undefined
+                ? String(row.tags).split(/[|,]/).map((t: string) => t.trim()).filter(Boolean)
+                : ['Artisanal'],
+              rating: 0,
+              reviewsCount: 0,
+              origin: (row.origin || row.origin_terroir || 'Lebanon').toString().trim(),
+              weightOrVolume: (row.weight_or_volume || row.weight || row.volume || '').toString().trim() || undefined,
+              isPublished,
+              createdAt: existingProduct?.createdAt || nowIso,
+              updatedAt: nowIso
+            };
+
+            // Existing SKUs must receive only columns explicitly supplied by the CSV.
+            // This prevents omitted image/description/tag/etc. columns from erasing
+            // real database values. New SKUs still receive the complete product shape.
+            const existingUpdates: Partial<Product> = {
+              ...(row.name_en !== undefined || row.name !== undefined || row.title !== undefined ? { name } : {}),
+              ...(row.name_ar !== undefined || row.arabic_name !== undefined ? { arabicName: product.arabicName } : {}),
+              ...(row.seller_id !== undefined || row.seller !== undefined || row.seller_artisan !== undefined || options?.targetSellerId ? {
+                sellerId: resolvedSeller.sellerId, seller: resolvedSeller.sellerName, artisan: resolvedSeller.sellerName,
+                arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || ''
+              } : {}),
+              ...(row.category !== undefined || row.category_id !== undefined || options?.fallbackCategoryId ? { category: resolvedCategory.categoryId } : {}),
+              ...(row.price_usd !== undefined || row.price !== undefined || row.unit_price !== undefined ? { priceUSD } : {}),
+              ...(row.original_price_usd !== undefined ? { originalPriceUSD: product.originalPriceUSD } : {}),
+              ...(row.stock !== undefined || row.qty !== undefined ? { stock: Math.floor(stock) } : {}),
+              ...(row.is_published !== undefined || row.status !== undefined ? { isPublished } : {}),
+              ...(row.seller_item_code !== undefined || row.seller_code !== undefined || row.item_code !== undefined ? { sellerItemCode } : {}),
+              ...(row.description_en !== undefined || row.description !== undefined ? { description } : {}),
+              ...(row.description_ar !== undefined || row.craftstory !== undefined || row.arabic_description !== undefined ? { craftStory } : {}),
+              ...(row.tags !== undefined ? { tags: product.tags } : {}),
+              ...(row.origin !== undefined || row.origin_terroir !== undefined ? { origin: product.origin } : {}),
+              ...(row.weight_or_volume !== undefined || row.weight !== undefined || row.volume !== undefined ? { weightOrVolume: product.weightOrVolume } : {}),
+              ...(hasMainImageColumn ? { image: mainImage || '' } : {}),
+              ...(hasAdditionalImagesColumn ? { additionalImages: product.additionalImages } : {}),
+              ...(videoUrl !== undefined ? { videoUrl } : {}),
+              ...(hasAdditionalVideosColumn ? { additionalVideos: product.additionalVideos, videos: product.videos } : {})
+            };
+            const localResult = isExistingSku
+              ? { ...existingProduct, ...existingUpdates, updatedAt: nowIso }
+              : product;
 
             validRows.push({
               sku,
-              product: {
-                id: sku,
-                sellerItemCode,
-                name,
-                arabicName: (row.name_ar || row.arabic_name || name).toString().trim(),
-                artisan: resolvedSeller.sellerName,
-                seller: resolvedSeller.sellerName,
-                arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || '',
-                sellerId: resolvedSeller.sellerId,
-                sellerActive: true,
-                category: resolvedCategory.categoryId,
-                priceUSD,
-                originalPriceUSD: row.original_price_usd ? parsePrice(row.original_price_usd) : undefined,
-                stock: Math.floor(stock),
-                image: mainImage,
-                additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : undefined,
-                videoUrl,
-                additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : undefined,
-                videos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : (videoUrl ? [videoUrl] : undefined),
-                description,
-                craftStory,
-                tags: row.tags ? String(row.tags).split(/[|,]/).map((t: string) => t.trim()).filter(Boolean) : ['Artisanal'],
-                rating: 0,
-                reviewsCount: 0,
-                origin: (row.origin || row.origin_terroir || 'Lebanon').toString().trim(),
-                weightOrVolume: (row.weight_or_volume || row.weight || row.volume || '').toString().trim() || undefined,
-                isPublished,
-                createdAt: existingProduct?.createdAt || nowIso,
-                updatedAt: nowIso
-              },
+              product,
+              updates: isExistingSku ? existingUpdates : product,
+              localResult,
               isUpdate: isExistingSku
             });
           });
@@ -2125,7 +2163,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           for (const item of validRows) {
             try {
               if (item.isUpdate) {
-                await supabaseProductPatchService.patchProduct(item.sku, item.product);
+                await supabaseProductPatchService.patchProduct(item.sku, item.updates);
               } else {
                 await supabaseCatalogService.upsertProduct(item.product);
               }
@@ -2141,7 +2179,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProducts(prevProducts => {
               const nextMap = new Map<string, Product>();
               prevProducts.forEach(p => nextMap.set(p.id, p));
-              successfulRows.forEach(item => nextMap.set(item.sku, item.product));
+              successfulRows.forEach(item => nextMap.set(item.sku, item.localResult));
               const merged = Array.from(nextMap.values());
               try {
                 localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(merged));
@@ -2158,7 +2196,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const previousSnapshots = successfulRows
             .map(r => products.find(p => p.id === r.sku))
             .filter(Boolean);
-          const updatedSnapshots = successfulRows.map(r => r.product);
+          const updatedSnapshots = successfulRows.map(r => r.localResult);
 
           await logAdminActivity(
             'product_bulk_update',
