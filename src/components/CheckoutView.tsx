@@ -126,9 +126,11 @@ export const CheckoutView: React.FC = () => {
     lastName: '',
     phone: '',
     email: '',
+    governorate: 'beirut',
     city: 'Achrafieh, Beirut',
     street: '',
     building: '',
+    floorApartment: '',
     notes: ''
   });
 
@@ -148,9 +150,11 @@ export const CheckoutView: React.FC = () => {
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
           phone: formData.phone,
+          defaultGovernorate: formData.governorate,
           defaultCity: formData.city,
           defaultAddress: formData.street,
           defaultBuilding: formData.building,
+          defaultFloorApartment: formData.floorApartment,
           defaultNotes: formData.notes
         }));
       } catch {}
@@ -215,9 +219,11 @@ export const CheckoutView: React.FC = () => {
 
       // Address & Notes defaults
       const emailVal = firebaseUser?.email || user?.email || '';
+      const governorateVal = user?.defaultGovernorate || 'beirut';
       const cityVal = user?.defaultCity || '';
       const streetVal = user?.defaultAddress || '';
       const buildingVal = user?.defaultBuilding || '';
+      const floorApartmentVal = (user as any)?.defaultFloorApartment || '';
       const notesVal = user?.defaultNotes || '';
 
       setFormData(prev => ({
@@ -225,9 +231,11 @@ export const CheckoutView: React.FC = () => {
         lastName: prev.lastName || lName,
         phone: prev.phone || phoneVal,
         email: prev.email || emailVal,
+        governorate: prev.governorate || governorateVal,
         city: prev.city || cityVal,
         street: prev.street || streetVal,
         building: prev.building || buildingVal,
+        floorApartment: prev.floorApartment || floorApartmentVal,
         notes: prev.notes || notesVal
       }));
     } else {
@@ -237,9 +245,11 @@ export const CheckoutView: React.FC = () => {
         lastName: '',
         phone: '',
         email: '',
+        governorate: 'beirut',
         city: 'Achrafieh, Beirut',
         street: '',
         building: '',
+        floorApartment: '',
         notes: ''
       });
     }
@@ -268,9 +278,11 @@ export const CheckoutView: React.FC = () => {
             firstName: formData.firstName.trim() || user.firstName,
             lastName: formData.lastName.trim() || user.lastName,
             phone: formData.phone || user.phone,
+            defaultGovernorate: formData.governorate || user.defaultGovernorate,
             defaultCity: formData.city || user.defaultCity,
             defaultAddress: formData.street || user.defaultAddress,
             defaultBuilding: formData.building || user.defaultBuilding,
+            defaultFloorApartment: formData.floorApartment || (user as any).defaultFloorApartment,
             defaultNotes: formData.notes || user.defaultNotes
           }).catch((err) => {
             console.error("[CheckoutView] Error syncing guest data to user profile:", err);
@@ -293,10 +305,10 @@ export const CheckoutView: React.FC = () => {
   ];
 
   // Region & Delivery fee calculation
-  const matchedRegion = LEBANON_REGIONS.find(r => 
-    r.id === user?.defaultGovernorate ||
-    r.majorCities.some(c => (formData.city || '').toLowerCase().includes(c.toLowerCase().split(' ')[0]))
-  ) || LEBANON_REGIONS[0];
+  const matchedRegion = LEBANON_REGIONS.find(r => r.id === formData.governorate)
+    || LEBANON_REGIONS.find(r => r.id === user?.defaultGovernorate)
+    || LEBANON_REGIONS.find(r => r.majorCities.some(c => (formData.city || '').toLowerCase().includes(c.toLowerCase().split(' ')[0])))
+    || LEBANON_REGIONS[0];
 
   const deliveryFeeUSD = calcDeliveryFeeUSD({
     speed: deliverySpeed,
@@ -503,10 +515,11 @@ export const CheckoutView: React.FC = () => {
           lastName: lName,
           phone: finalPhone,
           email: finalEmail,
-          governorate: matchedRegion?.nameEn || 'Beirut',
+          governorate: formData.governorate || matchedRegion?.id || 'beirut',
           city: finalCity,
           street: finalStreet,
           building: formData.building.trim() || 'N/A',
+          floorApartment: formData.floorApartment.trim() || undefined,
           deliveryNotes: formData.notes.trim() || '',
           deliverySpeed: deliverySpeed
         },
@@ -533,9 +546,11 @@ export const CheckoutView: React.FC = () => {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         phone: formData.phone,
+        defaultGovernorate: formData.governorate,
         defaultCity: formData.city,
         defaultAddress: formData.street,
         defaultBuilding: formData.building,
+        defaultFloorApartment: formData.floorApartment,
         defaultNotes: formData.notes
       }).catch(() => {});
       try {
@@ -1229,6 +1244,22 @@ export const CheckoutView: React.FC = () => {
 
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      {isArabic ? 'المحافظة *' : 'Governorate *'}
+                    </label>
+                    <select
+                      id="checkout-governorate-select"
+                      value={formData.governorate}
+                      onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                    >
+                      {LEBANON_REGIONS.filter(r => r.id !== 'diaspora_global').map(region => (
+                        <option key={region.id} value={region.id}>{isArabic ? region.nameAr : region.nameEn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
                       {isArabic ? 'المدينة / المنطقة / المحافظة *' : 'City / Governorate *'}
                     </label>
                     <input
@@ -1258,7 +1289,7 @@ export const CheckoutView: React.FC = () => {
 
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                        {isArabic ? 'المبنى، الطابق، رقم الشقة' : 'Building, Floor & Apt'}
+                        {isArabic ? 'المبنى' : 'Building'}
                       </label>
                       <input
                         type="text"
@@ -1269,6 +1300,20 @@ export const CheckoutView: React.FC = () => {
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      {isArabic ? 'الطابق / رقم الشقة' : 'Floor / Apartment'}
+                    </label>
+                    <input
+                      type="text"
+                      id="checkout-floor-apartment-input"
+                      placeholder="e.g. 4th Floor, Apt B"
+                      value={formData.floorApartment}
+                      onChange={(e) => setFormData({ ...formData, floorApartment: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                    />
                   </div>
 
                   <div>
