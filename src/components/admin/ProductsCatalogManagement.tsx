@@ -319,7 +319,15 @@ export const ProductsCatalogManagement: React.FC = () => {
     const categoryId = String(product.category || '').trim();
     const price = Number(product.priceUSD);
     const stock = Number(product.stock);
-    const artisan = String(product.artisan || '').trim().toLowerCase();
+    // Publication requires a real seller name. The legacy 'artisan' field is
+    // not authoritative here because products can legitimately have a linked
+    // seller while 'artisan' still contains the old fallback value
+    // ("Independent Artisan" / "Lebanese Artisan").
+    const sellerName = String(product.seller || '').trim();
+    const linkedSeller = product.sellerId
+      ? (sellers as any[]).find((s: any) => s.id === product.sellerId)
+      : null;
+    const resolvedSellerName = sellerName || String(linkedSeller?.nameEn || '').trim();
     const sellerItemCode = String(product.sellerItemCode || '').trim();
     const image = String(product.image || '').trim();
 
@@ -327,7 +335,7 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!categoryId || !categories.some((c: any) => c.id === categoryId)) errors.push('Category');
     if (!Number.isFinite(price) || price < 1) errors.push('Price (minimum $1.00)');
     if (!Number.isInteger(stock) || stock < 0) errors.push('Stock (0 or more)');
-    if (!artisan || artisan === 'independent artisan' || artisan === 'lebanese artisan') errors.push('Seller Name (English)');
+    if (!resolvedSellerName || ['independent artisan', 'lebanese artisan'].includes(resolvedSellerName.toLowerCase())) errors.push('Seller Name (English)');
     if (!sellerItemCode) errors.push('Seller Product Code');
     if (!image) errors.push('Primary image');
 
