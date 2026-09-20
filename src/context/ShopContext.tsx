@@ -3937,21 +3937,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 3500);
   };
 
-  const currencySymbol = currency === 'LBP' ? 'L.L.' : '$';
-  const currencyRate = currency === 'LBP' ? LBP_USD_RATE : 1;
+  // Customer-facing prices are USD only.
+  const currencySymbol = '$';
+  const currencyRate = 1;
 
   const convertUSDToLBP = (amountUSD: number) => {
     return Math.round(amountUSD * LBP_USD_RATE);
   };
 
   const formatPrice = (amountUSD: number) => {
-    if (currency === 'LBP') {
-      const amountLBP = convertUSDToLBP(amountUSD);
-      return `L.L. ${amountLBP.toLocaleString()}`;
-    }
     return `$${amountUSD.toFixed(2)}`;
   };
-
   const addToCart = (product: Product, quantity = 1, option?: string) => {
     // Determine the product from our master products list to get the most up-to-date stock
     const currentProduct = products.find(p => p.id === product.id) || product;
