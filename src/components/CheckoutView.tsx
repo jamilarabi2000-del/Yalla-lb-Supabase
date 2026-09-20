@@ -1219,7 +1219,7 @@ export const CheckoutView: React.FC = () => {
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-medium"
                       />
                     </div>
-                  </div>}
+                  </div>)}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
