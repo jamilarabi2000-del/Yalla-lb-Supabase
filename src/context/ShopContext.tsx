@@ -5261,7 +5261,6 @@ export const useShop = () => {
   }
   return context;
 };
-;\n  const currencyRate = 1;\n\n  const convertUSDToLBP = (amountUSD: number) => {\n    return Math.round(amountUSD * LBP_USD_RATE);\n  };\n\n  const formatPrice = (amountUSD: number) => {\n    return '
 
   const addToCart = (product: Product, quantity = 1, option?: string) => {
     // Determine the product from our master products list to get the most up-to-date stock
