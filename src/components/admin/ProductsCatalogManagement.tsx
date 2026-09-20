@@ -488,6 +488,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const saveQuick = async (p: Product) => {
     const q = quickValues[p.id] || { price: String(p.priceUSD), stock: String(p.stock) };
     const price = Number(q.price), stock = Number(q.stock);
+    const regularPrice = Number(p.originalPriceUSD ?? price);
     if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(regularPrice) || regularPrice < price || !Number.isInteger(stock) || stock < 0) return showToast('Enter a valid price and whole-number stock.', 'warning');
     try {
       await updateProduct(p.id, { priceUSD: price, stock });
