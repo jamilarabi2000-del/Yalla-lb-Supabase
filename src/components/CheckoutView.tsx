@@ -68,6 +68,8 @@ export const CheckoutView: React.FC = () => {
     signOutUser,
     siteContent,
     isVisualEditMode,
+    // Internal order compatibility only; never rendered to customers.
+    lbpRate,
   } = useShop();
 
   const visibility = siteContent?.visibility || {
