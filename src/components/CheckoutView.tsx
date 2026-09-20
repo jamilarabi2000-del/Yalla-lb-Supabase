@@ -68,11 +68,6 @@ export const CheckoutView: React.FC = () => {
     signOutUser,
     siteContent,
     isVisualEditMode,
-    // Live USD -> LBP rate from app_settings. Do NOT use the LBP_USD_RATE
-    // constant here: checkout_create_order prices total_lbp from the stored
-    // setting, so a hardcoded rate quotes the shopper a total the courier
-    // will not collect once that setting changes.
-    lbpRate
   } = useShop();
 
   const visibility = siteContent?.visibility || {
@@ -521,7 +516,7 @@ export const CheckoutView: React.FC = () => {
           deliverySpeed: deliverySpeed
         },
         paymentMethod: paymentMethod,
-        currency: currency,
+        currency: 'USD',
         subtotalUSD: Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100,
         deliveryFeeUSD: deliveryFeeUSD,
         totalUSD: finalTotalUSD,
@@ -1445,28 +1440,6 @@ export const CheckoutView: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('cod_lbp')}
-                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
-                        paymentMethod === 'cod_lbp'
-                          ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
-                          : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
-                      }`}
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#8F7137] shrink-0">
-                        <Banknote className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#171717]">
-                          {isArabic ? 'الدفع بالليرة اللبنانية (LBP)' : 'Cash on Delivery (LBP)'}
-                        </div>
-                        <div className="text-[11px] text-[#737373]">
-                          {isArabic ? 'حسب سعر الصرف الرسمي' : 'Official market rate'}
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
                       onClick={() => setPaymentMethod('wish_omt')}
                       className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
                         paymentMethod === 'wish_omt'
@@ -1628,10 +1601,7 @@ export const CheckoutView: React.FC = () => {
                       <span className="text-2xl font-bold text-[#8F7137]">
                         {formatPrice(finalTotalUSD)}
                       </span>
-                      <div className="text-[10px] text-[#737373] font-mono">
-                        ≈ {(finalTotalUSD * lbpRate).toLocaleString()} LBP
-                      </div>
-                    </div>
+                   </div>
                   </div>
                 </div>
 
