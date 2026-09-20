@@ -11,9 +11,11 @@ export function getProductPricing(product: { priceUSD?: number | null; originalP
   const original = Number(product.originalPriceUSD || 0);
   const isPromo = currentPrice > 0 && original > currentPrice;
   const originalPrice = isPromo ? original : null;
+  // Never trust a stored discount percentage when the price relationship is invalid.
+  // A promotion exists only when the current/sale price is strictly below the regular/original price.
   const discount = isPromo
     ? Math.round((1 - currentPrice / original) * 100)
-    : Number(product.discountPercentage || 0);
+    : 0;
   return { currentPrice, originalPrice, discount, isPromo };
 }
 
