@@ -2,6 +2,7 @@ import React from 'react';
 import { Product } from '../types';
 import { useShop } from '../context/ShopContext';
 import { Heart, ShoppingBag, Trash2, Eye } from 'lucide-react';
+import { formatUSD, getProductPricing } from '../lib/productPricing';
 
 interface ProductCardProps {
   product: Product;
@@ -24,6 +25,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
   } = useShop();
 
   const isLiked = isInWishlist(product.id);
+  const pricing = getProductPricing(product);
   const instanceId = React.useId();
 
   // One language only in grid card
@@ -87,12 +89,12 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
               {product.lowStockNotice || (product.stock === 1 ? (language === 'ar' ? 'القطعة الأخيرة' : 'Last piece') : (language === 'ar' ? 'كمية محدودة' : 'Limited Stock'))}
             </span>
           ) : null}
-          {product.discountPercentage && (
+          {pricing.discount > 0 && (
             <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-[#C62828] text-white rounded-md shadow-xs">
-              -{product.discountPercentage}%
+              -{pricing.discount}%
             </span>
           )}
-          {product.isBestseller && !product.discountPercentage && product.stock > 0 && (
+          {product.isBestseller && !pricing.discount && product.stock > 0 && (
             <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#16803C] text-white rounded-md shadow-xs">
               {t('bestseller')}
             </span>
@@ -161,23 +163,13 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
           {/* Price */}
           <div className="flex items-baseline justify-between gap-1.5">
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <div className="flex flex-col leading-tight">
-                <span className="text-sm sm:text-base font-black text-[#171717] tracking-tight">
-                  ${product.priceUSD.toFixed(2)}
+              <span className="text-sm sm:text-base font-black text-[#171717] tracking-tight">
+                {formatUSD(pricing.currentPrice)}
+              </span>
+              {pricing.originalPrice !== null && (
+                <span className="text-xs text-slate-400 line-through font-medium">
+                  {formatUSD(pricing.originalPrice)}
                 </span>
-                <span className="text-[10px] font-semibold text-[#737373]">
-                  L.L. ${Math.round(product.priceUSD * currencyRate).toLocaleString()}
-                </span>
-              </div>
-              {product.originalPriceUSD && (
-                <div className="flex flex-col items-end leading-tight">
-                  <span className="text-xs text-slate-400 line-through font-medium">
-                    ${product.originalPriceUSD.toFixed(2)}
-                  </span>
-                  <span className="text-[9px] text-slate-400 line-through">
-                    L.L. ${Math.round(product.originalPriceUSD * currencyRate).toLocaleString()}
-                  </span>
-                </div>
               )}
             </div>
           </div>
