@@ -118,6 +118,7 @@ BEGIN
     d := replace(d, 'p_product->>''price_usd''', 'p_product->>''promo_price''');
     d := replace(d, 'p_product->>''original_price_usd''', 'p_product->>''regular_price''');
     d := replace(d, 'price_usd,original_price_usd', 'promo_price,regular_price');
+    d := replace(d, 'case when nullif(p_product->>''regular_price'','''') is null then null else (p_product->>''regular_price'')::numeric end', 'coalesce(nullif(p_product->>''regular_price'','''')::numeric, v_price)');
     EXECUTE d;
   END IF;
 
@@ -139,7 +140,8 @@ BEGIN
   IF d IS NOT NULL THEN
     d := replace(d, 'v_product.original_price_usd', 'v_product.regular_price');
     d := replace(d, 'v_product.price_usd', 'v_product.promo_price');
-    d := replace(d, 'select price_usd into v_unit from public.products', 'select promo_price into v_unit from public.products');
+    d := replace(d, 'v_product.regular_price is not null and v_product.regular_price>0 and v_product.regular_price< v_product.promo_price then v_product.regular_price else v_product.promo_price', 'v_product.promo_price is not null and v_product.promo_price>0 and v_product.promo_price < v_product.regular_price then v_product.promo_price else v_product.regular_price');
+    d := replace(d, 'select price_usd into v_unit from public.products', 'select coalesce(promo_price,regular_price) into v_unit from public.products');
     EXECUTE d;
   END IF;
 END $$;
