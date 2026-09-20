@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, ShoppingBag, Heart, Truck, Minus, Plus, ShieldCheck, PackageCheck, Share2, Sparkles } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from './ProductCard';
+import { formatUSD, getProductPricing } from '../lib/productPricing';
 
 export const ProductDetailView: React.FC = () => {
   const shop = useShop() as any;
@@ -33,11 +34,12 @@ export const ProductDetailView: React.FC = () => {
 
   const show = (key: string) => visibility[key] || isVisualEditMode;
   const displayName = isRTL ? p.arabicName || p.name : p.name;
-  const price = shop.formatPrice?.(p.priceUSD) || '$' + p.priceUSD;
-  const originalPrice = p.originalPriceUSD ? (shop.formatPrice?.(p.originalPriceUSD) || '$' + p.originalPriceUSD) : null;
+  const pricing = getProductPricing(p);
+  const price = formatUSD(pricing.currentPrice);
+  const originalPrice = pricing.originalPrice !== null ? formatUSD(pricing.originalPrice) : null;
   const inStock = Number(p.stock || 0) > 0;
   const maxQty = Math.max(1, Number(p.stock || 1));
-  const discount = p.discountPercentage || (p.originalPriceUSD && p.priceUSD < p.originalPriceUSD ? Math.round((1 - p.priceUSD / p.originalPriceUSD) * 100) : 0);
+  
 
   const add = () => {
     if (!inStock) return;
@@ -69,8 +71,8 @@ export const ProductDetailView: React.FC = () => {
               <div className="relative aspect-square rounded-[22px] overflow-hidden bg-[#F8F8F6] flex items-center justify-center">
                 {images[activeImage] ? <img src={images[activeImage]} alt={displayName} className="h-full w-full object-contain p-5 sm:p-8 transition-opacity duration-300" /> : <div className="text-sm text-[#737373]">{isRTL ? 'لا توجد صورة' : 'No image'}</div>}
                 <div className="absolute top-4 left-4 flex flex-col gap-1.5">
-                  {discount > 0 && <span className="rounded-full bg-[#C62828] px-3 py-1 text-[10px] font-black text-white shadow-sm">-{discount}%</span>}
-                  {p.isBestseller && !discount && inStock && <span className="rounded-full bg-[#171717] px-3 py-1 text-[10px] font-bold text-white shadow-sm">{isRTL ? 'الأكثر مبيعاً' : 'Bestseller'}</span>}
+                  {pricing.discount > 0 && <span className="rounded-full bg-[#C62828] px-3 py-1 text-[10px] font-black text-white shadow-sm">-{pricing.discount}%</span>}
+                  {p.isBestseller && !pricing.discount && inStock && <span className="rounded-full bg-[#171717] px-3 py-1 text-[10px] font-bold text-white shadow-sm">{isRTL ? 'الأكثر مبيعاً' : 'Bestseller'}</span>}
                 </div>
                 <button type="button" onClick={toggleWishlist} aria-label={isRTL ? 'إضافة للمفضلة' : 'Add to wishlist'} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur border border-[#E5E5E5] flex items-center justify-center text-slate-500 hover:text-rose-600 hover:scale-105 transition-all shadow-sm cursor-pointer"><Heart className="w-5 h-5" /></button>
               </div>
@@ -100,7 +102,7 @@ export const ProductDetailView: React.FC = () => {
                 <div className="flex flex-wrap items-end gap-3 mt-6">
                   <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#171717]">{price}</span>
                   {originalPrice && <span className="text-sm sm:text-base text-[#999999] line-through pb-1">{originalPrice}</span>}
-                  {discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + discount + '%' : discount + '% OFF'}</span>}
+                  {pricing.discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + pricing.discount + '%' : pricing.discount + '% OFF'}</span>}
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 mb-6">

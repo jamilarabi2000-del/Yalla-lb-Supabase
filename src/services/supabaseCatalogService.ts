@@ -144,11 +144,11 @@ export function mapSupabaseProduct(
       String(row.category_id || ''),
 
     priceUSD:
-      Number(row.price_usd ?? 0),
+      Number(row.promo_price ?? row.regular_price ?? 0),
 
     originalPriceUSD:
       toNumberOrUndefined(
-        row.original_price_usd,
+        row.regular_price,
       ),
 
     discountPercentage:
@@ -629,8 +629,8 @@ const PUBLIC_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  promo_price,
+  regular_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -684,8 +684,8 @@ const ADMIN_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  promo_price,
+  regular_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -1263,12 +1263,19 @@ export const supabaseCatalogService = {
         category_id:
           product.category,
 
-        price_usd:
+        // Semantic pricing:
+        // regular_price = regular/original price
+        // promo_price = current/promotional selling price.
+        regular_price:
+          product.originalPriceUSD ??
           product.priceUSD ??
           0,
 
-        original_price_usd:
-          product.originalPriceUSD,
+        promo_price:
+          product.originalPriceUSD != null &&
+          Number(product.originalPriceUSD) > Number(product.priceUSD ?? 0)
+            ? product.priceUSD ?? 0
+            : null,
 
         discount_percentage:
           product.discountPercentage,

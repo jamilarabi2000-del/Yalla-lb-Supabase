@@ -1,0 +1,271 @@
+-- Authoritative checkout delivery rules: Lebanon Standard $2 below $50, free at/above $50; Diaspora Air $28.
+CREATE OR REPLACE FUNCTION private.checkout_create_order(p_shipping jsonb, p_payment_method payment_method, p_currency currency_code, p_delivery_speed delivery_speed, p_items jsonb, p_coupon_code text DEFAULT NULL::text, p_idempotency_key text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_uid uuid := auth.uid();
+  v_order uuid;
+  v_region_id text;
+  v_region record;
+  v_subtotal numeric := 0;
+  v_discount numeric := 0;
+  v_delivery numeric := 0;
+  v_total numeric := 0;
+  v_total_lbp numeric := 0;
+  v_lbp_rate numeric := coalesce((select s.value::numeric from public.app_settings s where s.key='lbp_usd_rate'),89500);
+  v_new_customer boolean;
+  v_coupon text := nullif(upper(trim(coalesce(p_coupon_code,''))),'');
+  v_coupon_row record;
+  v_rule jsonb;
+  v_item jsonb;
+  v_pid uuid;
+  v_qty int;
+  v_product record;
+  v_unit numeric;
+  v_line numeric;
+  v_applied_coupon text := null;
+  v_coupon_rule_applied boolean := false;
+  v_seller_ids uuid[] := '{}';
+  v_product_ids uuid[] := '{}';
+  v_item_rows jsonb := '[]'::jsonb;
+  v_available int;
+  v_target text;
+  v_target_value text;
+  v_base numeric;
+  v_rule_discount numeric;
+  v_pct numeric;
+  v_buy int;
+  v_get int;
+  v_groups int;
+  v_complete_sets int;
+  v_savings numeric;
+  v_bundle record;
+  v_avail jsonb := '{}'::jsonb;
+  v_bundle_ids uuid[];
+  v_original_sum numeric;
+  v_bundle_price numeric;
+  v_rule_start timestamptz;
+  v_rule_end timestamptz;
+  v_min numeric;
+begin
+  if v_uid is null then raise exception 'authentication required'; end if;
+  if p_idempotency_key is null or p_idempotency_key !~ '^[0-9a-fA-F-]{36}$' then raise exception 'valid UUID idempotency key required'; end if;
+
+  select id into v_order
+  from public.orders
+  where user_id=v_uid and idempotency_key=p_idempotency_key
+  limit 1;
+  if v_order is not null then return v_order; end if;
+
+  insert into public.checkout_attempts(user_id,idempotency_key)
+  values(v_uid,p_idempotency_key)
+  on conflict (user_id,idempotency_key) do nothing;
+
+  if jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 or jsonb_array_length(p_items)>50 then raise exception 'INVALID_ITEMS'; end if;
+  if jsonb_typeof(p_shipping)<>'object' then raise exception 'INVALID_SHIPPING'; end if;
+
+  v_region_id:=coalesce(p_shipping->>'region_id',p_shipping->>'regionId',p_shipping->>'governorate');
+  if v_region_id is null then raise exception 'REGION_REQUIRED'; end if;
+
+  select * into v_region
+  from public.regions
+  where lower(id)=lower(v_region_id) or lower(name_en)=lower(v_region_id) or lower(name_ar)=lower(v_region_id)
+  limit 1;
+  if not found then raise exception 'INVALID_REGION'; end if;
+
+  if p_delivery_speed in ('diaspora_air','diaspora_global') and v_region.id<>'diaspora_global' then raise exception 'INVALID_DELIVERY_SPEED'; end if;
+  if p_delivery_speed='standard' and v_region.id='diaspora_global' then raise exception 'INVALID_DELIVERY_SPEED'; end if;
+
+  for v_item in select value from jsonb_array_elements(p_items) loop
+    begin v_pid:=(v_item->>'product_id')::uuid; exception when others then raise exception 'INVALID_PRODUCT_ID'; end;
+    v_qty:=(v_item->>'quantity')::int;
+    if v_qty is null or v_qty<1 or v_qty>99 then raise exception 'INVALID_QUANTITY'; end if;
+    if length(coalesce(v_item->>'selected_option',''))>100 then raise exception 'INVALID_OPTION'; end if;
+
+    select p.*, (select s.name from public.sellers s where s.id=p.seller_id) as seller_name,
+           (select c.name from public.categories c where c.id=p.category_id) as category_name
+    into v_product
+    from public.products p
+    where p.id=v_pid and p.is_published=true
+      and (p.seller_id is null or exists(select 1 from public.sellers s where s.id=p.seller_id and s.is_active=true))
+      and (p.category_id is null or exists(select 1 from public.categories c where c.id=p.category_id and c.is_published=true))
+    for update of p;
+
+    if not found then raise exception 'PRODUCT_UNAVAILABLE:%',v_pid; end if;
+    if v_product.stock<v_qty then raise exception 'INSUFFICIENT_STOCK:%',v_pid; end if;
+
+    v_unit:=greatest(0,coalesce(v_product.price_usd,0));
+    v_line:=round(v_unit*v_qty,2);
+    v_subtotal:=v_subtotal+v_line;
+    v_product_ids:=array_append(v_product_ids,v_pid);
+    if v_product.seller_id is not null and not (v_product.seller_id=any(v_seller_ids)) then v_seller_ids:=array_append(v_seller_ids,v_product.seller_id); end if;
+    v_avail:=jsonb_set(v_avail,array[v_pid::text],to_jsonb(coalesce((v_avail->>v_pid::text)::int,0)+v_qty),true);
+    v_item_rows:=v_item_rows||jsonb_build_array(jsonb_build_object(
+      'product_id',v_pid,'quantity',v_qty,'selected_option',nullif(v_item->>'selected_option',''),
+      'unit_price_usd',v_unit,
+      'product_snapshot',jsonb_build_object(
+        'id',v_product.id,'name',v_product.name,'arabic_name',v_product.arabic_name,
+        'artisan',v_product.artisan,'seller_id',v_product.seller_id,'seller_name',v_product.seller_name,
+        'category_id',v_product.category_id,'category_name',v_product.category_name,'image',v_product.image,
+        'price_usd',v_unit
+      )
+    ));
+  end loop;
+
+  if (select coalesce(sum((x->>'quantity')::int),0) from jsonb_array_elements(v_item_rows)x)>200 then raise exception 'MAX_TOTAL_QUANTITY_EXCEEDED'; end if;
+  if v_subtotal>10000 then raise exception 'MAX_ORDER_VALUE_EXCEEDED'; end if;
+  select count(*)=0 into v_new_customer from public.orders where user_id=v_uid;
+
+  for v_bundle in select * from public.product_bundles where is_published=true order by display_order,id loop
+    v_bundle_ids:=v_bundle.product_ids;
+    if coalesce(array_length(v_bundle_ids,1),0)=0 then continue; end if;
+    v_original_sum:=0;
+    v_complete_sets:=0;
+    select case when count(*) filter (where p.id is null)>0 then 0 else coalesce(min(floor(coalesce((v_avail->>req.pid::text)::int,0)::numeric/req.need))::int,0) end,
+           coalesce(sum(greatest(0,coalesce(p.price_usd,0))*req.need),0)
+    into v_complete_sets, v_original_sum
+    from (select u as pid, count(*)::int as need from unnest(v_bundle_ids) u group by u) req
+    left join public.products p on p.id=req.pid and p.is_published=true;
+    v_bundle_price:=greatest(0,v_bundle.price_usd);
+    v_savings:=greatest(0,v_original_sum-v_bundle_price);
+    if v_complete_sets>0 and v_complete_sets<2147483647 and v_savings>0 then
+      v_discount:=v_discount+round(v_savings*v_complete_sets,2);
+      foreach v_pid in array v_bundle_ids loop
+        v_avail:=jsonb_set(v_avail,array[v_pid::text],to_jsonb(greatest(0,(v_avail->>v_pid::text)::int-v_complete_sets)),true);
+      end loop;
+    end if;
+  end loop;
+
+  for v_rule in select rule from public.discount_rules where is_active=true order by created_at loop
+    v_rule_start:=nullif(v_rule->>'startDate','')::timestamptz;
+    v_rule_end:=nullif(v_rule->>'endDate','')::timestamptz;
+    if v_rule_start is not null and now()<v_rule_start then continue; end if;
+    if v_rule_end is not null and now()>v_rule_end then continue; end if;
+    if coalesce((v_rule->>'isNewUserOnly')::boolean,false) and not v_new_customer then continue; end if;
+    if coalesce(v_rule->>'couponCode','')<>'' and upper(v_rule->>'couponCode')<>coalesce(v_coupon,'') then continue; end if;
+    v_min:=coalesce((v_rule->>'minPurchaseUSD')::numeric,0);
+    if v_subtotal<v_min then continue; end if;
+    v_target:=coalesce(v_rule->>'target','all');
+    v_target_value:=lower(trim(coalesce(v_rule->>'targetValue','')));
+    v_base:=v_subtotal;
+    if v_target not in ('all','checkout') then
+      select coalesce(sum((x->>'unit_price_usd')::numeric*(x->>'quantity')::int),0) into v_base
+      from jsonb_array_elements(v_item_rows)x
+      join public.products p on p.id=(x->>'product_id')::uuid
+      left join public.sellers s on s.id=p.seller_id
+      left join public.categories c on c.id=p.category_id
+      where v_target_value<>'' and (
+        (v_target='product' and lower(p.id::text)=v_target_value) or
+        (v_target='category' and (lower(coalesce(p.category_id::text,''))=v_target_value or lower(coalesce(c.name,''))=v_target_value)) or
+        (v_target='seller' and (lower(coalesce(p.seller_id::text,''))=v_target_value or lower(coalesce(s.name,''))=v_target_value)) or
+        (v_target='brand' and (lower(coalesce(p.brand,'')) like '%'||v_target_value||'%' or lower(coalesce(p.artisan,'')) like '%'||v_target_value||'%' or lower(coalesce(p.origin,'')) like '%'||v_target_value||'%' or lower(coalesce(p.name,'')) like '%'||v_target_value||'%'))
+      );
+    end if;
+    if v_base<=0 then continue; end if;
+    if v_rule->>'type'='percentage' then
+      v_pct=least(100,greatest(0,coalesce((v_rule->>'value')::numeric,0)));
+      v_rule_discount:=v_base*v_pct/100;
+    elsif v_rule->>'type'='bogo' then
+      v_buy=greatest(1,coalesce((v_rule->>'buyQty')::int,1));
+      v_get=greatest(1,coalesce((v_rule->>'getQty')::int,1));
+      v_pct=least(100,greatest(1,coalesce((v_rule->>'getDiscountPercent')::numeric,(v_rule->>'value')::numeric,100)));
+      v_groups=0;
+      select coalesce(sum(floor(coalesce((v_avail->>g.pid::text)::int,0)::numeric/(v_buy+v_get))*v_get*g.unit_price*v_pct/100),0)
+      into v_rule_discount
+      from (select (x->>'product_id')::uuid as pid, max((x->>'unit_price_usd')::numeric) as unit_price from jsonb_array_elements(v_item_rows)x group by 1) g
+      where v_target in ('all','checkout') or exists(
+        select 1 from public.products p
+        left join public.sellers s on s.id=p.seller_id
+        left join public.categories c on c.id=p.category_id
+        where p.id=g.pid and v_target_value<>'' and (
+          (v_target='product' and lower(p.id::text)=v_target_value) or
+          (v_target='category' and (lower(coalesce(p.category_id::text,''))=v_target_value or lower(coalesce(c.name,''))=v_target_value)) or
+          (v_target='seller' and (lower(coalesce(p.seller_id::text,''))=v_target_value or lower(coalesce(s.name,''))=v_target_value)) or
+          (v_target='brand' and (lower(coalesce(p.brand,'')) like '%'||v_target_value||'%' or lower(coalesce(p.artisan,'')) like '%'||v_target_value||'%' or lower(coalesce(p.origin,'')) like '%'||v_target_value||'%' or lower(coalesce(p.name,'')) like '%'||v_target_value||'%'))
+        )
+      );
+    else
+      v_rule_discount:=least(greatest(0,coalesce((v_rule->>'value')::numeric,0)),v_base);
+    end if;
+    v_discount:=v_discount+greatest(0,round(v_rule_discount,2));
+    if coalesce(v_rule->>'couponCode','')<>'' then
+      v_applied_coupon:=upper(v_rule->>'couponCode');
+      v_coupon_rule_applied:=true;
+    end if;
+  end loop;
+
+  if v_coupon is not null then
+    select c.*,dr.rule into v_coupon_row
+    from public.coupons c left join public.discount_rules dr on dr.id=c.discount_rule_id
+    where upper(c.coupon_code)=v_coupon and c.is_active=true
+      and (c.start_at is null or now()>=c.start_at)
+      and (c.end_at is null or now()<=c.end_at)
+    for update;
+    if not found then raise exception 'INVALID_COUPON'; end if;
+    if v_coupon_row.max_total_uses is not null and v_coupon_row.total_uses>=v_coupon_row.max_total_uses then raise exception 'COUPON_EXHAUSTED'; end if;
+    if v_coupon_row.max_uses_per_user is not null and (select count(*) from public.orders where user_id=v_uid and applied_coupon=v_coupon)>=v_coupon_row.max_uses_per_user then raise exception 'COUPON_USER_LIMIT'; end if;
+    if not v_coupon_rule_applied and v_coupon_row.rule is not null and v_coupon_row.rule<>'{}'::jsonb then
+      if coalesce(v_coupon_row.rule->>'type','')='percentage' then
+        v_discount:=v_discount+v_subtotal*least(100,greatest(0,coalesce((v_coupon_row.rule->>'value')::numeric,0)))/100;
+      elsif coalesce(v_coupon_row.rule->>'type','')<>'bogo' then
+        v_discount:=v_discount+least(v_subtotal,greatest(0,coalesce((v_coupon_row.rule->>'value')::numeric,0)));
+      end if;
+    end if;
+    v_applied_coupon:=v_coupon;
+  end if;
+
+  v_discount:=least(round(greatest(0,v_discount),2),round(v_subtotal*0.70,2));
+
+  -- Yalla checkout scope intentionally has two delivery modes:
+  -- Lebanon Standard: $2 below $50, free at/above $50.
+  -- Diaspora Air / DHL: $28 regardless of domestic free-shipping threshold.
+  if v_region.id='diaspora_global' or p_delivery_speed in ('diaspora_air','diaspora_global') then
+    v_delivery:=28;
+  elsif v_subtotal>=50 then
+    v_delivery:=0;
+  elsif p_delivery_speed='standard' then
+    v_delivery:=2;
+  else
+    raise exception 'UNSUPPORTED_DELIVERY_SPEED';
+  end if;
+
+  v_total:=round(greatest(0,v_subtotal-v_discount+v_delivery),2);
+  if v_total>10000 then raise exception 'MAX_ORDER_VALUE_EXCEEDED'; end if;
+  if p_currency='LBP' then v_total_lbp:=round(v_total*v_lbp_rate,0); else v_total_lbp:=0; end if;
+
+  for v_item in select value from jsonb_array_elements(v_item_rows) loop
+    v_pid:=(v_item->>'product_id')::uuid;
+    v_qty:=(v_item->>'quantity')::int;
+    update public.products set stock=stock-v_qty,updated_at=now()
+    where id=v_pid and stock>=v_qty
+    returning stock into v_available;
+    if not found then raise exception 'INSUFFICIENT_STOCK:%',v_pid; end if;
+  end loop;
+
+  insert into public.orders(
+    user_id,shipping,payment_method,currency,subtotal_usd,delivery_fee_usd,total_usd,total_lbp,
+    status,seller_ids,product_ids,discount_usd,applied_coupon,idempotency_key
+  )
+  values(
+    v_uid,p_shipping,p_payment_method,p_currency,v_subtotal,v_delivery,v_total,v_total_lbp,
+    'pending',v_seller_ids,v_product_ids,v_discount,v_applied_coupon,p_idempotency_key
+  )
+  returning id into v_order;
+
+  insert into public.order_items(order_id,product_id,product_snapshot,quantity,selected_option,unit_price_usd)
+  select v_order,(x->>'product_id')::uuid,x->'product_snapshot',(x->>'quantity')::int,
+         nullif(x->>'selected_option',''),(x->>'unit_price_usd')::numeric
+  from jsonb_array_elements(v_item_rows)x;
+
+  if v_coupon is not null then
+    update public.coupons set total_uses=total_uses+1,updated_at=now()
+    where id=v_coupon_row.id;
+  end if;
+
+  return v_order;
+end;
+$function$
+

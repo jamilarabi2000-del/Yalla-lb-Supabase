@@ -29,7 +29,7 @@ import {
 import { applyDiscounts } from '../lib/pricing';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
-import { LEBANON_REGIONS, LBP_USD_RATE } from '../data/regions';
+import { LEBANON_REGIONS } from '../data/regions';
 
 import {
   normalizeLebanesePhone,
@@ -442,13 +442,8 @@ interface ShopContextType {
   formatPrice: (
     amountUSD: number
   ) => string;
-  convertUSDToLBP: (
-    amountUSD: number
-  ) => number;
   currencySymbol: string;
   currencyRate: number;
-  /** Live USD -> LBP rate from app_settings; falls back to LBP_USD_RATE. */
-  lbpRate: number;
 
   // Cart
   cart: CartItem[];
@@ -2137,6 +2132,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ? String(addlVideosRaw ?? '').split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
               : undefined;
 
+            const description = String(row.description_en ?? row.description ?? '').trim();
+            const craftStory = String(row.description_ar ?? row.craftstory ?? row.arabic_description ?? '').trim();
             const nowIso = new Date().toISOString();
             const product: Product = {
               id: sku,
@@ -2152,7 +2149,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               priceUSD,
               originalPriceUSD: row.original_price_usd !== undefined ? parsePrice(row.original_price_usd) : undefined,
               stock: Math.floor(stock),
-              ...(mainImage !== undefined ? { image: mainImage } : {}),
+              image: mainImage ?? '',
               ...(hasAdditionalImagesColumn ? { additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : [] } : {}),
               ...(videoUrl !== undefined ? { videoUrl } : {}),
               ...(hasAdditionalVideosColumn ? { additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : [] } : {}),
@@ -3935,21 +3932,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 3500);
   };
 
-  const currencySymbol = currency === 'LBP' ? 'L.L.' : '$';
-  const currencyRate = currency === 'LBP' ? LBP_USD_RATE : 1;
-
-  const convertUSDToLBP = (amountUSD: number) => {
-    return Math.round(amountUSD * LBP_USD_RATE);
-  };
+  // Customer-facing prices are USD only.
+  const currencySymbol = '$';
+  const currencyRate = 1;
 
   const formatPrice = (amountUSD: number) => {
-    if (currency === 'LBP') {
-      const amountLBP = convertUSDToLBP(amountUSD);
-      return `L.L. ${amountLBP.toLocaleString()}`;
-    }
     return `$${amountUSD.toFixed(2)}`;
   };
-
   const addToCart = (product: Product, quantity = 1, option?: string) => {
     // Determine the product from our master products list to get the most up-to-date stock
     const currentProduct = products.find(p => p.id === product.id) || product;
@@ -5053,6 +5042,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+
   const providerValue = useMemo(() => ({
     activeTab,
     setActiveTab,
@@ -5082,7 +5072,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currency,
     setCurrency,
     formatPrice,
-    convertUSDToLBP,
     currencySymbol,
     currencyRate,
     cart,
