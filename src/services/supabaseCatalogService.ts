@@ -1270,6 +1270,16 @@ export const supabaseCatalogService = {
         original_price_usd:
           product.originalPriceUSD,
 
+        // Compatibility pricing columns:
+        // regular_price mirrors price_usd (current/promo price)
+        // promo_price mirrors original_price_usd (regular/original price).
+        regular_price:
+          product.priceUSD ??
+          0,
+
+        promo_price:
+          product.originalPriceUSD,
+
         discount_percentage:
           product.discountPercentage,
 
