@@ -488,7 +488,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const saveQuick = async (p: Product) => {
     const q = quickValues[p.id] || { price: String(p.priceUSD), stock: String(p.stock) };
     const price = Number(q.price), stock = Number(q.stock);
-    if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) return showToast('Enter a valid price and whole-number stock.', 'warning');
+    if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(regularPrice) || regularPrice < price || !Number.isInteger(stock) || stock < 0) return showToast('Enter a valid price and whole-number stock.', 'warning');
     try {
       await updateProduct(p.id, { priceUSD: price, stock });
       showToast(p.name + ' price/stock updated.', 'success');
@@ -517,7 +517,8 @@ export const ProductsCatalogManagement: React.FC = () => {
           const line = rowIndex + 2;
           const name = String(row.name_en || row.name || row.product_name_en || '').trim();
           if (!name) { skipped.push({ row: line, reason: 'Missing English product name' }); continue; }
-          const price = Number(row.price_usd ?? row.priceUSD ?? row.price ?? 0);
+          const price = Number(row.promo_price ?? row.priceUSD ?? row.price ?? 0);
+          const regularPrice = Number(row.regular_price ?? row.original_price_usd ?? row.originalPriceUSD ?? price);
           const stock = Number(row.stock ?? row.stock_quantity ?? 0);
           if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) { skipped.push({ row: line, reason: 'Invalid price or stock' }); continue; }
           const categoryId = String(row.category_id || row.category || '').trim();
@@ -532,7 +533,7 @@ export const ProductsCatalogManagement: React.FC = () => {
               product: {
                 name, arabic_name: row.name_ar || row.product_name_ar || undefined, artisan: row.artisan || row.seller || 'Independent Artisan',
                 origin: row.origin || 'Lebanon', brand, description: row.description || 'Imported product', craft_story: row.craft_story || 'Imported product',
-                image: row.image || row.image_url || '', price_usd: price, stock, category_id: categoryId,
+                image: row.image || row.image_url || '', promo_price: price, regular_price: regularPrice, stock, category_id: categoryId,
                 seller_id: row.seller_id || undefined, seller_item_code: sellerItemCode || undefined,
                 is_published: String(row.status || '').toLowerCase() === 'published', publish_status: String(row.status || '').toLowerCase() === 'published' ? 'published' : 'draft'
               },
