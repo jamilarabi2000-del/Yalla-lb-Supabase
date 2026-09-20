@@ -130,6 +130,7 @@ BEGIN
     d := replace(d, 'p_product->>''price_usd''', 'p_product->>''promo_price''');
     d := replace(d, 'p_product->>''original_price_usd''', 'p_product->>''regular_price''');
     d := replace(d, 'price_usd,original_price_usd', 'promo_price,regular_price');
+    d := replace(d, 'case when nullif(p_product->>''regular_price'','''') is null then null else (p_product->>''regular_price'')::numeric end', 'coalesce(nullif(p_product->>''regular_price'','''')::numeric, v_price)');
     EXECUTE d;
   END IF;
 
