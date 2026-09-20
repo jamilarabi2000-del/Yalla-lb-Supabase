@@ -216,9 +216,28 @@ BEGIN
   WHERE oid = to_regprocedure('private.create_product_atomic(jsonb,jsonb,jsonb)');
   IF d IS NOT NULL THEN
     d := replace(d,
-      "  v_price := nullif(p_product->>'promo_price','')::numeric;\n  if v_price is null or v_price <= 0 then\n    raise exception using errcode='22023', message='Product price must be greater than 0';\n  end if;",
-      "  v_regular := nullif(p_product->>'regular_price','')::numeric;\n  v_promo := nullif(p_product->>'promo_price','')::numeric;\n  v_regular := coalesce(v_regular, v_promo);\n  v_promo := case when v_promo is not null and v_regular is not null and v_promo < v_regular then v_promo else null end;\n  v_price := coalesce(v_promo, v_regular);\n  if v_price is null or v_price <= 0 or v_regular is null or v_regular <= 0 then\n    raise exception using errcode='22023', message='Product price must be greater than 0';\n  end if;");
-    d := replace(d, 'v_price,\\n    coalesce(nullif(p_product->>''regular_price'','''')::numeric, v_price),', 'v_promo,\\n    v_regular,');
+      $$  v_price numeric;$$,
+      $$  v_price numeric;
+  v_regular numeric;
+  v_promo numeric;$$);
+    d := replace(d,
+      $$  v_price := nullif(p_product->>'promo_price','')::numeric;
+  if v_price is null or v_price <= 0 then
+    raise exception using errcode='22023', message='Product price must be greater than 0';
+  end if;$$,
+      $$  v_regular := nullif(p_product->>'regular_price','')::numeric;
+  v_promo := nullif(p_product->>'promo_price','')::numeric;
+  v_regular := coalesce(v_regular, v_promo);
+  v_promo := case when v_promo is not null and v_regular is not null and v_promo < v_regular then v_promo else null end;
+  v_price := coalesce(v_promo, v_regular);
+  if v_price is null or v_price <= 0 or v_regular is null or v_regular <= 0 then
+    raise exception using errcode='22023', message='Product price must be greater than 0';
+  end if;$$);
+    d := replace(d,
+      $$v_price,
+    coalesce(nullif(p_product->>'regular_price','')::numeric, v_price),$$,
+      $$v_promo,
+    v_regular,$$);
     EXECUTE d;
   END IF;
 END $$;
