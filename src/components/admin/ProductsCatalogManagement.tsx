@@ -176,16 +176,16 @@ export const ProductsCatalogManagement: React.FC = () => {
 
   const saveProduct = async (published: boolean) => {
     const stock = Number(form.stock);
-    const price = Number(form.priceUSD);
-    const originalPrice = form.originalPriceUSD === '' || form.originalPriceUSD == null ? null : Number(form.originalPriceUSD);
+    const currentPrice = Number(form.priceUSD);
+    const regularPrice = form.originalPriceUSD === '' || form.originalPriceUSD == null ? null : Number(form.originalPriceUSD);
     const errors: Record<string, string> = {};
-    if (originalPrice !== null && (!Number.isFinite(originalPrice) || originalPrice < price)) {
-      errors.originalPriceUSD = 'Original price must be greater than or equal to the current/promo price.';
+    if (!Number.isFinite(currentPrice) || currentPrice < 1) errors.priceUSD = 'Current / promo price must be at least $1.00.';
+    if (regularPrice !== null && (!Number.isFinite(regularPrice) || regularPrice < currentPrice)) {
+      errors.originalPriceUSD = 'Regular / original price must be greater than or equal to the current / promo price.';
     }
 
     if (!String(form.name || '').trim()) errors.name = 'Product title (English) is required.';
     if (!String(form.category || '').trim()) errors.category = 'Category is required.';
-    if (!Number.isFinite(price) || price < 1) errors.priceUSD = 'Price must be at least $1.00.';
     if (!Number.isInteger(stock) || stock < 0) errors.stock = 'Stock quantity must be a whole number (0 or more).';
     const selectedSeller = form.sellerId ? (sellers as any[]).find((s: any) => s.id === form.sellerId) : null;
     if (published && (!selectedSeller || selectedSeller.isActive === false)) {
@@ -229,16 +229,16 @@ export const ProductsCatalogManagement: React.FC = () => {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || '').trim() || undefined,
-      // Pricing convention: priceUSD is the Regular Price; originalPriceUSD is the Promo Price.
-      // The database constraint requires Promo Price <= Regular Price.
-      priceUSD: price,
+      // Canonical pricing convention: priceUSD is the current / sale price; originalPriceUSD is the regular / original price.
+      // The database requires current / sale price <= regular / original price.
+      priceUSD: currentPrice,
       originalPriceUSD: (() => {
-        const promo = Number(form.originalPriceUSD || 0);
-        return promo > 0 && promo <= price ? promo : null;
+        const regular = Number(form.originalPriceUSD || 0);
+        return regular > 0 && regular >= currentPrice ? regular : null;
       })(),
       discountPercentage: (() => {
-        const promo = Number(form.originalPriceUSD || 0);
-        return promo > 0 && promo <= price ? discountFromPrices(price, promo) : null;
+        const regular = Number(form.originalPriceUSD || 0);
+        return regular > currentPrice ? discountFromPrices(regular, currentPrice) : null;
       })(),
       stock, lowStockThreshold: Number(form.lowStockThreshold) >= 0 ? Number(form.lowStockThreshold) : null, lowStockNotice: String(form.lowStockNotice || '').trim() || null,
       customStockLabel: String(form.customStockLabel || '').trim() || null, costPriceUSD: Number(form.costPriceUSD) > 0 ? Number(form.costPriceUSD) : null,
@@ -649,10 +649,10 @@ export const ProductsCatalogManagement: React.FC = () => {
   const Modal = () => {
     const selectedSeller = normalizeSeller(sellers.find((s: any) => s.id === form.sellerId));
     const selectedCategory = categories.find((cat: any) => cat.id === form.category);
-    const regularPrice = Number(form.priceUSD || 0);
-    const promoPrice = Number(form.originalPriceUSD || 0);
+    const currentPrice = Number(form.priceUSD || 0);
+    const regularPrice = Number(form.originalPriceUSD || 0);
     const enteredDiscount = Number(form.discountPercentage || 0);
-    const calculatedDiscount = discountFromPrices(regularPrice, promoPrice) || (enteredDiscount > 0 ? Math.round(enteredDiscount) : 0);
+    const calculatedDiscount = discountFromPrices(regularPrice, currentPrice) || (enteredDiscount > 0 ? Math.round(enteredDiscount) : 0);
     const arabicQuickKeywords = ['مونة بلدية', 'زيت زيتون كورة', 'زعتر بلدي جبلي', 'عسل سدر', 'صناعة لبنانية', 'شحن مغتربين'];
     const addArabicKeyword = (keyword: string) => {
       const current = String(form.arabicKeywordsInput || '').split(',').map((x: string) => x.trim()).filter(Boolean);
@@ -666,29 +666,27 @@ export const ProductsCatalogManagement: React.FC = () => {
       setForm((v: any) => ({ ...v, sellerId: id, seller: normalized?.nameEn || '', arabicSeller: normalized?.nameAr || '', artisan: normalized?.nameEn || '', origin: normalized?.region || v.origin || 'Lebanon' }));
     };
     const setPrice = (value: string) => {
-      const regular = Number(value);
-      const promo = Number(form.originalPriceUSD || 0);
-      const discount = discountFromPrices(regular, promo);
+      const current = Number(value);
+      const regular = Number(form.originalPriceUSD || 0);
+      const discount = discountFromPrices(regular, current);
       setForm((v: any) => ({
         ...v,
-        priceUSD: value === '' ? '' : (Number.isFinite(regular) ? regular : 0),
+        priceUSD: value === '' ? '' : (Number.isFinite(current) ? current : 0),
         discountPercentage: discount || ''
       }));
     };
     const setPromoPrice = (value: string) => {
-      const promo = Number(value);
-      const regular = Number(form.priceUSD || 0);
+      const regular = Number(value);
+      const current = Number(form.priceUSD || 0);
       if (value === '') {
         setForm((v: any) => ({ ...v, originalPriceUSD: '', discountPercentage: '' }));
         return;
       }
-      const validPromo = Number.isFinite(promo) ? promo : 0;
-      // Regular Price is always the source price. Entering Promo Price calculates the discount;
-      // it must never change the Regular Price.
-      const discount = discountFromPrices(regular, validPromo);
+      const validRegular = Number.isFinite(regular) ? regular : 0;
+      const discount = discountFromPrices(validRegular, current);
       setForm((v: any) => ({
         ...v,
-        originalPriceUSD: validPromo,
+        originalPriceUSD: validRegular,
         discountPercentage: discount || ''
       }));
     };
@@ -698,13 +696,13 @@ export const ProductsCatalogManagement: React.FC = () => {
         return;
       }
       const discount = Math.min(99, Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0));
-      const regular = Number(form.priceUSD || 0);
-      // Discount is calculated FROM the Regular Price. Entering 50% on $10 means Promo Price = $5.
+      const regular = Number(form.originalPriceUSD || 0);
+      // Discount is calculated FROM the Regular Price. Entering 50% on $10 means Current / Promo Price = $5.
       const derivedPromo = promoPriceFromDiscount(regular, discount);
       setForm((v: any) => ({
         ...v,
         discountPercentage: discount,
-        originalPriceUSD: derivedPromo || ''
+        priceUSD: derivedPromo || ''
       }));
     };
     const close = () => { setModalOpen(false); setEditing(null); setValidationModalOpen(false); };
@@ -736,7 +734,7 @@ export const ProductsCatalogManagement: React.FC = () => {
 
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the temporary selling price; LBP display is handled by the storefront exchange-rate layer.</p></div></div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Price (USD) — Regular / Original *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/>{validationErrors.priceUSD && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.priceUSD}</span>}</label>
+              <label id="product-field-priceUSD" className="text-xs font-black text-slate-600">Current / Promo Price (USD) *<RequiredBadge field="priceUSD"/><input min="1" step="0.01" type="number" value={form.priceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,priceUSD:''}));}} className={fieldClass('priceUSD')}/>{validationErrors.priceUSD && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.priceUSD}</span>}</label>
               <label id="product-field-stock" className="text-xs font-black text-slate-600">Stock Quantity *<RequiredBadge field="stock"/><input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>{setField('stock',e.target.value === '' ? '' : Number(e.target.value));setValidationErrors(v=>({...v,stock:''}));}} className={fieldClass('stock')}/>{validationErrors.stock && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.stock}</span>}</label>
               <label id="product-field-sellerItemCode" className="text-xs font-black text-slate-600">Seller Product Code *<RequiredBadge field="sellerItemCode"/><input value={form.sellerItemCode || ''} onChange={e=>{setField('sellerItemCode',e.target.value);if(e.target.value.trim())setValidationErrors(v=>({...v,sellerItemCode:''}));}} placeholder="Enter seller's product code" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 font-mono"/></label>
               <label id="product-field-yallaItemCode" className="text-xs font-black text-slate-600">Yalla Item Code <span className="ml-2 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[9px] font-black">SYSTEM GENERATED · READ ONLY</span><input value={form.yallaItemCode || ''} readOnly aria-readonly="true" className={fieldClass('yallaItemCode','mt-1.5 w-full px-3 py-2.5 rounded-xl border bg-indigo-50/60 text-indigo-700 font-mono font-black cursor-not-allowed')}/>{validationErrors.yallaItemCode && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.yallaItemCode}</span>}</label>
@@ -746,7 +744,7 @@ export const ProductsCatalogManagement: React.FC = () => {
 
           <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the discounted selling price. Changing Promo Price or Discount % recalculates the promo price/discount; the Regular Price never changes automatically.</p></div></div>
             <div className="grid sm:grid-cols-3 gap-4">
-              <label className="text-xs font-black text-slate-600">Promo Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setPromoPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+              <label className="text-xs font-black text-slate-600">Regular / Original Price (USD)<input min="0" step="0.01" type="number" value={form.originalPriceUSD ?? ''} onChange={e=>setPromoPrice(e.target.value)} placeholder="50.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
               <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" step="1" type="number" value={form.discountPercentage ?? calculatedDiscount ?? ''} onChange={e=>setDiscount(e.target.value)} placeholder="50" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700"/></label>
               <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex items-center justify-between"><div><p className="text-[10px] font-black text-rose-600 uppercase">Today's Deals badge</p><p className="text-xs text-slate-600 mt-1">{calculatedDiscount > 0 ? 'Calculated from Promo Price and Regular Price / Discount %' : 'Enter a Promo Price or Discount %'}</p></div>{calculatedDiscount > 0 && <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-sm font-black">-{calculatedDiscount}% OFF</span>}</div>
             </div>
