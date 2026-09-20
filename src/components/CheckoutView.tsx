@@ -520,6 +520,8 @@ export const CheckoutView: React.FC = () => {
         subtotalUSD: Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100,
         deliveryFeeUSD: deliveryFeeUSD,
         totalUSD: finalTotalUSD,
+        // Legacy internal compatibility field; customer-facing checkout is USD-only.
+        totalLBP: 0,
         discountUSD: discountUSD,
         appliedCoupon: appliedCouponCode || undefined,
         estimatedDelivery: deliverySpeed === 'express_beirut' 
