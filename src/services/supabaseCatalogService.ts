@@ -144,11 +144,11 @@ export function mapSupabaseProduct(
       String(row.category_id || ''),
 
     priceUSD:
-      Number(row.price_usd ?? 0),
+      Number(row.promo_price ?? 0),
 
     originalPriceUSD:
       toNumberOrUndefined(
-        row.original_price_usd,
+        row.original_promo_price,
       ),
 
     discountPercentage:
@@ -224,7 +224,7 @@ export function mapSupabaseProduct(
 
     costPriceUSD:
       toNumberOrUndefined(
-        row.cost_price_usd,
+        row.cost_promo_price,
       ),
 
     tags:
@@ -614,7 +614,7 @@ function buildProductMediaRows(
  * - low_stock_threshold
  * - low_stock_notice
  * - custom_stock_label
- * - cost_price_usd
+ * - cost_promo_price
  *
  * The products table contains these columns, but the
  * storefront must not request them.
@@ -629,8 +629,8 @@ const PUBLIC_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  promo_price,
+  original_promo_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -684,8 +684,8 @@ const ADMIN_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  promo_price,
+  original_promo_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -704,7 +704,7 @@ const ADMIN_PRODUCT_COLUMNS = `
   low_stock_threshold,
   low_stock_notice,
   custom_stock_label,
-  cost_price_usd,
+  cost_promo_price,
 
   tags,
   keywords,
@@ -918,7 +918,7 @@ async function syncProductPrivate(
       custom_stock_label:
         product.customStockLabel,
 
-      cost_price_usd:
+      cost_promo_price:
         product.costPriceUSD,
 
       updated_at:
@@ -1263,16 +1263,16 @@ export const supabaseCatalogService = {
         category_id:
           product.category,
 
-        price_usd:
+        promo_price:
           product.priceUSD ??
           0,
 
-        original_price_usd:
+        original_promo_price:
           product.originalPriceUSD,
 
         // Compatibility pricing columns:
-        // regular_price mirrors price_usd (current/promo price)
-        // promo_price mirrors original_price_usd (regular/original price).
+        // regular_price mirrors promo_price (current/promo price)
+        // promo_price mirrors original_promo_price (regular/original price).
         regular_price:
           product.priceUSD ??
           0,
@@ -1348,7 +1348,7 @@ export const supabaseCatalogService = {
         custom_stock_label:
           product.customStockLabel,
 
-        cost_price_usd:
+        cost_promo_price:
           product.costPriceUSD,
 
         tags:
