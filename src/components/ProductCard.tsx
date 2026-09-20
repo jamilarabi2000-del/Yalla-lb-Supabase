@@ -89,12 +89,12 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
               {product.lowStockNotice || (product.stock === 1 ? (language === 'ar' ? 'القطعة الأخيرة' : 'Last piece') : (language === 'ar' ? 'كمية محدودة' : 'Limited Stock'))}
             </span>
           ) : null}
-          {product.discountPercentage && (
+          {pricing.discount > 0 && (
             <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-[#C62828] text-white rounded-md shadow-xs">
-              -{product.discountPercentage}%
+              -{pricing.discount}%
             </span>
           )}
-          {product.isBestseller && !product.discountPercentage && product.stock > 0 && (
+          {product.isBestseller && !pricing.discount && product.stock > 0 && (
             <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#16803C] text-white rounded-md shadow-xs">
               {t('bestseller')}
             </span>
