@@ -177,7 +177,12 @@ export const ProductsCatalogManagement: React.FC = () => {
   const saveProduct = async (published: boolean) => {
     const stock = Number(form.stock);
     const price = Number(form.priceUSD);
+    const originalPrice = form.originalPriceUSD === '' || form.originalPriceUSD == null ? null : Number(form.originalPriceUSD);
     const errors: Record<string, string> = {};
+    if (originalPrice !== null && (!Number.isFinite(originalPrice) || originalPrice < price)) {
+      errors.originalPriceUSD = 'Original price must be greater than or equal to the current/promo price.';
+    }
+
     if (!String(form.name || '').trim()) errors.name = 'Product title (English) is required.';
     if (!String(form.category || '').trim()) errors.category = 'Category is required.';
     if (!Number.isFinite(price) || price < 1) errors.priceUSD = 'Price must be at least $1.00.';
