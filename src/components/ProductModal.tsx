@@ -39,6 +39,9 @@ export const ProductModal: React.FC = () => {
 
   const product = selectedProductForModal;
   const isLiked = isInWishlist(product.id);
+  const hasPromo = Number(product.originalPriceUSD || 0) > 0 && Number(product.originalPriceUSD) < Number(product.priceUSD);
+  const displayPriceUSD = hasPromo ? Number(product.originalPriceUSD) : Number(product.priceUSD);
+  const displayOriginalPriceUSD = hasPromo ? Number(product.priceUSD) : null;
   const displayTitle = language === 'ar' ? (product.arabicName || product.name) : product.name;
 
   const handleAddMultipleToCart = () => {
@@ -119,11 +122,11 @@ export const ProductModal: React.FC = () => {
               {/* Price & Stock */}
               <div className="flex items-baseline gap-2 flex-wrap pt-1">
                 <span className="text-xl font-black text-[#171717]">
-                  {formatPrice(product.priceUSD * quantity)}
+                  {formatPrice(displayPriceUSD * quantity)}
                 </span>
-                {product.originalPriceUSD && (
+                {displayOriginalPriceUSD && (
                   <span className="text-xs text-slate-400 line-through font-medium">
-                    {formatPrice(product.originalPriceUSD * quantity)}
+                    {formatPrice(displayOriginalPriceUSD * quantity)}
                   </span>
                 )}
                 {product.stock > 0 ? (
