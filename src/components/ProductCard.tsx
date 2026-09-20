@@ -161,10 +161,10 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
           <div className="flex items-baseline justify-between gap-1.5">
             <div className="flex items-baseline gap-1.5 flex-wrap">
               <div className="flex flex-col leading-tight">
-                <span className="text-sm sm:text-base font-black text-[#171717] tracking-tight">${product.priceUSD.toFixed(2)}</span>
+                <span className="text-sm sm:text-base font-black text-[#171717] tracking-tight">${displayPriceUSD.toFixed(2)}</span>
               </div>
-              {product.originalPriceUSD && product.originalPriceUSD > product.priceUSD && (
-                <span className="text-xs text-slate-400 line-through font-medium">${product.originalPriceUSD.toFixed(2)}</span>
+              {displayOriginalPriceUSD && (
+                <span className="text-xs text-slate-400 line-through font-medium">${displayOriginalPriceUSD.toFixed(2)}</span>
               )}
             </div>
           </div>
