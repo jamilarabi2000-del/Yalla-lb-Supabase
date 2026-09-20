@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
+import { formatUSD, getProductPricing } from '../lib/productPricing';
 import { useDialog } from '../hooks/useDialog';
 import { 
   X, 
@@ -39,6 +40,7 @@ export const ProductModal: React.FC = () => {
 
   const product = selectedProductForModal;
   const isLiked = isInWishlist(product.id);
+  const pricing = getProductPricing(product);
   const displayTitle = language === 'ar' ? (product.arabicName || product.name) : product.name;
 
   const handleAddMultipleToCart = () => {
@@ -119,11 +121,11 @@ export const ProductModal: React.FC = () => {
               {/* Price & Stock */}
               <div className="flex items-baseline gap-2 flex-wrap pt-1">
                 <span className="text-xl font-black text-[#171717]">
-                  {formatPrice(product.priceUSD * quantity)}
+                  {formatUSD(pricing.currentPrice * quantity)}
                 </span>
-                {product.originalPriceUSD && (
+                {pricing.originalPrice !== null && (
                   <span className="text-xs text-slate-400 line-through font-medium">
-                    {formatPrice(product.originalPriceUSD * quantity)}
+                    {formatUSD(pricing.originalPrice! * quantity)}
                   </span>
                 )}
                 {product.stock > 0 ? (
