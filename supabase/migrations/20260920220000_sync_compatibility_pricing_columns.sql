@@ -60,6 +60,11 @@ SET
   regular_price = COALESCE(regular_price, promo_price);
 
 UPDATE public.products
+SET
+  regular_price = CASE WHEN regular_price IS NULL OR regular_price <= 0 THEN 1.00 ELSE regular_price END,
+  promo_price = CASE WHEN promo_price IS NOT NULL AND promo_price <= 0 THEN NULL ELSE promo_price END;
+
+UPDATE public.products
 SET discount_percentage = CASE
   WHEN promo_price IS NOT NULL
     AND regular_price > promo_price
