@@ -1,4 +1,4 @@
-export type Currency = 'USD' | 'LBP';
+export type Currency = 'USD';
 
 export interface Product {
   id: string;
@@ -149,7 +149,7 @@ export interface ShippingDetails {
  * makes reintroducing the option a compile error rather than a silent
  * runtime promise.
  */
-export type PaymentMethod = 'cod_usd' | 'cod_lbp' | 'wish_omt';
+export type PaymentMethod = 'cod_usd' | 'wish_omt';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'crafting' | 'courier_assigned' | 'in_transit' | 'delivered' | 'cancelled' | 'returned';
 
@@ -166,7 +166,6 @@ export interface Order {
   subtotalUSD: number;
   deliveryFeeUSD: number;
   totalUSD: number;
-  totalLBP: number;
   status: OrderStatus;
   estimatedDelivery: string;
   trackingNumber: string;
