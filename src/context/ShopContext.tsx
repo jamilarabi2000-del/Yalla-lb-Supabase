@@ -3952,9 +3952,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return `$${amountUSD.toFixed(2)}`;
   };
 
+  const getEffectiveProductPrice = (p: Product) => {
+    const regular = Number(p.priceUSD || 0);
+    const promo = Number(p.originalPriceUSD || 0);
+    return promo > 0 && promo < regular ? promo : regular;
+  };
+
   const addToCart = (product: Product, quantity = 1, option?: string) => {
-    // Determine the product from our master products list to get the most up-to-date stock
-    const currentProduct = products.find(p => p.id === product.id) || product;
+    // Determine the product from our master products list to get the most up-to-date stock.
+    // originalPriceUSD is the legacy database promo-price field; use it as the effective selling price.
+    const sourceProduct = products.find(p => p.id === product.id) || product;
+    const currentProduct = { ...sourceProduct, priceUSD: getEffectiveProductPrice(sourceProduct) };
     const availableStock = Number.isFinite(Number(currentProduct.stock)) ? Math.max(0, Math.floor(Number(currentProduct.stock))) : 0;
     
     if (availableStock <= 0) {
@@ -4011,7 +4019,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCart(prev => {
       const nextCart = [...prev];
       for (const item of itemsToAdd) {
-        const currentProd = products.find(p => p.id === item.product.id) || item.product;
+        const sourceProd = products.find(p => p.id === item.product.id) || item.product;
+        const currentProd = { ...sourceProd, priceUSD: getEffectiveProductPrice(sourceProd) };
         const availableStock = Number.isFinite(Number(currentProd.stock)) ? Math.max(0, Math.floor(Number(currentProd.stock))) : 0;
         if (availableStock <= 0) continue;
 
