@@ -1263,22 +1263,19 @@ export const supabaseCatalogService = {
         category_id:
           product.category,
 
-        promo_price:
-          product.priceUSD ??
-          0,
-
+        // Semantic pricing:
+        // regular_price = regular/original price
+        // promo_price = current/promotional selling price.
         regular_price:
-          product.originalPriceUSD,
-
-        // Compatibility pricing columns:
-        // regular_price mirrors promo_price (current/promo price)
-        // promo_price mirrors regular_price (regular/original price).
-        regular_price:
+          product.originalPriceUSD ??
           product.priceUSD ??
           0,
 
         promo_price:
-          product.originalPriceUSD,
+          product.originalPriceUSD != null &&
+          Number(product.originalPriceUSD) > Number(product.priceUSD ?? 0)
+            ? product.priceUSD ?? 0
+            : null,
 
         discount_percentage:
           product.discountPercentage,
