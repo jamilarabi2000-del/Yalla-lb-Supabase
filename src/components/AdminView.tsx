@@ -135,7 +135,154 @@ function ProductsManager() {
 }
 
 function InventoryManager(){const shop=useShop() as any;const products=shop.products??[];const[ledger,setLedger]=useState<any[]>([]);const[productId,setProductId]=useState('');const[qty,setQty]=useState(0);const[reason,setReason]=useState('adjustment');const refresh=async()=>setLedger(await getInventoryLedger());useEffect(()=>{refresh().catch(console.error)},[]);const adjust=async()=>{if(!productId||!qty)return;await recordInventoryChange({productId,quantityChange:qty,reason});setQty(0);await refresh()};return <section className="space-y-5"><div><h2 className="text-2xl font-black">Inventory Ledger</h2><p className="text-sm text-slate-500">Opening stock + purchases + returns − sales − damage ± adjustments.</p></div><div className="bg-white border rounded-2xl p-4 grid md:grid-cols-4 gap-3"><select value={productId} onChange={e=>setProductId(e.target.value)} className="px-3 py-2 border rounded-xl md:col-span-2"><option value="">Select product</option>{products.map((p:any)=><option key={p.id} value={p.id}>{p.name} — {p.stock}</option>)}</select><input type="number" value={qty} onChange={e=>setQty(Number(e.target.value))} placeholder="Change" className="px-3 py-2 border rounded-xl"/><select value={reason} onChange={e=>setReason(e.target.value)} className="px-3 py-2 border rounded-xl"><option>adjustment</option><option>purchase</option><option>return</option><option>damage</option><option>sale</option><option>transfer</option></select><button onClick={adjust} className="md:col-span-4 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold">Post inventory movement</button></div><div className="bg-white border rounded-2xl overflow-auto"><table className="w-full text-sm"><thead><tr className="text-left bg-slate-50"><th className="p-3">Time</th><th className="p-3">Product</th><th className="p-3">Change</th><th className="p-3">Reason</th></tr></thead><tbody>{ledger.map(r=><tr key={r.id} className="border-t"><td className="p-3">{new Date(r.created_at).toLocaleString()}</td><td className="p-3">{r.product_id}</td><td className="p-3 font-black">{r.quantity_change}</td><td className="p-3">{r.reason}</td></tr>)}</tbody></table></div></section>}
-function NotificationsManager(){const[items,setItems]=useState<any[]>([]);const refresh=async()=>{const{data,error}=await supabase.from('notifications').select('*').order('created_at',{ascending:false}).limit(100);if(error)throw error;setItems(data||[])};useEffect(()=>{refresh().catch(console.error)},[]);return <section className="space-y-4"><h2 className="text-2xl font-black">Notifications</h2><div className="bg-white border rounded-2xl divide-y">{items.map(n=><div key={n.id} className="p-4"><b>{n.title}</b><p className="text-sm text-slate-600">{n.body}</p></div>)}{!items.length&&<div className="p-8 text-center text-slate-500">No notifications yet.</div>}</div></section>}
+function NotificationsManager(){
+  const empty = {
+    title_en:'', title_ar:'', body_en:'', body_ar:'', type:'announcement', status:'draft',
+    target_audience:'all', target_page:'all', placement:'top', position_mode:'fixed', alignment:'center',
+    font_family:'inherit', title_font_size:'18px', body_font_size:'14px', font_weight:'700', line_height:'1.4', letter_spacing:'0px',
+    text_color:'#FFFFFF', title_color:'', background_color:'#171717', accent_color:'#B89753',
+    button_background_color:'#B89753', button_text_color:'#171717', border_color:'transparent', border_width:'0px',
+    border_radius:'16px', shadow:'0 12px 40px rgba(0,0,0,0.16)', opacity:1, max_width:'720px', padding:'14px 18px',
+    icon_name:'✨', image_url:'', cta_text_en:'', cta_text_ar:'', cta_url:'', dismissible:true, show_once:false,
+    auto_close_ms:'', start_at:'', end_at:'', sort_order:0
+  };
+  const [items,setItems]=useState<any[]>([]);
+  const [form,setForm]=useState<any>(empty);
+  const [editing,setEditing]=useState<any>(null);
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+  const [allowed,setAllowed]=useState(false);
+  const { showToast = () => {} } = useShop() as any;
+
+  const refresh=async()=>{
+    setLoading(true);
+    const { data,error }=await supabase.from('notification_campaigns').select('*').order('sort_order',{ascending:true}).order('created_at',{ascending:false});
+    if(error){ showToast(error.message,'error'); } else setItems(data||[]);
+    setLoading(false);
+  };
+
+  useEffect(()=>{ let live=true; hasPermission('notifications.manage').then(v=>{if(live)setAllowed(v===true)}).catch(()=>{if(live)setAllowed(false)}); return()=>{live=false}; },[]);
+  useEffect(()=>{ if(allowed) refresh(); },[allowed]);
+
+  const setField=(key:string,value:any)=>setForm((x:any)=>({...x,[key]:value}));
+  const startCreate=()=>{setEditing(null);setForm({...empty});};
+  const startEdit=(item:any)=>{setEditing(item.id);setForm({...empty,...item,auto_close_ms:item.auto_close_ms??''});};
+  const save=async()=>{
+    if(!form.title_en.trim() || !form.body_en.trim()){ showToast('English title and message are required.','warning'); return; }
+    setSaving(true);
+    try{
+      const { data:userData }=await supabase.auth.getUser();
+      const payload={...form,
+        opacity:Number(form.opacity),
+        auto_close_ms:form.auto_close_ms===''?null:Number(form.auto_close_ms),
+        sort_order:Number(form.sort_order)||0,
+        start_at:form.start_at||null,end_at:form.end_at||null,
+        image_url:form.image_url||null,icon_name:form.icon_name||null,
+        title_ar:form.title_ar||null,body_ar:form.body_ar||null,title_color:form.title_color||null,
+        cta_text_en:form.cta_text_en||null,cta_text_ar:form.cta_text_ar||null,cta_url:form.cta_url||null
+      };
+      const result=editing
+        ? await supabase.from('notification_campaigns').update(payload).eq('id',editing).select().single()
+        : await supabase.from('notification_campaigns').insert({...payload,created_by:userData.user?.id}).select().single();
+      if(result.error) throw result.error;
+      showToast(editing?'Notification updated.':'Notification created.','success');
+      setEditing(result.data?.id||null);
+      await refresh();
+    }catch(e:any){showToast(e?.message||'Unable to save notification.','error');}
+    finally{setSaving(false);}
+  };
+  const remove=async(id:string)=>{
+    if(!window.confirm('Delete this notification campaign?')) return;
+    const {error}=await supabase.from('notification_campaigns').delete().eq('id',id);
+    if(error) showToast(error.message,'error'); else {showToast('Notification deleted.','success'); if(editing===id) startCreate(); await refresh();}
+  };
+  const duplicate=async(item:any)=>{
+    const {data:userData}=await supabase.auth.getUser();
+    const {id,created_at,updated_at,created_by,...copy}=item;
+    const {error}=await supabase.from('notification_campaigns').insert({...copy,title_en:`${copy.title_en} (Copy)`,status:'draft',created_by:userData.user?.id});
+    if(error) showToast(error.message,'error'); else {showToast('Draft copy created.','success');await refresh();}
+  };
+  const Preview=()=>(
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-3">Live Preview</p>
+      <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="mx-auto flex items-center gap-3" style={{
+        maxWidth:form.max_width,padding:form.padding,color:form.text_color,background:form.background_color,
+        border:`${form.border_width} solid ${form.border_color}`,borderRadius:form.border_radius,boxShadow:form.shadow,
+        textAlign:form.alignment,fontFamily:form.font_family==='inherit'?'inherit':form.font_family,lineHeight:form.line_height,
+        letterSpacing:form.letter_spacing,opacity:Number(form.opacity)
+      }}>
+        {form.image_url && <img src={form.image_url} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0"/>}
+        {!form.image_url && form.icon_name && <span className="text-xl shrink-0">{form.icon_name}</span>}
+        <div className="min-w-0 flex-1">
+          <div style={{color:form.title_color||form.text_color,fontSize:form.title_font_size,fontWeight:form.font_weight}}>{language==='ar'?(form.title_ar||form.title_en):form.title_en||'Notification title'}</div>
+          <div className="mt-1 opacity-90" style={{fontSize:form.body_font_size}}>{language==='ar'?(form.body_ar||form.body_en):form.body_en||'Notification message'}</div>
+          {(form.cta_text_en||form.cta_text_ar) && <span className="inline-flex mt-3 px-3.5 py-2 rounded-xl font-bold" style={{background:form.button_background_color,color:form.button_text_color}}>{language==='ar'?(form.cta_text_ar||form.cta_text_en):form.cta_text_en||form.cta_text_ar}</span>}
+        </div>
+        {form.dismissible && <X className="w-4 h-4 shrink-0"/>}
+      </div>
+    </div>
+  );
+
+  if(!allowed) return <section className="p-8 bg-white rounded-2xl border text-center text-rose-600">Notification management requires notifications.manage permission.</section>;
+
+  const TextField=({label,k,placeholder}:{label:string;k:string;placeholder?:string})=><label className="space-y-1 text-xs font-semibold text-slate-700"><span>{label}</span><input value={form[k]??''} onChange={e=>setField(k,e.target.value)} placeholder={placeholder} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white"/></label>;
+  const SelectField=({label,k,options}:{label:string;k:string;options:string[]})=><label className="space-y-1 text-xs font-semibold text-slate-700"><span>{label}</span><select value={form[k]} onChange={e=>setField(k,e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white">{options.map(x=><option key={x} value={x}>{x.replaceAll('_',' ')}</option>)}</select></label>;
+
+  return <section className="space-y-5">
+    <div className="bg-white border rounded-2xl p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><h2 className="text-2xl font-black">Notifications</h2><p className="text-sm text-slate-500 mt-1">Create customer-facing banners, alerts and promotional messages. Every content, style, position and display rule is stored in Supabase and rendered live on the storefront.</p></div>
+        <button onClick={startCreate} className="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-bold flex items-center gap-2"><Plus className="w-4 h-4"/> New Notification</button>
+      </div>
+    </div>
+
+    <div className="grid xl:grid-cols-[minmax(0,1fr)_420px] gap-5">
+      <div className="bg-white border rounded-2xl p-5 space-y-5">
+        <div className="flex items-center justify-between"><h3 className="font-black text-lg">{editing?'Edit Notification':'Create Notification'}</h3>{editing&&<button onClick={startCreate} className="text-xs font-bold text-slate-500">Cancel edit</button>}</div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <TextField label="Title — English" k="title_en"/><TextField label="Title — Arabic" k="title_ar"/>
+          <label className="md:col-span-2 space-y-1 text-xs font-semibold text-slate-700"><span>Message — English</span><textarea value={form.body_en} onChange={e=>setField('body_en',e.target.value)} rows={3} className="w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+          <label className="md:col-span-2 space-y-1 text-xs font-semibold text-slate-700"><span>Message — Arabic</span><textarea value={form.body_ar} onChange={e=>setField('body_ar',e.target.value)} rows={3} className="w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
+          <SelectField label="Type" k="type" options={['announcement','promotion','system','warning','success','info']}/>
+          <SelectField label="Status" k="status" options={['draft','published','scheduled','archived']}/>
+          <SelectField label="Audience" k="target_audience" options={['all','customers','sellers','logged_in','logged_out']}/>
+          <SelectField label="Page" k="target_page" options={['all','home','products','product_detail','checkout','account']}/>
+          <SelectField label="Position" k="placement" options={['top','top_left','top_center','top_right','center','bottom','bottom_left','bottom_center','bottom_right']}/>
+          <SelectField label="Position Mode" k="position_mode" options={['fixed','sticky','inline','overlay']}/>
+          <SelectField label="Alignment" k="alignment" options={['left','center','right']}/>
+          <TextField label="Font Family" k="font_family" placeholder="inherit, Inter, Tajawal..."/>
+          <TextField label="Icon / Emoji" k="icon_name" placeholder="✨"/>
+          <TextField label="Image URL" k="image_url"/>
+          <TextField label="CTA URL" k="cta_url" placeholder="/products"/>
+          <TextField label="CTA Text — English" k="cta_text_en"/><TextField label="CTA Text — Arabic" k="cta_text_ar"/>
+        </div>
+
+        <div className="border-t pt-5"><h4 className="font-black mb-3">Typography</h4><div className="grid md:grid-cols-3 gap-3">
+          <TextField label="Title Size" k="title_font_size" placeholder="18px"/><TextField label="Body Size" k="body_font_size" placeholder="14px"/><TextField label="Weight" k="font_weight" placeholder="700"/>
+          <TextField label="Line Height" k="line_height" placeholder="1.4"/><TextField label="Letter Spacing" k="letter_spacing" placeholder="0px"/><TextField label="Max Width" k="max_width" placeholder="720px"/>
+        </div></div>
+
+        <div className="border-t pt-5"><h4 className="font-black mb-3">Colors & Shape</h4><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[
+            ['Text Color','text_color'],['Title Color','title_color'],['Background','background_color'],['Accent','accent_color'],['Button Background','button_background_color'],['Button Text','button_text_color'],['Border','border_color']
+          ].map(([label,k])=><label key={k} className="space-y-1 text-xs font-semibold text-slate-700"><span>{label}</span><div className="flex gap-2"><input type="color" value={/^#[0-9A-Fa-f]{6}$/.test(form[k]||'')?form[k]:'#000000'} onChange={e=>setField(k,e.target.value)} className="w-11 h-10 rounded-lg border p-1"/><input value={form[k]??''} onChange={e=>setField(k,e.target.value)} className="flex-1 px-3 py-2 rounded-xl border border-slate-200"/></div></label>)}
+          <TextField label="Border Width" k="border_width" placeholder="0px"/><TextField label="Radius" k="border_radius" placeholder="16px"/><TextField label="Shadow" k="shadow" placeholder="0 12px 40px rgba(...)"/><TextField label="Padding" k="padding" placeholder="14px 18px"/><TextField label="Opacity" k="opacity" placeholder="1"/>
+        </div></div>
+
+        <div className="border-t pt-5"><h4 className="font-black mb-3">Display Rules</h4><div className="grid md:grid-cols-2 gap-3">
+          <TextField label="Start At" k="start_at" placeholder="2026-09-20T12:00:00Z"/><TextField label="End At" k="end_at" placeholder="2026-09-30T23:59:59Z"/>
+          <TextField label="Auto Close (ms)" k="auto_close_ms" placeholder="0 = never"/><TextField label="Sort Order" k="sort_order" placeholder="0"/>
+          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.dismissible} onChange={e=>setField('dismissible',e.target.checked)}/> Allow customer to dismiss</label>
+          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={!!form.show_once} onChange={e=>setField('show_once',e.target.checked)}/> Show once per browser</label>
+        </div></div>
+
+        <div className="flex flex-wrap gap-2 pt-2"><button disabled={saving} onClick={save} className="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-black disabled:opacity-50"><Save className="w-4 h-4 inline mr-2"/>{saving?'Saving...':editing?'Update Notification':'Save Notification'}</button><button onClick={startCreate} className="px-5 py-2.5 rounded-xl border font-bold">Reset</button></div>
+      </div>
+
+      <div className="space-y-5"><Preview/><div className="bg-white border rounded-2xl p-5"><h3 className="font-black mb-3">Saved Notifications</h3>{loading?<p className="text-sm text-slate-500">Loading...</p>:!items.length?<p className="text-sm text-slate-500">No notification campaigns yet.</p>:<div className="space-y-2 max-h-[650px] overflow-y-auto">{items.map(item=><div key={item.id} className="border rounded-xl p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="font-black truncate">{item.title_en}</div><div className="text-xs text-slate-500 mt-1">{item.status} · {item.target_audience} · {item.target_page} · {item.placement}</div></div><div className="flex gap-1"><button onClick={()=>startEdit(item)} className="px-2 py-1 rounded-lg bg-slate-100 text-xs font-bold">Edit</button><button onClick={()=>duplicate(item)} className="px-2 py-1 rounded-lg bg-slate-100 text-xs font-bold">Copy</button><button onClick={()=>remove(item.id)} className="p-1 rounded-lg text-rose-600 hover:bg-rose-50"><Trash2 className="w-4 h-4"/></button></div></div></div>)}</div>}</div></div>
+    </div>
+  </section>;
+}
 
 const cmsMap: Record<string,string>={pages_cms:'home',page_home:'home',page_products:'productsPage',page_detail:'productDetailPage',page_checkout:'checkoutPage',page_account:'accountPage',page_news:'newsSection',page_navbar:'navbar',page_footer:'footer',page_custom_blocks:'customBlocks',page_visibility:'visibility',page_seo:'seo'};
 function CMSSection({tab}:{tab:AdminTab}){return <section className="space-y-4"><div className="bg-white border rounded-2xl p-5"><h2 className="text-2xl font-black">{tabs.find(t=>t.id===tab)?.label}</h2><p className="text-sm text-slate-500 mt-1">Supabase-backed CMS editor.</p></div><PageCMSManager initialTab={cmsMap[tab]||'home'}/></section>}
