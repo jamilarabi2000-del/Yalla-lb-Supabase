@@ -241,3 +241,37 @@ BEGIN
     EXECUTE d;
   END IF;
 END $$;
+
+
+-- Keep publish validation compatible with the semantic pricing model.
+CREATE OR REPLACE FUNCTION private.validate_publish_requirements()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, private
+AS $$
+BEGIN
+  IF tg_table_name = 'products' THEN
+    IF (new.is_published IS TRUE) OR (new.publish_status = 'published'::public.product_publish_status) THEN
+      IF nullif(btrim(coalesce(new.name, '')), '') IS NULL THEN RAISE EXCEPTION 'Product cannot be published: Product Title (English) is required.'; END IF;
+      IF new.category_id IS NULL OR NOT EXISTS (SELECT 1 FROM public.categories c WHERE c.id = new.category_id) THEN RAISE EXCEPTION 'Product cannot be published: valid Category is required.'; END IF;
+      IF coalesce(new.promo_price, new.regular_price) IS NULL OR coalesce(new.promo_price, new.regular_price) < 1 THEN RAISE EXCEPTION 'Product cannot be published: Price must be at least $1.00.'; END IF;
+      IF new.stock IS NULL OR new.stock < 0 THEN RAISE EXCEPTION 'Product cannot be published: Stock quantity is required and must be 0 or greater.'; END IF;
+      IF new.seller_id IS NULL THEN RAISE EXCEPTION 'Product cannot be published: Seller is required.'; END IF;
+      IF NOT EXISTS (SELECT 1 FROM public.sellers s WHERE s.id = new.seller_id AND s.is_active IS TRUE) THEN RAISE EXCEPTION 'Product cannot be published: selected seller does not exist or is inactive.'; END IF;
+      IF nullif(btrim(coalesce(new.seller_item_code, '')), '') IS NULL THEN RAISE EXCEPTION 'Product cannot be published: Seller Product Code (SKU) is required.'; END IF;
+      IF nullif(btrim(coalesce(new.image, '')), '') IS NULL THEN RAISE EXCEPTION 'Product cannot be published: Primary Image URL is required.'; END IF;
+    END IF;
+    RETURN new;
+  END IF;
+  IF tg_table_name = 'categories' THEN
+    IF new.is_published IS TRUE AND nullif(btrim(coalesce(new.name_en, '')), '') IS NULL THEN RAISE EXCEPTION 'Category cannot be published: Category Name (English) is required.'; END IF;
+    RETURN new;
+  END IF;
+  IF tg_table_name = 'sellers' THEN
+    IF new.is_active IS TRUE AND nullif(btrim(coalesce(new.name_en, '')), '') IS NULL THEN RAISE EXCEPTION 'Seller cannot be published: Seller Name (English) is required.'; END IF;
+    RETURN new;
+  END IF;
+  RETURN new;
+END;
+$$;
