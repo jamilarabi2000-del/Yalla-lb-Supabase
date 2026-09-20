@@ -30,7 +30,6 @@ export const Navbar: React.FC = () => {
   const showAnnouncement = visibility.announcementTicker !== false;
   const showSearch = visibility.navbarSearch !== false;
   const showLanguage = visibility.languageSwitcher !== false;
-  const showCurrency = visibility.currencySwitcher !== false;
   const showAdminTab = isAdminUser;
 
   const sortedActiveCategories = [...categories]
@@ -130,8 +129,6 @@ export const Navbar: React.FC = () => {
           <button id="nav-mobile-seller-btn" onClick={() => { setActiveTab('seller'); setMobileMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between ${activeTab === 'seller' ? 'bg-amber-50 text-[#8F7137] border border-amber-300' : 'text-[#8F7137] hover:bg-[#F8F8F6]'}`}><span>{language === 'ar' ? 'بوابة البائعين والتجار' : 'Seller & Merchant Portal'}</span><Store className="w-4 h-4 text-[#8F7137]" /></button>
 
           {showAdminTab && <button onClick={() => { setActiveTab('admin'); setMobileMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between ${activeTab === 'admin' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'text-emerald-700 hover:bg-[#F8F8F6]'}`}><span>{t('adminAndArtisanPortal')}</span><ShieldCheck className="w-4 h-4" /></button>}
-
-          {showCurrency && <div className="pt-3 border-t border-[#E5E5E5] flex items-center justify-between px-3 text-xs text-[#737373]"><span className="uppercase tracking-wider text-[10px]">{t('currencyLabel')}</span><div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#F8F8F6] border border-[#E5E5E5] text-[#171717] font-mono text-xs font-bold"><span>{t('freshUsdOnly')}</span></div></div>}
         </div>}
       </div>
     </header>
