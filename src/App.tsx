@@ -16,6 +16,7 @@ import { Footer } from './components/Footer';
 import { FooterQuickLinks } from './components/FooterQuickLinks';
 import { AdminQuickEditor } from './components/AdminQuickEditor';
 import { CustomBlockModal } from './components/CustomBlockModal';
+import { NotificationRenderer } from './components/NotificationRenderer';
 import { syncDomHead } from './utils/domHeadSync';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 
@@ -281,6 +282,7 @@ const MainAppContent: React.FC = () => {
         <div><header><h1>Yalla.lb</h1><p>A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern digital commerce for a seamless, hyper-local shopping experience.</p></header><nav aria-label="Pages"><h2>Pages</h2><ul><li><a href="/products">Products</a> — Products on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/checkout">Checkout</a> — Checkout on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/account">Account</a> — Account on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/seller">Artisan Portal</a> — Merchant and artisan login portal for authentic Lebanese workshops and producers.</li></ul></nav></div>
       </div>
       {activeTab !== 'admin' && activeTab !== 'seller' && <Navbar />}
+      {activeTab !== 'admin' && activeTab !== 'seller' && <NotificationRenderer />}
       <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
         {notFoundPath ? (
           <section className="min-h-[60vh] flex items-center justify-center px-4 py-16">
