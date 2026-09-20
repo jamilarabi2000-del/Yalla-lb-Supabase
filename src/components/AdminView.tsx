@@ -152,7 +152,7 @@ function NotificationsManager(){
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
   const [allowed,setAllowed]=useState(false);
-  const { showToast = () => {} } = useShop() as any;
+  const { showToast = () => {}, language = 'en' } = useShop() as any;
 
   const refresh=async()=>{
     setLoading(true);
