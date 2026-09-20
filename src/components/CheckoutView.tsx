@@ -54,7 +54,7 @@ export const CheckoutView: React.FC = () => {
     goBack,
     t,
     language,
-    authUser,
+    firebaseUser,
     isEmailVerified,
     user,
     updateUser,
@@ -68,8 +68,11 @@ export const CheckoutView: React.FC = () => {
     signOutUser,
     siteContent,
     isVisualEditMode,
-    // Internal order compatibility only; never rendered to customers.
-    lbpRate,
+    // Live USD -> LBP rate from app_settings. Do NOT use the LBP_USD_RATE
+    // constant here: checkout_create_order prices total_lbp from the stored
+    // setting, so a hardcoded rate quotes the shopper a total the courier
+    // will not collect once that setting changes.
+    lbpRate
   } = useShop();
 
   const visibility = siteContent?.visibility || {
@@ -85,7 +88,7 @@ export const CheckoutView: React.FC = () => {
   const [checkoutCouponInput, setCheckoutCouponInput] = useState('');
   const [isApplyingCheckoutCoupon, setIsApplyingCheckoutCoupon] = useState(false);
 
-  const [deliverySpeed, setDeliverySpeed] = useState<'standard' | 'diaspora_air'>('standard');
+  const [deliverySpeed, setDeliverySpeed] = useState<'express_beirut' | 'standard' | 'diaspora_air'>('express_beirut');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod_usd');
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string | null>(null);
 
@@ -128,9 +131,7 @@ export const CheckoutView: React.FC = () => {
     street: '',
     building: '',
     floorApartment: '',
-    notes: '',
-    country: 'Lebanon',
-    postalCode: ''
+    notes: ''
   });
 
   // Save recipient fields to local cache as the user types to prevent loss and enable seamless checkout-profile sync on login
@@ -174,9 +175,9 @@ export const CheckoutView: React.FC = () => {
 
   // Sync recipient fields from logged-in user profile
   useEffect(() => {
-    if (authUser) {
+    if (firebaseUser) {
       // Name parsing & smart deduction
-      const nameCandidate = user?.name || authUser.displayName || '';
+      const nameCandidate = user?.name || firebaseUser.displayName || '';
       let fName = user?.firstName || '';
       let lName = user?.lastName || '';
 
@@ -189,7 +190,7 @@ export const CheckoutView: React.FC = () => {
       }
 
       if (!fName || !lName) {
-        const emailToParse = authUser?.email || user?.email || '';
+        const emailToParse = firebaseUser?.email || user?.email || '';
         if (emailToParse.includes('@')) {
           const raw = emailToParse.split('@')[0].replace(/[0-9]+/g, ' ').trim();
           const parts = raw.split(/[\._\-\s]+/).filter(Boolean);
@@ -216,7 +217,7 @@ export const CheckoutView: React.FC = () => {
       }
 
       // Address & Notes defaults
-      const emailVal = authUser?.email || user?.email || '';
+      const emailVal = firebaseUser?.email || user?.email || '';
       const governorateVal = user?.defaultGovernorate || 'beirut';
       const cityVal = user?.defaultCity || '';
       const streetVal = user?.defaultAddress || '';
@@ -237,38 +238,24 @@ export const CheckoutView: React.FC = () => {
       }));
     } else {
       // Guest mode: clear personal data
-      try {
-        const raw = localStorage.getItem('yallalb_saved_checkout_data');
-        const cached = raw ? JSON.parse(raw) : null;
-        if (cached && typeof cached === 'object') {
-          setFormData(prev => ({
-            ...prev,
-            firstName: typeof cached.firstName === 'string' ? cached.firstName : prev.firstName,
-            lastName: typeof cached.lastName === 'string' ? cached.lastName : prev.lastName,
-            phone: typeof cached.phone === 'string' ? cached.phone : prev.phone,
-            governorate: typeof cached.defaultGovernorate === 'string' ? cached.defaultGovernorate : prev.governorate,
-            city: typeof cached.defaultCity === 'string' ? cached.defaultCity : prev.city,
-            street: typeof cached.defaultAddress === 'string' ? cached.defaultAddress : prev.street,
-            building: typeof cached.defaultBuilding === 'string' ? cached.defaultBuilding : prev.building,
-            notes: typeof cached.defaultNotes === 'string' ? cached.defaultNotes : prev.notes,
-            country: typeof cached.country === 'string' ? cached.country : prev.country,
-            postalCode: typeof cached.postalCode === 'string' ? cached.postalCode : prev.postalCode,
-          }));
-          return;
-        }
-      } catch {}
-      setFormData(prev => ({
-        ...prev,
-        firstName: '', lastName: '', phone: '', email: '',
-        governorate: 'beirut', city: 'Achrafieh, Beirut', street: '', building: '',
-        floorApartment: '', notes: '', country: 'Lebanon', postalCode: ''
-      }));
+      setFormData({
+        firstName: '',
+        lastName: '',
+        phone: '',
+        email: '',
+        governorate: 'beirut',
+        city: 'Achrafieh, Beirut',
+        street: '',
+        building: '',
+        floorApartment: '',
+        notes: ''
+      });
     }
-  }, [authUser, user]);
+  }, [firebaseUser, user]);
 
   // Sync guest-entered checkout details to user profile immediately upon logging in or signing up
   useEffect(() => {
-    if (authUser && user) {
+    if (firebaseUser && user) {
       const hasGuestFirstName = formData.firstName && formData.firstName.trim() !== '';
       const hasGuestLastName = formData.lastName && formData.lastName.trim() !== '';
       const hasGuestPhone = formData.phone && formData.phone.trim() !== '';
@@ -300,7 +287,7 @@ export const CheckoutView: React.FC = () => {
         }
       }
     }
-  }, [authUser, user, formData.firstName, formData.lastName, formData.phone, formData.governorate, formData.city, formData.street, formData.building, formData.notes]);
+  }, [firebaseUser, firebaseUser?.uid]);
 
   const quickCities = [
     'Achrafieh, Beirut',
@@ -315,10 +302,7 @@ export const CheckoutView: React.FC = () => {
   ];
 
   // Region & Delivery fee calculation
-  const isDiaspora = deliverySpeed === 'diaspora_air';
-  const matchedRegion = isDiaspora
-    ? LEBANON_REGIONS.find(r => r.id === 'diaspora_global')
-    : LEBANON_REGIONS.find(r => r.id === formData.governorate)
+  const matchedRegion = LEBANON_REGIONS.find(r => r.id === formData.governorate)
     || LEBANON_REGIONS.find(r => r.id === user?.defaultGovernorate)
     || LEBANON_REGIONS.find(r => r.majorCities.some(c => (formData.city || '').toLowerCase().includes(c.toLowerCase().split(' ')[0])))
     || LEBANON_REGIONS[0];
@@ -330,7 +314,7 @@ export const CheckoutView: React.FC = () => {
     subtotalUSD: cartTotalUSD
   });
 
-  const finalTotalUSD = Math.max(0, cartTotalUSD - discountUSD + (cart.length > 0 ? deliveryFeeUSD : 0));
+  const finalTotalUSD = cartTotalUSD + (cart.length > 0 ? deliveryFeeUSD : 0);
 
   const [showOtpModal, setShowOtpModal] = useState<boolean>(false);
   const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
@@ -465,7 +449,7 @@ export const CheckoutView: React.FC = () => {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!authUser) {
+    if (!firebaseUser) {
       showToast(isArabic ? 'يرجى تسجيل الدخول أولاً' : 'Please sign in to place an order.', 'warning');
       return;
     }
@@ -492,12 +476,10 @@ export const CheckoutView: React.FC = () => {
     const lName = formData.lastName.trim() || user?.lastName || (user?.name ? user.name.split(' ').slice(1).join(' ') : '');
     const finalPhone = formData.phone.trim() || user?.phone || '';
     const finalStreet = formData.street.trim() || user?.defaultAddress || '';
-    const finalEmail = formData.email.trim() || authUser?.email || user?.email || '';
+    const finalEmail = formData.email.trim() || firebaseUser?.email || user?.email || '';
     const finalCity = formData.city.trim() || user?.defaultCity || '';
 
     const missingDetails: string[] = [];
-    if (isDiaspora && !formData.country.trim()) missingDetails.push(isArabic ? 'الدولة' : 'country');
-    if (isDiaspora && !formData.postalCode.trim()) missingDetails.push(isArabic ? 'الرمز البريدي' : 'postal code');
     if (!fName) missingDetails.push(isArabic ? 'الاسم الأول' : 'first name');
     if (!finalPhone) missingDetails.push(isArabic ? 'رقم الهاتف' : 'phone number');
     if (!finalStreet) missingDetails.push(isArabic ? 'العنوان' : 'street address');
@@ -530,14 +512,12 @@ export const CheckoutView: React.FC = () => {
           lastName: lName,
           phone: finalPhone,
           email: finalEmail,
-          governorate: isDiaspora ? 'diaspora_global' : (formData.governorate || matchedRegion?.id || 'beirut'),
+          governorate: formData.governorate || matchedRegion?.id || 'beirut',
           city: finalCity,
           street: finalStreet,
           building: formData.building.trim() || 'N/A',
           floorApartment: formData.floorApartment.trim() || undefined,
           deliveryNotes: formData.notes.trim() || '',
-          country: isDiaspora ? formData.country.trim() : 'Lebanon',
-          postalCode: isDiaspora ? formData.postalCode.trim() : undefined,
           deliverySpeed: deliverySpeed
         },
         paymentMethod: paymentMethod,
@@ -548,8 +528,10 @@ export const CheckoutView: React.FC = () => {
         totalLBP: Math.round(finalTotalUSD * lbpRate),
         discountUSD: discountUSD,
         appliedCoupon: appliedCouponCode || undefined,
-        estimatedDelivery: deliverySpeed === 'standard'
-          ? '24-48 Hours (All Lebanon)'
+        estimatedDelivery: deliverySpeed === 'express_beirut' 
+          ? 'Within 2 Hours (Beirut Express)' 
+          : deliverySpeed === 'standard' 
+          ? '24-48 Hours (All Lebanon)' 
           : '3-5 Business Days (DHL Diaspora Air)'
       }, idempotencyKey);
 
@@ -579,7 +561,7 @@ export const CheckoutView: React.FC = () => {
         }));
       } catch {}
 
-      setOrderComplete(newOrder.trackingNumber || newOrder.id);
+      setOrderComplete(newOrder.id);
     } catch {
       showToast('An error occurred while placing your order. Please try again.', 'warning');
     } finally {
@@ -754,13 +736,13 @@ export const CheckoutView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
-                        authUser 
+                        firebaseUser 
                           ? 'bg-[#16803C] text-white' 
                           : 'bg-[#B89753] text-white animate-pulse'
                       }`}>
-                        {authUser ? '✓' : '1'}
+                        {firebaseUser ? '✓' : '1'}
                       </div>
-                      <span className={`text-xs font-bold ${authUser ? 'text-[#737373]' : 'text-[#171717]'}`}>
+                      <span className={`text-xs font-bold ${firebaseUser ? 'text-[#737373]' : 'text-[#171717]'}`}>
                         {isArabic ? 'حساب المستفيد' : 'Patron Account'}
                       </span>
                     </div>
@@ -769,13 +751,13 @@ export const CheckoutView: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
-                        authUser 
+                        firebaseUser 
                           ? 'bg-[#B89753] text-white animate-pulse' 
                           : 'bg-neutral-100 text-[#737373]'
                       }`}>
                         2
                       </div>
-                      <span className={`text-xs font-bold ${authUser ? 'text-[#171717]' : 'text-[#737373]'}`}>
+                      <span className={`text-xs font-bold ${firebaseUser ? 'text-[#171717]' : 'text-[#737373]'}`}>
                         {isArabic ? 'بيانات الشحن' : 'Delivery Address'}
                       </span>
                     </div>
@@ -795,7 +777,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* 🔒 AUTHENTICATION GATE CARD IF NOT LOGGED IN */}
-              {!authUser ? (
+              {!firebaseUser ? (
                 <div id="checkout-auth-required-card" className="p-6 sm:p-8 rounded-xl bg-white border border-[#B89753]/30 shadow-sm space-y-6 relative overflow-hidden animate-fade-in">
                   <div className="absolute top-0 right-0 left-0 h-1 bg-[#B89753]" />
                   
@@ -901,7 +883,7 @@ export const CheckoutView: React.FC = () => {
                           placeholder="name@example.com"
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
-                          className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
+                          className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
                         />
                       </div>
 
@@ -1000,7 +982,7 @@ export const CheckoutView: React.FC = () => {
                             placeholder="e.g. Walid"
                             value={signupFirstName}
                             onChange={(e) => setSignupFirstName(e.target.value)}
-                            className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
+                            className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
                           />
                         </div>
                         <div>
@@ -1136,7 +1118,7 @@ export const CheckoutView: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
-                        {authUser.email || user.email}
+                        {firebaseUser.email || user.email}
                       </p>
                     </div>
                   </div>
@@ -1156,7 +1138,7 @@ export const CheckoutView: React.FC = () => {
               )}
               
               {/* Recipient Details & Address */}
-              {authUser && (visibility.checkoutAddressForm || isVisualEditMode) && (
+              {firebaseUser && (visibility.checkoutAddressForm || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-5 transition-opacity relative shadow-xs ${!visibility.checkoutAddressForm && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutAddressForm && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1219,12 +1201,12 @@ export const CheckoutView: React.FC = () => {
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-medium"
                       />
                     </div>
-                  </div>)}
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                        {isArabic ? (isDiaspora ? 'رقم هاتف المستلم الدولي *' : 'رقم الهاتف اللبناني / واتساب *') : (isDiaspora ? 'Recipient International Phone *' : 'Lebanese Mobile Phone / WhatsApp *')}
+                        {isArabic ? 'رقم الهاتف اللبناني / واتساب *' : 'Lebanese Mobile Phone / WhatsApp *'}
                       </label>
                       <div className="relative flex items-center">
                         <div className="absolute left-3 flex items-center gap-1 pointer-events-none text-[#737373] font-bold text-xs select-none">
@@ -1233,7 +1215,7 @@ export const CheckoutView: React.FC = () => {
                         <input
                           type="tel"
                           id="checkout-phone-input"
-                          placeholder={isDiaspora ? '+33 6 12 34 56 78' : '+961 70 123 456'}
+                          placeholder="+961 70 123 456"
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                           className="w-full pl-10 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-mono"
@@ -1256,70 +1238,35 @@ export const CheckoutView: React.FC = () => {
                     </div>
                   </div>
 
-                  {isDiaspora ? (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                            {isArabic ? 'الدولة *' : 'Country *'}
-                          </label>
-                          <input
-                            type="text"
-                            id="checkout-country-input"
-                            value={formData.country}
-                            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                            placeholder="e.g. France"
-                            className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                            {isArabic ? 'الرمز البريدي *' : 'Postal Code *'}
-                          </label>
-                          <input
-                            type="text"
-                            id="checkout-postal-code-input"
-                            value={formData.postalCode}
-                            onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                            placeholder="e.g. 75008"
-                            className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                          {isArabic ? 'المدينة *' : 'City *'}
-                        </label>
-                        <input
-                          type="text"
-                          id="checkout-city-input"
-                          value={formData.city}
-                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                          placeholder="e.g. Paris"
-                          className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
-                          required
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                        {isArabic ? 'المحافظة *' : 'Governorate *'}
-                      </label>
-                      <select
-                        id="checkout-governorate-select"
-                        value={formData.governorate}
-                        onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
-                        className="w-full min-h-12 px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
-                      >
-                        {LEBANON_REGIONS.filter(r => r.id !== 'diaspora_global').map(region => (
-                          <option key={region.id} value={region.id}>{isArabic ? region.nameAr : region.nameEn}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      {isArabic ? 'المحافظة *' : 'Governorate *'}
+                    </label>
+                    <select
+                      id="checkout-governorate-select"
+                      value={formData.governorate}
+                      onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                    >
+                      {LEBANON_REGIONS.filter(r => r.id !== 'diaspora_global').map(region => (
+                        <option key={region.id} value={region.id}>{isArabic ? region.nameAr : region.nameEn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      {isArabic ? 'المدينة / المنطقة / المحافظة *' : 'City / Governorate *'}
+                    </label>
+                    <input
+                      type="text"
+                      id="checkout-city-input"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="e.g. Achrafieh, Beirut"
+                      className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
+                    />
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -1382,7 +1329,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* Delivery Speed Selection */}
-              {authUser && (visibility.checkoutDeliverySpeed || isVisualEditMode) && (
+              {firebaseUser && (visibility.checkoutDeliverySpeed || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutDeliverySpeed && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutDeliverySpeed && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1395,11 +1342,31 @@ export const CheckoutView: React.FC = () => {
                     <span>{isArabic ? 'سرعة التوصيل والشحن' : 'Delivery Speed & Schedule'}</span>
                   </h3>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setDeliverySpeed('express_beirut')}
+                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
+                        deliverySpeed === 'express_beirut'
+                          ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
+                          : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-[#171717]">
+                          {isArabic ? 'بيروت السريع' : 'Beirut Express'}
+                        </span>
+                        <span className="text-[11px] font-bold text-[#8F7137]">$3.00</span>
+                      </div>
+                      <p className="text-[11px] text-[#737373]">
+                        {isArabic ? 'خلال ساعتين في بيروت' : 'Within 2 Hours in Beirut'}
+                      </p>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => setDeliverySpeed('standard')}
-                      className={`min-h-12 p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                         deliverySpeed === 'standard'
                           ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
                           : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
@@ -1412,14 +1379,14 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-[11px] font-bold text-[#8F7137]">$2.00</span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
-                        {isArabic ? '24 - 48 ساعة لكافة المناطق، مجاناً للطلبات فوق $50' : '24 - 48 Hours Nationwide · Free for orders $50+'}
+                        {isArabic ? '24 - 48 ساعة لكافة المناطق' : '24 - 48 Hours Nationwide'}
                       </p>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setDeliverySpeed('diaspora_air')}
-                      className={`min-h-12 p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                         deliverySpeed === 'diaspora_air'
                           ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
                           : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
@@ -1427,12 +1394,12 @@ export const CheckoutView: React.FC = () => {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-[#171717]">
-                          {isArabic ? 'الشحن الجوي للمغتربين' : 'Diaspora Air · DHL'}
+                          {isArabic ? 'شحن الاغتراب' : 'Diaspora Air Express'}
                         </span>
                         <span className="text-[11px] font-bold text-[#8F7137]">$28.00</span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
-                        {isArabic ? '3 - 5 أيام عمل دولياً' : '3 - 5 Business Days · International'}
+                        {isArabic ? '3 - 5 أيام عمل دولياً' : '3 - 5 Business Days DHL'}
                       </p>
                     </button>
                   </div>
@@ -1440,7 +1407,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* Payment Method Selection */}
-              {authUser && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
+              {firebaseUser && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutPaymentMethod && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutPaymentMethod && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1472,6 +1439,28 @@ export const CheckoutView: React.FC = () => {
                         </div>
                         <div className="text-[11px] text-[#737373]">
                           {isArabic ? 'تسليم نقدي عند الاستلام' : 'Pay in cash upon arrival'}
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('cod_lbp')}
+                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
+                        paymentMethod === 'cod_lbp'
+                          ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
+                          : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#8F7137] shrink-0">
+                        <Banknote className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#171717]">
+                          {isArabic ? 'الدفع بالليرة اللبنانية (LBP)' : 'Cash on Delivery (LBP)'}
+                        </div>
+                        <div className="text-[11px] text-[#737373]">
+                          {isArabic ? 'حسب سعر الصرف الرسمي' : 'Official market rate'}
                         </div>
                       </div>
                     </button>
@@ -1639,6 +1628,9 @@ export const CheckoutView: React.FC = () => {
                       <span className="text-2xl font-bold text-[#8F7137]">
                         {formatPrice(finalTotalUSD)}
                       </span>
+                      <div className="text-[10px] text-[#737373] font-mono">
+                        ≈ {(finalTotalUSD * lbpRate).toLocaleString()} LBP
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1648,7 +1640,7 @@ export const CheckoutView: React.FC = () => {
                   type="submit"
                   id="place-order-btn"
                   disabled={isSubmitting}
-                  className="w-full min-h-12 py-3.5 rounded-lg bg-[#171717] hover:bg-[#8F7137] text-white font-bold uppercase text-xs tracking-wider shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3.5 rounded-lg bg-[#171717] hover:bg-[#8F7137] text-white font-bold uppercase text-xs tracking-wider shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <ShieldCheck className="w-4 h-4 text-[#16803C]" />
                   <span>
@@ -1662,7 +1654,7 @@ export const CheckoutView: React.FC = () => {
                   </span>
                 </button>
 
-                {!authUser && (
+                {!firebaseUser && (
                   <p className="text-[11px] text-[#8F7137] bg-[#B89753]/10 p-2.5 rounded-lg border border-[#B89753]/20 text-center font-medium flex items-center justify-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 shrink-0" />
                     <span>{isArabic ? 'يرجى تسجيل الدخول أعلاه لإكمال الطلب' : 'Please sign in or register above to complete order'}</span>
