@@ -29,7 +29,7 @@ import {
 import { applyDiscounts } from '../lib/pricing';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
-import { LEBANON_REGIONS, LBP_USD_RATE } from '../data/regions';
+import { LEBANON_REGIONS } from '../data/regions';
 
 import {
   normalizeLebanesePhone,
@@ -442,9 +442,6 @@ interface ShopContextType {
   formatPrice: (
     amountUSD: number
   ) => string;
-  convertUSDToLBP: (
-    amountUSD: number
-  ) => number;
   currencySymbol: string;
   currencyRate: number;
 
@@ -3939,10 +3936,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const currencySymbol = '$';
   const currencyRate = 1;
 
-  const convertUSDToLBP = (amountUSD: number) => {
-    return Math.round(amountUSD * LBP_USD_RATE);
-  };
-
   const formatPrice = (amountUSD: number) => {
     return `$${amountUSD.toFixed(2)}`;
   };
@@ -5079,7 +5072,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currency,
     setCurrency,
     formatPrice,
-    convertUSDToLBP,
     currencySymbol,
     currencyRate,
     cart,
