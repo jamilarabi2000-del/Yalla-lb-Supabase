@@ -144,7 +144,7 @@ export function mapSupabaseProduct(
       String(row.category_id || ''),
 
     priceUSD:
-      Number(row.promo_price ?? 0),
+      Number(row.promo_price ?? row.regular_price ?? 0),
 
     originalPriceUSD:
       toNumberOrUndefined(
