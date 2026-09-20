@@ -3937,7 +3937,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 3500);
   };
 
-  // Customer-facing Yalla prices are always displayed in USD.\n  // Legacy LBP conversion remains available for order/back-end compatibility.\n  const currencySymbol = '
+  // Customer-facing prices are USD only.
+  const currencySymbol = '$';
+  const currencyRate = 1;
+
+  const convertUSDToLBP = (amountUSD: number) => {
+    return Math.round(amountUSD * LBP_USD_RATE);
+  };
+
+  const formatPrice = (amountUSD: number) => {
+    return `$${amountUSD.toFixed(2)}`;
+  };
 
   const addToCart = (product: Product, quantity = 1, option?: string) => {
     // Determine the product from our master products list to get the most up-to-date stock
