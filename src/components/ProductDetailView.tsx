@@ -3,7 +3,6 @@ import { ArrowLeft, ArrowRight, ShoppingBag, Heart, Truck, Minus, Plus, ShieldCh
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from './ProductCard';
 import { formatUSD, getProductPricing } from '../lib/productPricing';
-import { formatUSD, getProductPricing } from '../lib/productPricing';
 
 export const ProductDetailView: React.FC = () => {
   const shop = useShop() as any;
@@ -73,7 +72,7 @@ export const ProductDetailView: React.FC = () => {
                 {images[activeImage] ? <img src={images[activeImage]} alt={displayName} className="h-full w-full object-contain p-5 sm:p-8 transition-opacity duration-300" /> : <div className="text-sm text-[#737373]">{isRTL ? 'لا توجد صورة' : 'No image'}</div>}
                 <div className="absolute top-4 left-4 flex flex-col gap-1.5">
                   {pricing.discount > 0 && <span className="rounded-full bg-[#C62828] px-3 py-1 text-[10px] font-black text-white shadow-sm">-{pricing.discount}%</span>}
-                  {p.isBestseller && !discount && inStock && <span className="rounded-full bg-[#171717] px-3 py-1 text-[10px] font-bold text-white shadow-sm">{isRTL ? 'الأكثر مبيعاً' : 'Bestseller'}</span>}
+                  {p.isBestseller && !pricing.discount && inStock && <span className="rounded-full bg-[#171717] px-3 py-1 text-[10px] font-bold text-white shadow-sm">{isRTL ? 'الأكثر مبيعاً' : 'Bestseller'}</span>}
                 </div>
                 <button type="button" onClick={toggleWishlist} aria-label={isRTL ? 'إضافة للمفضلة' : 'Add to wishlist'} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur border border-[#E5E5E5] flex items-center justify-center text-slate-500 hover:text-rose-600 hover:scale-105 transition-all shadow-sm cursor-pointer"><Heart className="w-5 h-5" /></button>
               </div>
@@ -103,7 +102,7 @@ export const ProductDetailView: React.FC = () => {
                 <div className="flex flex-wrap items-end gap-3 mt-6">
                   <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#171717]">{price}</span>
                   {originalPrice && <span className="text-sm sm:text-base text-[#999999] line-through pb-1">{originalPrice}</span>}
-                  {pricing.discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + pricing.pricing.discount + '%' : pricing.pricing.discount + '% OFF'}</span>}
+                  {pricing.discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + pricing.discount + '%' : pricing.pricing.discount + '% OFF'}</span>}
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 mb-6">
