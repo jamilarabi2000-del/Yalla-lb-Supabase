@@ -23,7 +23,7 @@ ALTER TABLE public.products
   CHECK (
     regular_price IS NULL
     OR promo_price IS NULL
-    OR promo_price <= regular_price
+    OR promo_price >= regular_price
   );
 
 COMMENT ON COLUMN public.products.regular_price IS
