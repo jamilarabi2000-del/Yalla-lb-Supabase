@@ -177,7 +177,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const saveProduct = async (published: boolean) => {
     const stock = Number(form.stock);
     const currentPrice = Number(form.priceUSD);
-    const regularPrice = form.originalPriceUSD === '' || form.originalPriceUSD == null ? null : Number(form.originalPriceUSD);
+    const regularPrice = form.originalPriceUSD === '' || form.originalPriceUSD == null ? currentPrice : Number(form.originalPriceUSD);
     const errors: Record<string, string> = {};
     if (!Number.isFinite(currentPrice) || currentPrice < 1) errors.priceUSD = 'Current / promo price must be at least $1.00.';
     if (regularPrice !== null && (!Number.isFinite(regularPrice) || regularPrice < currentPrice)) {
@@ -232,10 +232,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       // Canonical pricing convention: priceUSD is the current / sale price; originalPriceUSD is the regular / original price.
       // The database requires current / sale price <= regular / original price.
       priceUSD: currentPrice,
-      originalPriceUSD: (() => {
-        const regular = Number(form.originalPriceUSD || 0);
-        return regular > 0 && regular >= currentPrice ? regular : null;
-      })(),
+      originalPriceUSD: regularPrice,
       discountPercentage: (() => {
         const regular = Number(form.originalPriceUSD || 0);
         return regular > currentPrice ? discountFromPrices(regular, currentPrice) : null;
@@ -261,7 +258,7 @@ export const ProductsCatalogManagement: React.FC = () => {
             yalla_item_code: String(form.yallaItemCode || '').trim(),
             name: payload.name, arabic_name: payload.arabicName, artisan: payload.artisan, origin: payload.origin,
             brand: payload.brand, description: payload.description, craft_story: payload.craftStory, image: payload.image,
-            promo_price: payload.priceUSD, stock: payload.stock, category_id: payload.category, seller_id: payload.sellerId,
+            promo_price: payload.originalPriceUSD != null && Number(payload.originalPriceUSD) > Number(payload.priceUSD) ? payload.priceUSD : null, stock: payload.stock, category_id: payload.category, seller_id: payload.sellerId,
             regular_price: payload.originalPriceUSD, discount_percentage: payload.discountPercentage,
             video_url: payload.videoUrl, is_new_arrival: payload.isNewArrival, is_featured: payload.isFeatured,
             is_bestseller: payload.isBestseller, is_published: published, display_order: payload.displayOrder,
