@@ -148,7 +148,7 @@ export function mapSupabaseProduct(
 
     originalPriceUSD:
       toNumberOrUndefined(
-        row.original_promo_price,
+        row.regular_price,
       ),
 
     discountPercentage:
@@ -224,7 +224,7 @@ export function mapSupabaseProduct(
 
     costPriceUSD:
       toNumberOrUndefined(
-        row.cost_promo_price,
+        row.cost_price_usd,
       ),
 
     tags:
@@ -614,7 +614,7 @@ function buildProductMediaRows(
  * - low_stock_threshold
  * - low_stock_notice
  * - custom_stock_label
- * - cost_promo_price
+ * - cost_price_usd
  *
  * The products table contains these columns, but the
  * storefront must not request them.
@@ -630,7 +630,7 @@ const PUBLIC_PRODUCT_COLUMNS = `
   brand,
   category_id,
   promo_price,
-  original_promo_price,
+  regular_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -685,7 +685,7 @@ const ADMIN_PRODUCT_COLUMNS = `
   brand,
   category_id,
   promo_price,
-  original_promo_price,
+  regular_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -704,7 +704,7 @@ const ADMIN_PRODUCT_COLUMNS = `
   low_stock_threshold,
   low_stock_notice,
   custom_stock_label,
-  cost_promo_price,
+  cost_price_usd,
 
   tags,
   keywords,
@@ -918,7 +918,7 @@ async function syncProductPrivate(
       custom_stock_label:
         product.customStockLabel,
 
-      cost_promo_price:
+      cost_price_usd:
         product.costPriceUSD,
 
       updated_at:
@@ -1267,12 +1267,12 @@ export const supabaseCatalogService = {
           product.priceUSD ??
           0,
 
-        original_promo_price:
+        regular_price:
           product.originalPriceUSD,
 
         // Compatibility pricing columns:
         // regular_price mirrors promo_price (current/promo price)
-        // promo_price mirrors original_promo_price (regular/original price).
+        // promo_price mirrors regular_price (regular/original price).
         regular_price:
           product.priceUSD ??
           0,
@@ -1348,7 +1348,7 @@ export const supabaseCatalogService = {
         custom_stock_label:
           product.customStockLabel,
 
-        cost_promo_price:
+        cost_price_usd:
           product.costPriceUSD,
 
         tags:
