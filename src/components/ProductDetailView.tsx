@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ShoppingBag, Heart, Truck, Minus, Plus, ShieldCh
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from './ProductCard';
 import { formatUSD, getProductPricing } from '../lib/productPricing';
+import { formatUSD, getProductPricing } from '../lib/productPricing';
 
 export const ProductDetailView: React.FC = () => {
   const shop = useShop() as any;
@@ -34,8 +35,9 @@ export const ProductDetailView: React.FC = () => {
 
   const show = (key: string) => visibility[key] || isVisualEditMode;
   const displayName = isRTL ? p.arabicName || p.name : p.name;
-  const price = shop.formatPrice?.(p.priceUSD) || '$' + p.priceUSD;
-  const originalPrice = p.originalPriceUSD ? (shop.formatPrice?.(p.originalPriceUSD) || '$' + p.originalPriceUSD) : null;
+  const pricing = getProductPricing(p);
+  const price = formatUSD(pricing.currentPrice);
+  const originalPrice = pricing.originalPrice !== null ? formatUSD(pricing.originalPrice) : null;
   const inStock = Number(p.stock || 0) > 0;
   const maxQty = Math.max(1, Number(p.stock || 1));
   
@@ -101,7 +103,7 @@ export const ProductDetailView: React.FC = () => {
                 <div className="flex flex-wrap items-end gap-3 mt-6">
                   <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#171717]">{price}</span>
                   {originalPrice && <span className="text-sm sm:text-base text-[#999999] line-through pb-1">{originalPrice}</span>}
-                  {pricing.discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + pricing.discount + '%' : pricing.discount + '% OFF'}</span>}
+                  {pricing.discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + pricing.pricing.discount + '%' : pricing.pricing.discount + '% OFF'}</span>}
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 mb-6">
