@@ -447,8 +447,6 @@ interface ShopContextType {
   ) => number;
   currencySymbol: string;
   currencyRate: number;
-  /** Live USD -> LBP rate from app_settings; falls back to LBP_USD_RATE. */
-  lbpRate: number;
 
   // Cart
   cart: CartItem[];
@@ -5190,8 +5188,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateSeller,
     toggleSellerActive,
     deleteSeller,
-    bulkImportProducts,
-    lbpRate
+    bulkImportProducts
   }), [
     activeTab,
     selectedProductDetail,
@@ -5241,8 +5238,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addBundleToCart,
     categories,
     regions,
-    sellers,
-    lbpRate
+    sellers
   ]);
 
   return (
