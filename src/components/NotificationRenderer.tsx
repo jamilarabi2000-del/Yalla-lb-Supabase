@@ -101,7 +101,7 @@ export const NotificationRenderer: React.FC = () => {
     });
   }, [items, now, user, isSellerUser, isAdminUser, dismissed]);
 
-  const dismiss = (item: Campaign) => {
+  useEffect(() => {\n    const timers = active.filter(item => (item.auto_close_ms || 0) > 0).map(item => window.setTimeout(() => dismiss(item), item.auto_close_ms as number));\n    return () => timers.forEach(window.clearTimeout);\n  }, [active]);\n\n  const dismiss = (item: Campaign) => {
     setDismissed(prev => [...prev, item.id]);
     if (item.show_once) {
       try { localStorage.setItem(`yalla-notification-seen-${item.id}`, '1'); } catch {}
