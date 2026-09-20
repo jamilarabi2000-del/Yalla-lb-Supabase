@@ -98,7 +98,7 @@ DECLARE
 BEGIN
   SELECT pg_get_functiondef(oid) INTO d
   FROM pg_proc
-  WHERE oid = 20189;
+  WHERE oid = to_regprocedure('private.validate_publish_requirements()');
 
   IF d IS NOT NULL THEN
     d := replace(d, 'new.price_usd', 'new.promo_price');
@@ -107,7 +107,7 @@ BEGIN
 
   SELECT pg_get_functiondef(oid) INTO d
   FROM pg_proc
-  WHERE oid = 19316;
+  WHERE oid = to_regprocedure('private.create_product_atomic(jsonb,jsonb,jsonb)');
 
   IF d IS NOT NULL THEN
     d := replace(d, 'p_product->>''price_usd''', 'p_product->>''promo_price''');
@@ -118,7 +118,7 @@ BEGIN
 
   SELECT pg_get_functiondef(oid) INTO d
   FROM pg_proc
-  WHERE oid = 19982;
+  WHERE oid = to_regprocedure('private.create_product_for_seller(jsonb,jsonb)');
 
   IF d IS NOT NULL THEN
     d := replace(d, 'p_product->>''price_usd''', 'p_product->>''promo_price''');
@@ -129,7 +129,7 @@ BEGIN
 
   SELECT pg_get_functiondef(oid) INTO d
   FROM pg_proc
-  WHERE oid = 18143;
+  WHERE oid = to_regprocedure('private.checkout_create_order(jsonb,public.payment_method,public.currency_code,public.delivery_speed,jsonb,text,text)');
 
   IF d IS NOT NULL THEN
     d := replace(d, 'v_product.original_price_usd', 'v_product.regular_price');
