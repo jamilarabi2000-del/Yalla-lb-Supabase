@@ -102,7 +102,7 @@ export const ProductDetailView: React.FC = () => {
                 <div className="flex flex-wrap items-end gap-3 mt-6">
                   <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#171717]">{price}</span>
                   {originalPrice && <span className="text-sm sm:text-base text-[#999999] line-through pb-1">{originalPrice}</span>}
-                  {pricing.discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + pricing.discount + '%' : pricing.pricing.discount + '% OFF'}</span>}
+                  {pricing.discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + pricing.discount + '%' : pricing.discount + '% OFF'}</span>}
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 mb-6">
