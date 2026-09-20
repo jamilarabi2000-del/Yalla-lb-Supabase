@@ -677,13 +677,12 @@ export const ProductsCatalogManagement: React.FC = () => {
         setForm((v: any) => ({ ...v, originalPriceUSD: '', discountPercentage: '' }));
         return;
       }
-      const validPromo = Number.isFinite(promo) ? promo : 0;
-      // Regular Price is always the source price. Entering Promo Price calculates the discount;
-      // it must never change the Regular Price.
-      const discount = discountFromPrices(regular, validPromo);
+      const validOriginal = Number.isFinite(regular) ? regular : 0;
+      // Original Price is the pre-promotion price; entering it recalculates the discount.
+      const discount = discountFromPrices(validOriginal, promo);
       setForm((v: any) => ({
         ...v,
-        originalPriceUSD: validPromo,
+        originalPriceUSD: validOriginal,
         discountPercentage: discount || ''
       }));
     };
