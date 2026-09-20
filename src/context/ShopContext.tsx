@@ -5051,7 +5051,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const lbpRate = LBP_USD_RATE;
 
   const providerValue = useMemo(() => ({
     activeTab,
