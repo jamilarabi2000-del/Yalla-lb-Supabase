@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Package, BookmarkCheck, Sliders } from 'lucide-react';
+import { User, Package, BookmarkCheck, Sliders, Apple, Chrome, Smartphone } from 'lucide-react';
 
 interface CMSAccountTabProps {
   accountData: {
@@ -13,6 +13,9 @@ interface CMSAccountTabProps {
     profileTabLabelArabic?: string;
     wishlistTabLabel: string;
     wishlistTabLabelArabic?: string;
+    showAppleAuth?: boolean;
+    showGoogleAuth?: boolean;
+    showSmsAuth?: boolean;
   };
   onChangeField: (field: string, value: string) => void;
 }
@@ -172,6 +175,36 @@ export const CMSAccountTab: React.FC<CMSAccountTabProps> = ({
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <div>
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-indigo-600" />
+            <span>Login / Sign-Up Authentication Methods</span>
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">Choose which alternative authentication buttons customers can see on the Account page.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[
+            { key: 'showAppleAuth', label: 'Apple', icon: Apple, description: 'Continue with Apple' },
+            { key: 'showGoogleAuth', label: 'Google', icon: Chrome, description: 'Continue with Google' },
+            { key: 'showSmsAuth', label: 'SMS', icon: Smartphone, description: 'Lebanese phone (SMS)' },
+          ].map(({ key, label, icon: Icon, description }) => {
+            const enabled = accountData[key as 'showAppleAuth' | 'showGoogleAuth' | 'showSmsAuth'] !== false;
+            return (
+              <div key={key} className={`rounded-2xl border p-4 ${enabled ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50 opacity-75'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div><div className="flex items-center gap-2"><Icon className="w-4 h-4 text-slate-700" /><span className="text-sm font-bold text-slate-900">{label}</span></div><p className="text-[11px] text-slate-500 mt-1">{description}</p></div>
+                  <button type="button" role="switch" aria-checked={enabled} aria-label={`${label} authentication visibility`} onClick={() => onChangeField(key, !enabled as any)} className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+                <div className={`mt-3 text-[10px] font-bold uppercase tracking-wider ${enabled ? 'text-emerald-700' : 'text-slate-500'}`}>{enabled ? 'Visible to customers' : 'Hidden from customers'}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

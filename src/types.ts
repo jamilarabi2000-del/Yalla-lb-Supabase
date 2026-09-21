@@ -690,6 +690,9 @@ export interface SiteContent {
     profileTabLabelArabic?: string;
     wishlistTabLabel: string;
     wishlistTabLabelArabic?: string;
+    showAppleAuth?: boolean;
+    showGoogleAuth?: boolean;
+    showSmsAuth?: boolean;
   };
   newsSection: {
     title: string;
