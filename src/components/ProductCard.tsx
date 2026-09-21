@@ -11,8 +11,7 @@ interface ProductCardProps {
 }
 
 const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveButton, onRemove, isFavoriteView }) => {
-  const { 
-    currencyRate, 
+  const { , 
     openProductDetail,
     setSelectedProductForModal,
     addToCart,
@@ -163,19 +162,13 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
             <div className="flex items-baseline gap-1.5 flex-wrap">
               <div className="flex flex-col leading-tight">
                 <span className="text-sm sm:text-base font-black text-[#171717] tracking-tight">
-                  ${product.priceUSD.toFixed(2)}
-                </span>
-                <span className="text-[10px] font-semibold text-[#737373]">
-                  L.L. ${Math.round(product.priceUSD * currencyRate).toLocaleString()}
+                  ${(product.promoPriceUSD ?? product.regularPriceUSD).toFixed(2)}
                 </span>
               </div>
-              {product.originalPriceUSD && (
+              {product.regularPriceUSD && (
                 <div className="flex flex-col items-end leading-tight">
                   <span className="text-xs text-slate-400 line-through font-medium">
-                    ${product.originalPriceUSD.toFixed(2)}
-                  </span>
-                  <span className="text-[9px] text-slate-400 line-through">
-                    L.L. ${Math.round(product.originalPriceUSD * currencyRate).toLocaleString()}
+                    ${product.regularPriceUSD.toFixed(2)}
                   </span>
                 </div>
               )}
