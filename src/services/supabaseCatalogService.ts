@@ -999,7 +999,38 @@ export const supabaseCatalogService = {
     let query: any;
 
     if (!isAdmin && !isSeller) {
-      query = supabase.rpc('get_public_products');
+      // Public catalog reads use the SECURITY DEFINER RPC. Do not attach a
+      // Range header to the RPC POST: PostgREST ignores Range on POST and some
+      // gateways/proxies can reject the combination. Retry once after a short
+      // delay so a transient/schema-cache failure does not break a hard reload.
+      let publicRpcError: any = null;
+      let publicRpcData: any[] | null = null;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const result = await supabase.rpc('get_public_products');
+        publicRpcData = result.data ?? null;
+        publicRpcError = result.error ?? null;
+        if (!publicRpcError) break;
+        console.error('[supabaseCatalogService] public product RPC failed:', {
+          attempt: attempt + 1,
+          code: publicRpcError.code,
+          message: publicRpcError.message,
+          details: publicRpcError.details,
+          hint: publicRpcError.hint,
+          status: publicRpcError.status,
+        });
+        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 750));
+      }
+
+      if (publicRpcError) throw publicRpcError;
+
+      return (publicRpcData ?? []).map((row: any) =>
+        mapSupabaseProduct({
+          ...row,
+          seller_name_en: row.seller_name_en ?? row.sellers?.name_en,
+          seller_name_ar: row.seller_name_ar ?? row.sellers?.name_ar,
+        }),
+      );
     } else {
       query = supabase
         .from('products')
