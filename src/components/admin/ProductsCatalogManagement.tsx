@@ -181,6 +181,10 @@ export const ProductsCatalogManagement: React.FC = () => {
     if (!String(form.name || '').trim()) errors.name = 'Product title (English) is required.';
     if (!String(form.category || '').trim()) errors.category = 'Category is required.';
     if (!Number.isFinite(price) || price < 1) errors.regularPriceUSD = 'Regular Price must be at least $1.00.';
+    const promoRaw = String(form.promoPriceUSD ?? '').trim();
+    const promo = promoRaw === '' ? null : Number(promoRaw);
+    if (promoRaw !== '' && (!Number.isFinite(promo) || promo <= 0)) errors.promoPriceUSD = 'Promotional Price must be greater than $0.00.';
+    else if (promo !== null && promo > price) errors.promoPriceUSD = 'Promotional Price cannot be greater than Regular Price.';
     if (!Number.isInteger(stock) || stock < 0) errors.stock = 'Stock quantity must be a whole number (0 or more).';
     const selectedSeller = form.sellerId ? (sellers as any[]).find((s: any) => s.id === form.sellerId) : null;
     if (published && (!selectedSeller || selectedSeller.isActive === false)) {
@@ -729,7 +733,7 @@ export const ProductsCatalogManagement: React.FC = () => {
             </div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the temporary selling price; LBP display is handled by the storefront exchange-rate layer.</p></div></div>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-xs font-black">3</span><div><h4 className="font-black">Pricing, Inventory &amp; SKU Tracking</h4><p className="text-[11px] text-slate-500">Regular Price is the normal catalog price. Promotional Price is the temporary selling price and must not exceed Regular Price.</p></div></div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <label id="product-field-regularPriceUSD" className="text-xs font-black text-slate-600">Price (USD) — Regular / Original *<RequiredBadge field="regularPriceUSD"/><input min="1" step="0.01" type="number" value={form.regularPriceUSD ?? ''} onChange={e=>{setPrice(e.target.value);setValidationErrors(v=>({...v,regularPriceUSD:''}));}} className={fieldClass('regularPriceUSD')}/>{validationErrors.regularPriceUSD && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.regularPriceUSD}</span>}</label>
               <label id="product-field-stock" className="text-xs font-black text-slate-600">Stock Quantity *<RequiredBadge field="stock"/><input min="0" step="1" type="number" value={form.stock ?? ''} onChange={e=>{setField('stock',e.target.value === '' ? '' : Number(e.target.value));setValidationErrors(v=>({...v,stock:''}));}} className={fieldClass('stock')}/>{validationErrors.stock && <span className="block mt-1 text-[10px] text-rose-600 font-bold">{validationErrors.stock}</span>}</label>
@@ -739,7 +743,7 @@ export const ProductsCatalogManagement: React.FC = () => {
             </div>
           </section>
 
-          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Price (USD) is always the regular/original price. Promo Price is the discounted selling price. Changing Promo Price or Discount % recalculates the promo price/discount; the Regular Price never changes automatically.</p></div></div>
+          <section><div className="flex items-center gap-2 mb-3"><span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-black">4</span><div><h4 className="font-black">Promotional &amp; Deal Badges</h4><p className="text-[11px] text-slate-500">Regular Price is the normal catalog price. Promotional Price is the discounted selling price. Changing Promo Price or Discount % recalculates the promo price/discount; the Regular Price never changes automatically.</p></div></div>
             <div className="grid sm:grid-cols-3 gap-4">
               <label className="text-xs font-black text-slate-600">Promo Price (USD)<input min="0" step="0.01" type="number" value={form.promoPriceUSD ?? ''} onChange={e=>setPromoPrice(e.target.value)} placeholder="25.00" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200"/></label>
               <label className="text-xs font-black text-slate-600">Discount Percentage (%)<input min="0" max="100" step="1" type="number" value={form.discountPercentage ?? calculatedDiscount ?? ''} onChange={e=>setDiscount(e.target.value)} placeholder="50" className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700"/></label>
