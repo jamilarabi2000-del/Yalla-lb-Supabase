@@ -1,5 +1,17 @@
 import { CartItem, DiscountRule, Product, ProductBundle } from '../types';
 
+export function getProductCurrentPrice(product: Pick<Product, 'regularPriceUSD' | 'promoPriceUSD'>): number {
+  const regular = Number(product.regularPriceUSD || 0);
+  const promo = product.promoPriceUSD == null ? null : Number(product.promoPriceUSD);
+  return promo != null && Number.isFinite(promo) && promo > 0 && promo <= regular ? promo : regular;
+}
+
+export function getProductDiscountPercentage(product: Pick<Product, 'regularPriceUSD' | 'promoPriceUSD'>): number {
+  const regular = Number(product.regularPriceUSD || 0);
+  const current = getProductCurrentPrice(product);
+  return regular > 0 && current < regular ? Math.round(((regular - current) / regular) * 100) : 0;
+}
+
 export function round2(num: number): number {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 }
@@ -13,7 +25,7 @@ export function computeDiscounts(params: {
   subtotalUSD?: number;
 }): { discountUSD: number; appliedCoupon?: string; finalSubtotalUSD: number; appliedRules: any[] } {
   const items: CartItem[] = params.lines.map(l => ({
-    product: { ...l.product, priceUSD: typeof l.unitPriceUSD === 'number' ? l.unitPriceUSD : l.product.priceUSD },
+    product: { ...l.product, regularPriceUSD: typeof l.unitPriceUSD === 'number' ? l.unitPriceUSD : l.product.regularPriceUSD, promoPriceUSD: undefined, priceUSD: typeof l.unitPriceUSD === 'number' ? l.unitPriceUSD : getProductCurrentPrice(l.product) },
     quantity: l.quantity
   }));
   const res = applyDiscounts(items, params.discounts, {
@@ -69,7 +81,7 @@ function inWindow(rule: DiscountRule, now: Date): boolean {
 }
 
 export function applyDiscounts(items: CartItem[], rules: DiscountRule[], options: DiscountOptions = {}): DiscountCalculationResult {
-  const subtotal = round2(items.reduce((sum, item) => sum + item.product.priceUSD * item.quantity, 0));
+  const subtotal = round2(items.reduce((sum, item) => sum + getProductCurrentPrice(item.product) * item.quantity, 0));
   if (subtotal <= 0 || items.length === 0) return { subtotalUSD: 0, discountUSD: 0, finalSubtotalUSD: 0, appliedRules: [], appliedRuleIds: [] };
 
   let totalDiscount = 0;
@@ -92,7 +104,7 @@ export function applyDiscounts(items: CartItem[], rules: DiscountRule[], options
         completeSets = Math.min(completeSets, qty);
         const product = items.find(i => i.product.id === pid)?.product;
         if (!product) { completeSets = 0; break; }
-        originalSum += Math.max(0, product.priceUSD);
+        originalSum += Math.max(0, getProductCurrentPrice(product));
       }
       const savingsPerSet = Math.max(0, originalSum - Math.max(0, bundle.bundlePriceUSD));
       if (completeSets > 0 && completeSets !== Number.MAX_SAFE_INTEGER && savingsPerSet > 0) {
@@ -114,7 +126,7 @@ export function applyDiscounts(items: CartItem[], rules: DiscountRule[], options
 
     const target = rule.target || 'all';
     const eligible = target === 'checkout' || target === 'all' ? items : items.filter(i => matchesTarget(i.product, rule));
-    const base = round2(eligible.reduce((sum, item) => sum + item.product.priceUSD * item.quantity, 0));
+    const base = round2(eligible.reduce((sum, item) => sum + getProductCurrentPrice(item.product) * item.quantity, 0));
     if (base <= 0) continue;
 
     let ruleDiscount = 0;
@@ -126,9 +138,9 @@ export function applyDiscounts(items: CartItem[], rules: DiscountRule[], options
       let groups = 0;
       for (const item of eligible) groups += Math.floor(item.quantity / groupSize);
       if (rule.target === 'product') {
-        for (const item of eligible) ruleDiscount += Math.floor(item.quantity / groupSize) * getY * item.product.priceUSD * pct / 100;
+        for (const item of eligible) ruleDiscount += Math.floor(item.quantity / groupSize) * getY * getProductCurrentPrice(item.product) * pct / 100;
       } else {
-        for (const item of eligible) ruleDiscount += Math.min(item.quantity, groups * getY) * item.product.priceUSD * pct / 100;
+        for (const item of eligible) ruleDiscount += Math.min(item.quantity, groups * getY) * getProductCurrentPrice(item.product) * pct / 100;
       }
     } else if (rule.type === 'percentage') {
       ruleDiscount = base * Math.min(100, Math.max(0, rule.value)) / 100;
