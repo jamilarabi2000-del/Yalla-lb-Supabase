@@ -6,7 +6,6 @@ import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
-import { OTPModal } from './OTPModal';
 import { PhoneAuthModal } from './PhoneAuthModal';
 import { generateIdempotencyKey } from '../utils/uuid';
 import { 
@@ -316,11 +315,7 @@ export const CheckoutView: React.FC = () => {
 
   const finalTotalUSD = cartTotalUSD + (cart.length > 0 ? deliveryFeeUSD : 0);
 
-  const [showOtpModal, setShowOtpModal] = useState<boolean>(false);
   const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
-  const [otpTargetContact, setOtpTargetContact] = useState<string>('');
-  const [otpActionType, setOtpActionType] = useState<'login' | 'signup'>('login');
-  const [pendingAuthAction, setPendingAuthAction] = useState<(() => Promise<void>) | null>(null);
 
   // Sign In Handler from Checkout
   const handleCheckoutSignIn = async (e: React.FormEvent) => {
@@ -1782,19 +1777,16 @@ export const CheckoutView: React.FC = () => {
         initialPhone={formData.phone}
       />
 
-      {/* Security OTP Modal */}
-      <OTPModal
-        isOpen={showOtpModal}
-        onClose={() => setShowOtpModal(false)}
-        targetContact={otpTargetContact}
-        actionType={otpActionType}
-        language={isArabic ? 'ar' : 'en'}
-        onVerifySuccess={async () => {
-          if (pendingAuthAction) {
-            await pendingAuthAction();
-          }
-        }}
-      />
+      {/*
+        No OTP modal is mounted here. OTPModal was rendered with state that
+        nothing ever set -- setShowOtpModal was only ever called with false,
+        and setOtpTargetContact, setOtpActionType and setPendingAuthAction
+        were never called at all -- so it could not open, and had it opened it
+        would have carried an empty targetContact and a no-op onVerifySuccess.
+        It read like a step-up check guarding this screen and guarded nothing.
+        src/components/OTPModal.tsx is a working email-OTP implementation and
+        is kept; mount it deliberately with real state if a step-up is wanted.
+      */}
     </div>
   );
 };

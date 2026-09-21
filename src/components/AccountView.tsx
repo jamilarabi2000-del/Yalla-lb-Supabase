@@ -7,7 +7,6 @@ import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { SellerDashboard } from './SellerDashboard';
 import { validatePassword } from '../lib/passwordPolicy';
-import { OTPModal } from './OTPModal';
 import { PhoneAuthModal } from './PhoneAuthModal';
 import { 
   User, 
@@ -185,11 +184,7 @@ export const AccountView: React.FC = () => {
     }
   }, [user, firebaseUser]);
 
-  const [showOtpModal, setShowOtpModal] = useState<boolean>(false);
   const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
-  const [otpTargetContact, setOtpTargetContact] = useState<string>('');
-  const [otpActionType, setOtpActionType] = useState<'login' | 'signup'>('login');
-  const [pendingAuthAction, setPendingAuthAction] = useState<(() => Promise<void>) | null>(null);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1164,19 +1159,16 @@ export const AccountView: React.FC = () => {
         initialPhone={profilePhone}
       />
 
-      {/* Security OTP Modal */}
-      <OTPModal
-        isOpen={showOtpModal}
-        onClose={() => setShowOtpModal(false)}
-        targetContact={otpTargetContact}
-        actionType={otpActionType}
-        language={language}
-        onVerifySuccess={async () => {
-          if (pendingAuthAction) {
-            await pendingAuthAction();
-          }
-        }}
-      />
+      {/*
+        No OTP modal is mounted here. OTPModal was rendered with state that
+        nothing ever set -- setShowOtpModal was only ever called with false,
+        and setOtpTargetContact, setOtpActionType and setPendingAuthAction
+        were never called at all -- so it could not open, and had it opened it
+        would have carried an empty targetContact and a no-op onVerifySuccess.
+        It read like a step-up check guarding this screen and guarded nothing.
+        src/components/OTPModal.tsx is a working email-OTP implementation and
+        is kept; mount it deliberately with real state if a step-up is wanted.
+      */}
     </div>
   );
 };

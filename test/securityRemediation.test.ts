@@ -873,3 +873,39 @@ describe('The signup draft does not outlive the signup', () => {
     expect(removes).toBeGreaterThanOrEqual(writes);
   });
 });
+
+describe('No auth modal is mounted that cannot open', () => {
+  // OTPModal was rendered in both the account and checkout screens with state
+  // nothing ever set: setShowOtpModal was only called with false, and
+  // setOtpTargetContact / setOtpActionType / setPendingAuthAction were never
+  // called at all. It looked like a step-up check on two auth surfaces and
+  // guarded nothing.
+  const files = ['src/components/AccountView.tsx', 'src/components/CheckoutView.tsx'];
+
+  const strip = (s: string) =>
+    s.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
+     .replace(/\/\*[\s\S]*?\*\//g, '')
+     .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  for (const file of files) {
+    it(`${file.split('/').pop()} does not mount the unreachable OTP modal`, () => {
+      const code = strip(read(file));
+      expect(code).not.toContain('<OTPModal');
+      for (const dead of ['showOtpModal', 'otpTargetContact', 'otpActionType', 'pendingAuthAction']) {
+        expect(code).not.toContain(dead);
+      }
+    });
+
+    it(`${file.split('/').pop()} opens every modal it renders`, () => {
+      // General invariant: a modal driven by `isOpen={someFlag}` needs a
+      // setSomeFlag(true) somewhere, or it is decoration.
+      const code = strip(read(file));
+      const flags = [...code.matchAll(/isOpen=\{([A-Za-z_$][\w$]*)\}/g)].map(m => m[1]);
+      const unopenable = [...new Set(flags)].filter(flag => {
+        const setter = 'set' + flag.charAt(0).toUpperCase() + flag.slice(1);
+        return !new RegExp(`${setter}\\(\\s*true`).test(code);
+      });
+      expect(unopenable).toEqual([]);
+    });
+  }
+});
