@@ -164,7 +164,10 @@ function toCheckoutError(error: { message?: string; code?: string; details?: str
     }
   }
 
-  if (/EMAIL_NOT_VERIFIED/i.test(raw)) {\n    return new CheckoutError('EMAIL_NOT_VERIFIED', 'Please verify your email before placing an order.');\n  }\n  if (/authentication required/i.test(raw)) {
+  if (/EMAIL_NOT_VERIFIED/i.test(raw)) {
+    return new CheckoutError('EMAIL_NOT_VERIFIED', 'Please verify your email before placing an order.');
+  }
+  if (/authentication required/i.test(raw)) {
     return new CheckoutError('UNAUTHENTICATED', 'Please sign in to place your order.');
   }
   if (/valid UUID idempotency key required/i.test(raw)) {
