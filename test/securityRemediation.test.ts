@@ -833,3 +833,43 @@ describe('Promotions cannot claim the same units twice', () => {
     }
   });
 });
+
+describe('The signup draft does not outlive the signup', () => {
+  // AccountView and CheckoutView stash the pending profile in localStorage so
+  // signUpWithEmail can write it to the profiles row after auth.signUp. It
+  // carries the customer's full name, phone number and home address, and
+  // localStorage is per-origin rather than per-session.
+  const shop = read('src/context/ShopContext.tsx');
+  const KEY = 'yallalb_signup_profile_temp';
+
+  it('is removed once signUpWithEmail has consumed it', () => {
+    const signUp = shop.slice(
+      shop.indexOf('const signUpWithEmail = async'),
+      shop.indexOf('const signInWithEmail = async') > shop.indexOf('const signUpWithEmail = async')
+        ? shop.indexOf('const signInWithEmail = async')
+        : undefined,
+    );
+    expect(signUp).toContain(`localStorage.removeItem('${KEY}')`);
+    // It must still be read there, or the removal is guarding nothing.
+    expect(signUp).toContain(`localStorage.getItem('${KEY}')`);
+  });
+
+  it('is cleared on sign out, for a signup that never completed', () => {
+    const signOut = shop.slice(
+      shop.indexOf('const signOutUser = async'),
+      shop.indexOf('const refreshUserProfile ='),
+    );
+    expect(signOut).toContain(`localStorage.removeItem('${KEY}')`);
+  });
+
+  it('is never left with only writers and readers', () => {
+    // Guards the whole file: if a future change adds another write site, the
+    // key must still be removed somewhere.
+    const writes = (shop.match(new RegExp(`setItem\\('${KEY}'`, 'g')) ?? []).length;
+    const removes = (shop.match(new RegExp(`removeItem\\('${KEY}'`, 'g')) ?? []).length;
+    const reads = (shop.match(new RegExp(`getItem\\('${KEY}'`, 'g')) ?? []).length;
+    expect(reads).toBeGreaterThan(0);
+    expect(removes).toBeGreaterThanOrEqual(2);
+    expect(removes).toBeGreaterThanOrEqual(writes);
+  });
+});

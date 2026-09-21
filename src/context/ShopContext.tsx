@@ -3599,6 +3599,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // The signup draft has served its purpose: the account exists and the
+      // profile row carries these values. It holds the customer's full name,
+      // phone number and home address, and localStorage is per-origin rather
+      // than per-session -- nothing else clears it, so left here it would sit
+      // on the device indefinitely and outlive sign-out. Cleared even if the
+      // profile sync above warned: the account is created either way, and
+      // re-reading stale personal data later is worse than asking for it
+      // again in the profile screen.
+      try {
+        localStorage.removeItem('yallalb_signup_profile_temp');
+      } catch {}
+
       if (supaAuthData.user && !supaAuthData.session) {
         showToast(
           language === 'ar'
@@ -3814,6 +3826,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // overwrites it, but only if that refetch succeeds and the tab stays
         // open; closing it straight after signing out is ordinary.
         Object.values(CATALOG_CACHE_KEYS).forEach(key => localStorage.removeItem(key));
+        // A signup that was abandoned before auth.signUp succeeded leaves its
+        // draft behind, carrying name, phone and address.
+        localStorage.removeItem('yallalb_signup_profile_temp');
       } catch {}
       showToast('Signed out successfully', 'info');
     } catch (error: any) {
