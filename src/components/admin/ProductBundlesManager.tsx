@@ -544,7 +544,7 @@ export const ProductBundlesManager: React.FC = () => {
                           </div>
                           <span className="text-xs font-medium truncate">{p.name}</span>
                         </div>
-                        <span className="text-xs font-mono text-amber-400 font-bold flex-shrink-0">${p.priceUSD.toFixed(2)}</span>
+                        <span className="text-xs font-mono text-amber-400 font-bold flex-shrink-0">${getProductCurrentPrice(p).toFixed(2)}</span>
                       </div>
                     );
                   })}
