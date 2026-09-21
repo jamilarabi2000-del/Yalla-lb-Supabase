@@ -29,7 +29,7 @@ import {
 import { applyDiscounts } from '../lib/pricing';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
-import { LEBANON_REGIONS, LBP_USD_RATE } from '../data/regions';
+import { LEBANON_REGIONS } from '../data/regions';
 
 import {
   normalizeLebanesePhone,
