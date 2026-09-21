@@ -119,11 +119,11 @@ export const ProductModal: React.FC = () => {
               {/* Price & Stock */}
               <div className="flex items-baseline gap-2 flex-wrap pt-1">
                 <span className="text-xl font-black text-[#171717]">
-                  {formatPrice(product.priceUSD * quantity)}
+                  {formatPrice((product.promoPriceUSD ?? product.regularPriceUSD) * quantity)}
                 </span>
-                {product.originalPriceUSD && (
+                {product.promoPriceUSD != null && product.promoPriceUSD < product.regularPriceUSD && (
                   <span className="text-xs text-slate-400 line-through font-medium">
-                    {formatPrice(product.originalPriceUSD * quantity)}
+                    {formatPrice(product.regularPriceUSD * quantity)}
                   </span>
                 )}
                 {product.stock > 0 ? (
