@@ -11,7 +11,7 @@ interface ProductCardProps {
 }
 
 const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveButton, onRemove, isFavoriteView }) => {
-  const { , 
+  const {
     openProductDetail,
     setSelectedProductForModal,
     addToCart,
@@ -165,7 +165,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
                   ${(product.promoPriceUSD ?? product.regularPriceUSD).toFixed(2)}
                 </span>
               </div>
-              {product.regularPriceUSD && (
+              {product.promoPriceUSD != null && product.promoPriceUSD < product.regularPriceUSD && (
                 <div className="flex flex-col items-end leading-tight">
                   <span className="text-xs text-slate-400 line-through font-medium">
                     ${product.regularPriceUSD.toFixed(2)}
