@@ -1707,7 +1707,6 @@ interface ShopContextType {
     isFetchingMore,
     loadMoreProducts,
     currency,
-    lbpRate,
     cart,
     cartTotalUSD,
     cartCount,
