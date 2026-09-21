@@ -2161,7 +2161,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               priceUSD,
               originalPriceUSD: row.original_price_usd !== undefined ? parsePrice(row.original_price_usd) : undefined,
               stock: Math.floor(stock),
-              ...(mainImage !== undefined ? { image: mainImage } : {}),
+              // Product.image is required. A CSV with no image column leaves
+              // mainImage undefined, which made this literal not a Product at
+              // all; the existing-SKU patch below already falls back to ''.
+              // '' also matches the products.image column default.
+              image: mainImage ?? '',
               ...(hasAdditionalImagesColumn ? { additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : [] } : {}),
               ...(videoUrl !== undefined ? { videoUrl } : {}),
               ...(hasAdditionalVideosColumn ? { additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : [] } : {}),

@@ -547,7 +547,12 @@ export const CheckoutView: React.FC = () => {
         defaultCity: formData.city,
         defaultAddress: formData.street,
         defaultBuilding: formData.building,
-        defaultFloorApartment: formData.floorApartment,
+        // No defaultFloorApartment: UserProfile has no such field and
+        // public.profiles has no such column -- the apartment is deliberately
+        // kept out of the profile schema. This key was silently discarded and
+        // was the last type error in the tree. The value is not lost: it is
+        // submitted with the order's shipping payload above, so it reaches
+        // fulfilment. It simply is not remembered for the next visit.
         defaultNotes: formData.notes
       }).catch(() => {});
       try {
