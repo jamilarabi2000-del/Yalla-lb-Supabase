@@ -1,4 +1,4 @@
-export type Currency = 'USD' | 'LBP';
+export type Currency = 'USD';
 
 export interface Product {
   id: string;
@@ -13,8 +13,12 @@ export interface Product {
   sellerActive?: boolean;
   origin: string; // e.g. "Beirut Central", "Tripoli", "Koura", "Batroun"
   category: string;
-  priceUSD: number;
-  originalPriceUSD?: number;
+  /** Normal/original selling price before any promotion. */
+  regularPriceUSD: number;
+  /** Optional promotional selling price. Must be <= regularPriceUSD. */
+  promoPriceUSD?: number;
+  /** @deprecated Derived compatibility value. Use promoPriceUSD ?? regularPriceUSD. */
+  readonly priceUSD?: number;
   discountPercentage?: number;
   rating: number;
   reviewsCount: number;
@@ -149,7 +153,7 @@ export interface ShippingDetails {
  * makes reintroducing the option a compile error rather than a silent
  * runtime promise.
  */
-export type PaymentMethod = 'cod_usd' | 'cod_lbp' | 'wish_omt';
+export type PaymentMethod = 'cod_usd' | 'wish_omt';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'crafting' | 'courier_assigned' | 'in_transit' | 'delivered' | 'cancelled' | 'returned';
 
@@ -166,7 +170,6 @@ export interface Order {
   subtotalUSD: number;
   deliveryFeeUSD: number;
   totalUSD: number;
-  totalLBP: number;
   status: OrderStatus;
   estimatedDelivery: string;
   trackingNumber: string;
