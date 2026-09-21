@@ -366,7 +366,10 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     profileTabLabel: 'Profile & Delivery Details',
     profileTabLabelArabic: 'البيانات الشخصية وعنوان التوصيل',
     wishlistTabLabel: 'Saved Wishlist',
-    wishlistTabLabelArabic: 'قائمة المفضلة'
+    wishlistTabLabelArabic: 'قائمة المفضلة',
+    showAppleAuth: true,
+    showGoogleAuth: true,
+    showSmsAuth: true
   },
   newsSection: {
     title: 'News & Announcements',
