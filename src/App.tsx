@@ -174,6 +174,12 @@ const MainAppContent: React.FC = () => {
   productsRef.current = products;
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
+  // syncRouteFromUrl runs on mount and on popstate with an empty dependency
+  // array, so a plain `searchQuery` read inside it is frozen at its initial
+  // '' forever and every comparison against it is meaningless. Same ref
+  // pattern as activeTab and products above.
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
 
   useEffect(() => {
     const syncRouteFromUrl = () => {
@@ -184,7 +190,7 @@ const MainAppContent: React.FC = () => {
       const urlSearch = searchParams.get('search');
 
       if (urlLang === 'ar' || urlLang === 'en') setLanguage(urlLang);
-      if (urlSearch !== null && urlSearch !== searchQuery) setSearchQuery(urlSearch);
+      if (urlSearch !== null && urlSearch !== searchQueryRef.current) setSearchQuery(urlSearch);
       setNotFoundPath(null);
 
       if (rawPath === '' || rawPath === 'home') {
