@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
 import { FREE_DELIVERY_THRESHOLD_USD } from '../lib/delivery';
+import { getProductCurrentPrice } from '../lib/pricing';
 import { 
    X, 
    Trash2, 
@@ -45,7 +46,7 @@ export const CartDrawer: React.FC = () => {
 
   if (!isCartOpen) return null;
 
-  const rawSubtotal = Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100;
+  const rawSubtotal = Math.round(cart.reduce((s, i) => s + getProductCurrentPrice(i.product) * i.quantity, 0) * 100) / 100;
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,11 +176,11 @@ export const CartDrawer: React.FC = () => {
                       <p className="text-[11px] text-[#8F7137] font-semibold mt-0.5">{item.product.origin}</p>
                       <div className="flex items-baseline gap-1 mt-1 flex-wrap">
                         <span className="text-xs font-bold text-[#171717]">
-                          {formatPrice(item.product.priceUSD * item.quantity)}
+                          {formatPrice(getProductCurrentPrice(item.product) * item.quantity)}
                         </span>
                         {item.quantity > 1 && (
                           <span className="text-[10px] text-[#737373] font-normal">
-                            ({formatPrice(item.product.priceUSD)} {t('each')})
+                            ({formatPrice(getProductCurrentPrice(item.product))} {t('each')})
                           </span>
                         )}
                       </div>
