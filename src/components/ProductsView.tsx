@@ -1,3 +1,4 @@
+import { getProductCurrentPrice } from '../lib/pricing';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
 import { isProductVisibleOnStorefront } from '../lib/storefrontVisibility';
@@ -168,8 +169,8 @@ export const ProductsView: React.FC = () => {
 
       return true;
     }).sort((a, b) => {
-      if (sortBy === 'price_low') return a.priceUSD - b.priceUSD;
-      if (sortBy === 'price_high') return b.priceUSD - a.priceUSD;
+      if (sortBy === 'price_low') return getProductCurrentPrice(a) - getProductCurrentPrice(b);
+      if (sortBy === 'price_high') return getProductCurrentPrice(b) - getProductCurrentPrice(a);
       if (sortBy === 'rating') return b.rating - a.rating;
       // Default: manual display order first (if set), then featured, then rating
       const orderA = a.displayOrder ?? 99999;
