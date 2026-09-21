@@ -6,7 +6,7 @@ type ProductUpdates = Partial<Product>;
 const PUBLIC_FIELDS: Array<[keyof Product,string]> = [
   ['yallaItemCode','yalla_item_code'],['name','name'],['arabicName','arabic_name'],
   ['artisan','artisan'],['sellerId','seller_id'],['origin','origin'],['brand','brand'],
-  ['category','category_id'],['priceUSD','price_usd'],['originalPriceUSD','original_price_usd'],
+  ['category','category_id'],['regularPriceUSD','regular_price'],['promoPriceUSD','promo_price'],
   ['discountPercentage','discount_percentage'],['rating','rating'],['reviewsCount','reviews_count'],
   ['image','image'],['videoUrl','video_url'],['description','description'],['craftStory','craft_story'],
   ['stock','stock'],['isNewArrival','is_new_arrival'],['isFeatured','is_featured'],
