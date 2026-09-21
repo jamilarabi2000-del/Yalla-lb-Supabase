@@ -5,6 +5,7 @@ import { PaymentMethod } from '../types';
 import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
+import { getProductCurrentPrice } from '../lib/pricing';
 import { LebanonFlag } from './LebanonFlag';
 import { PhoneAuthModal } from './PhoneAuthModal';
 import { generateIdempotencyKey } from '../utils/uuid';
@@ -506,10 +507,9 @@ export const CheckoutView: React.FC = () => {
         },
         paymentMethod: paymentMethod,
         currency: currency,
-        subtotalUSD: Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100,
+        subtotalUSD: Math.round(cart.reduce((s, i) => s + getProductCurrentPrice(i.product) * i.quantity, 0) * 100) / 100,
         deliveryFeeUSD: deliveryFeeUSD,
         totalUSD: finalTotalUSD,
-        totalLBP: Math.round(finalTotalUSD * lbpRate),
         discountUSD: discountUSD,
         appliedCoupon: appliedCouponCode || undefined,
         estimatedDelivery: deliverySpeed === 'express_beirut' 
@@ -1538,10 +1538,10 @@ export const CheckoutView: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-[#171717] truncate">{item.product.name}</h4>
-                        <p className="text-[11px] text-[#737373]">Qty: {item.quantity} × {formatPrice(item.product.priceUSD)}</p>
+                        <p className="text-[11px] text-[#737373]">Qty: {item.quantity} × {formatPrice(getProductCurrentPrice(item.product))}</p>
                       </div>
                       <span className="font-bold text-[#8F7137]">
-                        {formatPrice(item.product.priceUSD * item.quantity)}
+                        {formatPrice(getProductCurrentPrice(item.product) * item.quantity)}
                       </span>
                     </div>
                   ))}
@@ -1607,7 +1607,7 @@ export const CheckoutView: React.FC = () => {
                 <div className="pt-3 border-t border-[#E5E5E5] space-y-2 text-xs">
                   <div className="flex justify-between text-[#737373]">
                     <span>{isArabic ? 'مجموع المنتجات' : 'Products Subtotal'}</span>
-                    <span className="font-bold text-[#171717]">{formatPrice(Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100)}</span>
+                    <span className="font-bold text-[#171717]">{formatPrice(Math.round(cart.reduce((s, i) => s + getProductCurrentPrice(i.product) * i.quantity, 0) * 100) / 100)}</span>
                   </div>
 
                   {discountUSD > 0 && (
