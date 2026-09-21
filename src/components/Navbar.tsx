@@ -65,7 +65,7 @@ export const Navbar: React.FC = () => {
       {showAnnouncement && (siteContent?.navbar?.announcementTicker || siteContent?.navbar?.announcementTickerArabic) && (
         <div className="bg-[#171717] text-[#F8F8F6] text-[11px] sm:text-xs py-2 px-4 text-center font-bold tracking-wider flex items-center justify-center gap-2 overflow-hidden border-b border-[#8F7137]/30">
           <span className="inline-block text-[#B89753]">✨</span>
-          <span className="truncate">{language === 'ar' ? (siteContent.navbar.announcementTickerArabic || siteContent.navbar.announcementTicker) : (siteContent.navbar.announcementTicker || siteContent.navbar.announcementTickerArabic)}</span>
+          <span className="min-w-0 max-w-full whitespace-normal break-words leading-relaxed text-center">{language === 'ar' ? (siteContent.navbar.announcementTickerArabic || siteContent.navbar.announcementTicker) : (siteContent.navbar.announcementTicker || siteContent.navbar.announcementTickerArabic)}</span>
           <span className="inline-block text-[#B89753]">✨</span>
         </div>
       )}
