@@ -986,8 +986,22 @@ export const supabaseCatalogService = {
         ? String(ADMIN_PRODUCT_COLUMNS)
         : String(PUBLIC_PRODUCT_COLUMNS);
 
-    let query: any =
-      supabase
+    /**
+     * The anonymous storefront uses a SECURITY DEFINER RPC instead of
+     * querying public.products directly. The products table intentionally has
+     * no broad anon SELECT grant because it contains private operational
+     * columns. The RPC returns only the public catalog projection and applies
+     * the same published-category/published-seller visibility rules.
+     *
+     * Admin/seller sessions keep the direct table query because their existing
+     * RLS policies authorize the additional private fields they need.
+     */
+    let query: any;
+
+    if (!isAdmin && !isSeller) {
+      query = supabase.rpc('get_public_products');
+    } else {
+      query = supabase
         .from('products')
         .select(columns)
         .order(
@@ -998,27 +1012,9 @@ export const supabaseCatalogService = {
           },
         );
 
-    if (!isAdmin) {
-      if (
-        isSeller &&
-        options?.sellerId
-      ) {
-        /**
-         * Sellers can see:
-         * - all published products
-         * - their own products
-         */
+      if (!isAdmin && isSeller && options?.sellerId) {
         query = query.or(
           `is_published.eq.true,seller_id.eq.${options.sellerId}`,
-        );
-      } else {
-        /**
-         * Public storefront:
-         * published products only.
-         */
-        query = query.eq(
-          'is_published',
-          true,
         );
       }
     }
@@ -1082,12 +1078,15 @@ export const supabaseCatalogService = {
             ...row,
 
             seller_name_en:
+              row.seller_name_en ??
               row.sellers?.name_en,
 
             seller_name_ar:
+              row.seller_name_ar ??
               row.sellers?.name_ar,
 
             seller_active:
+              row.seller_active ??
               row.sellers?.is_active,
           }),
       );
