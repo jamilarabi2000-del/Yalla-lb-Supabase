@@ -1,3 +1,4 @@
+import { getProductCurrentPrice } from '../../lib/pricing';
 import React, { useState } from 'react';
 import { useShop } from '../../context/ShopContext';
 import { useDialog } from '../../hooks/useDialog';
@@ -146,7 +147,7 @@ export const ProductBundlesManager: React.FC = () => {
 
       // Auto calculate default bundle price if not set
       const selectedItems = products.filter(p => updatedIds.includes(p.id));
-      const originalTotal = selectedItems.reduce((acc, curr) => acc + curr.priceUSD, 0);
+      const originalTotal = selectedItems.reduce((acc, curr) => acc + getProductCurrentPrice(curr), 0);
       const defaultDiscounted = Math.round(originalTotal * 0.8 * 100) / 100; // 20% off by default
 
       return {
@@ -202,7 +203,7 @@ export const ProductBundlesManager: React.FC = () => {
 
   // Selected products for form preview calculation
   const selectedFormProducts = products.filter(p => form.productIds.includes(p.id));
-  const formOriginalSumUSD = selectedFormProducts.reduce((sum, p) => sum + p.priceUSD, 0);
+  const formOriginalSumUSD = selectedFormProducts.reduce((sum, p) => sum + getProductCurrentPrice(p), 0);
   const formSavedUSD = Math.max(0, formOriginalSumUSD - form.bundlePriceUSD);
   const formSavedPercent = formOriginalSumUSD > 0 ? Math.round((formSavedUSD / formOriginalSumUSD) * 100) : 0;
 
@@ -255,7 +256,7 @@ export const ProductBundlesManager: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {productBundles.map(bundle => {
             const bundledProducts = products.filter(p => bundle.productIds.includes(p.id));
-            const originalSum = bundledProducts.reduce((sum, p) => sum + p.priceUSD, 0);
+            const originalSum = bundledProducts.reduce((sum, p) => sum + getProductCurrentPrice(p), 0);
             const savedAmount = Math.max(0, originalSum - bundle.bundlePriceUSD);
             const savedPercentage = originalSum > 0 ? Math.round((savedAmount / originalSum) * 100) : 0;
 
@@ -369,7 +370,7 @@ export const ProductBundlesManager: React.FC = () => {
                           </div>
                           <div className="overflow-hidden min-w-0">
                             <p className="text-[11px] font-medium text-slate-200 truncate">{prod.name}</p>
-                            <p className="text-[10px] text-slate-500 font-mono">${prod.priceUSD.toFixed(2)}</p>
+                            <p className="text-[10px] text-slate-500 font-mono">${getProductCurrentPrice(prod).toFixed(2)}</p>
                           </div>
                         </div>
                       ))}
