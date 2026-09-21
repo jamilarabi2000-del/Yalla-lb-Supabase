@@ -1,4 +1,5 @@
 import React from 'react';
+import { getProductCurrentPrice } from '../lib/pricing';
 import { isProductVisibleOnStorefront } from '../lib/storefrontVisibility';
 import { HomeTopContainer } from './HomeTopContainer';
 import { ProductCard } from './ProductCard';
@@ -468,7 +469,7 @@ export const HomeView: React.FC = () => {
                 .filter(b => b.isActive !== false)
                 .map((bundle) => {
                   const bundleProds = (products || []).filter(p => bundle.productIds.includes(p.id) && p.isPublished !== false);
-                  const originalTotal = bundleProds.reduce((sum, p) => sum + (p.priceUSD || 0), 0);
+                  const originalTotal = bundleProds.reduce((sum, p) => sum + getProductCurrentPrice(p), 0);
                   const discountAmount = originalTotal - bundle.bundlePriceUSD;
                   
                   return (
@@ -517,7 +518,7 @@ export const HomeView: React.FC = () => {
                               </p>
                             </div>
                             <span className="text-xs text-[#737373] font-medium">
-                              {formatPrice(prod.priceUSD)}
+                              {formatPrice(getProductCurrentPrice(prod))}
                             </span>
                           </div>
                         ))}
