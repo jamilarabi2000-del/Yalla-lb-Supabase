@@ -2066,6 +2066,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const resolvedCategory = resolveCategory(row, categories, options?.fallbackCategoryId);
             const priceUSD = parsePrice(row.price_usd || row.price || row.unit_price);
             const stock = parseStock(row.stock !== undefined ? row.stock : row.qty);
+            // Derived here rather than inlined: both are referenced twice
+            // below, once for the full new-product shape and once for the
+            // patch applied to an existing SKU. They were previously written
+            // as bare shorthand (`description,` / `craftStory,`) with no
+            // declaration in scope at all, which threw a ReferenceError the
+            // moment a valid row was reached and failed every CSV import.
+            // Column names match the conditions the patch block tests.
+            const description = (row.description_en || row.description || '').toString().trim();
+            const craftStory = (row.description_ar || row.craftstory || row.arabic_description || '').toString().trim();
 
             if (!name) {
               errors.push(`Row ${rowNum}: name_en is required`);
