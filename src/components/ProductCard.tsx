@@ -1,7 +1,6 @@
 import React from 'react';
 import { Product } from '../types';
 import { useShop } from '../context/ShopContext';
-import { getProductCurrentPrice, getProductDiscountPercentage } from '../lib/pricing';
 import { Heart, ShoppingBag, Trash2, Eye } from 'lucide-react';
 
 interface ProductCardProps {
@@ -16,9 +15,10 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
   const isLiked = isInWishlist(product.id);
   const instanceId = React.useId();
   const displayTitle = language === 'ar' ? (product.arabicName || product.name) : product.name;
-  const currentPrice = getProductCurrentPrice(product);
-  const discountPercentage = getProductDiscountPercentage(product);
-  const hasDiscount = discountPercentage > 0;
+  const currentPrice = Number(product.priceUSD || 0);
+  const originalPrice = Number(product.originalPriceUSD || 0);
+  const discountPercentage = Number(product.discountPercentage || (originalPrice > currentPrice ? Math.round((1 - currentPrice / originalPrice) * 100) : 0));
+  const hasDiscount = originalPrice > currentPrice && discountPercentage > 0;
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -52,7 +52,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
       <div className="flex flex-1 flex-col justify-between space-y-2.5 bg-white p-3.5 sm:p-4">
         <div><span className="mb-0.5 block line-clamp-1 text-[10px] font-bold uppercase tracking-wider text-[#8F7137]">{product.category}</span><h3 className="line-clamp-2 text-xs font-bold leading-snug text-[#171717] transition-colors group-hover:text-[#8F7137] sm:text-sm">{displayTitle}</h3></div>
         <div className="mt-auto flex flex-col gap-2 border-t border-[#E5E5E5] pt-2">
-          <div className="flex items-baseline gap-1.5"><span className="text-sm font-black tracking-tight text-[#171717] sm:text-base">${currentPrice.toFixed(2)}</span>{hasDiscount && <span className="text-xs font-medium text-slate-400 line-through">${Number(product.regularPriceUSD).toFixed(2)}</span>}</div>
+          <div className="flex items-baseline gap-1.5"><span className="text-sm font-black tracking-tight text-[#171717] sm:text-base">${currentPrice.toFixed(2)}</span>{hasDiscount && <span className="text-xs font-medium text-slate-400 line-through">${originalPrice.toFixed(2)}</span>}</div>
           <div className="flex w-full items-center gap-1.5">
             {showRemoveButton && <button type="button" onClick={handleRemoveClick} aria-label={language === 'ar' ? 'إزالة' : 'Remove'} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5E5E5] bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button>}
             <button type="button" onClick={handleQuickAdd} disabled={product.stock <= 0} aria-label={language === 'ar' ? 'أضف للسلة' : 'Add To Cart'} className="flex w-full flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#171717] px-3 py-2 text-center text-xs font-bold text-white transition-all hover:bg-[#8F7137] disabled:opacity-40"><ShoppingBag className="h-3.5 w-3.5 shrink-0" /><span className="whitespace-nowrap">{language === 'ar' ? 'أضف للسلة' : 'Add To Cart'}</span></button>
