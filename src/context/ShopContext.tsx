@@ -859,7 +859,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Writes a catalogue list to localStorage -- but never a privileged one.
    *
    * fetchProducts() selects ADMIN_PRODUCT_COLUMNS for an administrator or
-   * seller, which carries cost_price_usd, seller_item_code,
+   * seller, which carries cost_regular_price, seller_item_code,
    * low_stock_threshold and custom_stock_label, and returns unpublished and
    * draft rows. localStorage is per-origin, not per-session: it survives sign
    * out, so caching that projection left cost prices and unpublished products
@@ -2083,7 +2083,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const name = (row.name_en || row.name || row.title || '').toString().trim();
             const resolvedSeller = resolveSeller(row, sellers, options?.targetSellerId);
             const resolvedCategory = resolveCategory(row, categories, options?.fallbackCategoryId);
-            const priceUSD = parsePrice(row.price_usd || row.price || row.unit_price);
+            const regularPriceUSD = parsePrice(row.regular_price || row.price || row.unit_price);
             const stock = parseStock(row.stock !== undefined ? row.stock : row.qty);
             // Derived here rather than inlined: both are referenced twice
             // below, once for the full new-product shape and once for the
@@ -2109,8 +2109,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               errors.push(`Row ${rowNum}: category "${rawCat}" not found`);
               return;
             }
-            if (priceUSD <= 0) {
-              errors.push(`Row ${rowNum}: price_usd must be a positive number (found ${row.price_usd || row.price})`);
+            if (regularPriceUSD <= 0) {
+              errors.push(`Row ${rowNum}: regular_price must be a positive number (found ${row.regular_price || row.price})`);
               return;
             }
             if (isNaN(stock) || stock < 0) {
@@ -2177,8 +2177,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
               sellerId: resolvedSeller.sellerId,
               sellerActive: true,
               category: resolvedCategory.categoryId,
-              priceUSD,
-              originalPriceUSD: row.original_price_usd !== undefined ? parsePrice(row.original_price_usd) : undefined,
+              regularPriceUSD,
+              promoPriceUSD: row.promo_price !== undefined ? parsePrice(row.promo_price) : undefined,
               stock: Math.floor(stock),
               // Product.image is required. A CSV with no image column leaves
               // mainImage undefined, which made this literal not a Product at
@@ -2216,8 +2216,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || ''
               } : {}),
               ...(row.category !== undefined || row.category_id !== undefined || options?.fallbackCategoryId ? { category: resolvedCategory.categoryId } : {}),
-              ...(row.price_usd !== undefined || row.price !== undefined || row.unit_price !== undefined ? { priceUSD } : {}),
-              ...(row.original_price_usd !== undefined ? { originalPriceUSD: product.originalPriceUSD } : {}),
+              ...(row.regular_price !== undefined || row.price !== undefined || row.unit_price !== undefined ? { regularPriceUSD } : {}),
+              ...(row.promo_price !== undefined ? { promoPriceUSD: product.promoPriceUSD } : {}),
               ...(row.stock !== undefined || row.qty !== undefined ? { stock: Math.floor(stock) } : {}),
               ...(row.is_published !== undefined || row.status !== undefined ? { isPublished } : {}),
               ...(row.seller_item_code !== undefined || row.seller_code !== undefined || row.item_code !== undefined ? { sellerItemCode } : {}),
@@ -3817,7 +3817,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('yallalb_orders');
         localStorage.removeItem('yallalb_saved_checkout_data');
         // The catalogue cache holds the privileged projection if this session
-        // was an administrator or seller -- cost_price_usd, seller_item_code,
+        // was an administrator or seller -- cost_regular_price, seller_item_code,
         // low_stock_threshold, custom_stock_label, and unpublished rows.
         // localStorage is per-origin, not per-session, and the products state
         // is seeded straight from it before any fetch or auth check runs, so
@@ -4651,7 +4651,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sourceComponent: 'AdminView (AddProductModal)',
       actionName: 'addProduct',
       targetPath: `products/${id}`,
-      summary: `Admin created new product "${newProduct.name}" ($${newProduct.priceUSD})`,
+      summary: `Admin created new product "${newProduct.name}" ($${newProduct.regularPriceUSD})`,
       payload: sanitizedProduct
     });
 
@@ -4698,7 +4698,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await logAdminActivity(
       'product_add',
       `Product "${newProduct.name}" created`,
-      `Added new catalog item with ID: ${newProduct.id}, category: ${newProduct.category}, and price: $${newProduct.priceUSD}.`,
+      `Added new catalog item with ID: ${newProduct.id}, category: ${newProduct.category}, and price: $${newProduct.regularPriceUSD}.`,
       newProduct.id,
       null,
       newProduct
