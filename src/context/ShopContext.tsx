@@ -4181,7 +4181,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setWishlist([]);
   };
 
-  const rawSubtotalUSD = Math.round(cart.reduce((sum, item) => sum + item.product.priceUSD * item.quantity, 0) * 100) / 100;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const [appliedCouponCode, setAppliedCouponCode] = useState<string>(() => {

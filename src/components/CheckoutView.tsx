@@ -288,17 +288,6 @@ export const CheckoutView: React.FC = () => {
     }
   }, [firebaseUser, firebaseUser?.uid]);
 
-  const quickCities = [
-    'Achrafieh, Beirut',
-    'Hamra, Beirut',
-    'Badaro, Beirut',
-    'Mar Mikhael, Beirut',
-    'Tripoli (Mina)',
-    'Byblos (Jbeil)',
-    'Batroun Coast',
-    'Zahlé, Bekaa',
-    'Saida, South'
-  ];
 
   // Region & Delivery fee calculation
   const matchedRegion = LEBANON_REGIONS.find(r => r.id === formData.governorate)

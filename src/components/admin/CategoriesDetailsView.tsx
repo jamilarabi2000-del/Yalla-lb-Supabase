@@ -132,26 +132,8 @@ export const CategoriesDetailsView: React.FC = () => {
   const [deleteProductsAction, setDeleteProductsAction] = useState<'reassign' | 'delete' | 'unlink'>('reassign');
 
   // Quick remove subcategory directly from category
-  const handleRemoveSubcategory = async (cat: CategoryItem, subToRemove: string) => {
-    try {
-      const nextSubcats = (cat.subcategories || []).filter(s => s !== subToRemove);
-      await updateCategory(cat.id, { subcategories: nextSubcats });
-      showToast(`Removed subcategory "${subToRemove}" from "${cat.nameEn}"`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Could not remove subcategory.', 'warning');
-    }
-  };
 
   // Quick remove Arabic SEO keyword directly from category
-  const handleRemoveArabicKeyword = async (cat: CategoryItem, kwToRemove: string) => {
-    try {
-      const nextKws = (cat.arabicKeywords || []).filter(k => k !== kwToRemove);
-      await updateCategory(cat.id, { arabicKeywords: nextKws });
-      showToast(`Removed keyword "${kwToRemove}" from "${cat.nameEn}"`, 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Could not remove keyword.', 'warning');
-    }
-  };
 
   // Region Add/Edit Modal
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
