@@ -975,3 +975,38 @@ describe('Auth handlers are attached to something', () => {
     });
   }
 });
+
+describe('There is one email-OTP client, not several', () => {
+  // OTPModal.tsx was a second interface for a capability the app already
+  // ships: it called supabase.auth.signInWithOtp, exactly as
+  // sendEmailSignInLink does, and verified the code half of the same email.
+  // It was mounted nowhere and re-sent on every targetContact change,
+  // bypassing the sixty second guard on its own resend button.
+  it('no longer carries the orphaned OTPModal component', () => {
+    expect(fs.existsSync(path.resolve(process.cwd(), 'src/components/OTPModal.tsx'))).toBe(false);
+  });
+
+  it('keeps email OTP inside the context, not in components', () => {
+    // Components must not call the auth OTP API directly for email; the
+    // context owns it. PhoneAuthModal is the deliberate exception -- SMS OTP
+    // has no context equivalent.
+    const offenders: string[] = [];
+    for (const f of fs.readdirSync(path.resolve(process.cwd(), 'src/components'))) {
+      if (!f.endsWith('.tsx') || f === 'PhoneAuthModal.tsx') continue;
+      const body = read(`src/components/${f}`)
+        .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+      if (/auth\.(signInWithOtp|verifyOtp)\s*\(/.test(body)) offenders.push(f);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('still exposes the live code-entry path', () => {
+    // completeEmailLinkSignIn accepts a six digit token as well as a callback
+    // URL, so code entry needs a UI, not another OTP client.
+    const shop = read('src/context/ShopContext.tsx');
+    expect(shop).toContain('const completeEmailLinkSignIn = async');
+    expect(shop).toContain("await verifyEmailOtp(email, urlOrToken, 'email')");
+  });
+});

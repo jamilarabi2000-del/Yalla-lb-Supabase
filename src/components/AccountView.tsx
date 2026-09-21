@@ -1167,14 +1167,22 @@ export const AccountView: React.FC = () => {
       />
 
       {/*
-        No OTP modal is mounted here. OTPModal was rendered with state that
-        nothing ever set -- setShowOtpModal was only ever called with false,
-        and setOtpTargetContact, setOtpActionType and setPendingAuthAction
-        were never called at all -- so it could not open, and had it opened it
-        would have carried an empty targetContact and a no-op onVerifySuccess.
-        It read like a step-up check guarding this screen and guarded nothing.
-        src/components/OTPModal.tsx is a working email-OTP implementation and
-        is kept; mount it deliberately with real state if a step-up is wanted.
+        No OTP modal here. OTPModal.tsx used to be mounted in this screen with
+        state nothing ever set, so it could not open; it has now been deleted
+        rather than kept.
+
+        It was a second interface for a capability this screen already offers:
+        both call supabase.auth.signInWithOtp, and the email Supabase sends
+        carries a magic link and a six digit code. sendEmailSignInLink uses the
+        link half and is wired to a real button; the modal used the code half
+        and was wired to nothing. It also re-sent on every targetContact
+        change, bypassing the sixty second guard on its own resend button.
+
+        If code entry is ever wanted alongside the link, no new auth code is
+        needed: completeEmailLinkSignIn already takes either a callback URL or
+        a six digit token and verifies the code path through verifyEmailOtp.
+        It needs a UI that collects six digits, not another OTP client. The
+        deleted file is in git history.
       */}
     </div>
   );
