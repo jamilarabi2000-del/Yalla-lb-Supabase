@@ -53,7 +53,7 @@ export const CheckoutView: React.FC = () => {
     goBack,
     t,
     language,
-    firebaseUser,
+    authUser,
     isEmailVerified,
     user,
     updateUser,
@@ -174,9 +174,9 @@ export const CheckoutView: React.FC = () => {
 
   // Sync recipient fields from logged-in user profile
   useEffect(() => {
-    if (firebaseUser) {
+    if (authUser) {
       // Name parsing & smart deduction
-      const nameCandidate = user?.name || firebaseUser.displayName || '';
+      const nameCandidate = user?.name || authUser.displayName || '';
       let fName = user?.firstName || '';
       let lName = user?.lastName || '';
 
@@ -189,7 +189,7 @@ export const CheckoutView: React.FC = () => {
       }
 
       if (!fName || !lName) {
-        const emailToParse = firebaseUser?.email || user?.email || '';
+        const emailToParse = authUser?.email || user?.email || '';
         if (emailToParse.includes('@')) {
           const raw = emailToParse.split('@')[0].replace(/[0-9]+/g, ' ').trim();
           const parts = raw.split(/[\._\-\s]+/).filter(Boolean);
@@ -216,7 +216,7 @@ export const CheckoutView: React.FC = () => {
       }
 
       // Address & Notes defaults
-      const emailVal = firebaseUser?.email || user?.email || '';
+      const emailVal = authUser?.email || user?.email || '';
       const governorateVal = user?.defaultGovernorate || 'beirut';
       const cityVal = user?.defaultCity || '';
       const streetVal = user?.defaultAddress || '';
@@ -250,11 +250,11 @@ export const CheckoutView: React.FC = () => {
         notes: ''
       });
     }
-  }, [firebaseUser, user]);
+  }, [authUser, user]);
 
   // Sync guest-entered checkout details to user profile immediately upon logging in or signing up
   useEffect(() => {
-    if (firebaseUser && user) {
+    if (authUser && user) {
       const hasGuestFirstName = formData.firstName && formData.firstName.trim() !== '';
       const hasGuestLastName = formData.lastName && formData.lastName.trim() !== '';
       const hasGuestPhone = formData.phone && formData.phone.trim() !== '';
@@ -286,7 +286,7 @@ export const CheckoutView: React.FC = () => {
         }
       }
     }
-  }, [firebaseUser, firebaseUser?.uid]);
+  }, [authUser, authUser?.uid]);
 
 
   // Region & Delivery fee calculation
@@ -433,7 +433,7 @@ export const CheckoutView: React.FC = () => {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!firebaseUser) {
+    if (!authUser) {
       showToast(isArabic ? 'يرجى تسجيل الدخول أولاً' : 'Please sign in to place an order.', 'warning');
       return;
     }
@@ -460,7 +460,7 @@ export const CheckoutView: React.FC = () => {
     const lName = formData.lastName.trim() || user?.lastName || (user?.name ? user.name.split(' ').slice(1).join(' ') : '');
     const finalPhone = formData.phone.trim() || user?.phone || '';
     const finalStreet = formData.street.trim() || user?.defaultAddress || '';
-    const finalEmail = formData.email.trim() || firebaseUser?.email || user?.email || '';
+    const finalEmail = formData.email.trim() || authUser?.email || user?.email || '';
     const finalCity = formData.city.trim() || user?.defaultCity || '';
 
     const missingDetails: string[] = [];
@@ -726,13 +726,13 @@ export const CheckoutView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
-                        firebaseUser 
+                        authUser 
                           ? 'bg-[#16803C] text-white' 
                           : 'bg-[#B89753] text-white animate-pulse'
                       }`}>
-                        {firebaseUser ? '✓' : '1'}
+                        {authUser ? '✓' : '1'}
                       </div>
-                      <span className={`text-xs font-bold ${firebaseUser ? 'text-[#737373]' : 'text-[#171717]'}`}>
+                      <span className={`text-xs font-bold ${authUser ? 'text-[#737373]' : 'text-[#171717]'}`}>
                         {isArabic ? 'حساب المستفيد' : 'Patron Account'}
                       </span>
                     </div>
@@ -741,13 +741,13 @@ export const CheckoutView: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
-                        firebaseUser 
+                        authUser 
                           ? 'bg-[#B89753] text-white animate-pulse' 
                           : 'bg-neutral-100 text-[#737373]'
                       }`}>
                         2
                       </div>
-                      <span className={`text-xs font-bold ${firebaseUser ? 'text-[#171717]' : 'text-[#737373]'}`}>
+                      <span className={`text-xs font-bold ${authUser ? 'text-[#171717]' : 'text-[#737373]'}`}>
                         {isArabic ? 'بيانات الشحن' : 'Delivery Address'}
                       </span>
                     </div>
@@ -767,7 +767,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* 🔒 AUTHENTICATION GATE CARD IF NOT LOGGED IN */}
-              {!firebaseUser ? (
+              {!authUser ? (
                 <div id="checkout-auth-required-card" className="p-6 sm:p-8 rounded-xl bg-white border border-[#B89753]/30 shadow-sm space-y-6 relative overflow-hidden animate-fade-in">
                   <div className="absolute top-0 right-0 left-0 h-1 bg-[#B89753]" />
                   
@@ -1121,7 +1121,7 @@ export const CheckoutView: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
-                        {firebaseUser.email || user.email}
+                        {authUser.email || user.email}
                       </p>
                     </div>
                   </div>
@@ -1141,7 +1141,7 @@ export const CheckoutView: React.FC = () => {
               )}
               
               {/* Recipient Details & Address */}
-              {firebaseUser && (visibility.checkoutAddressForm || isVisualEditMode) && (
+              {authUser && (visibility.checkoutAddressForm || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-5 transition-opacity relative shadow-xs ${!visibility.checkoutAddressForm && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutAddressForm && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1332,7 +1332,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* Delivery Speed Selection */}
-              {firebaseUser && (visibility.checkoutDeliverySpeed || isVisualEditMode) && (
+              {authUser && (visibility.checkoutDeliverySpeed || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutDeliverySpeed && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutDeliverySpeed && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1410,7 +1410,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* Payment Method Selection */}
-              {firebaseUser && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
+              {authUser && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutPaymentMethod && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutPaymentMethod && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1657,7 +1657,7 @@ export const CheckoutView: React.FC = () => {
                   </span>
                 </button>
 
-                {!firebaseUser && (
+                {!authUser && (
                   <p className="text-[11px] text-[#8F7137] bg-[#B89753]/10 p-2.5 rounded-lg border border-[#B89753]/20 text-center font-medium flex items-center justify-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 shrink-0" />
                     <span>{isArabic ? 'يرجى تسجيل الدخول أعلاه لإكمال الطلب' : 'Please sign in or register above to complete order'}</span>

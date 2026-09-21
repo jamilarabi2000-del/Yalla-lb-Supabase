@@ -164,6 +164,9 @@ function toCheckoutError(error: { message?: string; code?: string; details?: str
     }
   }
 
+  if (/EMAIL_NOT_VERIFIED/i.test(raw)) {
+    return new CheckoutError('EMAIL_NOT_VERIFIED', 'Please verify your email before placing an order.');
+  }
   if (/authentication required/i.test(raw)) {
     return new CheckoutError('UNAUTHENTICATED', 'Please sign in to place your order.');
   }

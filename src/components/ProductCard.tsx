@@ -161,23 +161,13 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
           {/* Price */}
           <div className="flex items-baseline justify-between gap-1.5">
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <div className="flex flex-col leading-tight">
-                <span className="text-sm sm:text-base font-black text-[#171717] tracking-tight">
-                  ${product.priceUSD.toFixed(2)}
+              <span className="text-sm sm:text-base font-black text-[#171717] tracking-tight">
+                ${product.priceUSD.toFixed(2)}
+              </span>
+              {product.originalPriceUSD && product.originalPriceUSD > product.priceUSD && (
+                <span className="text-xs text-slate-400 line-through font-medium">
+                  ${product.originalPriceUSD.toFixed(2)}
                 </span>
-                <span className="text-[10px] font-semibold text-[#737373]">
-                  L.L. ${Math.round(product.priceUSD * currencyRate).toLocaleString()}
-                </span>
-              </div>
-              {product.originalPriceUSD && (
-                <div className="flex flex-col items-end leading-tight">
-                  <span className="text-xs text-slate-400 line-through font-medium">
-                    ${product.originalPriceUSD.toFixed(2)}
-                  </span>
-                  <span className="text-[9px] text-slate-400 line-through">
-                    L.L. ${Math.round(product.originalPriceUSD * currencyRate).toLocaleString()}
-                  </span>
-                </div>
               )}
             </div>
           </div>
