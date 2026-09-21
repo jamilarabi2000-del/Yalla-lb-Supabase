@@ -4024,20 +4024,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const currencySymbol = currency === 'LBP' ? 'L.L.' : '$';
-  const currencyRate = currency === 'LBP' ? lbpRate : 1;
+  const currencySymbol = '$';
+  const currencyRate = 1;
 
-  const convertUSDToLBP = (amountUSD: number) => {
-    return Math.round(amountUSD * lbpRate);
-  };
+  const convertUSDToLBP = (amountUSD: number) => Math.round(amountUSD * lbpRate);
 
-  const formatPrice = (amountUSD: number) => {
-    if (currency === 'LBP') {
-      const amountLBP = convertUSDToLBP(amountUSD);
-      return `L.L. ${amountLBP.toLocaleString()}`;
-    }
-    return `$${amountUSD.toFixed(2)}`;
-  };
+  const formatPrice = (amountUSD: number) => `$${amountUSD.toFixed(2)}`;
 
   const addToCart = (product: Product, quantity = 1, option?: string) => {
     // Determine the product from our master products list to get the most up-to-date stock
