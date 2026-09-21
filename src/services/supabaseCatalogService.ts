@@ -1023,22 +1023,60 @@ export const supabaseCatalogService = {
       }
     }
 
-    const {
-      data,
-      error,
-    } = await query;
+    /**
+     * Fetched in pages rather than one unbounded request.
+     *
+     * This had no .range() and no .limit(), which is a correctness problem
+     * before it is a performance one: PostgREST caps a response at
+     * `db-max-rows` (1000 on Supabase by default), so past that the
+     * storefront would silently render only the first page of the catalogue
+     * with no error and no indication anything was missing.
+     *
+     * Paging to exhaustion keeps the whole catalogue correct at any size and
+     * bounds each individual response. CATALOG_PAGE_CEILING is a guard
+     * against an unbounded loop, not a product limit; hitting it is logged
+     * rather than swallowed.
+     */
+    const PAGE_SIZE = 1000;
+    const CATALOG_PAGE_CEILING = 50;
 
-    if (error) {
-      console.error(
-        '[supabaseCatalogService] fetchProducts:',
+    const rows: any[] = [];
+
+    for (let page = 0; page < CATALOG_PAGE_CEILING; page += 1) {
+      const from = page * PAGE_SIZE;
+
+      const {
+        data,
         error,
+      } = await query.range(
+        from,
+        from + PAGE_SIZE - 1,
       );
 
-      throw error;
+      if (error) {
+        console.error(
+          '[supabaseCatalogService] fetchProducts:',
+          error,
+        );
+
+        throw error;
+      }
+
+      const batch = data ?? [];
+
+      rows.push(...batch);
+
+      if (batch.length < PAGE_SIZE) break;
+
+      if (page === CATALOG_PAGE_CEILING - 1) {
+        console.error(
+          `[supabaseCatalogService] fetchProducts: stopped at ${CATALOG_PAGE_CEILING * PAGE_SIZE} rows; the catalogue is larger than this loader expects.`,
+        );
+      }
     }
 
     const mapped =
-      (data ?? []).map(
+      rows.map(
         (row: any) =>
           mapSupabaseProduct({
             ...row,

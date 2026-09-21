@@ -235,3 +235,44 @@ describe('CSV importer builds every field it references', () => {
     expect(undeclared).toEqual([]);
   });
 });
+
+describe('Catalogue fetch is not silently truncated', () => {
+  const svc = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/services/supabaseCatalogService.ts'),
+    'utf8',
+  );
+
+  const fetchProductsBody = () => {
+    const start = svc.indexOf('async fetchProducts(');
+    expect(start).toBeGreaterThan(-1);
+    const after = svc.slice(start + 1);
+    const end = after.search(/\n  async [a-zA-Z]+\(/);
+    const body = after.slice(0, end === -1 ? undefined : end);
+    // Strip comments: the block explaining this fix legitimately names
+    // `.range()`, so asserting on raw text passes on the documentation alone
+    // even when the call itself is gone.
+    return body
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  };
+
+  it('pages the query instead of issuing one unbounded request', () => {
+    // PostgREST caps a response at db-max-rows (1000 on Supabase). Without a
+    // range the storefront would render only the first page of a larger
+    // catalogue, with no error and nothing to indicate rows were missing.
+    const body = fetchProductsBody();
+    expect(body).toContain('.range(');
+    expect(body).toMatch(/PAGE_SIZE/);
+  });
+
+  it('stops when a short page is returned rather than looping forever', () => {
+    const body = fetchProductsBody();
+    expect(body).toContain('if (batch.length < PAGE_SIZE) break;');
+    expect(body).toMatch(/CATALOG_PAGE_CEILING/);
+  });
+
+  it('reports hitting the ceiling instead of truncating in silence', () => {
+    const body = fetchProductsBody();
+    expect(body).toMatch(/console\.error[\s\S]{0,200}larger than this loader expects/);
+  });
+});
