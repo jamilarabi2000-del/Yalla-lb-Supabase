@@ -220,7 +220,6 @@ export const NewsSection: React.FC = () => {
   });
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [isAutoPlay, setIsAutoPlay] = useState(false);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const sliderRef = useRef<HTMLDivElement>(null);
 
@@ -297,6 +296,16 @@ export const NewsSection: React.FC = () => {
     }
   }, [filteredNews]);
 
+  // Switching category changes the track contents underneath the user. Without
+  // this the slider stays where it was, which on a shorter category leaves it
+  // scrolled past the end showing nothing.
+  useEffect(() => {
+    if (sliderRef.current) {
+      sliderRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+    setActiveSlideIndex(0);
+  }, [activeCategory]);
+
   // Handle slide scrolling
   const scrollSlider = (direction: 'left' | 'right') => {
     if (sliderRef.current) {
@@ -343,7 +352,7 @@ export const NewsSection: React.FC = () => {
             <button
               onClick={() => scrollSlider('left')}
               aria-label="Previous Slide"
-              disabled={!canScrollLeft && !isAutoPlay}
+              disabled={!canScrollLeft}
               className={`w-9 h-9 rounded-lg border border-[#B89753]/30 bg-white/5 text-[#B89753] hover:bg-[#B89753] hover:text-[#171717] hover:border-[#B89753] flex items-center justify-center transition-all duration-200 cursor-pointer shadow-sm disabled:opacity-25 disabled:cursor-not-allowed ${
                 language === 'ar' ? 'rotate-180' : ''
               }`}
@@ -353,7 +362,7 @@ export const NewsSection: React.FC = () => {
             <button
               onClick={() => scrollSlider('right')}
               aria-label="Next Slide"
-              disabled={!canScrollRight && !isAutoPlay}
+              disabled={!canScrollRight}
               className={`w-9 h-9 rounded-lg border border-[#B89753]/30 bg-white/5 text-[#B89753] hover:bg-[#B89753] hover:text-[#171717] hover:border-[#B89753] flex items-center justify-center transition-all duration-200 cursor-pointer shadow-sm disabled:opacity-25 disabled:cursor-not-allowed ${
                 language === 'ar' ? 'rotate-180' : ''
               }`}
@@ -361,6 +370,42 @@ export const NewsSection: React.FC = () => {
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        {/* Category Filter -- drives filteredNews below */}
+        <div
+          role="tablist"
+          aria-label={language === 'ar' ? 'تصفية الأخبار حسب الفئة' : 'Filter news by category'}
+          className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-none"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {categories.map((cat) => {
+            const count = cat.id === 'all'
+              ? normalizedArticles.length
+              : normalizedArticles.filter(item => item.category === cat.id).length;
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                role="tab"
+                aria-selected={isActive}
+                // An empty category would switch the track to nothing at all,
+                // so it is offered but not selectable.
+                disabled={count === 0}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed ${
+                  isActive
+                    ? 'bg-[#B89753] text-[#171717] border-[#B89753] shadow-sm'
+                    : 'bg-white/5 text-[#B89753] border-[#B89753]/30 hover:bg-[#B89753] hover:text-[#171717] hover:border-[#B89753]'
+                }`}
+              >
+                {language === 'ar' ? cat.labelAr : cat.labelEn}
+                <span className={`ms-1.5 font-mono ${isActive ? 'text-[#171717]/60' : 'text-[#B89753]/60'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Horizontal Slider Track Container */}

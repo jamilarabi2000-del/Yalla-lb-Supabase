@@ -276,3 +276,42 @@ describe('Catalogue fetch is not silently truncated', () => {
     expect(body).toMatch(/console\.error[\s\S]{0,200}larger than this loader expects/);
   });
 });
+
+describe('News category filter is wired to the UI', () => {
+  const news = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/components/NewsSection.tsx'),
+    'utf8',
+  );
+  const code = news
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('renders a control that can change the active category', () => {
+    // The type, the bilingual labels, the state and the filter all existed;
+    // no selector was rendered, so activeCategory was frozen at 'all' and the
+    // filter branch was unreachable.
+    expect(code).toContain('setActiveCategory(cat.id)');
+    expect(code).toContain('categories.map(');
+  });
+
+  it('keeps the filter applied to what is actually rendered', () => {
+    expect(code).toMatch(/const filteredNews\s*=/);
+    expect(code).toContain('filteredNews.map(');
+  });
+
+  it('does not offer a category with no articles', () => {
+    // Selecting an empty category would swap the track for nothing at all.
+    expect(code).toContain('disabled={count === 0}');
+  });
+
+  it('resets the slider when the category changes', () => {
+    expect(code).toMatch(/useEffect\([\s\S]{0,260}scrollTo[\s\S]{0,160}\[activeCategory\]\)/);
+  });
+
+  it('carries no frozen autoplay state', () => {
+    // isAutoPlay was permanently false, so `!canScroll && !isAutoPlay` was
+    // just `!canScroll`.
+    expect(code).not.toContain('isAutoPlay');
+  });
+});
