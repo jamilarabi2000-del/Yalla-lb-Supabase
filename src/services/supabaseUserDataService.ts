@@ -3,8 +3,6 @@ import { UserProfile, CartItem, Review } from '../types';
 import { generateUuidV4 } from '../utils/uuid';
 import { toUserFacingError } from '../utils/userFacingError';
 
-const errorMessage = (err: unknown) => toUserFacingError(err).message;
-
 export const supabaseUserDataService = {
   async fetchProfile(userId: string): Promise<Partial<UserProfile> | null> {
     const { data, error } = await supabase
