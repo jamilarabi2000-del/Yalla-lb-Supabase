@@ -67,12 +67,7 @@ export const CheckoutView: React.FC = () => {
     signInWithApple,
     signOutUser,
     siteContent,
-    isVisualEditMode,
-    // Live USD -> LBP rate from app_settings. Do NOT use the LBP_USD_RATE
-    // constant here: checkout_create_order prices total_lbp from the stored
-    // setting, so a hardcoded rate quotes the shopper a total the courier
-    // will not collect once that setting changes.
-    lbpRate
+    isVisualEditMode
   } = useShop();
 
   const visibility = siteContent?.visibility || {
@@ -1631,9 +1626,6 @@ export const CheckoutView: React.FC = () => {
                       <span className="text-2xl font-bold text-[#8F7137]">
                         {formatPrice(finalTotalUSD)}
                       </span>
-                      <div className="text-[10px] text-[#737373] font-mono">
-                        ≈ {(finalTotalUSD * lbpRate).toLocaleString()} LBP
-                      </div>
                     </div>
                   </div>
                 </div>
