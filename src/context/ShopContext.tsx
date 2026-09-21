@@ -1238,11 +1238,25 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAdminUser]);
 
+  /**
+   * Re-reads the rules from Supabase after a write.
+   *
+   * Local state must not be patched from the object that was sent: the server
+   * assigns the uuid and owns the coupon row, so a locally-built rule carries
+   * an id that does not exist and limits that may not have been stored.
+   */
+  const refreshDiscountRules = async () => {
+    const rules = await supabaseCommerceService.fetchDiscountRules();
+    setDiscountRules(rules as DiscountRule[]);
+  };
+
   const addDiscountRule = async (ruleData: Omit<DiscountRule, 'id'>, couponCode?: string, maxTotalUses?: number, maxUsesPerUser?: number) => {
-    const ruleWithMeta = { ...ruleData, id: 'rule-' + secureRandomString(7), couponCode, maxTotalUses, maxUsesPerUser };
+    // No client-minted id: discount_rules.id is a uuid with a default, and
+    // 'rule-<random>' could never be stored.
+    const ruleWithMeta = { ...ruleData, couponCode, maxTotalUses, maxUsesPerUser };
     try {
       await supabaseCommerceService.createDiscountRule(ruleWithMeta);
-      setDiscountRules(prev => [ruleWithMeta, ...prev]);
+      await refreshDiscountRules();
       await logAdminActivity('meta_change', 'Created Discount Rule', `Created discount: ${ruleWithMeta.name}`);
     } catch (err:any) {
       showToast(`Failed to save discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
@@ -1254,7 +1268,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const ruleWithMeta = { ...target, ...updates, ...(couponCode !== undefined ? {couponCode} : {}), ...(maxTotalUses !== undefined ? {maxTotalUses} : {}), ...(maxUsesPerUser !== undefined ? {maxUsesPerUser} : {}) };
     try {
       await supabaseCommerceService.updateDiscountRule(id, ruleWithMeta);
-      setDiscountRules(prev => prev.map(r => r.id === id ? ruleWithMeta : r));
+      await refreshDiscountRules();
       await logAdminActivity('meta_change', 'Updated Discount Rule', `Updated discount ID: ${id}`);
     } catch (err:any) {
       showToast(`Failed to update discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
@@ -1264,7 +1278,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteDiscountRule = async (id: string) => {
     try {
       await supabaseCommerceService.deleteDiscountRule(id);
-      setDiscountRules(prev => prev.filter(r => r.id !== id));
+      await refreshDiscountRules();
       await logAdminActivity('meta_change', 'Deleted Discount Rule', `Deleted discount ID: ${id}`);
     } catch (err:any) {
       showToast(`Failed to delete discount rule: ${err?.message || 'unknown error'}`, 'error'); throw err;
@@ -1314,12 +1328,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAdminUser]);
 
+  const refreshProductBundles = async () => {
+    const bundles = await supabaseCommerceService.fetchProductBundles();
+    setProductBundles(bundles as ProductBundle[]);
+  };
+
   const addProductBundle = async (bundleData: Omit<ProductBundle, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newBundle: ProductBundle = {...bundleData,id:'bundle-'+secureRandomString(7),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    // product_bundles.id is a uuid with a default; 'bundle-<random>' is not one.
     try {
-      await supabaseCommerceService.createProductBundle(newBundle);
-      setProductBundles(prev=>[newBundle,...prev]);
-      await logAdminActivity('meta_change','Created Combo Deal',`Created bundle: ${newBundle.name}`);
+      await supabaseCommerceService.createProductBundle(bundleData);
+      await refreshProductBundles();
+      await logAdminActivity('meta_change','Created Combo Deal',`Created bundle: ${bundleData.name}`);
     } catch(err:any) {
       showToast(`Failed to create combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
     }
@@ -1330,7 +1349,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedBundle={...target,...updates,updatedAt:new Date().toISOString()};
     try {
       await supabaseCommerceService.updateProductBundle(id,updatedBundle);
-      setProductBundles(prev=>prev.map(b=>b.id===id?updatedBundle:b));
+      await refreshProductBundles();
       await logAdminActivity('meta_change','Updated Combo Deal',`Updated bundle ID: ${id}`);
     } catch(err:any) {
       showToast(`Failed to update combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
@@ -1340,7 +1359,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteProductBundle = async (id:string) => {
     try {
       await supabaseCommerceService.deleteProductBundle(id);
-      setProductBundles(prev=>prev.filter(b=>b.id!==id));
+      await refreshProductBundles();
       await logAdminActivity('meta_change','Deleted Combo Deal',`Deleted bundle ID: ${id}`);
     } catch(err:any) {
       showToast(`Failed to delete combo deal: ${err?.message || 'unknown error'}`,'error'); throw err;
