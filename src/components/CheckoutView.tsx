@@ -850,6 +850,19 @@ export const CheckoutView: React.FC = () => {
                       </svg>
                       <span>{isArabic ? 'المتابعة السريعة باستخدام حساب Google' : 'Continue with Google Account'}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      id="checkout-apple-signin-btn"
+                      onClick={handleCheckoutApple}
+                      disabled={isAuthLoading}
+                      className="w-full py-2.5 px-4 rounded-lg bg-black hover:bg-[#171717] text-white font-bold text-xs border border-black flex items-center justify-center gap-3 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M17.05 12.94c-.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.79-.41 6.92 1.15 9.18.76 1.11 1.67 2.35 2.86 2.31 1.15-.05 1.58-.74 2.97-.74 1.39 0 1.78.74 2.99.72 1.24-.02 2.02-1.13 2.78-2.24.88-1.28 1.24-2.53 1.26-2.6-.03-.01-2.41-.93-2.44-3.7zM14.8 5.6c.63-.77 1.06-1.83.94-2.9-.91.04-2.02.61-2.67 1.37-.58.68-1.09 1.77-.95 2.81 1.02.08 2.05-.52 2.68-1.28z" />
+                      </svg>
+                      <span>{isArabic ? 'المتابعة السريعة باستخدام حساب Apple' : 'Continue with Apple Account'}</span>
+                    </button>
                   </div>
 
                   <div className="relative flex py-1 items-center">

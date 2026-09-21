@@ -941,3 +941,37 @@ describe('The account screen does not promise verification it cannot do', () => 
     expect(handler).toContain('await resendEmailVerification(');
   });
 });
+
+describe('Auth handlers are attached to something', () => {
+  // signInWithApple existed in context, was wrapped in handleAppleSignIn and
+  // handleCheckoutApple, and neither handler was attached to any control --
+  // so Apple sign-in was built end to end and offered nowhere, while Google
+  // was wired in both views.
+  const files = ['src/components/AccountView.tsx', 'src/components/CheckoutView.tsx'];
+
+  const strip = (s: string) =>
+    s.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
+     .replace(/\/\*[\s\S]*?\*\//g, '')
+     .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('offers Apple alongside Google in both views', () => {
+    for (const f of files) {
+      const code = strip(read(f));
+      expect(code).toMatch(/onClick=\{handle(AppleSignIn|CheckoutApple)\}/);
+      expect(code).toMatch(/onClick=\{handle(GoogleSignIn|CheckoutGoogle)\}/);
+    }
+  });
+
+  for (const file of files) {
+    it(`${file.split('/').pop()} declares no handler it never uses`, () => {
+      // General invariant: a `const handleX = ...` that appears exactly once
+      // is a feature wired to nothing.
+      const code = strip(read(file));
+      const declared = [...code.matchAll(/const (handle[A-Z][\w$]*)\s*=/g)].map(m => m[1]);
+      const orphaned = declared.filter(
+        n => (code.match(new RegExp(`\\b${n}\\b`, 'g')) ?? []).length < 2,
+      );
+      expect(orphaned).toEqual([]);
+    });
+  }
+});
