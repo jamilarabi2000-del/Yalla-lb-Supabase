@@ -449,7 +449,6 @@ interface ShopContextType {
   currencyRate: number;
   const currencySymbol = '$';
   const currencyRate = 1;
-  const lbpRate = 0;
   const convertUSDToLBP = (amountUSD: number) => amountUSD;
 
   const formatPrice = (amountUSD: number) => '$' + amountUSD.toFixed(2);
@@ -1586,7 +1585,6 @@ interface ShopContextType {
     setCurrency,
     formatPrice,
     convertUSDToLBP,
-    lbpRate,
     currencySymbol,
     currencyRate,
     cart,
