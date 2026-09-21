@@ -223,6 +223,7 @@ function orderItemToCartItem(row: Record<string, unknown>): CartItem {
     category: asStr(snap.category_id),
     // Historical unit price at purchase time. Never re-read from the live
     // catalog: a past order must not change when a price changes.
+    regularPriceUSD: asNum(row.unit_price_usd, asNum(snap.price_usd)),
     priceUSD: asNum(row.unit_price_usd, asNum(snap.price_usd)),
     rating: 0,
     reviewsCount: 0,
@@ -272,7 +273,6 @@ export function mapSupabaseOrder(row: Record<string, unknown>): Order {
     deliveryFeeUSD: asNum(row.delivery_fee_usd),
     discountUSD: asNum(row.discount_usd),
     totalUSD: asNum(row.total_usd),
-    totalLBP: asNum(row.total_lbp),
     status: asStr(row.status, 'pending') as OrderStatus,
     estimatedDelivery: asStr(row.estimated_delivery),
     trackingNumber: asStr(row.tracking_number),
