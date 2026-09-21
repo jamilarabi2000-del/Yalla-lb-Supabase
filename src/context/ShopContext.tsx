@@ -1787,7 +1787,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        localStorage.setItem(CATALOG_CACHE_KEYS.products, JSON.stringify(
+        writeCatalogCache(CATALOG_CACHE_KEYS.products, (
           shouldDeleteProducts
             ? products.filter(p => !new Set(affectedProducts.map(ap => ap.id)).has(p.id))
             : effectiveReassignId
@@ -3804,6 +3804,16 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         localStorage.removeItem('yallalb_orders');
         localStorage.removeItem('yallalb_saved_checkout_data');
+        // The catalogue cache holds the privileged projection if this session
+        // was an administrator or seller -- cost_price_usd, seller_item_code,
+        // low_stock_threshold, custom_stock_label, and unpublished rows.
+        // localStorage is per-origin, not per-session, and the products state
+        // is seeded straight from it before any fetch or auth check runs, so
+        // leaving it behind shows the next person on this device the previous
+        // administrator's catalogue. The role-change effect refetches and
+        // overwrites it, but only if that refetch succeeds and the tab stays
+        // open; closing it straight after signing out is ordinary.
+        Object.values(CATALOG_CACHE_KEYS).forEach(key => localStorage.removeItem(key));
       } catch {}
       showToast('Signed out successfully', 'info');
     } catch (error: any) {
