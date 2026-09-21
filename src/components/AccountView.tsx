@@ -22,7 +22,6 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  ShieldCheck,
   Save,
   Loader2,
   Store
@@ -517,22 +516,17 @@ export const AccountView: React.FC = () => {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const targetEmail = firebaseUser?.email || user?.email;
-                    if (targetEmail && resendEmailVerification) {
-                      try {
-                        await resendEmailVerification(targetEmail);
-                      } catch (err: any) {
-                      }
-                    }
-                  }}
-                  className="px-4 py-2 bg-[#8F7137] hover:bg-[#B89753] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>{language === 'ar' ? 'تأكيد عبر رمز OTP' : 'Verify with OTP'}</span>
-                </button>
+                {/*
+                  A second button sat here labelled "Verify with OTP"
+                  (تأكيد عبر رمز OTP). It called resendEmailVerification --
+                  the same thing as the Resend Link button beside it -- so it
+                  sent an email link, not a one-time code, and it carried
+                  neither the disabled guard nor the sending state that button
+                  has. It was a mislabelled duplicate of the better
+                  implementation, and it promised a verification method this
+                  screen does not offer. Removed rather than relabelled,
+                  which would have left two identical resend buttons.
+                */}
                 <button
                   type="button"
                   disabled={isSendingVerification}

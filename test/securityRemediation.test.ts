@@ -909,3 +909,35 @@ describe('No auth modal is mounted that cannot open', () => {
     });
   }
 });
+
+describe('The account screen does not promise verification it cannot do', () => {
+  const account = read('src/components/AccountView.tsx');
+  const code = account
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+  it('offers no "Verify with OTP" control', () => {
+    // The button carrying this label called resendEmailVerification: it sent
+    // an email link, not a one-time code, and duplicated the Resend Link
+    // button beside it without that button's disabled guard.
+    expect(code).not.toContain('Verify with OTP');
+    expect(code).not.toContain('تأكيد عبر رمز OTP');
+  });
+
+  it('resends verification through the single guarded handler', () => {
+    // One path, with isSendingVerification driving a disabled state, rather
+    // than two buttons where only one of them guards against repeat clicks.
+    expect(code).toContain('onClick={handleResendVerification}');
+    expect(code).toContain('disabled={isSendingVerification}');
+    // Exactly one call site, and it is inside the handler -- not inlined in
+    // a JSX onClick, which is how the unguarded duplicate came about.
+    const calls = (code.match(/await resendEmailVerification\(/g) ?? []).length;
+    expect(calls).toBe(1);
+    const handler = code.slice(
+      code.indexOf('const handleResendVerification = async'),
+      code.indexOf('useEffect(() => {', code.indexOf('const handleResendVerification = async')),
+    );
+    expect(handler).toContain('await resendEmailVerification(');
+  });
+});
