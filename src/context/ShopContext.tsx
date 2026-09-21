@@ -3935,11 +3935,43 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 3500);
   };
 
+  /**
+   * USD -> LBP rate, read from app_settings.
+   *
+   * private.checkout_create_order prices total_lbp from
+   * app_settings.lbp_usd_rate. The storefront must convert through the same
+   * value or the shopper is quoted one LBP total and the courier collects
+   * another -- these are cash-on-delivery orders, settled at the door. There
+   * is no admin screen for the setting, so it changes by direct SQL: a change
+   * that never reaches a redeploy.
+   *
+   * LBP_USD_RATE is the fallback for the first paint and for a failed read,
+   * and matches the server's own fallback so the two cannot disagree before
+   * the fetch lands.
+   */
+  const [lbpRate, setLbpRate] = useState<number>(LBP_USD_RATE);
+
+  useEffect(() => {
+    let isMounted = true;
+    supabaseCommerceService
+      .fetchLbpUsdRate()
+      .then((rate) => {
+        if (isMounted && rate !== null) setLbpRate(rate);
+      })
+      .catch((err: unknown) => {
+        // Keep the fallback; never price at zero or NaN.
+        console.error('[ShopContext] Failed to load the LBP rate:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const currencySymbol = currency === 'LBP' ? 'L.L.' : '$';
-  const currencyRate = currency === 'LBP' ? LBP_USD_RATE : 1;
+  const currencyRate = currency === 'LBP' ? lbpRate : 1;
 
   const convertUSDToLBP = (amountUSD: number) => {
-    return Math.round(amountUSD * LBP_USD_RATE);
+    return Math.round(amountUSD * lbpRate);
   };
 
   const formatPrice = (amountUSD: number) => {
@@ -5083,6 +5115,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrency,
     formatPrice,
     convertUSDToLBP,
+    lbpRate,
     currencySymbol,
     currencyRate,
     cart,
@@ -5205,6 +5238,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isFetchingMore,
     loadMoreProducts,
     currency,
+    lbpRate,
     cart,
     cartTotalUSD,
     cartCount,
