@@ -693,8 +693,8 @@ const ADMIN_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  regular_price,
+  promo_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -1339,11 +1339,15 @@ export const supabaseCatalogService = {
 
         // Canonical writable pricing fields.
         regular_price:
+          product.originalPriceUSD ??
           product.priceUSD ??
           0,
 
         promo_price:
-          product.originalPriceUSD,
+          product.originalPriceUSD != null &&
+          product.originalPriceUSD !== product.priceUSD
+            ? product.priceUSD
+            : null,
 
         discount_percentage:
           product.discountPercentage,
