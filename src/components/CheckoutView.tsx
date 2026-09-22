@@ -606,8 +606,7 @@ export const CheckoutView: React.FC = () => {
       ? (siteContent?.checkoutSuccessPage?.buttonContinueTextArabic ?? 'متابعة التسوق')
       : (siteContent?.checkoutSuccessPage?.buttonContinueText ?? 'Continue Shopping');
 
-    return (
-      <div className="min-h-[75vh] flex items-center justify-center px-4 py-16 bg-[#F8F8F6]">
+    return (\n    <div data-cms-element="checkout" className="min-h-[75vh] flex items-center justify-center px-4 py-16 bg-[#F8F8F6]">
         <div className="max-w-xl w-full p-8 sm:p-12 rounded-xl bg-white border border-[#E5E5E5] text-center space-y-6 shadow-sm animate-fade-in">
           <div className="w-16 h-16 rounded-full bg-[#16803C]/10 border border-[#16803C]/20 flex items-center justify-center mx-auto text-[#16803C]">
             <CheckCircle2 className="w-8 h-8" />
