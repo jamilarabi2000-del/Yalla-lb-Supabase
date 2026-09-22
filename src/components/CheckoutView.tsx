@@ -1477,7 +1477,7 @@ export const CheckoutView: React.FC = () => {
                           {isArabic ? 'تحويل إلكتروني فوري' : 'Instant local e-transfer'}
                         </div>
                       </div>
-                    </button>
+                    </button>}
 
                     {/*
                       No card option is offered. The storefront takes no online
