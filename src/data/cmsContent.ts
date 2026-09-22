@@ -60,6 +60,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     checkoutAddressForm: true,
     checkoutDeliverySpeed: true,
     checkoutPaymentMethod: true,
+    checkoutPaymentCOD: true,
+    checkoutPaymentWish: true,
     checkoutOrderSummary: true,
     checkoutGuarantees: true,
     
