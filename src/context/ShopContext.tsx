@@ -29,7 +29,7 @@ import {
 import { applyDiscounts } from '../lib/pricing';
 import { calcDeliveryFeeUSD } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
-import { LEBANON_REGIONS, LBP_USD_RATE } from '../data/regions';
+import { LEBANON_REGIONS } from '../data/regions';
 
 import {
   normalizeLebanesePhone,
@@ -442,13 +442,8 @@ interface ShopContextType {
   formatPrice: (
     amountUSD: number
   ) => string;
-  convertUSDToLBP: (
-    amountUSD: number
-  ) => number;
   currencySymbol: string;
   currencyRate: number;
-  /** Live USD -> LBP rate from app_settings; falls back to LBP_USD_RATE. */
-  lbpRate: number;
 
   // Cart
   cart: CartItem[];
@@ -4006,28 +4001,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * and matches the server's own fallback so the two cannot disagree before
    * the fetch lands.
    */
-  const [lbpRate, setLbpRate] = useState<number>(LBP_USD_RATE);
-
-  useEffect(() => {
-    let isMounted = true;
-    supabaseCommerceService
-      .fetchLbpUsdRate()
-      .then((rate) => {
-        if (isMounted && rate !== null) setLbpRate(rate);
-      })
-      .catch((err: unknown) => {
-        // Keep the fallback; never price at zero or NaN.
-        console.error('[ShopContext] Failed to load the LBP rate:', err);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   const currencySymbol = '$';
   const currencyRate = 1;
-
-  const convertUSDToLBP = (amountUSD: number) => Math.round(amountUSD * lbpRate);
 
   const formatPrice = (amountUSD: number) => `$${amountUSD.toFixed(2)}`;
 
@@ -5162,8 +5137,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currency,
     setCurrency,
     formatPrice,
-    convertUSDToLBP,
-    lbpRate,
+
     currencySymbol,
     currencyRate,
     cart,
@@ -5286,7 +5260,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isFetchingMore,
     loadMoreProducts,
     currency,
-    lbpRate,
+
     cart,
     cartTotalUSD,
     cartCount,
