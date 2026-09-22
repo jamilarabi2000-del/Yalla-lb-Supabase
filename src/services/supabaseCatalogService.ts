@@ -143,13 +143,24 @@ export function mapSupabaseProduct(
     category:
       String(row.category_id || ''),
 
+    // Canonical pricing: promo_price is the effective selling price
+    // when a promotion exists; otherwise regular_price is used.
     priceUSD:
-      Number(row.price_usd ?? 0),
-
-    originalPriceUSD:
-      toNumberOrUndefined(
-        row.original_price_usd,
+      Number(
+        row.promo_price ??
+        row.regular_price ??
+        0,
       ),
+
+    // The frontend keeps this field name for its existing Product interface.
+    // It is derived from the canonical database pricing fields.
+    originalPriceUSD:
+      row.promo_price !== null &&
+      row.promo_price !== undefined
+        ? toNumberOrUndefined(
+            row.regular_price,
+          )
+        : undefined;
 
     discountPercentage:
       toNumberOrUndefined(
@@ -616,7 +627,7 @@ function buildProductMediaRows(
  * - custom_stock_label
  * - cost_price_usd
  *
- * The products table contains these columns, but the
+ * The products table contains these operational columns, but the
  * storefront must not request them.
  */
 const PUBLIC_PRODUCT_COLUMNS = `
@@ -629,8 +640,8 @@ const PUBLIC_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  regular_price,
+  promo_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -670,9 +681,7 @@ const PUBLIC_PRODUCT_COLUMNS = `
 /**
  * ADMIN / SELLER PRODUCT COLUMNS
  *
- * These fields exist in the current products table.
- *
- * They are only requested for admin/seller queries.
+ * These fields are only requested for admin/seller queries.
  */
 const ADMIN_PRODUCT_COLUMNS = `
   id,
@@ -1328,9 +1337,7 @@ export const supabaseCatalogService = {
         category_id:
           product.category,
 
-        // Canonical writable pricing fields. The legacy price_usd and
-        // original_price_usd columns are database-generated compatibility
-        // columns and must never be written directly.
+        // Canonical writable pricing fields.
         regular_price:
           product.priceUSD ??
           0,
