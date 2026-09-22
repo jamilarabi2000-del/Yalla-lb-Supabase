@@ -345,8 +345,7 @@ export const AccountView: React.FC = () => {
   };
 
   if (isSellerUser) {
-    return (
-      <div className="min-h-screen bg-slate-50 pb-24">
+    return (\n    <div data-cms-element="account" className="min-h-screen bg-slate-50 pb-24">
         {/* Account Header with Sign Out */}
         <div className="bg-white border-b border-slate-200 py-4 px-4 sm:px-6 lg:px-8">
           <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
