@@ -51,7 +51,7 @@ export const ProductDetailView: React.FC = () => {
   };
 
   return (
-    <main dir={isRTL ? 'rtl' : 'ltr'} className="bg-[#F7F7F8]">
+    <main data-cms-element="product-detail" dir={isRTL ? 'rtl' : 'ltr'} className="bg-[#F7F7F8]">
       <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
         {show('detailBreadcrumbs') && (
           <div className="flex items-center justify-between gap-3 mb-6">
