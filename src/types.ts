@@ -324,52 +324,6 @@ export type CMSTextStyleSlot =
   | 'input'
   | 'link';
 
-export interface CMSDesignElementConfig {
-  selector?: string;
-  enabled?: boolean;
-  display?: string;
-  position?: string;
-  inset?: string;
-  width?: string;
-  maxWidth?: string;
-  minWidth?: string;
-  height?: string;
-  minHeight?: string;
-  maxHeight?: string;
-  margin?: string;
-  padding?: string;
-  gap?: string;
-  background?: string;
-  color?: string;
-  border?: string;
-  borderRadius?: string;
-  boxShadow?: string;
-  opacity?: string;
-  zIndex?: string;
-  textAlign?: 'left' | 'center' | 'right' | 'start' | 'end';
-  alignItems?: string;
-  justifyContent?: string;
-  flexDirection?: string;
-  gridTemplateColumns?: string;
-  transform?: string;
-  overflow?: string;
-  objectFit?: string;
-  objectPosition?: string;
-  fontFamily?: string;
-  fontSize?: string;
-  fontWeight?: string;
-  lineHeight?: string;
-  letterSpacing?: string;
-  textTransform?: string;
-  hoverBackground?: string;
-  hoverColor?: string;
-  hoverBorder?: string;
-  hoverTransform?: string;
-  hoverBoxShadow?: string;
-  tablet?: Partial<Omit<CMSDesignElementConfig, 'tablet' | 'mobile'>>;
-  mobile?: Partial<Omit<CMSDesignElementConfig, 'tablet' | 'mobile'>>;
-}
-
 export interface CMSThemeConfig {
   primaryColor: string;
   accentColor: string;
@@ -378,8 +332,6 @@ export interface CMSThemeConfig {
   headerStyle: 'modern' | 'classic' | 'minimal';
   textStyles?: Partial<Record<CMSTextStyleSlot, CMSTextStyle>>;
   customCss?: string;
-  /** Per-element visual controls. Selectors are resolved only against the storefront DOM. */
-  designElements?: Record<string, CMSDesignElementConfig>;
 }
 
 export interface CMSHeroStat {
