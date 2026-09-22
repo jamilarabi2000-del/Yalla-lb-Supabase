@@ -63,7 +63,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
     <div 
       id={`product-card-${product.id}-${instanceId}`}
       onClick={() => openProductDetail(product)}
-      className="group relative flex flex-col h-full w-full rounded-xl bg-white border border-[#E5E5E5] hover:border-[#B89753]/60 shadow-2xs hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
+      data-cms-element="product-card" className="group relative flex flex-col h-full w-full rounded-xl bg-white border border-[#E5E5E5] hover:border-[#B89753]/60 shadow-2xs hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
     >
       {/* Image Container */}
       <div 
