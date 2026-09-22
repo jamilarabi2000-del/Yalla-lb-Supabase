@@ -66,12 +66,7 @@ export const CheckoutView: React.FC = () => {
     signInWithApple,
     signOutUser,
     siteContent,
-    isVisualEditMode,
-    // Live USD -> LBP rate from app_settings. Do NOT use the LBP_USD_RATE
-    // constant here: checkout_create_order prices total_lbp from the stored
-    // setting, so a hardcoded rate quotes the shopper a total the courier
-    // will not collect once that setting changes.
-    lbpRate
+    isVisualEditMode
   } = useShop();
 
   const visibility = siteContent?.visibility || {
@@ -520,7 +515,8 @@ export const CheckoutView: React.FC = () => {
         subtotalUSD: Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100,
         deliveryFeeUSD: deliveryFeeUSD,
         totalUSD: finalTotalUSD,
-        totalLBP: Math.round(finalTotalUSD * lbpRate),
+        // total_lbp is calculated authoritatively by the checkout RPC.
+        totalLBP: 0,
         discountUSD: discountUSD,
         appliedCoupon: appliedCouponCode || undefined,
         estimatedDelivery: deliverySpeed === 'express_beirut' 
