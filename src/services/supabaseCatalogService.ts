@@ -664,7 +664,7 @@ const PUBLIC_PRODUCT_COLUMNS = `
   seo_arabic_description,
   weight_or_volume,
   created_at,
-  updated_at,
+  updated_at
 
   sellers!products_seller_id_fkey (
     name_en,
