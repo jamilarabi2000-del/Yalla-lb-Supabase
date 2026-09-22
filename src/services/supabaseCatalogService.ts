@@ -724,8 +724,7 @@ const ADMIN_PRODUCT_COLUMNS = `
   seo_arabic_description,
   weight_or_volume,
   created_at,
-  updated_at,
-
+  updated_at
 `;
 
 /**
