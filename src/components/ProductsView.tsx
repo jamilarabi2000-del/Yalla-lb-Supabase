@@ -241,7 +241,8 @@ export const ProductsView: React.FC = () => {
     setCurrentPage(1);
   };
 
-  return (\n    <div data-cms-element="products" className="min-h-screen bg-[#F8F8F6] pb-20 pt-4 sm:pt-6">
+  return (
+    <div data-cms-element="products" className="min-h-screen bg-[#F8F8F6] pb-20 pt-4 sm:pt-6">
       
       {/* Top Custom Divs / Banners */}
       <CustomBlocksRenderer page="products" position="top" />
