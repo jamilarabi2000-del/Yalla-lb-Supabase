@@ -1421,7 +1421,7 @@ export const CheckoutView: React.FC = () => {
 
               {/* Payment Method Selection */}
               {authUser && showAnyPaymentMethod && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
-                <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutPaymentMethod && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
+                <div data-cms-element="checkout-payment" className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutPaymentMethod && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutPaymentMethod && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
                       <EyeOff className="w-3 h-3" />
@@ -1501,7 +1501,7 @@ export const CheckoutView: React.FC = () => {
             <div className="lg:col-span-5 space-y-6">
               
               {(visibility.checkoutOrderSummary || isVisualEditMode) && (
-                <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-6 sticky top-28 relative shadow-xs ${!visibility.checkoutOrderSummary && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
+                <div data-cms-element="checkout-summary" className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-6 sticky top-28 relative shadow-xs ${!visibility.checkoutOrderSummary && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutOrderSummary && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
                       <EyeOff className="w-3 h-3" />
