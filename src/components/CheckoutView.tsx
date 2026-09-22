@@ -79,9 +79,15 @@ export const CheckoutView: React.FC = () => {
     checkoutAddressForm: true,
     checkoutDeliverySpeed: true,
     checkoutPaymentMethod: true,
+    checkoutPaymentCOD: true,
+    checkoutPaymentWish: true,
     checkoutOrderSummary: true,
     checkoutGuarantees: true,
   };
+
+  const showCODPayment = visibility.checkoutPaymentCOD !== false;
+  const showWishPayment = visibility.checkoutPaymentWish !== false;
+  const showAnyPaymentMethod = showCODPayment || showWishPayment;
 
   const isArabic = language === 'ar';
   const [checkoutCouponInput, setCheckoutCouponInput] = useState('');
@@ -89,6 +95,11 @@ export const CheckoutView: React.FC = () => {
 
   const [deliverySpeed, setDeliverySpeed] = useState<'express_beirut' | 'standard' | 'diaspora_air'>('express_beirut');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod_usd');
+
+  useEffect(() => {
+    if (paymentMethod === 'cod_usd' && !showCODPayment && showWishPayment) setPaymentMethod('wish_omt');
+    if (paymentMethod === 'wish_omt' && !showWishPayment && showCODPayment) setPaymentMethod('cod_usd');
+  }, [paymentMethod, showCODPayment, showWishPayment]);
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string | null>(null);
 
   // Password visibility and reset modal states
@@ -1410,7 +1421,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* Payment Method Selection */}
-              {authUser && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
+              {authUser && showAnyPaymentMethod && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutPaymentMethod && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutPaymentMethod && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1424,7 +1435,7 @@ export const CheckoutView: React.FC = () => {
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
+                    {showCODPayment && <button
                       type="button"
                       onClick={() => setPaymentMethod('cod_usd')}
                       className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
@@ -1444,9 +1455,9 @@ export const CheckoutView: React.FC = () => {
                           {isArabic ? 'تسليم نقدي عند الاستلام' : 'Pay in cash upon arrival'}
                         </div>
                       </div>
-                    </button>
+                    </button>}
 
-                    <button
+                    {showWishPayment && <button
                       type="button"
                       onClick={() => setPaymentMethod('wish_omt')}
                       className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
