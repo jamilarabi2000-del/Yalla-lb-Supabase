@@ -726,16 +726,6 @@ const ADMIN_PRODUCT_COLUMNS = `
   created_at,
   updated_at,
 
-  sellers!products_seller_id_fkey (
-    name_en,
-    name_ar,
-    is_active
-  ),
-
-  categories!products_category_id_fkey (
-    name_en,
-    name_ar
-  )
 `;
 
 /**
@@ -1038,6 +1028,10 @@ export const supabaseCatalogService = {
         }),
       );
     } else {
+      // Do not use PostgREST nested seller/category relationships here.
+      // The admin catalog must remain readable even when relationship metadata
+      // is stale after schema changes. Product rows are authoritative; seller
+      // names are optional display metadata.
       query = supabase
         .from('products')
         .select(columns)
