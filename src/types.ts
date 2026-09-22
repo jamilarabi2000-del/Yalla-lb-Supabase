@@ -324,6 +324,15 @@ export type CMSTextStyleSlot =
   | 'input'
   | 'link';
 
+export interface CMSDesignRule {
+  selector: string;
+  enabled?: boolean;
+  desktop?: Record<string, string>;
+  tablet?: Record<string, string>;
+  mobile?: Record<string, string>;
+  hover?: Record<string, string>;
+}
+
 export interface CMSThemeConfig {
   primaryColor: string;
   accentColor: string;
@@ -332,6 +341,8 @@ export interface CMSThemeConfig {
   headerStyle: 'modern' | 'classic' | 'minimal';
   textStyles?: Partial<Record<CMSTextStyleSlot, CMSTextStyle>>;
   customCss?: string;
+  /** Admin-managed CSS properties for registered or custom storefront selectors. */
+  designRules?: Record<string, CMSDesignRule>;
 }
 
 export interface CMSHeroStat {
