@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Eye, EyeOff, Palette, RotateCcw, Save, Smartphone, Tablet, Monitor } from 'lucide-react';
 import { useShop } from '../../../context/ShopContext';
 import type { CMSDesignElementConfig } from '../../../types';
