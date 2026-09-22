@@ -61,7 +61,7 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-[#E5E5E5] shadow-2xs">
+    <header data-cms-element="navbar" className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-[#E5E5E5] shadow-2xs">
       {showAnnouncement && (siteContent?.navbar?.announcementTicker || siteContent?.navbar?.announcementTickerArabic) && (
         <div className="bg-[#171717] text-[#F8F8F6] text-[11px] sm:text-xs py-2 px-4 text-center font-bold tracking-wider flex items-center justify-center gap-2 overflow-hidden border-b border-[#8F7137]/30">
           <span className="inline-block text-[#B89753]">✨</span>
