@@ -150,7 +150,22 @@ const MainAppContent: React.FC = () => {
     }).join('');
     let style = document.getElementById('yalla-admin-text-styles') as HTMLStyleElement | null;
     if (!style) { style = document.createElement('style'); style.id = 'yalla-admin-text-styles'; document.head.appendChild(style); }
-    style.textContent = css + responsive + (siteContent.theme.customCss || '');
+    const designRules = (siteContent.theme as any).designRules || {};
+    const cssSafe = (v: any) => typeof v === 'string' ? v.replace(/[{};]/g, '') : '';
+    const buildDecl = (rules: Record<string,string> | undefined) => Object.entries(rules || {})
+      .filter(([k,v]) => k && typeof v === 'string' && v !== '')
+      .map(([k,v]) => `${k}:${cssSafe(v)} !important`).join(';');
+    const designCss = Object.values(designRules).map((rule: any) => {
+      const selector = typeof rule?.selector === 'string' ? rule.selector.replace(/[{}]/g, '') : '';
+      if (!selector) return '';
+      const base = buildDecl(rule.desktop);
+      const tablet = rule.tablet ? '@media (min-width:768px) and (max-width:1279px){' + selector + '{' + buildDecl(rule.tablet) + '}}' : '';
+      const mobile = rule.mobile ? '@media (max-width:767px){' + selector + '{' + buildDecl(rule.mobile) + '}}' : '';
+      const hover = rule.hover ? selector + ':hover{' + buildDecl(rule.hover) + '}' : '';
+      const hidden = rule.enabled === false ? 'display:none !important;' : '';
+      return selector + '{' + hidden + base + '}' + hover + tablet + mobile;
+    }).join('');
+    style.textContent = css + responsive + designCss + (siteContent.theme.customCss || '');
   }, [siteContent?.theme]);
 
   useEffect(() => {
