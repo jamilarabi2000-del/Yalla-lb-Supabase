@@ -561,7 +561,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
   };
 
   return (
-    <div 
+    <div data-cms-element="promo-slider"
       id="homepage-content-slider"
       className={`relative rounded-[20px] overflow-hidden shadow-sm transition-all min-w-0 h-[200px] sm:h-[260px] md:h-[260px] lg:h-[400px] xl:h-[420px] ${getSlideBgClasses(currentSlide)} ${className}`}
       style={customStyle}
