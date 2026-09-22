@@ -150,38 +150,7 @@ const MainAppContent: React.FC = () => {
     }).join('');
     let style = document.getElementById('yalla-admin-text-styles') as HTMLStyleElement | null;
     if (!style) { style = document.createElement('style'); style.id = 'yalla-admin-text-styles'; document.head.appendChild(style); }
-    const designElements = (siteContent.theme as any).designElements || {};
-    const designMap: Record<string, any> = designElements;
-    const cleanCssValue = (v: any) => typeof v === 'string' ? v.replace(/[{}]/g, '') : '';
-    const cleanSelector = (v: any) => typeof v === 'string' ? v.replace(/[{}]/g, '') : '';
-    const designDecl = (cfg: any) => {
-      const map: Record<string,string> = {
-        display:'display', position:'position', inset:'inset', width:'width', maxWidth:'max-width',
-        minWidth:'min-width', height:'height', minHeight:'min-height', maxHeight:'max-height',
-        margin:'margin', padding:'padding', gap:'gap', background:'background', color:'color',
-        border:'border', borderRadius:'border-radius', boxShadow:'box-shadow', opacity:'opacity',
-        zIndex:'z-index', textAlign:'text-align', alignItems:'align-items', justifyContent:'justify-content',
-        flexDirection:'flex-direction', gridTemplateColumns:'grid-template-columns', transform:'transform',
-        overflow:'overflow', objectFit:'object-fit', objectPosition:'object-position', fontFamily:'font-family',
-        fontSize:'font-size', fontWeight:'font-weight', lineHeight:'line-height', letterSpacing:'letter-spacing',
-        textTransform:'text-transform'
-      };
-      return Object.entries(map).filter(([k]) => cfg?.[k] !== undefined && cfg?.[k] !== '')
-        .map(([k,p]) => `${p}:${cleanCssValue(cfg[k])} !important`).join(';');
-    };
-    const designCss = Object.entries(designMap).map(([id, cfg]: any) => {
-      const selector = cleanSelector(cfg?.selector);
-      if (!selector) return '';
-      const base = designDecl(cfg);
-      const visibility = cfg?.enabled === false ? 'display:none !important;' : '';
-      const hover = (cfg?.hoverBackground || cfg?.hoverColor || cfg?.hoverBorder || cfg?.hoverTransform || cfg?.hoverBoxShadow)
-        ? `${selector}:hover{${cfg?.hoverBackground ? 'background:' + cleanCssValue(cfg.hoverBackground) + ' !important;' : ''}${cfg?.hoverColor ? 'color:' + cleanCssValue(cfg.hoverColor) + ' !important;' : ''}${cfg?.hoverBorder ? 'border:' + cleanCssValue(cfg.hoverBorder) + ' !important;' : ''}${cfg?.hoverTransform ? 'transform:' + cleanCssValue(cfg.hoverTransform) + ' !important;' : ''}${cfg?.hoverBoxShadow ? 'box-shadow:' + cleanCssValue(cfg.hoverBoxShadow) + ' !important;' : ''}}`
-        : '';
-      const tablet = cfg?.tablet ? `@media (min-width:768px) and (max-width:1279px){${selector}{${designDecl(cfg.tablet)}}}` : '';
-      const mobile = cfg?.mobile ? `@media (max-width:767px){${selector}{${designDecl(cfg.mobile)}}}` : '';
-      return (base || visibility) ? `${selector}{${visibility}${base}}${hover}${tablet}${mobile}` : hover + tablet + mobile;
-    }).join('');
-    style.textContent = css + responsive + designCss + (siteContent.theme.customCss || '');
+    style.textContent = css + responsive + (siteContent.theme.customCss || '');
   }, [siteContent?.theme]);
 
   useEffect(() => {
