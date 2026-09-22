@@ -476,6 +476,8 @@ export interface SectionVisibilityConfig {
   checkoutAddressForm: boolean;
   checkoutDeliverySpeed: boolean;
   checkoutPaymentMethod: boolean;
+  checkoutPaymentCOD: boolean;
+  checkoutPaymentWish: boolean;
   checkoutOrderSummary: boolean;
   checkoutGuarantees: boolean;
   
