@@ -160,7 +160,7 @@ export function mapSupabaseProduct(
         ? toNumberOrUndefined(
             row.regular_price,
           )
-        : undefined;
+        : undefined,
 
     discountPercentage:
       toNumberOrUndefined(
