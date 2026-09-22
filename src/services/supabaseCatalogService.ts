@@ -1328,11 +1328,14 @@ export const supabaseCatalogService = {
         category_id:
           product.category,
 
-        price_usd:
+        // Canonical writable pricing fields. The legacy price_usd and
+        // original_price_usd columns are database-generated compatibility
+        // columns and must never be written directly.
+        regular_price:
           product.priceUSD ??
           0,
 
-        original_price_usd:
+        promo_price:
           product.originalPriceUSD,
 
         discount_percentage:
