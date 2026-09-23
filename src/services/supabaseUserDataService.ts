@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { UserProfile, CartItem, Review } from '../types';
 import { generateUuidV4 } from '../utils/uuid';
 import { toUserFacingError } from '../utils/userFacingError';
+import type { CustomerProfileRow } from '../lib/customerIndex';
 
 export const supabaseUserDataService = {
   async fetchProfile(userId: string): Promise<Partial<UserProfile> | null> {
@@ -34,6 +35,29 @@ export const supabaseUserDataService = {
       role: data.role === 'admin' ? 'admin' : data.role === 'seller' ? 'seller' : 'customer',
       sellerId: data.seller_id || data.sellerId || undefined,
     };
+  },
+
+  /**
+   * Every profile, for the admin Customers Directory, paged to the end. RLS
+   * gives anyone but an administrator their own row only.
+   */
+  async listProfilesForDirectory(): Promise<CustomerProfileRow[]> {
+    const PAGE = 1000;
+    const rows: CustomerProfileRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id,email,name,first_name,last_name,phone,role,default_city,default_governorate,created_at')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        console.error('[supabaseUserDataService] listProfilesForDirectory failed:', error);
+        throw toUserFacingError(error, 'Unable to load customers right now.');
+      }
+      rows.push(...((data ?? []) as CustomerProfileRow[]));
+      if (!data || data.length < PAGE) return rows;
+    }
   },
 
   async upsertProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {

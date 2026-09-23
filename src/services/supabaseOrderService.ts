@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { CartItem, Order, OrderStatus, PaymentMethod, Currency, Product } from '../types';
+import type { OrderLedgerRow } from '../lib/customerIndex';
 
 /**
  * Server-authoritative checkout against Supabase.
@@ -446,6 +447,47 @@ export const supabaseOrderService = {
 
     if (error) {
       console.error('[orders] fetchOrders failed:', error);
+      throw error;
+    }
+    return ((data ?? []) as Record<string, unknown>[]).map(mapSupabaseOrder);
+  },
+
+  /**
+   * Owner, total and status of every order visible to the caller -- the whole
+   * history, paged, which lifetime values need and the 50-order page loaded
+   * into the context cannot give. Of the delivery details only the four
+   * contact fields the Customers Directory falls back on are read, not the
+   * address.
+   */
+  async fetchOrderLedger(): Promise<OrderLedgerRow[]> {
+    const PAGE = 1000;
+    const rows: OrderLedgerRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('user_id,total_usd,status,created_at,ship_name:shipping->>full_name,ship_phone:shipping->>phone,ship_city:shipping->>city,ship_governorate:shipping->>governorate')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        console.error('[orders] fetchOrderLedger failed:', error);
+        throw error;
+      }
+      rows.push(...((data ?? []) as OrderLedgerRow[]));
+      if (!data || data.length < PAGE) return rows;
+    }
+  },
+
+  /** One customer's orders with their items, newest first. */
+  async fetchOrdersForUser(userId: string, limit = 100): Promise<Order[]> {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(ORDER_SELECT)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(Math.min(500, Math.max(1, Math.floor(limit))));
+    if (error) {
+      console.error('[orders] fetchOrdersForUser failed:', error);
       throw error;
     }
     return ((data ?? []) as Record<string, unknown>[]).map(mapSupabaseOrder);

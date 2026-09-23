@@ -156,7 +156,7 @@ export const AdminView:React.FC=()=>{const shop=useShop() as any;const[tab,setTa
     case 'inventory':
       return <InventoryManager />;
     case 'customers':
-      return <CustomersView dbUsers={shop.dbUsers || shop.userProfiles || []} />;
+      return <CustomersView />;
     case 'sellers':
       return <SellersView />;
     case 'discounts':
