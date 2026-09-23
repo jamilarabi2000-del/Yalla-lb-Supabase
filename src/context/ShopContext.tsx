@@ -131,22 +131,6 @@ export const ensureSellerItemCode = (p: Product): Product => {
   return p;
 };
 
-export const ensureSellerCode = (
-  s: Seller,
-  index = 0
-): Seller => {
-  if (!s.sellerCode || !s.sellerCode.trim()) {
-    const codeNum = index + 101;
-
-    return {
-      ...s,
-      sellerCode: `SLR-${codeNum}`
-    };
-  }
-
-  return s;
-};
-
 
 // -----------------------------------------------------------------------------
 // Authentication compatibility types
@@ -610,7 +594,8 @@ interface ShopContextType {
 
   // Sellers Management
   sellers: Seller[];
-  addSeller: (seller: Omit<Seller, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => Promise<void>;
+  /** Resolves to the created seller, with the code the database assigned. */
+  addSeller: (seller: Omit<Seller, 'id' | 'createdAt' | 'updatedAt' | 'sellerCode'> & { id?: string }) => Promise<Seller>;
   updateSeller: (id: string, updates: Partial<Seller>) => Promise<void>;
   toggleSellerActive: (sellerId: string, isActive: boolean) => Promise<void>;
   deleteSeller: (id: string, reassignSellerId?: string) => Promise<void>;
@@ -1919,7 +1904,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 // Sellers Management State & Sync
   // Cache or empty, never the bundled DEFAULT_SELLERS.
   const [sellers, setSellers] = useState<Seller[]>(() =>
-    readCachedList<Seller>(CATALOG_CACHE_KEYS.sellers).map((s, idx) => ensureSellerCode(s, idx))
+    readCachedList<Seller>(CATALOG_CACHE_KEYS.sellers)
   );
 
   useEffect(() => {
@@ -1945,7 +1930,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshSellersFromSupabase = useCallback(async () => {
     try {
       const fresh = await supabaseCatalogService.fetchSellers();
-      setSellers(fresh.map((seller, idx) => ensureSellerCode(seller, idx)));
+      // Codes come from the database (sellers.seller_code is NOT NULL and
+      // assigned on insert); none is made up here, where a list position
+      // could hand one seller another seller's code.
+      setSellers(fresh);
       try {
         writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (fresh));
       } catch {}
@@ -1955,37 +1943,38 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const addSeller = async (sellerData: Omit<Seller, 'id' | 'createdAt' | 'updatedAt'> & { id?: string; sellerCode?: string }) => {
+  const addSeller = async (sellerData: Omit<Seller, 'id' | 'createdAt' | 'updatedAt' | 'sellerCode'> & { id?: string }): Promise<Seller> => {
     // sellers.id is uuid; the workshop slug lives in legacy_id.
     const slug = sellerData.id?.trim() || sellerData.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
     if (slug && sellers.some(s => s.legacyId === slug || s.id === slug)) {
       throw new Error(`A seller with the ID "${slug}" already exists.`);
     }
-    const sellerCode = sellerData.sellerCode?.trim() || `SLR-${secureRandomInt(100, 1000)}`;
-    const newSeller: Seller = {
+    const draft: Seller = {
       ...sellerData,
       id: sellerData.id && isUuid(sellerData.id) ? sellerData.id : generateUuidV4(),
       legacyId: slug || undefined,
-      sellerCode,
+      sellerCode: '',
       isActive: sellerData.isActive ?? true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    const previous = [...sellers];
-    const nextSellers = [...sellers, newSeller];
-    setSellers(nextSellers);
 
-    // Authoritative write. Rolled back and rethrown on failure.
+    // Authoritative write. The database assigns the seller code
+    // (private.assign_seller_code), so the seller joins the list only once
+    // it has one.
+    let sellerCode: string;
     try {
-      await supabaseCatalogService.upsertSeller(newSeller);
+      sellerCode = await supabaseCatalogService.upsertSeller(draft);
     } catch (supaErr: any) {
-      setSellers(previous);
       console.error('[ShopContext] addSeller Supabase write failed:', supaErr);
       showToast(`Could not save seller: ${supaErr?.message || 'unknown error'}`, 'error');
       throw supaErr;
     }
+    const created: Seller = { ...draft, sellerCode };
+    setSellers(prev => [...prev, created]);
 
-    await logAdminActivity('meta_change', `Seller "${newSeller.nameEn}" added`, `Created seller ID: ${slug}`);
+    await logAdminActivity('meta_change', `Seller "${created.nameEn}" (${sellerCode}) added`, `Created seller ID: ${slug}`);
+    return created;
   };
 
   const updateSeller = async (id: string, updates: Partial<Seller>) => {

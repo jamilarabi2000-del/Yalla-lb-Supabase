@@ -172,21 +172,13 @@ export function mergeSellerPrivate(sellers: Seller[], rows: SellerPrivateRow[]):
   });
 }
 
-// ── Seller codes ────────────────────────────────────────────────────────────
-
-/** Next free sequential code, SLR-101 upwards. The unique index is the guard. */
-export function nextSellerCode(sellers: Array<Pick<Seller, 'sellerCode'>>, skip = 0): string {
-  const used = sellers
-    .map(s => /^SLR-(\d+)$/i.exec(String(s.sellerCode || '').trim())?.[1])
-    .filter(Boolean)
-    .map(Number);
-  const next = Math.max(100, ...used) + 1 + skip;
-  return `SLR-${String(next).padStart(3, '0')}`;
-}
-
 // ── Edit form ───────────────────────────────────────────────────────────────
 
 export interface SellerForm {
+  /**
+   * Shown, never sent: the database assigns the code when the seller is
+   * created and refuses to change it (private.assign_seller_code).
+   */
   sellerCode: string;
   nameEn: string;
   nameAr: string;
@@ -233,17 +225,8 @@ export function sellerToForm(seller?: Partial<Seller>): SellerForm {
   };
 }
 
-export function validateSellerForm(
-  form: SellerForm,
-  opts: { sellers: Array<Pick<Seller, 'id' | 'sellerCode'>>; editingId?: string },
-): Partial<Record<keyof SellerForm, string>> {
+export function validateSellerForm(form: SellerForm): Partial<Record<keyof SellerForm, string>> {
   const e: Partial<Record<keyof SellerForm, string>> = {};
-  const code = form.sellerCode.trim().toUpperCase();
-  if (!code) e.sellerCode = 'Seller code is required.';
-  else if (!/^[A-Z0-9-]{3,20}$/.test(code)) e.sellerCode = 'Use 3-20 letters, digits or hyphens, e.g. SLR-101.';
-  else if (opts.sellers.some(s => s.id !== opts.editingId && String(s.sellerCode || '').toUpperCase() === code)) {
-    e.sellerCode = 'Another seller already uses this code.';
-  }
   if (!form.nameEn.trim()) e.nameEn = 'English name is required.';
   if (!form.governorate) e.governorate = 'Governorate is required.';
   if (!form.district) e.district = 'District is required.';
@@ -272,8 +255,8 @@ export function validateSellerForm(
  * load can never overwrite the real one.
  */
 export function buildSellerPayload(initial: SellerForm, form: SellerForm, isCreate: boolean): Partial<Seller> {
-  const clean: Record<keyof SellerForm, unknown> = {
-    sellerCode: form.sellerCode.trim().toUpperCase(),
+  // No sellerCode: the database assigns it, and a changed one is refused.
+  const clean: Record<Exclude<keyof SellerForm, 'sellerCode'>, unknown> = {
     nameEn: form.nameEn.trim(),
     nameAr: form.nameAr.trim(),
     governorate: form.governorate,
@@ -293,7 +276,7 @@ export function buildSellerPayload(initial: SellerForm, form: SellerForm, isCrea
   };
 
   const payload: Record<string, unknown> = {};
-  (Object.keys(clean) as Array<keyof SellerForm>).forEach(key => {
+  (Object.keys(clean) as Array<keyof typeof clean>).forEach(key => {
     const value = clean[key];
     if (isCreate) {
       if (value !== '' && value !== null) payload[key] = value;

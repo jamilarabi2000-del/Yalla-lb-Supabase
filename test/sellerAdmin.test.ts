@@ -8,7 +8,6 @@ import {
   isValidLbMobile,
   linkedProductCounts,
   mergeSellerPrivate,
-  nextSellerCode,
   previewCsvImport,
   sellerStatusCounts,
   sellerToForm,
@@ -67,34 +66,34 @@ describe('editing a seller never wipes fields it did not change', () => {
   });
 
   it('creating a seller sends every filled field, normalised', () => {
-    const form = { ...sellerToForm(), sellerCode: 'slr-102', nameEn: 'New Artisan',
+    const form = { ...sellerToForm(), nameEn: 'New Artisan',
       governorate: 'north', district: 'Koura', village: 'Amioun', contactPhone: '70 123 456', commissionPct: '10' };
     const payload = buildSellerPayload(sellerToForm(), form, true);
-    expect(payload).toMatchObject({ sellerCode: 'SLR-102', nameEn: 'New Artisan', governorate: 'north', contactPhone: '+96170123456',
+    expect(payload).toMatchObject({ nameEn: 'New Artisan', governorate: 'north', contactPhone: '+96170123456',
       commissionPct: 10, isActive: true });
     expect(payload).not.toHaveProperty('exactAddress');
+  });
+
+  it('never sends a seller code: the database assigns it and refuses a change', () => {
+    const initial = sellerToForm(seller());
+    const tampered = { ...initial, sellerCode: 'SLR-999' };
+    expect(buildSellerPayload(initial, tampered, false)).not.toHaveProperty('sellerCode');
+    expect(buildSellerPayload(sellerToForm(), { ...tampered, nameEn: 'New' }, true)).not.toHaveProperty('sellerCode');
   });
 });
 
 describe('seller form validation', () => {
-  const valid = { ...sellerToForm(), sellerCode: 'SLR-150', nameEn: 'A', governorate: 'north',
+  const valid = { ...sellerToForm(), nameEn: 'A', governorate: 'north',
     district: 'Koura', village: 'Amioun' };
 
-  it('requires the fields the spec marks with *', () => {
-    const e = validateSellerForm(sellerToForm(), { sellers: [] });
-    expect(Object.keys(e).sort()).toEqual(['district', 'governorate', 'nameEn', 'sellerCode', 'village']);
-    expect(validateSellerForm(valid, { sellers: [] })).toEqual({});
-  });
-
-  it('rejects a code another seller holds, case-insensitively, but not your own', () => {
-    const sellers = [seller({ id: 'other', sellerCode: 'SLR-150' })];
-    expect(validateSellerForm({ ...valid, sellerCode: 'slr-150' }, { sellers }).sellerCode).toMatch(/already uses/);
-    expect(validateSellerForm(valid, { sellers, editingId: 'other' }).sellerCode).toBeUndefined();
+  it('requires the fields the spec marks with *, and never asks for a code', () => {
+    const e = validateSellerForm(sellerToForm());
+    expect(Object.keys(e).sort()).toEqual(['district', 'governorate', 'nameEn', 'village']);
+    expect(validateSellerForm(valid)).toEqual({});
   });
 
   it('checks phone, email and commission range', () => {
-    const e = validateSellerForm({ ...valid, contactPhone: '12345', contactEmail: 'nope', commissionPct: '140' },
-      { sellers: [] });
+    const e = validateSellerForm({ ...valid, contactPhone: '12345', contactEmail: 'nope', commissionPct: '140' });
     expect(Object.keys(e).sort()).toEqual(['commissionPct', 'contactEmail', 'contactPhone']);
   });
 });
@@ -127,12 +126,6 @@ describe('admin-only fields and codes', () => {
       id: 's-1', account_email: 'login@x.lb', contact_email: 'c@x.lb', exact_address: 'Bldg 4', commission_pct: '12.5',
     }]);
     expect(merged).toMatchObject({ accountEmail: 'login@x.lb', contactEmail: 'c@x.lb', exactAddress: 'Bldg 4', commissionPct: 12.5 });
-  });
-
-  it('allocates the next sequential SLR code', () => {
-    expect(nextSellerCode([])).toBe('SLR-101');
-    expect(nextSellerCode([{ sellerCode: 'SLR-101' }, { sellerCode: 'SLR-107' }, { sellerCode: 'custom' }])).toBe('SLR-108');
-    expect(nextSellerCode([{ sellerCode: 'SLR-107' }], 2)).toBe('SLR-110');
   });
 
   it('accepts Lebanese mobiles in every common written form', () => {

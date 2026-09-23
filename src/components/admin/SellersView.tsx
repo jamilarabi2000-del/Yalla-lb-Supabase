@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Papa from 'papaparse';
 import {
   AlertTriangle, BarChart3, BookUser, Check, CheckCircle2, Download, Edit3, FileSpreadsheet,
-  Mail, MapPin, MessageCircle, Plus, Power, RefreshCw, Search, Store, Trash2, Upload, UserPlus, X, XCircle,
+  Lock, Mail, MapPin, MessageCircle, Plus, Power, RefreshCw, Search, Store, Trash2, Upload, UserPlus, X, XCircle,
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { supabase } from '../../lib/supabase';
@@ -22,7 +22,6 @@ import {
   governorateId,
   linkedProductCounts,
   mergeSellerPrivate,
-  nextSellerCode,
   previewCsvImport,
   sellerLocationLabel,
   sellerStatusCounts,
@@ -46,11 +45,6 @@ const downloadCsv = (rows: Record<string, unknown>[] | { fields: string[]; data:
   a.click();
   URL.revokeObjectURL(url);
 };
-
-// Only the seller_code constraint: a legacy_id (slug) clash is also a 23505,
-// and retrying it under a new code, or blaming the code field, would be wrong.
-const isDuplicateCode = (e: any) =>
-  /sellers_seller_code_key/.test(`${e?.message || ''} ${e?.details || ''}`);
 
 export const SellersView: React.FC = () => {
   const shop = useShop() as any;
@@ -176,15 +170,11 @@ export const SellersView: React.FC = () => {
       return;
     }
 
-    let code = '';
     try {
-      // Sequential code; the unique index is the guard if another admin races.
-      for (let attempt = 0; attempt < 3; attempt++) {
-        code = nextSellerCode(allSellers, attempt);
-        try { await shop.addSeller({ ...base, sellerCode: code }); break; }
-        catch (e) { if (!isDuplicateCode(e) || attempt === 2) throw e; }
-      }
-      toast(`Approved — ${base.nameEn} is seller ${code}.`);
+      // The database assigns the code, so two admins approving at once
+      // cannot be handed the same one.
+      const created: Seller = await shop.addSeller(base);
+      toast(`Approved — ${base.nameEn} is seller ${created.sellerCode}.`);
     } catch (e: any) {
       // No seller was created, so put the application back in the queue.
       const { data: reverted } = await supabase.from('seller_applications')
@@ -398,7 +388,6 @@ export const SellersView: React.FC = () => {
       {editing && (
         <SellerEditModal
           editing={editing}
-          sellers={allSellers}
           privateLoaded={!!privateRows}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); loadPrivate(); }}
@@ -423,15 +412,13 @@ export const SellersView: React.FC = () => {
 
 const SellerEditModal: React.FC<{
   editing: { id?: string; initial: SellerForm };
-  sellers: Seller[];
   privateLoaded: boolean;
   onClose: () => void;
   onSaved: () => void;
   shop: any;
-}> = ({ editing, sellers, privateLoaded, onClose, onSaved, shop }) => {
+}> = ({ editing, privateLoaded, onClose, onSaved, shop }) => {
   const isCreate = !editing.id;
-  const [form, setForm] = useState<SellerForm>(() =>
-    isCreate ? { ...editing.initial, sellerCode: nextSellerCode(sellers) } : editing.initial);
+  const [form, setForm] = useState<SellerForm>(editing.initial);
   const [errors, setErrors] = useState<Partial<Record<keyof SellerForm, string>>>({});
   const [failure, setFailure] = useState('');
   const [saving, setSaving] = useState(false);
@@ -442,7 +429,7 @@ const SellerEditModal: React.FC<{
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const found = validateSellerForm(form, { sellers, editingId: editing.id });
+    const found = validateSellerForm(form);
     setErrors(found);
     if (Object.keys(found).length) return;
     const payload = buildSellerPayload(editing.initial, form, isCreate);
@@ -450,13 +437,16 @@ const SellerEditModal: React.FC<{
     setSaving(true);
     setFailure('');
     try {
-      if (isCreate) await shop.addSeller(payload);
-      else await shop.updateSeller(editing.id, payload);
-      shop.showToast?.(isCreate ? 'Seller created.' : 'Seller updated.', 'success');
+      if (isCreate) {
+        const created: Seller = await shop.addSeller(payload);
+        shop.showToast?.(`Seller created with code ${created.sellerCode}.`, 'success');
+      } else {
+        await shop.updateSeller(editing.id, payload);
+        shop.showToast?.('Seller updated.', 'success');
+      }
       onSaved();
     } catch (err: any) {
-      if (isDuplicateCode(err)) setErrors({ sellerCode: 'Another seller already uses this code.' });
-      else setFailure(err?.message || 'The seller could not be saved.');
+      setFailure(err?.message || 'The seller could not be saved.');
     } finally {
       setSaving(false);
     }
@@ -466,7 +456,7 @@ const SellerEditModal: React.FC<{
     <label className="block">
       <span className="text-xs font-black text-slate-700">{label}{opts.required && ' *'}</span>
       <input ref={opts.ref} type={opts.type || 'text'} value={form[k] as string} dir={opts.rtl ? 'rtl' : undefined}
-        onChange={e => set(k, (k === 'sellerCode' ? e.target.value.toUpperCase() : e.target.value) as never)}
+        onChange={e => set(k, e.target.value as never)}
         placeholder={opts.placeholder} aria-invalid={!!errors[k]}
         className={`mt-1 w-full px-3 py-2.5 rounded-xl border text-sm ${errors[k] ? 'border-rose-400 bg-rose-50' : 'border-slate-200'} ${opts.mono ? 'font-mono' : ''} ${opts.rtl ? 'text-right' : ''}`} />
       {errors[k] && <span className="text-[11px] font-bold text-rose-600">{errors[k]}</span>}
@@ -488,8 +478,19 @@ const SellerEditModal: React.FC<{
               Email, exact address and commission are hidden until your session is verified. Leave them blank to keep the current values.
             </p>
           )}
-          {field('sellerCode', 'Unique Seller Code', { required: true, mono: true, placeholder: 'SLR-101', ref: firstField })}
-          {field('nameEn', 'English Name', { required: true, placeholder: 'Chouf Eco Soap' })}
+          <div>
+            <span className="text-xs font-black text-slate-700">Unique Seller Code</span>
+            <p className="mt-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm">
+              <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
+              {isCreate
+                ? <span className="text-slate-500">Assigned automatically when you save</span>
+                : <span className="font-mono font-black text-slate-900">{form.sellerCode || 'NO CODE'}</span>}
+            </p>
+            <span className="text-[11px] font-bold text-slate-500">
+              {isCreate ? 'The system gives each new seller the next free code.' : 'Assigned by the system. It cannot be changed.'}
+            </span>
+          </div>
+          {field('nameEn', 'English Name', { required: true, placeholder: 'Chouf Eco Soap', ref: firstField })}
           {field('nameAr', 'Arabic Name', { rtl: true, placeholder: 'صابون الشوف البيئي' })}
           <div className="grid grid-cols-2 gap-3">
             <label className="block">

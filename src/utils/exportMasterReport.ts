@@ -244,7 +244,9 @@ export function downloadFullMasterReport(
       craft_story: (product.craftStory || '').replace(/[\r\n]+/g, ' '),
 
       // Seller
-      seller_code: matchedSeller?.sellerCode || 'SLR-101',
+      // Blank when no seller matches: SLR-101 is a real seller's code, and
+      // defaulting to it credited unmatched products to that seller.
+      seller_code: matchedSeller?.sellerCode || '',
       seller_id: matchedSeller?.id || sId,
       seller_name_en: matchedSeller?.nameEn || sName,
       seller_name_ar: matchedSeller?.nameAr || product.arabicSeller || '',
@@ -385,7 +387,7 @@ export function downloadSellerPerformanceReport(
     const lastActive = sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : 'No orders recorded';
 
     return {
-      seller_code: item.seller.sellerCode || 'SLR-101',
+      seller_code: item.seller.sellerCode || '',
       seller_id: item.seller.id,
       seller_name_en: item.seller.nameEn,
       seller_name_ar: item.seller.nameAr || '',
@@ -467,7 +469,7 @@ export function downloadStockInventoryReport(
       const matchedSeller = sellers.find(s => isProductLinkedToSeller(p, s));
       const sName = matchedSeller?.nameEn || p.seller || p.artisan || 'Local Producer';
       const sContact = matchedSeller?.contactPhone || sellerPhoneMap.get(sName.toLowerCase()) || '';
-      const sCode = matchedSeller?.sellerCode || sellerCodeMap.get(sName.toLowerCase()) || 'SLR-101';
+      const sCode = matchedSeller?.sellerCode || sellerCodeMap.get(sName.toLowerCase()) || '';
 
       return {
         product_id: p.id,

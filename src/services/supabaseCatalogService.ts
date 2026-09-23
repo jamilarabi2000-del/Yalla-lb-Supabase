@@ -934,12 +934,12 @@ async function syncProductPrivate(
 /**
  * Seller fields -> sellers columns, for exactly the keys supplied. Shared by
  * the create (upsert) and update paths so the two cannot map a field
- * differently.
+ * differently. seller_code is never written: the database assigns it on
+ * insert and refuses to change it (private.assign_seller_code).
  */
 function toSellerRow(seller: Partial<Seller>) {
   const has = (key: keyof Seller) => Object.prototype.hasOwnProperty.call(seller, key);
   const payload = removeUndefined({
-    ...(has('sellerCode') ? { seller_code: seller.sellerCode } : {}),
     ...(has('nameEn') ? { name_en: seller.nameEn } : {}),
     ...(has('nameAr') ? { name_ar: seller.nameAr } : {}),
     ...(has('logoUrl') ? { logo_url: seller.logoUrl } : {}),
@@ -1736,16 +1736,18 @@ export const supabaseCatalogService = {
     }
   },
   /**
-   * Create or update a seller.
+   * Creates a seller and returns the code the database assigned it
+   * (private.assign_seller_code); the row sent never carries one.
    *
    * Intended for authorized admin operations.
    */
-  async upsertSeller(seller: Partial<Seller> & { id: string }): Promise<void> {
+  async upsertSeller(seller: Partial<Seller> & { id: string }): Promise<string> {
     if (!seller.id) throw new Error('Seller ID is required.');
     const payload = { id: seller.id, ...toSellerRow(seller) };
-    const { data, error } = await supabase.from('sellers').upsert(payload, { onConflict: 'id' }).select('id');
+    const { data, error } = await supabase.from('sellers').upsert(payload, { onConflict: 'id' }).select('id, seller_code');
     if (error) throw error;
     if (!data?.length) throw new Error('The seller was not saved. Your administrator session may not be verified.');
+    return String(data[0].seller_code ?? '');
   },
 
   /**
