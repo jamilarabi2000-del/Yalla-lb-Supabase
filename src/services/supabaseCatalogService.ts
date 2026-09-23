@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { toPriceColumns, fromPriceColumns } from '../lib/productPricing';
 import {
   Product,
   CategoryItem,
@@ -143,24 +144,9 @@ export function mapSupabaseProduct(
     category:
       String(row.category_id || ''),
 
-    // Canonical pricing: promo_price is the effective selling price
-    // when a promotion exists; otherwise regular_price is used.
-    priceUSD:
-      Number(
-        row.promo_price ??
-        row.regular_price ??
-        0,
-      ),
-
-    // The frontend keeps this field name for its existing Product interface.
-    // It is derived from the canonical database pricing fields.
-    originalPriceUSD:
-      row.promo_price !== null &&
-      row.promo_price !== undefined
-        ? toNumberOrUndefined(
-            row.regular_price,
-          )
-        : undefined,
+    // Canonical pricing lives in src/lib/productPricing.ts, so this read and
+    // both write paths share one definition and cannot drift apart again.
+    ...fromPriceColumns(row),
 
     discountPercentage:
       toNumberOrUndefined(
@@ -1330,17 +1316,14 @@ export const supabaseCatalogService = {
         category_id:
           product.category,
 
-        // Canonical writable pricing fields.
-        regular_price:
-          product.originalPriceUSD ??
-          product.priceUSD ??
-          0,
-
-        promo_price:
-          product.originalPriceUSD != null &&
-          product.originalPriceUSD !== product.priceUSD
-            ? product.priceUSD
-            : null,
+        // Canonical writable pricing fields, shared with patchProduct.
+        // `!== priceUSD` used to be the promotion test here, which wrote
+        // promo_price > regular_price whenever an "original" came in below the
+        // selling price; toPriceColumns requires a real saving instead.
+        ...toPriceColumns({
+          priceUSD: Number(product.priceUSD),
+          originalPriceUSD: product.originalPriceUSD,
+        }),
 
         discount_percentage:
           product.discountPercentage,

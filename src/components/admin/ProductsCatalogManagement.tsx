@@ -9,6 +9,7 @@ import { supabaseProductService } from '../../services/supabaseProductService';
 import { supabaseCommerceService } from '../../services/supabaseCommerceService';
 import { supabase } from '../../lib/supabase';
 import type { Product } from '../../types';
+import { fromRegularAndPromo } from '../../lib/productPricing';
 import { ProductsSequenceTableView } from './ProductsSequenceTableView';
 
 type ViewMode = 'grid' | 'sequence';
@@ -232,13 +233,12 @@ export const ProductsCatalogManagement: React.FC = () => {
       name: String(form.name).trim(), arabicName: String(form.arabicName || '').trim() || undefined, category: form.category, brand: String(form.brand || form.seller || 'Lebanese Artisan').trim(),
       artisan: String(form.artisan || form.seller || 'Independent Artisan').trim(), seller: String(form.seller || form.artisan || 'Independent Artisan').trim(), sellerId: form.sellerId || undefined,
       arabicSeller: String(form.arabicSeller || '').trim() || undefined, origin: String(form.origin || '').trim() || undefined,
-      // Pricing convention: priceUSD is the Regular Price; originalPriceUSD is the Promo Price.
-      // The database constraint requires Promo Price <= Regular Price.
-      priceUSD: price,
-      originalPriceUSD: (() => {
-        const promo = Number(form.originalPriceUSD || 0);
-        return promo > 0 && promo <= price ? promo : null;
-      })(),
+      // This form's two boxes are Regular Price and Promo Price, but Product
+      // carries the canonical pair (priceUSD = what the customer pays,
+      // originalPriceUSD = the "was" price). Emitting the form's own model
+      // here was the swapped convention that made every discounted save fail
+      // the promo_price <= regular_price constraint.
+      ...fromRegularAndPromo(price, Number(form.originalPriceUSD || 0)),
       discountPercentage: (() => {
         const promo = Number(form.originalPriceUSD || 0);
         return promo > 0 && promo <= price ? discountFromPrices(price, promo) : null;
@@ -493,14 +493,14 @@ export const ProductsCatalogManagement: React.FC = () => {
     const price = Number(q.price), stock = Number(q.stock);
     if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) return showToast('Enter a valid price and whole-number stock.', 'warning');
     try {
-      // Quick edit changes the Regular Price while preserving any existing promo price.
-      await updateProduct(p.id, {
-        priceUSD: price,
-        originalPriceUSD: p.originalPriceUSD != null && p.originalPriceUSD !== p.priceUSD
-          ? p.priceUSD
-          : null,
-        stock
-      });
+      // Quick edit sets the Regular Price and preserves any existing promo.
+      // p.originalPriceUSD is the current "was" price and p.priceUSD the
+      // current selling price, so the existing promo is p.priceUSD only when
+      // a promo is actually in force.
+      const existingPromo = p.originalPriceUSD != null && p.originalPriceUSD > p.priceUSD
+        ? p.priceUSD
+        : null;
+      await updateProduct(p.id, { ...fromRegularAndPromo(price, existingPromo), stock });
       showToast(p.name + ' price/stock updated.', 'success');
     } catch (e: any) {
       showToast(e?.message || 'Could not update price/stock.', 'error');
