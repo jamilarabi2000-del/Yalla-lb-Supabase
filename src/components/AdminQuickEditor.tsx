@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
 import { SectionVisibilityConfig, CMSCustomBlock } from '../types';
@@ -15,8 +15,10 @@ import {
   Sparkles, 
   LayoutTemplate,
   Sliders,
-  Maximize2
+  Maximize2,
+  Type
 } from 'lucide-react';
+import { TextStyleEditor } from './TextStyleEditor';
 
 interface AdminQuickEditorProps {
   onOpenCustomBlockModal?: (block?: CMSCustomBlock) => void;
@@ -39,6 +41,12 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
 
   const [isOpenDrawer, setIsOpenDrawer] = useState(false);
   const [drawerTab, setDrawerTab] = useState<'visibility' | 'quick_text' | 'add_block'>('visibility');
+  // Click-to-style for any storefront text; not offered over the admin panel or seller portal.
+  const [isStylingText, setIsStylingText] = useState(false);
+  const onStorefront = activeTab !== 'admin' && activeTab !== 'seller';
+  useEffect(() => {
+    if (!onStorefront) setIsStylingText(false);
+  }, [onStorefront]);
 
   const { containerRef: drawerPanelRef } = useDialog({
     isOpen: isOpenDrawer,
@@ -164,6 +172,7 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
       {/* Floating Bottom Admin Bar */}
       <div 
         id="admin-quick-editor-bar" 
+        data-yalla-editor="" 
         className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-950/95 text-white border border-[#b89753]/40 rounded-full px-4 py-2.5 shadow-2xl backdrop-blur-md flex items-center gap-3 select-none transition-all hover:border-[#b89753]"
       >
         <div className="flex items-center gap-2 pl-1 pr-2 border-r border-slate-800">
@@ -210,6 +219,22 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
           <span>{isVisualEditMode ? 'Drafts Visible' : 'Drafts Hidden'}</span>
         </button>
 
+        {/* Style any text on the page */}
+        <button
+          onClick={() => setIsStylingText(on => !on)}
+          disabled={!onStorefront}
+          aria-pressed={isStylingText}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border disabled:opacity-40 disabled:cursor-not-allowed ${
+            isStylingText
+              ? 'bg-indigo-600 text-white border-indigo-400'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+          }`}
+          title="Click any text on the page to change its font, size, colour or alignment"
+        >
+          <Type className="w-3.5 h-3.5" />
+          <span>{isStylingText ? 'Styling Text' : 'Style Text'}</span>
+        </button>
+
         {/* Full Admin Portal Link */}
         <button
           onClick={() => setActiveTab('admin')}
@@ -228,9 +253,13 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
         </button>
       </div>
 
+      {isStylingText && onStorefront && (
+        <TextStyleEditor page={activeTab} onClose={() => setIsStylingText(false)} notify={showToast} />
+      )}
+
       {/* Side Quick Drawer */}
       {isOpenDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in">
+        <div data-yalla-editor="" className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in">
           <div 
             ref={drawerPanelRef}
             role="dialog"

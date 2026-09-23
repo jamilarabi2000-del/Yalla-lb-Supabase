@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { CMSCustomBlock, SiteContent } from '../types';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
+import { parseTextRules, type TextRuleMap } from '../lib/textStyleRules';
+
+const TEXT_RULES_ROW = 'text_styles';
 
 type CmsBlockRecord = CMSCustomBlock & {
   contentType?: 'text' | 'image' | 'product' | 'mixed' | 'empty';
@@ -96,6 +99,45 @@ export const supabaseCmsService = {
       .select('id');
     if (error) throw error;
     if (!saved?.length) throw new Error('Site content was not saved. Your administrator session may not be verified.');
+  },
+
+  /**
+   * Per-text styles live in their own row. The CMS editor saves the whole
+   * 'main' document from a copy taken when it opened, so keeping these
+   * outside it means publishing the CMS can never erase a style set on the
+   * page since.
+   */
+  async fetchTextRules(): Promise<TextRuleMap> {
+    const { data, error } = await supabase
+      .from('cms_site_content')
+      .select('content')
+      .eq('id', TEXT_RULES_ROW)
+      .eq('published', true)
+      .maybeSingle();
+    if (error) throw error;
+    return parseTextRules((data?.content as { rules?: unknown } | null)?.rules);
+  },
+
+  /**
+   * Re-reads the rules and applies one change to them, so a save alters only
+   * the rule it is about rather than replacing another admin's work.
+   */
+  async updateTextRules(change: (current: TextRuleMap) => TextRuleMap): Promise<TextRuleMap> {
+    const next = change(await supabaseCmsService.fetchTextRules());
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: saved, error } = await supabase
+      .from('cms_site_content')
+      .upsert({
+        id: TEXT_RULES_ROW,
+        content: { rules: next },
+        published: true,
+        updated_by: userData.user?.id ?? null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select('id');
+    if (error) throw error;
+    if (!saved?.length) throw new Error('The text style was not saved. Your administrator session may not be verified.');
+    return next;
   },
 
   async restoreSiteContent(content: SiteContent): Promise<void> {
