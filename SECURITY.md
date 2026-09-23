@@ -70,8 +70,17 @@ insufficient:
 
 1. **RLS** — restrictive policies for INSERT/UPDATE/DELETE on every
    admin-writable table, shaped as `is_admin_verified() OR NOT is_admin()` so
-   customers and sellers are untouched. SELECT is never restricted, so an
-   administrator can always reach the console to complete the factor.
+   customers and sellers are untouched. Reads of customer data need the
+   factor too: restrictive SELECT policies on `profiles`, `orders`,
+   `order_items`, `carts`, `search_logs`, `seller_applications`,
+   `admin_activities`, `user_permissions`, `notifications`, `order_events` and
+   `analytics_events` show an administrator other people's rows only when
+   `session_has_second_factor()`. Their own rows stay readable, which is all
+   completing the factor needs, so a password alone no longer reads customer
+   data through the REST API. Reads check the session's factor, not the
+   30-minute step-up window, so the console does not empty every half hour
+   (migration `20260923215834`, whose invariant block fails if any permissive
+   admin write policy lacks a second-factor counterpart).
 2. **SECURITY DEFINER RPCs** — these are owned by `postgres`, which carries
    `rolbypassrls`, so RLS cannot constrain them at all. `create_product_atomic`
    (both schemas), `admin_reorder_products`, `admin_set_product_promotion`,
