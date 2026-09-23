@@ -57,7 +57,6 @@ export const SalesAnalyticsView: React.FC = () => {
     sellers = [], 
     categories = [],
     formatPrice,
-    convertUSDToLBP,
     showToast = () => {}
   } = useShop();
 
@@ -897,9 +896,6 @@ export const SalesAnalyticsView: React.FC = () => {
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">Gross Sales Revenue</span>
           <div className="text-xl sm:text-2xl font-black text-slate-900">{formatPrice(kpis.grossRevenueUSD)}</div>
-          <span className="text-[10px] text-slate-500 font-semibold mt-0.5 block">
-            {convertUSDToLBP(kpis.grossRevenueUSD).toLocaleString('en-US')} LBP
-          </span>
         </div>
 
         {/* Delivered Sales */}

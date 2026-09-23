@@ -6,6 +6,7 @@ import { downloadFullMasterReport } from '../../utils/exportMasterReport';
 import { checkDuplicateProductNumber } from '../../lib/productValidation';
 import { validateExternalImageUrl } from '../../lib/imageUrlValidation';
 import { supabaseProductService } from '../../services/supabaseProductService';
+import { supabaseCommerceService } from '../../services/supabaseCommerceService';
 import { supabase } from '../../lib/supabase';
 import type { Product } from '../../types';
 import { ProductsSequenceTableView } from './ProductsSequenceTableView';
@@ -512,7 +513,13 @@ export const ProductsCatalogManagement: React.FC = () => {
     stock: p.stock || 0, status: p.isPublished === false ? 'Draft' : 'Published', image: p.image || ''
   })), `yalla_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
 
-  const downloadMaster = () => downloadFullMasterReport(products, sellers, orders, 'yalla_full_master_report', shop.lbpRate);
+  // shop.lbpRate went away with the USD-only storefront, so this silently
+  // passed undefined and the CSV fell back to the compiled-in constant. Read
+  // the stored rate instead, the same one checkout prices total_lbp from.
+  const downloadMaster = async () => {
+    const rate = await supabaseCommerceService.fetchLbpUsdRate().catch(() => null);
+    downloadFullMasterReport(products, sellers, orders, 'yalla_full_master_report', rate ?? undefined);
+  };
 
   const handleBulkUpload = (file?: File) => {
     if (!file) return;

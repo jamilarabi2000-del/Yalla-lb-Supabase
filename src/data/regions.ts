@@ -62,10 +62,14 @@ export const LEBANON_REGIONS: GovernorateOption[] = [
  * Fallback USD -> LBP rate, used only until the live rate loads.
  *
  * The authoritative rate is app_settings.lbp_usd_rate, which is what
- * private.checkout_create_order prices in. Read it through the shop context
- * (`lbpRate`) rather than importing this constant: a component that imports
- * it directly keeps showing this number after the stored rate changes, and
- * the shopper is then quoted a different LBP total than the one collected.
- * This value matches the server's own fallback.
+ * private.checkout_create_order prices in. Read it with
+ * supabaseCommerceService.fetchLbpUsdRate() rather than importing this
+ * constant: a caller that imports it directly keeps showing this number after
+ * the stored rate changes, and the amount shown differs from the one
+ * collected. This value matches the server's own fallback.
+ *
+ * The storefront no longer converts to LBP at all -- customer-facing prices
+ * are USD, and an order's LBP total is whatever the server stored on it. Only
+ * admin CSV exports still derive an LBP figure from this rate.
  */
 export const LBP_USD_RATE = 89500;

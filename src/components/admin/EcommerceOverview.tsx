@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { sanitizeRowForCsv } from '../../utils/csvSafe';
 import { useShop } from '../../context/ShopContext';
+import { supabaseCommerceService } from '../../services/supabaseCommerceService';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -53,8 +54,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
     syncAllProductsToDatabase, 
     isVisualEditMode, 
     setIsVisualEditMode,
-    showToast = () => {},
-    lbpRate
+    showToast = () => {}
   } = useShop();
 
   const [isSyncingDb, setIsSyncingDb] = useState(false);
@@ -77,8 +77,15 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
     setIsSyncingDb(false);
   };
 
-  const handleExportMaster = () => {
-    downloadFullMasterReport(products, sellers, orders, undefined, lbpRate);
+  const handleExportMaster = async () => {
+    // The USD -> LBP rate left the shop context when the storefront went
+    // USD-only, but this CSV still carries a per-unit LBP column. Read the
+    // authoritative rate from app_settings -- the same value
+    // private.checkout_create_order prices total_lbp from -- rather than
+    // letting the report fall back to the compiled-in constant, which
+    // misstates every row once the stored rate moves.
+    const rate = await supabaseCommerceService.fetchLbpUsdRate().catch(() => null);
+    downloadFullMasterReport(products, sellers, orders, undefined, rate ?? undefined);
     showToast('Master Report downloaded! Includes full Product, Seller, Stock, and Sales telemetry.', 'success');
   };
 

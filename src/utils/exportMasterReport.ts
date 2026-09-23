@@ -121,9 +121,10 @@ export function downloadFullMasterReport(
   orders: Order[],
   filenamePrefix = 'yalla_full_master_report',
   /**
-   * Live USD -> LBP rate. Callers pass `lbpRate` from the shop context; the
-   * constant is only the fallback the server also uses, and a report built
-   * from it misstates every price once the stored rate changes.
+   * Live USD -> LBP rate. Callers read it with
+   * supabaseCommerceService.fetchLbpUsdRate(); the constant is only the
+   * fallback the server also uses, and a report built from it misstates every
+   * price once the stored rate changes.
    */
   lbpRate: number = LBP_USD_RATE
 ) {

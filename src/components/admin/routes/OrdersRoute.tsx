@@ -30,7 +30,6 @@ export const OrdersRoute: React.FC = () => {
     loadMoreOrders,
     updateOrderStatus, 
     formatPrice, 
-    convertUSDToLBP, 
     showToast,
     logAdminActivity
   } = useShop();
@@ -189,9 +188,16 @@ export const OrdersRoute: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="font-black text-slate-900">{formatPrice(order.totalUSD)}</div>
-                        <div className="text-[10px] text-slate-400 font-medium">
-                          {order.totalLBP > 0 ? '' : '≈ '}{(order.totalLBP > 0 ? order.totalLBP : convertUSDToLBP(order.totalUSD)).toLocaleString()} LBP
-                        </div>
+                        {/* Only the LBP total the server priced at checkout is
+                            shown. The old fallback converted here in the browser,
+                            which is what the courier-collects-a-different-amount
+                            problem was: an order with no stored total_lbp has no
+                            LBP figure to report. */}
+                        {order.totalLBP > 0 && (
+                          <div className="text-[10px] text-slate-400 font-medium">
+                            {order.totalLBP.toLocaleString()} LBP
+                          </div>
+                        )}
                       </td>
                       <td className="py-3.5 px-4">
                         <select
@@ -400,9 +406,11 @@ export const OrdersRoute: React.FC = () => {
                 <span className="font-black text-white">Grand Total:</span>
                 <div className="text-right">
                   <div className="font-black text-amber-400 text-base">${selectedInvoiceOrder.totalUSD.toFixed(2)} USD</div>
-                  <div className="text-[11px] text-slate-400">
-                    {selectedInvoiceOrder.totalLBP > 0 ? '' : '≈ '}{(selectedInvoiceOrder.totalLBP > 0 ? selectedInvoiceOrder.totalLBP : convertUSDToLBP(selectedInvoiceOrder.totalUSD)).toLocaleString()} LBP
-                  </div>
+                  {selectedInvoiceOrder.totalLBP > 0 && (
+                    <div className="text-[11px] text-slate-400">
+                      {selectedInvoiceOrder.totalLBP.toLocaleString()} LBP
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

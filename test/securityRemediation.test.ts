@@ -776,9 +776,16 @@ describe('Legacy LBP pricing remains server-side only', () => {
   it('shows the recorded LBP total for an order that has one', () => {
     // An LBP order stores what the server actually charged. Recomputing it
     // from today's rate misreports every historical order once it moves.
-    const orders = read('src/components/admin/routes/OrdersRoute.tsx');
-    expect(orders).toContain('order.totalLBP > 0 ? order.totalLBP');
-    expect(orders).toContain('selectedInvoiceOrder.totalLBP > 0');
+    //
+    // This asserted `order.totalLBP > 0 ? order.totalLBP`, whose else branch
+    // still called convertUSDToLBP -- so it pinned the shape of a half-fix
+    // rather than the rule. An order with no stored total has no LBP figure
+    // to report, and the row is simply omitted. Comments are stripped so the
+    // prose explaining that cannot satisfy these checks.
+    const orders = strip(read('src/components/admin/routes/OrdersRoute.tsx'));
+    expect(orders).toContain('order.totalLBP > 0 &&');
+    expect(orders).toContain('selectedInvoiceOrder.totalLBP > 0 &&');
+    expect(orders).not.toContain('convertUSDToLBP');
   });
 });
 
