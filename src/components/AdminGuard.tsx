@@ -3,6 +3,7 @@ import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, ShieldAlert } from
 import { supabase } from '../lib/supabase';
 import { useShop } from '../context/ShopContext';
 import { clearAdminMfaSession, registerMfaPromptHandler } from '../utils/adminMfa';
+import { getCaptchaToken } from '../lib/captcha';
 
 interface AdminGuardProps { children: React.ReactNode; }
 
@@ -107,7 +108,9 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     setBusy(true);
     setError(null);
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail, password, options: { captchaToken: await getCaptchaToken() },
+      });
       if (signInError) throw signInError;
       if (!data.user) throw new Error('No authenticated administrator was returned.');
       await verifyAdminRole(data.user.id);

@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase';
+import { getCaptchaToken } from '../lib/captcha';
 const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-export async function requestPasswordReset(email:string){const{error}=await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:`${appUrl}/account/reset-password`});if(error)throw error;}
-export async function resendEmailVerification(){const{data}=await supabase.auth.getUser();if(!data.user?.email)throw new Error('No authenticated email address is available.');const{error}=await supabase.auth.resend({type:'signup',email:data.user.email});if(error)throw error;}
+export async function requestPasswordReset(email:string){const{error}=await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:`${appUrl}/account/reset-password`,captchaToken:await getCaptchaToken()});if(error)throw error;}
+export async function resendEmailVerification(){const{data}=await supabase.auth.getUser();if(!data.user?.email)throw new Error('No authenticated email address is available.');const{error}=await supabase.auth.resend({type:'signup',email:data.user.email,options:{captchaToken:await getCaptchaToken()}});if(error)throw error;}
 export async function requestPasswordChangeNonce(){const{data,error}=await supabase.auth.reauthenticate();if(error)throw error;return data?.messageId||data?.nonce||null;}
 export async function updatePassword(password:string,nonce:string){const{error}=await supabase.auth.updateUser({password,nonce});if(error)throw error;}
 export async function signOutEverywhere(){const{error}=await supabase.auth.signOut({scope:'global'});if(error)throw error;}

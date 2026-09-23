@@ -285,6 +285,29 @@ historical order is misreported the next time the rate moves.
 | `orders.shipping` | ≤8 KiB |
 | `search_logs` purge | Verified-administrator DELETE only (`search_logs_admin_delete`) |
 | Payment webhook | HMAC-SHA256, ±300 s timestamp window, unique `provider_event_id` |
+| Sign-in, sign-up, email links, SMS codes, password resets | Supabase Auth's per-IP limits; CAPTCHA once switched on (below) |
+
+### CAPTCHA (Cloudflare Turnstile, free)
+
+Every Supabase Auth call that accepts a `captchaToken` -- password sign-in
+(customer and administrator), sign-up, email links, SMS codes, verification
+resends and password resets -- first asks `getCaptchaToken()`
+(`src/lib/captcha.ts`) for a fresh single-use token. One invisible widget
+serves every form and shows itself only when Turnstile wants a click.
+`test/captcha.dom.test.ts` fails if any such call stops sending a token.
+
+It stays off, and nothing changes, until the site key is set. To switch it
+on, in this order:
+
+1. Cloudflare dashboard → Turnstile → add a widget for the site's hostname
+   (mode "Managed"). Copy the site key and the secret key.
+2. Vercel → Project → Settings → Environment Variables:
+   `VITE_TURNSTILE_SITE_KEY` = the site key. Redeploy.
+3. Supabase → Authentication → Attack Protection → enable CAPTCHA
+   protection, provider Cloudflare Turnstile, paste the secret key.
+
+Step 3 before step 2 stops every sign-in until the redeploy is live. The CSP
+allows `https://challenges.cloudflare.com` for the script and its frame.
 
 ---
 

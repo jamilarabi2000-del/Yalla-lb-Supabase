@@ -67,6 +67,7 @@ import { toUserFacingError } from '../utils/userFacingError';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
+import { getCaptchaToken } from '../lib/captcha';
 
 import type {
   User as SupabaseUser,
@@ -3388,6 +3389,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?resetPassword=true` : undefined,
+        captchaToken: await getCaptchaToken(),
       });
       if (error) throw error;
 
@@ -3425,6 +3427,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           shouldCreateUser: true,
           emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
+          captchaToken: await getCaptchaToken(),
         },
       });
       if (error) throw error;
@@ -3489,6 +3492,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: targetEmail,
         options: {
           emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?verified=true` : undefined,
+          captchaToken: await getCaptchaToken(),
         }
       });
       if (error) throw error;
@@ -3560,6 +3564,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             phone: targetPhone || '',
           },
           emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?verified=true` : undefined,
+          captchaToken: await getCaptchaToken(),
         },
       });
 
@@ -3663,6 +3668,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: cleanEmail,
         options: {
           emailRedirectTo: `${window.location.origin}/account`,
+          captchaToken: await getCaptchaToken(),
         },
       });
       if (error) throw error;
@@ -3765,10 +3771,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await executeWithRetry<{
         data: { user: SupabaseUser | null; session: Session | null };
         error: AuthError | null;
-      }>(() =>
+      }>(async () =>
         supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: pass,
+          // Fetched per attempt: a retry cannot reuse a spent token.
+          options: { captchaToken: await getCaptchaToken() },
         })
       );
 
