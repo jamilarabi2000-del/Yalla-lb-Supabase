@@ -463,7 +463,7 @@ export const HeroBanner: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-full md:max-w-screen-2xl md:mx-auto md:px-4 sm:md:px-6 lg:px-8 md:pt-4 md:pb-2">
+    <div data-cms-element="hero" className="w-full max-w-full md:max-w-screen-2xl md:mx-auto md:px-4 sm:md:px-6 lg:px-8 md:pt-4 md:pb-2">
       <div 
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

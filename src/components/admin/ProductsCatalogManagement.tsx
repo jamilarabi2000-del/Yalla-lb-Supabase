@@ -136,6 +136,13 @@ export const ProductsCatalogManagement: React.FC = () => {
     setForm({
       ...emptyProduct(),
       ...editing,
+      // Product.priceUSD is the effective storefront price. When a promo exists,
+      // Product.originalPriceUSD contains the regular/original price. The admin
+      // form uses the canonical editing model: regular price + promo price.
+      priceUSD: editing.originalPriceUSD ?? editing.priceUSD ?? '',
+      originalPriceUSD: editing.originalPriceUSD != null && editing.originalPriceUSD !== editing.priceUSD
+        ? editing.priceUSD
+        : '',
       sellerId: (editing as any).sellerId || linkedSeller?.id || '',
       seller: (editing as any).seller || linkedSeller?.nameEn || ((editing as any).artisan && (editing as any).artisan !== 'Independent Artisan' ? (editing as any).artisan : ''),
       arabicSeller: (editing as any).arabicSeller || linkedSeller?.nameAr || '',
@@ -481,11 +488,18 @@ export const ProductsCatalogManagement: React.FC = () => {
   };
 
   const saveQuick = async (p: Product) => {
-    const q = quickValues[p.id] || { price: String(p.priceUSD), stock: String(p.stock) };
+    const q = quickValues[p.id] || { price: String(p.originalPriceUSD ?? p.priceUSD), stock: String(p.stock) };
     const price = Number(q.price), stock = Number(q.stock);
     if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) return showToast('Enter a valid price and whole-number stock.', 'warning');
     try {
-      await updateProduct(p.id, { priceUSD: price, stock });
+      // Quick edit changes the Regular Price while preserving any existing promo price.
+      await updateProduct(p.id, {
+        priceUSD: price,
+        originalPriceUSD: p.originalPriceUSD != null && p.originalPriceUSD !== p.priceUSD
+          ? p.priceUSD
+          : null,
+        stock
+      });
       showToast(p.name + ' price/stock updated.', 'success');
     } catch (e: any) {
       showToast(e?.message || 'Could not update price/stock.', 'error');
@@ -493,7 +507,9 @@ export const ProductsCatalogManagement: React.FC = () => {
   };
 
   const downloadCatalog = () => csvDownload(filtered.map(p => ({
-    id: p.id, seller_item_code: p.sellerItemCode || '', name_en: p.name, name_ar: p.arabicName || '', seller: p.seller || p.artisan || '', category: categoryLabel(p), price_usd: p.priceUSD || 0, stock: p.stock || 0, status: p.isPublished === false ? 'Draft' : 'Published', image: p.image || ''
+    id: p.id, seller_item_code: p.sellerItemCode || '', name_en: p.name, name_ar: p.arabicName || '', seller: p.seller || p.artisan || '', category: categoryLabel(p), regular_price: p.originalPriceUSD ?? p.priceUSD ?? 0,
+    promo_price: p.originalPriceUSD != null && p.originalPriceUSD !== p.priceUSD ? p.priceUSD : '',
+    stock: p.stock || 0, status: p.isPublished === false ? 'Draft' : 'Published', image: p.image || ''
   })), `yalla_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
 
   const downloadMaster = () => downloadFullMasterReport(products, sellers, orders, 'yalla_full_master_report', shop.lbpRate);
@@ -512,9 +528,11 @@ export const ProductsCatalogManagement: React.FC = () => {
           const line = rowIndex + 2;
           const name = String(row.name_en || row.name || row.product_name_en || '').trim();
           if (!name) { skipped.push({ row: line, reason: 'Missing English product name' }); continue; }
-          const price = Number(row.price_usd ?? row.priceUSD ?? row.price ?? 0);
+          const price = Number(row.regular_price ?? row.priceUSD ?? row.price ?? 0);
+          const promoRaw = row.promo_price ?? row.promoPrice ?? '';
+          const promo = promoRaw === '' || promoRaw == null ? null : Number(promoRaw);
           const stock = Number(row.stock ?? row.stock_quantity ?? 0);
-          if (!Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) { skipped.push({ row: line, reason: 'Invalid price or stock' }); continue; }
+          if (!Number.isFinite(price) || price <= 0 || (promo !== null && (!Number.isFinite(promo) || promo <= 0 || promo > price)) || !Number.isInteger(stock) || stock < 0) { skipped.push({ row: line, reason: 'Invalid regular/promo price or stock' }); continue; }
           const categoryId = String(row.category_id || row.category || '').trim();
           const brand = String(row.brand || '').trim();
           const sellerItemCode = String(row.seller_item_code || '').trim();
@@ -527,7 +545,7 @@ export const ProductsCatalogManagement: React.FC = () => {
               product: {
                 name, arabic_name: row.name_ar || row.product_name_ar || undefined, artisan: row.artisan || row.seller || 'Independent Artisan',
                 origin: row.origin || 'Lebanon', brand, description: row.description || 'Imported product', craft_story: row.craft_story || 'Imported product',
-                image: row.image || row.image_url || '', price_usd: price, stock, category_id: categoryId,
+                image: row.image || row.image_url || '', regular_price: price, promo_price: promo, stock, category_id: categoryId,
                 seller_id: row.seller_id || undefined, seller_item_code: sellerItemCode || undefined,
                 is_published: String(row.status || '').toLowerCase() === 'published', publish_status: String(row.status || '').toLowerCase() === 'published' ? 'published' : 'draft'
               },
@@ -558,7 +576,7 @@ export const ProductsCatalogManagement: React.FC = () => {
   const RequiredBadge = ({ field }: { field: string }) => validationErrors[field] ? <span className="ml-2 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[9px] font-black">REQUIRED</span> : <span className="ml-2 text-[9px] text-slate-400 font-bold">Required</span>;
 
   const ProductCard = ({ p, index }: { p: Product; index: number }) => {
-    const q = quickValues[p.id] || { price: String(p.priceUSD ?? 0), stock: String(p.stock ?? 0) };
+    const q = quickValues[p.id] || { price: String(p.originalPriceUSD ?? p.priceUSD ?? 0), stock: String(p.stock ?? 0) };
     const published = p.isPublished !== false;
     const threshold = Number(p.lowStockThreshold ?? 5);
     const stockState = Number(p.stock) <= 0 ? 'out' : Number(p.stock) <= threshold ? 'low' : 'ok';

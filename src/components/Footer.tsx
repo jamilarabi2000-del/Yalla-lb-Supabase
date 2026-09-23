@@ -18,7 +18,7 @@ export const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="bg-[#171717] border-t border-[#B89753]/30 text-neutral-400 text-xs relative overflow-hidden select-none">
+    <footer data-cms-element="footer" className="bg-[#171717] border-t border-[#B89753]/30 text-neutral-400 text-xs relative overflow-hidden select-none">
       <div className="absolute inset-0 bg-[radial-gradient(#B89753_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.03] pointer-events-none" />
       <div className="absolute left-1/2 -top-24 -translate-x-1/2 w-96 h-48 bg-[#B89753]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 text-center relative z-10 flex flex-col items-center">

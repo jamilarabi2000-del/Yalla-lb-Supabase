@@ -57,7 +57,7 @@ export const CartDrawer: React.FC = () => {
   };
 
   return (
-    <div 
+    <div data-cms-element="cart"
       ref={containerRef}
       role="dialog"
       aria-modal="true"

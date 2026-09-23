@@ -2,6 +2,7 @@ import React from 'react';
 import { useShop } from '../../../context/ShopContext';
 import { CMSTextStyleSlot } from '../../../types';
 import { Sparkles, Palette, Type, Layout, ShieldCheck } from 'lucide-react';
+import { CMSDesignControls } from './CMSDesignControls';
 
 interface CMSThemeTabProps {
   themeData?: any;
@@ -256,6 +257,7 @@ export const CMSThemeTab: React.FC<CMSThemeTabProps> = ({ themeData, onChange })
           </div>
         </div>
       </div>
+      <CMSDesignControls />
     </div>
   );
 };

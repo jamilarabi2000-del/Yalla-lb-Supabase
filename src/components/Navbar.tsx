@@ -18,7 +18,7 @@ export const Navbar: React.FC = () => {
   const { 
     activeTab, setActiveTab, cartCount, setIsCartOpen, wishlist,
     searchQuery, setSearchQuery, logSearchQuery, setSelectedCategory,
-    language, setLanguage, t, isAdminUser = false, firebaseUser, user,
+    language, setLanguage, t, isAdminUser = false, authUser, user,
     siteContent, categories = []
   } = useShop();
 
@@ -61,11 +61,11 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-[#E5E5E5] shadow-2xs">
+    <header data-cms-element="navbar" className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-[#E5E5E5] shadow-2xs">
       {showAnnouncement && (siteContent?.navbar?.announcementTicker || siteContent?.navbar?.announcementTickerArabic) && (
         <div className="bg-[#171717] text-[#F8F8F6] text-[11px] sm:text-xs py-2 px-4 text-center font-bold tracking-wider flex items-center justify-center gap-2 overflow-hidden border-b border-[#8F7137]/30">
           <span className="inline-block text-[#B89753]">✨</span>
-          <span className="truncate">{language === 'ar' ? (siteContent.navbar.announcementTickerArabic || siteContent.navbar.announcementTicker) : (siteContent.navbar.announcementTicker || siteContent.navbar.announcementTickerArabic)}</span>
+          <span className="min-w-0 max-w-full whitespace-normal break-words leading-relaxed text-center">{language === 'ar' ? (siteContent.navbar.announcementTickerArabic || siteContent.navbar.announcementTicker) : (siteContent.navbar.announcementTicker || siteContent.navbar.announcementTickerArabic)}</span>
           <span className="inline-block text-[#B89753]">✨</span>
         </div>
       )}
@@ -107,7 +107,7 @@ export const Navbar: React.FC = () => {
 
             <button id="wishlist-shortcut-btn" onClick={() => setActiveTab('favorites')} className={`relative p-2 rounded-lg transition-colors hidden sm:flex items-center justify-center flex-shrink-0 cursor-pointer border ${activeTab === 'favorites' ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-[#737373] hover:text-rose-600 hover:bg-[#F8F8F6] border-[#E5E5E5]'}`} title="Saved Artisan Wishlist"><Heart className={`w-4.5 h-4.5 ${activeTab === 'favorites' ? 'fill-rose-600' : ''}`} />{wishlist.length > 0 && <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold bg-[#C62828] text-white rounded-full">{wishlist.length}</span>}</button>
 
-            <button id="user-profile-shortcut-btn" onClick={() => setActiveTab('account')} className={`p-2 rounded-lg transition-colors hidden sm:flex items-center justify-center flex-shrink-0 cursor-pointer border ${activeTab === 'account' ? 'text-[#8F7137] bg-amber-50 border-amber-200' : 'text-[#737373] hover:text-[#8F7137] hover:bg-[#F8F8F6] border-[#E5E5E5]'}`} title={firebaseUser ? `Logged in as ${firebaseUser.displayName || user.name}` : 'My Lebanese Account & Orders'}>{firebaseUser?.photoURL ? <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || user.name} className="w-5 h-5 sm:w-5 sm:h-5 rounded-full border border-[#8F7137] object-cover" referrerPolicy="no-referrer" /> : <User className="w-4.5 h-4.5" />}</button>
+            <button id="user-profile-shortcut-btn" onClick={() => setActiveTab('account')} className={`p-2 rounded-lg transition-colors hidden sm:flex items-center justify-center flex-shrink-0 cursor-pointer border ${activeTab === 'account' ? 'text-[#8F7137] bg-amber-50 border-amber-200' : 'text-[#737373] hover:text-[#8F7137] hover:bg-[#F8F8F6] border-[#E5E5E5]'}`} title={authUser ? `Logged in as ${authUser.displayName || user.name}` : 'My Lebanese Account & Orders'}>{authUser?.photoURL ? <img src={authUser.photoURL} alt={authUser.displayName || user.name} className="w-5 h-5 sm:w-5 sm:h-5 rounded-full border border-[#8F7137] object-cover" referrerPolicy="no-referrer" /> : <User className="w-4.5 h-4.5" />}</button>
 
             <button id="open-cart-btn" onClick={() => setIsCartOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#171717] hover:bg-[#8F7137] text-white font-bold text-xs tracking-wider shadow-2xs transition-all cursor-pointer flex-shrink-0"><ShoppingBag className="w-4 h-4 text-white flex-shrink-0" /><span className="hidden md:inline uppercase text-[11px] font-bold">{t('cartBtn')}</span><span className="flex items-center justify-center min-w-[18px] h-4 px-1 text-[10px] font-bold bg-[#B89753] text-white rounded-full shadow-2xs">{cartCount}</span></button>
 

@@ -98,7 +98,9 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
         { key: 'checkoutSteps' as const, label: 'Checkout Progress Indicator', desc: 'Step indicator (Shipping → Payment → Review)' },
         { key: 'checkoutAddressForm' as const, label: 'Lebanese Shipping Address Form', desc: 'Governorate, city, street, and WhatsApp inputs' },
         { key: 'checkoutDeliverySpeed' as const, label: 'Delivery Speed Selector', desc: 'Standard, Beirut Same-Day, or Diaspora Express' },
-        { key: 'checkoutPaymentMethod' as const, label: 'Payment Method Selector', desc: 'Cash on Delivery (USD/LBP), OMT/Whish' },
+        { key: 'checkoutPaymentMethod' as const, label: 'Payment Method & Settlement', desc: 'Show or hide the entire payment section at checkout' },
+        { key: 'checkoutPaymentCOD' as const, label: 'Cash on Delivery (USD)', desc: 'Show or hide Cash on Delivery independently' },
+        { key: 'checkoutPaymentWish' as const, label: 'Whish Money / OMT', desc: 'Show or hide Whish Money / OMT independently' },
         { key: 'checkoutOrderSummary' as const, label: 'Order Summary & Coupon Box', desc: 'Itemized totals, delivery fees & coupon discounts' },
         { key: 'checkoutGuarantees' as const, label: 'Authenticity Guarantee Badges', desc: 'Safe delivery and authenticity assurance' },
       ]

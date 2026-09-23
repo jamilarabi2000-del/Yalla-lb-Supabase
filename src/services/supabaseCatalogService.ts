@@ -143,13 +143,24 @@ export function mapSupabaseProduct(
     category:
       String(row.category_id || ''),
 
+    // Canonical pricing: promo_price is the effective selling price
+    // when a promotion exists; otherwise regular_price is used.
     priceUSD:
-      Number(row.price_usd ?? 0),
-
-    originalPriceUSD:
-      toNumberOrUndefined(
-        row.original_price_usd,
+      Number(
+        row.promo_price ??
+        row.regular_price ??
+        0,
       ),
+
+    // The frontend keeps this field name for its existing Product interface.
+    // It is derived from the canonical database pricing fields.
+    originalPriceUSD:
+      row.promo_price !== null &&
+      row.promo_price !== undefined
+        ? toNumberOrUndefined(
+            row.regular_price,
+          )
+        : undefined,
 
     discountPercentage:
       toNumberOrUndefined(
@@ -616,7 +627,7 @@ function buildProductMediaRows(
  * - custom_stock_label
  * - cost_price_usd
  *
- * The products table contains these columns, but the
+ * The products table contains these operational columns, but the
  * storefront must not request them.
  */
 const PUBLIC_PRODUCT_COLUMNS = `
@@ -629,8 +640,8 @@ const PUBLIC_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  regular_price,
+  promo_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -653,7 +664,7 @@ const PUBLIC_PRODUCT_COLUMNS = `
   seo_arabic_description,
   weight_or_volume,
   created_at,
-  updated_at,
+  updated_at
 
   sellers!products_seller_id_fkey (
     name_en,
@@ -670,9 +681,7 @@ const PUBLIC_PRODUCT_COLUMNS = `
 /**
  * ADMIN / SELLER PRODUCT COLUMNS
  *
- * These fields exist in the current products table.
- *
- * They are only requested for admin/seller queries.
+ * These fields are only requested for admin/seller queries.
  */
 const ADMIN_PRODUCT_COLUMNS = `
   id,
@@ -684,8 +693,8 @@ const ADMIN_PRODUCT_COLUMNS = `
   origin,
   brand,
   category_id,
-  price_usd,
-  original_price_usd,
+  regular_price,
+  promo_price,
   discount_percentage,
   rating,
   reviews_count,
@@ -715,18 +724,7 @@ const ADMIN_PRODUCT_COLUMNS = `
   seo_arabic_description,
   weight_or_volume,
   created_at,
-  updated_at,
-
-  sellers!products_seller_id_fkey (
-    name_en,
-    name_ar,
-    is_active
-  ),
-
-  categories!products_category_id_fkey (
-    name_en,
-    name_ar
-  )
+  updated_at
 `;
 
 /**
@@ -986,8 +984,54 @@ export const supabaseCatalogService = {
         ? String(ADMIN_PRODUCT_COLUMNS)
         : String(PUBLIC_PRODUCT_COLUMNS);
 
-    let query: any =
-      supabase
+    /**
+     * The anonymous storefront uses a SECURITY DEFINER RPC instead of
+     * querying public.products directly. The products table intentionally has
+     * no broad anon SELECT grant because it contains private operational
+     * columns. The RPC returns only the public catalog projection and applies
+     * the same published-category/published-seller visibility rules.
+     *
+     * Admin/seller sessions keep the direct table query because their existing
+     * RLS policies authorize the additional private fields they need.
+     */
+    let query: any;
+
+    if (!isAdmin && !isSeller) {
+      // Public storefront reads use a dedicated, column allowlisted view.
+      // This avoids relying on PostgREST RPC discovery/schema-cache state for
+      // the critical storefront catalogue request. The view contains only
+      // customer-safe fields and applies the published/category/seller filters.
+      const { data, error } = await supabase
+        .from('public_storefront_products')
+        .select('*')
+        .order('display_order', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('[supabaseCatalogService] public storefront products view failed:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          status: error.status,
+        });
+        throw error;
+      }
+
+      return (data ?? []).map((row: any) =>
+        mapSupabaseProduct({
+          ...row,
+          seller_name_en: row.seller_name_en,
+          seller_name_ar: row.seller_name_ar,
+          seller_active: row.seller_active,
+        }),
+      );
+    } else {
+      // Do not use PostgREST nested seller/category relationships here.
+      // The admin catalog must remain readable even when relationship metadata
+      // is stale after schema changes. Product rows are authoritative; seller
+      // names are optional display metadata.
+      query = supabase
         .from('products')
         .select(columns)
         .order(
@@ -998,27 +1042,9 @@ export const supabaseCatalogService = {
           },
         );
 
-    if (!isAdmin) {
-      if (
-        isSeller &&
-        options?.sellerId
-      ) {
-        /**
-         * Sellers can see:
-         * - all published products
-         * - their own products
-         */
+      if (!isAdmin && isSeller && options?.sellerId) {
         query = query.or(
           `is_published.eq.true,seller_id.eq.${options.sellerId}`,
-        );
-      } else {
-        /**
-         * Public storefront:
-         * published products only.
-         */
-        query = query.eq(
-          'is_published',
-          true,
         );
       }
     }
@@ -1082,12 +1108,15 @@ export const supabaseCatalogService = {
             ...row,
 
             seller_name_en:
+              row.seller_name_en ??
               row.sellers?.name_en,
 
             seller_name_ar:
+              row.seller_name_ar ??
               row.sellers?.name_ar,
 
             seller_active:
+              row.seller_active ??
               row.sellers?.is_active,
           }),
       );
@@ -1301,12 +1330,17 @@ export const supabaseCatalogService = {
         category_id:
           product.category,
 
-        price_usd:
+        // Canonical writable pricing fields.
+        regular_price:
+          product.originalPriceUSD ??
           product.priceUSD ??
           0,
 
-        original_price_usd:
-          product.originalPriceUSD,
+        promo_price:
+          product.originalPriceUSD != null &&
+          product.originalPriceUSD !== product.priceUSD
+            ? product.priceUSD
+            : null,
 
         discount_percentage:
           product.discountPercentage,

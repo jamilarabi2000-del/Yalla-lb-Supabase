@@ -60,6 +60,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     checkoutAddressForm: true,
     checkoutDeliverySpeed: true,
     checkoutPaymentMethod: true,
+    checkoutPaymentCOD: true,
+    checkoutPaymentWish: true,
     checkoutOrderSummary: true,
     checkoutGuarantees: true,
     
@@ -78,8 +80,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   },
   customBlocks: [],
   navbar: {
-    announcementTicker: '🇱🇧 Express Delivery Across Lebanon • Live LBP Rate: 89,500 LBP/USD • Authentic Lebanese Craftsmanship',
-    announcementTickerArabic: '🇱🇧 توصيل سريع لجميع المناطق اللبنانية • سعر الصرف المعتمد: 89,500 ل.ل/دولار • منتجات لبنانية أصلية 100%',
+    announcementTicker: '🇱🇧 Express Delivery Across Lebanon • Authentic Lebanese Craftsmanship',
+    announcementTickerArabic: '🇱🇧 توصيل سريع لجميع المناطق اللبنانية • منتجات لبنانية أصلية 100%',
     brandName: 'Yalla',
     brandNameArabic: 'يلا',
     brandSubtitle: 'Lebanese Artisanal Marketplace',
@@ -329,8 +331,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     subtitleArabic: 'اختر طريقة التوصيل والدفع المناسبة لإتمام شحن طلبك بسرعة وأمان.',
     shippingHeading: '1. Shipping & Delivery Address',
     shippingHeadingArabic: '1. عنوان الشحن والتوصيل',
-    paymentHeading: '2. Payment Method (LBP / USD)',
-    paymentHeadingArabic: '2. طريقة الدفع (ل.ل / دولار)',
+    paymentHeading: '2. Payment Method (USD)',
+    paymentHeadingArabic: '2. طريقة الدفع (الدولار)',
     summaryHeading: 'Order Summary',
     summaryHeadingArabic: 'ملخص الطلب',
     orderButtonText: 'Confirm & Place Order',
@@ -366,7 +368,10 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     profileTabLabel: 'Profile & Delivery Details',
     profileTabLabelArabic: 'البيانات الشخصية وعنوان التوصيل',
     wishlistTabLabel: 'Saved Wishlist',
-    wishlistTabLabelArabic: 'قائمة المفضلة'
+    wishlistTabLabelArabic: 'قائمة المفضلة',
+    showAppleAuth: true,
+    showGoogleAuth: true,
+    showSmsAuth: true
   },
   newsSection: {
     title: 'News & Announcements',

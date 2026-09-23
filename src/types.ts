@@ -1,4 +1,4 @@
-export type Currency = 'USD' | 'LBP';
+export type Currency = 'USD';
 
 export interface Product {
   id: string;
@@ -149,7 +149,7 @@ export interface ShippingDetails {
  * makes reintroducing the option a compile error rather than a silent
  * runtime promise.
  */
-export type PaymentMethod = 'cod_usd' | 'cod_lbp' | 'wish_omt';
+export type PaymentMethod = 'cod_usd' | 'wish_omt';
 
 export type OrderStatus = 'pending' | 'confirmed' | 'crafting' | 'courier_assigned' | 'in_transit' | 'delivered' | 'cancelled' | 'returned';
 
@@ -324,6 +324,15 @@ export type CMSTextStyleSlot =
   | 'input'
   | 'link';
 
+export interface CMSDesignRule {
+  selector: string;
+  enabled?: boolean;
+  desktop?: Record<string, string>;
+  tablet?: Record<string, string>;
+  mobile?: Record<string, string>;
+  hover?: Record<string, string>;
+}
+
 export interface CMSThemeConfig {
   primaryColor: string;
   accentColor: string;
@@ -332,6 +341,8 @@ export interface CMSThemeConfig {
   headerStyle: 'modern' | 'classic' | 'minimal';
   textStyles?: Partial<Record<CMSTextStyleSlot, CMSTextStyle>>;
   customCss?: string;
+  /** Admin-managed CSS properties for registered or custom storefront selectors. */
+  designRules?: Record<string, CMSDesignRule>;
 }
 
 export interface CMSHeroStat {
@@ -476,6 +487,8 @@ export interface SectionVisibilityConfig {
   checkoutAddressForm: boolean;
   checkoutDeliverySpeed: boolean;
   checkoutPaymentMethod: boolean;
+  checkoutPaymentCOD: boolean;
+  checkoutPaymentWish: boolean;
   checkoutOrderSummary: boolean;
   checkoutGuarantees: boolean;
   
@@ -690,6 +703,9 @@ export interface SiteContent {
     profileTabLabelArabic?: string;
     wishlistTabLabel: string;
     wishlistTabLabelArabic?: string;
+    showAppleAuth?: boolean;
+    showGoogleAuth?: boolean;
+    showSmsAuth?: boolean;
   };
   newsSection: {
     title: string;

@@ -43,7 +43,7 @@ export const FavoritesView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F8F6] pb-20 pt-4 sm:pt-6">
+    <div data-cms-element="favorites" className="min-h-screen bg-[#F8F8F6] pb-20 pt-4 sm:pt-6">
       {/* Header Banner */}
       <div className="bg-white border-b border-[#E5E5E5]">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

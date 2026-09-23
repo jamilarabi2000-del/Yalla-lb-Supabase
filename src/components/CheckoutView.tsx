@@ -53,7 +53,7 @@ export const CheckoutView: React.FC = () => {
     goBack,
     t,
     language,
-    firebaseUser,
+    authUser,
     isEmailVerified,
     user,
     updateUser,
@@ -66,12 +66,7 @@ export const CheckoutView: React.FC = () => {
     signInWithApple,
     signOutUser,
     siteContent,
-    isVisualEditMode,
-    // Live USD -> LBP rate from app_settings. Do NOT use the LBP_USD_RATE
-    // constant here: checkout_create_order prices total_lbp from the stored
-    // setting, so a hardcoded rate quotes the shopper a total the courier
-    // will not collect once that setting changes.
-    lbpRate
+    isVisualEditMode
   } = useShop();
 
   const visibility = siteContent?.visibility || {
@@ -79,9 +74,15 @@ export const CheckoutView: React.FC = () => {
     checkoutAddressForm: true,
     checkoutDeliverySpeed: true,
     checkoutPaymentMethod: true,
+    checkoutPaymentCOD: true,
+    checkoutPaymentWish: true,
     checkoutOrderSummary: true,
     checkoutGuarantees: true,
   };
+
+  const showCODPayment = visibility.checkoutPaymentCOD !== false;
+  const showWishPayment = visibility.checkoutPaymentWish !== false;
+  const showAnyPaymentMethod = showCODPayment || showWishPayment;
 
   const isArabic = language === 'ar';
   const [checkoutCouponInput, setCheckoutCouponInput] = useState('');
@@ -89,6 +90,11 @@ export const CheckoutView: React.FC = () => {
 
   const [deliverySpeed, setDeliverySpeed] = useState<'express_beirut' | 'standard' | 'diaspora_air'>('express_beirut');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod_usd');
+
+  useEffect(() => {
+    if (paymentMethod === 'cod_usd' && !showCODPayment && showWishPayment) setPaymentMethod('wish_omt');
+    if (paymentMethod === 'wish_omt' && !showWishPayment && showCODPayment) setPaymentMethod('cod_usd');
+  }, [paymentMethod, showCODPayment, showWishPayment]);
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string | null>(null);
 
   // Password visibility and reset modal states
@@ -174,9 +180,9 @@ export const CheckoutView: React.FC = () => {
 
   // Sync recipient fields from logged-in user profile
   useEffect(() => {
-    if (firebaseUser) {
+    if (authUser) {
       // Name parsing & smart deduction
-      const nameCandidate = user?.name || firebaseUser.displayName || '';
+      const nameCandidate = user?.name || authUser.displayName || '';
       let fName = user?.firstName || '';
       let lName = user?.lastName || '';
 
@@ -189,7 +195,7 @@ export const CheckoutView: React.FC = () => {
       }
 
       if (!fName || !lName) {
-        const emailToParse = firebaseUser?.email || user?.email || '';
+        const emailToParse = authUser?.email || user?.email || '';
         if (emailToParse.includes('@')) {
           const raw = emailToParse.split('@')[0].replace(/[0-9]+/g, ' ').trim();
           const parts = raw.split(/[\._\-\s]+/).filter(Boolean);
@@ -216,7 +222,7 @@ export const CheckoutView: React.FC = () => {
       }
 
       // Address & Notes defaults
-      const emailVal = firebaseUser?.email || user?.email || '';
+      const emailVal = authUser?.email || user?.email || '';
       const governorateVal = user?.defaultGovernorate || 'beirut';
       const cityVal = user?.defaultCity || '';
       const streetVal = user?.defaultAddress || '';
@@ -250,11 +256,11 @@ export const CheckoutView: React.FC = () => {
         notes: ''
       });
     }
-  }, [firebaseUser, user]);
+  }, [authUser, user]);
 
   // Sync guest-entered checkout details to user profile immediately upon logging in or signing up
   useEffect(() => {
-    if (firebaseUser && user) {
+    if (authUser && user) {
       const hasGuestFirstName = formData.firstName && formData.firstName.trim() !== '';
       const hasGuestLastName = formData.lastName && formData.lastName.trim() !== '';
       const hasGuestPhone = formData.phone && formData.phone.trim() !== '';
@@ -286,7 +292,7 @@ export const CheckoutView: React.FC = () => {
         }
       }
     }
-  }, [firebaseUser, firebaseUser?.uid]);
+  }, [authUser, authUser?.uid]);
 
 
   // Region & Delivery fee calculation
@@ -433,7 +439,7 @@ export const CheckoutView: React.FC = () => {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!firebaseUser) {
+    if (!authUser) {
       showToast(isArabic ? 'يرجى تسجيل الدخول أولاً' : 'Please sign in to place an order.', 'warning');
       return;
     }
@@ -460,7 +466,7 @@ export const CheckoutView: React.FC = () => {
     const lName = formData.lastName.trim() || user?.lastName || (user?.name ? user.name.split(' ').slice(1).join(' ') : '');
     const finalPhone = formData.phone.trim() || user?.phone || '';
     const finalStreet = formData.street.trim() || user?.defaultAddress || '';
-    const finalEmail = formData.email.trim() || firebaseUser?.email || user?.email || '';
+    const finalEmail = formData.email.trim() || authUser?.email || user?.email || '';
     const finalCity = formData.city.trim() || user?.defaultCity || '';
 
     const missingDetails: string[] = [];
@@ -509,7 +515,8 @@ export const CheckoutView: React.FC = () => {
         subtotalUSD: Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100,
         deliveryFeeUSD: deliveryFeeUSD,
         totalUSD: finalTotalUSD,
-        totalLBP: Math.round(finalTotalUSD * lbpRate),
+        // total_lbp is calculated authoritatively by the checkout RPC.
+        totalLBP: 0,
         discountUSD: discountUSD,
         appliedCoupon: appliedCouponCode || undefined,
         estimatedDelivery: deliverySpeed === 'express_beirut' 
@@ -596,7 +603,7 @@ export const CheckoutView: React.FC = () => {
       : (siteContent?.checkoutSuccessPage?.buttonContinueText ?? 'Continue Shopping');
 
     return (
-      <div className="min-h-[75vh] flex items-center justify-center px-4 py-16 bg-[#F8F8F6]">
+    <div data-cms-element="checkout" className="min-h-[75vh] flex items-center justify-center px-4 py-16 bg-[#F8F8F6]">
         <div className="max-w-xl w-full p-8 sm:p-12 rounded-xl bg-white border border-[#E5E5E5] text-center space-y-6 shadow-sm animate-fade-in">
           <div className="w-16 h-16 rounded-full bg-[#16803C]/10 border border-[#16803C]/20 flex items-center justify-center mx-auto text-[#16803C]">
             <CheckCircle2 className="w-8 h-8" />
@@ -726,13 +733,13 @@ export const CheckoutView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
-                        firebaseUser 
+                        authUser 
                           ? 'bg-[#16803C] text-white' 
                           : 'bg-[#B89753] text-white animate-pulse'
                       }`}>
-                        {firebaseUser ? '✓' : '1'}
+                        {authUser ? '✓' : '1'}
                       </div>
-                      <span className={`text-xs font-bold ${firebaseUser ? 'text-[#737373]' : 'text-[#171717]'}`}>
+                      <span className={`text-xs font-bold ${authUser ? 'text-[#737373]' : 'text-[#171717]'}`}>
                         {isArabic ? 'حساب المستفيد' : 'Patron Account'}
                       </span>
                     </div>
@@ -741,13 +748,13 @@ export const CheckoutView: React.FC = () => {
 
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
-                        firebaseUser 
+                        authUser 
                           ? 'bg-[#B89753] text-white animate-pulse' 
                           : 'bg-neutral-100 text-[#737373]'
                       }`}>
                         2
                       </div>
-                      <span className={`text-xs font-bold ${firebaseUser ? 'text-[#171717]' : 'text-[#737373]'}`}>
+                      <span className={`text-xs font-bold ${authUser ? 'text-[#171717]' : 'text-[#737373]'}`}>
                         {isArabic ? 'بيانات الشحن' : 'Delivery Address'}
                       </span>
                     </div>
@@ -767,7 +774,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* 🔒 AUTHENTICATION GATE CARD IF NOT LOGGED IN */}
-              {!firebaseUser ? (
+              {!authUser ? (
                 <div id="checkout-auth-required-card" className="p-6 sm:p-8 rounded-xl bg-white border border-[#B89753]/30 shadow-sm space-y-6 relative overflow-hidden animate-fade-in">
                   <div className="absolute top-0 right-0 left-0 h-1 bg-[#B89753]" />
                   
@@ -1121,7 +1128,7 @@ export const CheckoutView: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
-                        {firebaseUser.email || user.email}
+                        {authUser.email || user.email}
                       </p>
                     </div>
                   </div>
@@ -1141,7 +1148,7 @@ export const CheckoutView: React.FC = () => {
               )}
               
               {/* Recipient Details & Address */}
-              {firebaseUser && (visibility.checkoutAddressForm || isVisualEditMode) && (
+              {authUser && (visibility.checkoutAddressForm || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-5 transition-opacity relative shadow-xs ${!visibility.checkoutAddressForm && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutAddressForm && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1332,7 +1339,7 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* Delivery Speed Selection */}
-              {firebaseUser && (visibility.checkoutDeliverySpeed || isVisualEditMode) && (
+              {authUser && (visibility.checkoutDeliverySpeed || isVisualEditMode) && (
                 <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutDeliverySpeed && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutDeliverySpeed && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
@@ -1410,8 +1417,8 @@ export const CheckoutView: React.FC = () => {
               )}
 
               {/* Payment Method Selection */}
-              {firebaseUser && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
-                <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutPaymentMethod && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
+              {authUser && showAnyPaymentMethod && (visibility.checkoutPaymentMethod || isVisualEditMode) && (
+                <div data-cms-element="checkout-payment" className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-4 shadow-xs relative ${!visibility.checkoutPaymentMethod && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutPaymentMethod && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
                       <EyeOff className="w-3 h-3" />
@@ -1424,7 +1431,7 @@ export const CheckoutView: React.FC = () => {
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
+                    {showCODPayment && <button
                       type="button"
                       onClick={() => setPaymentMethod('cod_usd')}
                       className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
@@ -1444,31 +1451,9 @@ export const CheckoutView: React.FC = () => {
                           {isArabic ? 'تسليم نقدي عند الاستلام' : 'Pay in cash upon arrival'}
                         </div>
                       </div>
-                    </button>
+                    </button>}
 
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('cod_lbp')}
-                      className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
-                        paymentMethod === 'cod_lbp'
-                          ? 'border-[#B89753] bg-[#B89753]/5 shadow-xs'
-                          : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
-                      }`}
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#8F7137] shrink-0">
-                        <Banknote className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#171717]">
-                          {isArabic ? 'الدفع بالليرة اللبنانية (LBP)' : 'Cash on Delivery (LBP)'}
-                        </div>
-                        <div className="text-[11px] text-[#737373]">
-                          {isArabic ? 'حسب سعر الصرف الرسمي' : 'Official market rate'}
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
+                    {showWishPayment && <button
                       type="button"
                       onClick={() => setPaymentMethod('wish_omt')}
                       className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
@@ -1488,7 +1473,7 @@ export const CheckoutView: React.FC = () => {
                           {isArabic ? 'تحويل إلكتروني فوري' : 'Instant local e-transfer'}
                         </div>
                       </div>
-                    </button>
+                    </button>}
 
                     {/*
                       No card option is offered. The storefront takes no online
@@ -1513,7 +1498,7 @@ export const CheckoutView: React.FC = () => {
             <div className="lg:col-span-5 space-y-6">
               
               {(visibility.checkoutOrderSummary || isVisualEditMode) && (
-                <div className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-6 sticky top-28 relative shadow-xs ${!visibility.checkoutOrderSummary && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
+                <div data-cms-element="checkout-summary" className={`p-6 rounded-xl bg-white border border-[#E5E5E5] space-y-6 sticky top-28 relative shadow-xs ${!visibility.checkoutOrderSummary && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80' : ''}`}>
                   {!visibility.checkoutOrderSummary && isVisualEditMode && (
                     <div className="absolute top-2 right-4 z-40 bg-rose-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-xs">
                       <EyeOff className="w-3 h-3" />
@@ -1631,9 +1616,6 @@ export const CheckoutView: React.FC = () => {
                       <span className="text-2xl font-bold text-[#8F7137]">
                         {formatPrice(finalTotalUSD)}
                       </span>
-                      <div className="text-[10px] text-[#737373] font-mono">
-                        ≈ {(finalTotalUSD * lbpRate).toLocaleString()} LBP
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1657,7 +1639,7 @@ export const CheckoutView: React.FC = () => {
                   </span>
                 </button>
 
-                {!firebaseUser && (
+                {!authUser && (
                   <p className="text-[11px] text-[#8F7137] bg-[#B89753]/10 p-2.5 rounded-lg border border-[#B89753]/20 text-center font-medium flex items-center justify-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 shrink-0" />
                     <span>{isArabic ? 'يرجى تسجيل الدخول أعلاه لإكمال الطلب' : 'Please sign in or register above to complete order'}</span>

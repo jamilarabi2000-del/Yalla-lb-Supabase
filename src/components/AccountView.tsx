@@ -38,6 +38,7 @@ export const AccountView: React.FC = () => {
     goBack,
     t,
     language,
+    siteContent,
     updateUser,
     checkPhoneUniqueness,
     showToast,
@@ -55,6 +56,10 @@ export const AccountView: React.FC = () => {
   } = useShop();
 
   const [activeAccountTab, setActiveAccountTab] = useState<'orders' | 'wishlist' | 'profile'>('orders');
+  const authVisibility = siteContent?.accountPage || {};
+  const showAppleAuth = authVisibility.showAppleAuth !== false;
+  const showGoogleAuth = authVisibility.showGoogleAuth !== false;
+  const showSmsAuth = authVisibility.showSmsAuth !== false;
   
   // User-isolated orders: Only display orders belonging to this authenticated user
   const userOrders = React.useMemo(() => {
@@ -341,7 +346,7 @@ export const AccountView: React.FC = () => {
 
   if (isSellerUser) {
     return (
-      <div className="min-h-screen bg-slate-50 pb-24">
+    <div data-cms-element="account" className="min-h-screen bg-slate-50 pb-24">
         {/* Account Header with Sign Out */}
         <div className="bg-white border-b border-slate-200 py-4 px-4 sm:px-6 lg:px-8">
           <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
@@ -633,6 +638,7 @@ export const AccountView: React.FC = () => {
 
                   {/* Social & Phone Sign In Options */}
                   <div className="mb-6 space-y-2.5">
+                    {showSmsAuth && (
                     <button
                       type="button"
                       id="account-phone-signin-btn"
@@ -643,7 +649,9 @@ export const AccountView: React.FC = () => {
                       <Smartphone className="w-4 h-4 text-[#B89753]" />
                       <span>{language === 'ar' ? 'تسجيل الدخول برقم الهاتف اللبناني (SMS)' : 'Sign In with Lebanese Phone (SMS)'}</span>
                     </button>
+                    )}
 
+                    {showGoogleAuth && (
                     <button
                       type="button"
                       id="account-google-signin-btn"
@@ -659,7 +667,9 @@ export const AccountView: React.FC = () => {
                       </svg>
                       <span>{language === 'ar' ? 'المتابعة باستخدام Google' : 'Continue with Google'}</span>
                     </button>
+                    )}
 
+                    {showAppleAuth && (
                     <button
                       type="button"
                       id="account-apple-signin-btn"
@@ -672,6 +682,7 @@ export const AccountView: React.FC = () => {
                       </svg>
                       <span>{language === 'ar' ? 'المتابعة باستخدام Apple' : 'Continue with Apple'}</span>
                     </button>
+                    )}
                   </div>
 
                   <div className="relative flex py-2 items-center mb-6">

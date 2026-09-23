@@ -461,7 +461,7 @@ describe('Checkout offers no payment method the system cannot take', () => {
     const union = stripComments(types).match(/export type PaymentMethod\s*=\s*([^;]+);/);
     expect(union).toBeTruthy();
     expect(union![1]).not.toContain('credit_card');
-    for (const method of ['cod_usd', 'cod_lbp', 'wish_omt']) {
+    for (const method of ['cod_usd', 'wish_omt']) {
       expect(union![1]).toContain(method);
     }
   });
@@ -475,7 +475,7 @@ describe('Checkout offers no payment method the system cannot take', () => {
     expect(m).toContain('before insert or update of payment_method on public.orders');
     expect(m).toContain('UNSUPPORTED_PAYMENT_METHOD');
     // The guard must name exactly the methods the storefront offers.
-    for (const method of ['cod_usd', 'cod_lbp', 'wish_omt']) {
+    for (const method of ['cod_usd', 'wish_omt']) {
       expect(m).toContain(`'${method}'::public.payment_method`);
     }
     expect(m).not.toContain("'credit_card'::public.payment_method");
@@ -732,7 +732,7 @@ describe('BOGO discounts cannot over-discount the basket', () => {
   });
 });
 
-describe('The LBP rate shown matches the rate charged', () => {
+describe('Legacy LBP pricing remains server-side only', () => {
   // private.checkout_create_order prices total_lbp from
   // app_settings.lbp_usd_rate. The storefront multiplied by a hardcoded
   // constant, so the two agreed only while nobody touched the stored value --
@@ -752,19 +752,17 @@ describe('The LBP rate shown matches the rate charged', () => {
     expect(svc).toContain('Number.isFinite(rate) && rate > 0 ? rate : null');
   });
 
-  it('converts through the live rate, not the constant', () => {
+  it('does not expose LBP conversion in the customer storefront', () => {
     const code = strip(shop);
-    expect(code).toContain('const [lbpRate, setLbpRate]');
-    expect(code).toContain("currency === 'LBP' ? lbpRate : 1");
-    expect(code).toContain('Math.round(amountUSD * lbpRate)');
-    // The constant survives only as the initial fallback.
+    expect(code).not.toContain("currency === 'LBP' ? lbpRate : 1");
+    expect(code).not.toContain('amountUSD * lbpRate');
     expect(code).not.toContain('amountUSD * LBP_USD_RATE');
   });
 
-  it('checkout quotes the shopper at the live rate', () => {
+  it('checkout remains USD-only for customer-facing totals', () => {
     const code = strip(checkout);
     expect(code).not.toContain('LBP_USD_RATE');
-    expect(code.match(/finalTotalUSD \* lbpRate/g)?.length).toBe(2);
+    expect(code).not.toContain('finalTotalUSD * lbpRate');
   });
 
   it('no customer-facing or admin view multiplies by the constant', () => {
