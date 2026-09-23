@@ -15,6 +15,7 @@ import {
   Layout,
   Code
 } from 'lucide-react';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 interface CustomBlockModalProps {
   isOpen: boolean;
@@ -163,7 +164,7 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                 Target Page
               </label>
-              <select
+              <SearchableSelect
                 value={targetPage}
                 onChange={(e) => setTargetPage(e.target.value as any)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-amber-400"
@@ -174,14 +175,14 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
                 <option value="checkout">Checkout Page</option>
                 <option value="account">Account Page</option>
                 <option value="all">All Pages (Global)</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                 Position on Page
               </label>
-              <select
+              <SearchableSelect
                 value={position}
                 onChange={(e) => setPosition(e.target.value as any)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-amber-400"
@@ -189,7 +190,7 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
                 <option value="top">Top (Below Header)</option>
                 <option value="middle">Middle (Between Sections)</option>
                 <option value="bottom">Bottom (Above Footer)</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div>

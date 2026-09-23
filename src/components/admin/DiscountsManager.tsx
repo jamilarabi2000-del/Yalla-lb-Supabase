@@ -25,6 +25,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 export const DiscountsManager: React.FC = () => {
 
@@ -526,7 +527,7 @@ export const DiscountsManager: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Discount Target / Scope</label>
-                  <select
+                  <SearchableSelect
                     value={form.target}
                     onChange={(e) => setForm({ ...form, target: e.target.value as any, targetValue: '' })}
                     className="w-full px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:border-amber-500 focus:bg-white"
@@ -537,12 +538,12 @@ export const DiscountsManager: React.FC = () => {
                     <option value="category">Specific Category</option>
                     <option value="product">Specific Product</option>
                     <option value="checkout">Checkout Subtotal</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Discount Type</label>
-                  <select
+                  <SearchableSelect
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value as any })}
                     className="w-full px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:border-amber-500 focus:bg-white"
@@ -550,7 +551,7 @@ export const DiscountsManager: React.FC = () => {
                     <option value="percentage">Percentage (%)</option>
                     <option value="fixed">Fixed Amount ($)</option>
                     <option value="bogo">Buy X Get Y (BOGO / Quantity Deal)</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
 
@@ -601,7 +602,7 @@ export const DiscountsManager: React.FC = () => {
                       <label className="block text-[11px] font-bold uppercase text-emerald-950 mb-1">
                         Discount on Y (%)
                       </label>
-                      <select
+                      <SearchableSelect
                         value={form.getDiscountPercent}
                         onChange={(e) => setForm({ ...form, getDiscountPercent: Number(e.target.value) })}
                         className="w-full px-3 py-2 bg-white rounded-xl border border-emerald-300 text-sm font-extrabold text-slate-900 focus:outline-none focus:border-emerald-500"
@@ -610,7 +611,7 @@ export const DiscountsManager: React.FC = () => {
                         <option value="50">50% Off</option>
                         <option value="25">25% Off</option>
                         <option value="75">75% Off</option>
-                      </select>
+                      </SearchableSelect>
                       <span className="text-[10px] text-emerald-700">
                         {form.getDiscountPercent === 100 ? 'Item Y is 100% Free' : `${form.getDiscountPercent}% discount on Y`}
                       </span>
@@ -628,7 +629,7 @@ export const DiscountsManager: React.FC = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select or Enter Category</label>
                   <div className="space-y-2">
-                    <select
+                    <SearchableSelect
                       value={categories.includes(form.targetValue) ? form.targetValue : ''}
                       onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:border-amber-500"
@@ -637,7 +638,7 @@ export const DiscountsManager: React.FC = () => {
                       {categories.map((cat) => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                     <input
                       type="text"
                       placeholder="Or type custom category name..."
@@ -653,7 +654,7 @@ export const DiscountsManager: React.FC = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select or Enter Seller / Artisan</label>
                   <div className="space-y-2">
-                    <select
+                    <SearchableSelect
                       value={artisans.includes(form.targetValue) ? form.targetValue : ''}
                       onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:border-amber-500"
@@ -662,7 +663,7 @@ export const DiscountsManager: React.FC = () => {
                       {artisans.map((art) => (
                         <option key={art} value={art}>{art}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                     <input
                       type="text"
                       placeholder="Or type seller/artisan name..."
@@ -678,7 +679,7 @@ export const DiscountsManager: React.FC = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select or Enter Brand / Origin</label>
                   <div className="space-y-2">
-                    <select
+                    <SearchableSelect
                       value={brands.includes(form.targetValue) ? form.targetValue : ''}
                       onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:border-amber-500"
@@ -687,7 +688,7 @@ export const DiscountsManager: React.FC = () => {
                       {brands.map((brand) => (
                         <option key={brand} value={brand}>{brand}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                     <input
                       type="text"
                       placeholder="Or type brand or origin name (e.g. Koura, North Lebanon)..."
@@ -702,7 +703,7 @@ export const DiscountsManager: React.FC = () => {
               {form.target === 'product' && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Select Product</label>
-                  <select
+                  <SearchableSelect
                     value={form.targetValue}
                     onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
                     className="w-full px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:border-amber-500"
@@ -713,7 +714,7 @@ export const DiscountsManager: React.FC = () => {
                         {p.name} [{p.sellerItemCode || 'No Code'}] (${p.priceUSD})
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
               )}
 

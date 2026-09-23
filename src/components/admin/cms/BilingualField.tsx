@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
-import { Check, Copy, Sparkles, ChevronDown } from 'lucide-react';
+import { Check, Copy, Sparkles, ChevronDown, Search } from 'lucide-react';
+import { optionMatcher } from '../../../lib/optionSearch';
 
 export interface SuggestionItem {
   en: string;
@@ -87,7 +88,9 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
   const [copiedField, setCopiedField] = useState<'en' | 'ar' | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [presetQuery, setPresetQuery] = useState('');
   const presetsTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -102,6 +105,19 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
   const isMultiLine = Boolean(isTextarea || type === 'textarea');
   const displayLabel = label || labelEn || 'Field';
   const availableSuggestions = presetSuggestions || suggestions;
+  // The presets the search box leaves: category, English or Arabic may match.
+  const presetText = (item: SuggestionItem) => `${item.category || ''} ${item.en} ${item.ar}`;
+  const matchingPresets = (query: string) => {
+    const matches = optionMatcher(query);
+    return (availableSuggestions || []).filter(item => matches(presetText(item)));
+  };
+  const shownPresets = matchingPresets(presetQuery);
+
+  // The search box takes focus as the list opens, and starts empty each time.
+  useEffect(() => {
+    if (showSuggestions) filterRef.current?.focus();
+    else setPresetQuery('');
+  }, [showSuggestions]);
 
   useEffect(() => {
     if (!showSuggestions) {
@@ -110,37 +126,43 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
     }
     const onKeyDown = (e: KeyboardEvent) => {
       if (!availableSuggestions || availableSuggestions.length === 0) return;
+      // Space, Home and End edit the search text while it has focus.
+      const inFilter = e.target === filterRef.current;
 
       if (e.key === 'Escape') {
         e.preventDefault();
+        // The presets close; a dialog around them stays open.
+        e.stopPropagation();
         setShowSuggestions(false);
         presetsTriggerRef.current?.focus();
+      } else if (shownPresets.length === 0) {
+        return;
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         setActiveIndex(prev => {
-          const next = prev < availableSuggestions.length - 1 ? prev + 1 : 0;
+          const next = prev < shownPresets.length - 1 ? prev + 1 : 0;
           itemRefs.current[next]?.scrollIntoView({ block: 'nearest' });
           return next;
         });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setActiveIndex(prev => {
-          const next = prev > 0 ? prev - 1 : availableSuggestions.length - 1;
+          const next = prev > 0 ? prev - 1 : shownPresets.length - 1;
           itemRefs.current[next]?.scrollIntoView({ block: 'nearest' });
           return next;
         });
-      } else if (e.key === 'Home') {
+      } else if (e.key === 'Home' && !inFilter) {
         e.preventDefault();
         setActiveIndex(0);
         itemRefs.current[0]?.scrollIntoView({ block: 'nearest' });
-      } else if (e.key === 'End') {
+      } else if (e.key === 'End' && !inFilter) {
         e.preventDefault();
-        const last = availableSuggestions.length - 1;
+        const last = shownPresets.length - 1;
         setActiveIndex(last);
         itemRefs.current[last]?.scrollIntoView({ block: 'nearest' });
-      } else if ((e.key === 'Enter' || e.key === ' ') && activeIndex >= 0 && activeIndex < availableSuggestions.length) {
+      } else if ((e.key === 'Enter' || (e.key === ' ' && !inFilter)) && activeIndex >= 0 && activeIndex < shownPresets.length) {
         e.preventDefault();
-        applySuggestion(availableSuggestions[activeIndex]);
+        applySuggestion(shownPresets[activeIndex]);
       }
     };
     const onPointerDown = (e: MouseEvent) => {
@@ -158,7 +180,7 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('mousedown', onPointerDown);
     };
-  }, [showSuggestions, activeIndex, availableSuggestions]);
+  }, [showSuggestions, activeIndex, availableSuggestions, presetQuery]);
 
   const handleCopy = (field: 'en' | 'ar', text: string) => {
     if (!text) return;
@@ -208,49 +230,75 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
             {showSuggestions && (
               <div
                 ref={dropdownRef}
-                id={presetsId}
-                role="listbox"
-                aria-labelledby={`${presetsId}-label`}
-                aria-activedescendant={activeIndex >= 0 ? `${presetsId}-opt-${activeIndex}` : undefined}
-                tabIndex={-1}
-                className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 bg-slate-50/98 backdrop-blur-md border border-amber-500/30 rounded-2xl shadow-2xl p-2 space-y-1.5 max-h-72 overflow-y-auto custom-scrollbar"
+                className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 bg-slate-50/98 backdrop-blur-md border border-amber-500/30 rounded-2xl shadow-2xl p-2 max-h-80 flex flex-col"
               >
                 <div id={`${presetsId}-label`} className="px-3 py-1.5 text-[11px] font-bold text-indigo-600 border-b border-slate-200 uppercase tracking-wider flex items-center justify-between">
                   <span>Copy Presets</span>
                   <span className="text-[10px] text-slate-500">↑↓ to navigate • Enter to select • Esc</span>
                 </div>
-                {availableSuggestions.map((item, idx) => {
-                  const isSelected = activeIndex === idx;
-                  return (
-                    <button
-                      key={idx}
-                      ref={(el) => { itemRefs.current[idx] = el; }}
-                      id={`${presetsId}-opt-${idx}`}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => applySuggestion(item)}
-                      onMouseEnter={() => setActiveIndex(idx)}
-                      className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer group ${
-                        isSelected
-                          ? 'bg-amber-500/20 border-amber-500/40 text-indigo-600 ring-1 ring-amber-400/30'
-                          : 'border-transparent hover:bg-amber-500/15 hover:border-amber-500/30'
-                      }`}
-                    >
-                      {item.category && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600/80 block mb-1">
-                          {item.category}
-                        </span>
-                      )}
-                      <p className={`text-xs font-medium line-clamp-1 ${isSelected ? 'text-amber-200 font-bold' : 'text-slate-900 group-hover:text-indigo-600'}`}>
-                        {item.en}
-                      </p>
-                      <p className="text-[11px] text-slate-500 font-arabic text-right line-clamp-1 mt-0.5" dir="rtl">
-                        {item.ar}
-                      </p>
-                    </button>
-                  );
-                })}
+                <div className="my-1.5 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
+                  <Search className="w-3.5 h-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                  <input
+                    ref={filterRef}
+                    type="text"
+                    value={presetQuery}
+                    onChange={e => {
+                      setPresetQuery(e.target.value);
+                      setActiveIndex(matchingPresets(e.target.value).length ? 0 : -1);
+                    }}
+                    // Enter picks a preset; it never submits a form around the field.
+                    onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                    placeholder="Type to search presets…"
+                    aria-label="Search presets"
+                    aria-controls={presetsId}
+                    aria-activedescendant={activeIndex >= 0 && activeIndex < shownPresets.length ? `${presetsId}-opt-${activeIndex}` : undefined}
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="min-w-0 flex-1 bg-transparent text-base text-slate-800 outline-none placeholder:text-slate-400 sm:text-xs"
+                  />
+                </div>
+                <div
+                  id={presetsId}
+                  role="listbox"
+                  aria-labelledby={`${presetsId}-label`}
+                  className="min-h-0 flex-1 space-y-1.5 overflow-y-auto custom-scrollbar"
+                >
+                  {shownPresets.map((item, idx) => {
+                    const isSelected = activeIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        ref={(el) => { itemRefs.current[idx] = el; }}
+                        id={`${presetsId}-opt-${idx}`}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => applySuggestion(item)}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer group ${
+                          isSelected
+                            ? 'bg-amber-500/20 border-amber-500/40 text-indigo-600 ring-1 ring-amber-400/30'
+                            : 'border-transparent hover:bg-amber-500/15 hover:border-amber-500/30'
+                        }`}
+                      >
+                        {item.category && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600/80 block mb-1">
+                            {item.category}
+                          </span>
+                        )}
+                        <p className={`text-xs font-medium line-clamp-1 ${isSelected ? 'text-amber-200 font-bold' : 'text-slate-900 group-hover:text-indigo-600'}`}>
+                          {item.en}
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-arabic text-right line-clamp-1 mt-0.5" dir="rtl">
+                          {item.ar}
+                        </p>
+                      </button>
+                    );
+                  })}
+                  {shownPresets.length === 0 && (
+                    <p className="px-3 py-2 text-xs text-slate-500">No presets match.</p>
+                  )}
+                </div>
               </div>
             )}
           </div>

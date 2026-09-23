@@ -35,6 +35,8 @@ const usableText = (el: Element) => {
  */
 export function textTargetFrom(node: Element | null, boundary: Element): Element | null {
   if (!node || !boundary.contains(node) || inEditor(node)) return null;
+  // A dropdown shows whichever option is chosen: data, not the page's text.
+  if (node.closest('[role="combobox"]')) return null;
   let el: Element | null = node;
   for (let depth = 0; el && el !== boundary && depth < 6; depth++, el = el.parentElement) {
     if (TEXT_TAGS.has(el.tagName.toLowerCase()) && hasOwnText(el) && usableText(el)) return el;

@@ -38,6 +38,7 @@ import {
   Truck,
   Save
 } from 'lucide-react';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 const EMOJI_SUGGESTIONS = ['🫒', '🧼', '✈️', '🏺', '🧵', '✨', '🧸', '⚡', '🔧', '🚰', '💡', '🔌', '🧹', '🎨', '🍯', '🌿', '☕', '🍞', '🧀', '🍇', '🇱🇧', '🕯️', '📦'];
 
@@ -1662,7 +1663,7 @@ export const CategoriesDetailsView: React.FC = () => {
                 <label className="block text-xs font-bold text-amber-900">
                   Reassign existing products to another category:
                 </label>
-                <select
+                <SearchableSelect
                   value={reassignTargetCatId}
                   onChange={(e) => setReassignTargetCatId(e.target.value)}
                   className="w-full px-3 py-2 bg-white rounded-xl border border-amber-300 text-xs font-semibold focus:outline-none"
@@ -1672,7 +1673,7 @@ export const CategoriesDetailsView: React.FC = () => {
                       {c.nameEn} ({c.nameAr})
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
             )}
 

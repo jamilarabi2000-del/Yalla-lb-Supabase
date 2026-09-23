@@ -18,6 +18,7 @@ import { AdminQuickEditor } from './components/AdminQuickEditor';
 import { TextStyleLayer } from './components/TextStyleLayer';
 import { CustomBlockModal } from './components/CustomBlockModal';
 import { syncDomHead } from './utils/domHeadSync';
+import { currentDesignSelector } from './lib/designSelectors';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>) {
@@ -122,8 +123,9 @@ const MainAppContent: React.FC = () => {
       cssFor('subtitle', ':root #main-content .yalla-text-subtitle'),
       cssFor('small', ':root #main-content small, :root #main-content .yalla-text-small'),
       cssFor('label', ':root #main-content label, :root #main-content .yalla-text-label'),
-      cssFor('button', ':root #main-content button, :root #main-content [role="button"]'),
-      cssFor('nav', ':root nav a, :root nav button'),
+      // Dropdowns are buttons too (role="combobox"); button styling is not for them.
+      cssFor('button', ':root #main-content button:not([role="combobox"]), :root #main-content [role="button"]'),
+      cssFor('nav', ':root nav a, :root nav button:not([role="combobox"])'),
       cssFor('price', ':root #main-content .yalla-text-price'),
       cssFor('badge', ':root #main-content .yalla-text-badge'),
       cssFor('input', ':root #main-content input::placeholder, :root #main-content textarea::placeholder'),
@@ -136,8 +138,8 @@ const MainAppContent: React.FC = () => {
       slot === 'body' ? '#main-content p,#main-content li,#main-content dd' :
       slot === 'small' ? '#main-content small,#main-content .yalla-text-small' :
       slot === 'label' ? '#main-content label,#main-content .yalla-text-label' :
-      slot === 'button' ? '#main-content button,#main-content [role="button"]' :
-      slot === 'nav' ? 'nav a,nav button' :
+      slot === 'button' ? '#main-content button:not([role="combobox"]),#main-content [role="button"]' :
+      slot === 'nav' ? 'nav a,nav button:not([role="combobox"])' :
       slot === 'link' ? '#main-content a' :
       slot === 'input' ? '#main-content input::placeholder,#main-content textarea::placeholder' :
       slot === 'price' ? '#main-content .yalla-text-price' :
@@ -157,7 +159,7 @@ const MainAppContent: React.FC = () => {
       .filter(([k,v]) => k && typeof v === 'string' && v !== '')
       .map(([k,v]) => `${k}:${cssSafe(v)} !important`).join(';');
     const designCss = Object.values(designRules).map((rule: any) => {
-      const selector = typeof rule?.selector === 'string' ? rule.selector.replace(/[{}]/g, '') : '';
+      const selector = typeof rule?.selector === 'string' ? currentDesignSelector(rule.selector.replace(/[{}]/g, '')) : '';
       if (!selector) return '';
       const base = buildDecl(rule.desktop);
       const tablet = rule.tablet ? '@media (min-width:768px) and (max-width:1279px){' + selector + '{' + buildDecl(rule.tablet) + '}}' : '';

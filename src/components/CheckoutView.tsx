@@ -35,6 +35,7 @@ import {
   Eye,
   KeyRound
 } from 'lucide-react';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 export const CheckoutView: React.FC = () => {
   const { 
@@ -1252,7 +1253,7 @@ export const CheckoutView: React.FC = () => {
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
                       {isArabic ? 'المحافظة *' : 'Governorate *'}
                     </label>
-                    <select
+                    <SearchableSelect
                       id="checkout-governorate-select"
                       value={formData.governorate}
                       onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
@@ -1261,7 +1262,7 @@ export const CheckoutView: React.FC = () => {
                       {LEBANON_REGIONS.filter(r => r.id !== 'diaspora_global').map(region => (
                         <option key={region.id} value={region.id}>{isArabic ? region.nameAr : region.nameEn}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
 
                   <div>

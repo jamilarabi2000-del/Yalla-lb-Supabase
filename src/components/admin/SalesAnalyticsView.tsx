@@ -30,6 +30,7 @@ import {
   Percent,
   Receipt
 } from 'lucide-react';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 type DateRangePreset = 
   | 'today' 
@@ -804,7 +805,7 @@ export const SalesAnalyticsView: React.FC = () => {
             {/* 1. Filter Product */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Product / SKU</label>
-              <select
+              <SearchableSelect
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500"
@@ -815,13 +816,13 @@ export const SalesAnalyticsView: React.FC = () => {
                     {p.name} (${p.priceUSD})
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* 2. Filter Seller / Artisan */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Seller / Producer</label>
-              <select
+              <SearchableSelect
                 value={selectedSeller}
                 onChange={(e) => setSelectedSeller(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500"
@@ -832,13 +833,13 @@ export const SalesAnalyticsView: React.FC = () => {
                     {s}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* 3. Filter Category */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Category</label>
-              <select
+              <SearchableSelect
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500"
@@ -849,13 +850,13 @@ export const SalesAnalyticsView: React.FC = () => {
                     {c.nameEn}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* 4. Filter Order Status */}
             <div>
               <label className="block text-[11px] font-bold text-slate-600 mb-1">Order Status</label>
-              <select
+              <SearchableSelect
                 value={selectedOrderStatus}
                 onChange={(e) => setSelectedOrderStatus(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs font-semibold rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500"
@@ -866,7 +867,7 @@ export const SalesAnalyticsView: React.FC = () => {
                 <option value="pending">Pending Confirmation</option>
                 <option value="all">All Orders (Including Cancelled)</option>
                 <option value="cancelled">Cancelled Orders Only</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* 5. Filter Customer / Search */}

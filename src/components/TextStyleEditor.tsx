@@ -9,6 +9,7 @@ import {
   normalizeText, ruleAppliesOn, sanitizeStyle, styleCss,
   type CMSTextRule, type TextDevice, type TextStyleProp,
 } from '../lib/textStyleRules';
+import { SELECT_POPOVER_ATTR, SearchableSelect } from './ui/SearchableSelect';
 
 interface Selection {
   text: string;
@@ -107,6 +108,8 @@ export const TextStyleEditor: React.FC<{
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // An open dropdown (the font list, say) closes itself first.
+      if (e.target instanceof Element && e.target.closest(`[${SELECT_POPOVER_ATTR}]`)) return;
       e.stopPropagation();
       if (selectionRef.current) clearSelection();
       else onClose();
@@ -274,10 +277,10 @@ export const TextStyleEditor: React.FC<{
             {device !== 'desktop' && <p className="-mt-2 text-[10px] text-slate-400">Only what you set here overrides “All screens” on a {device}.</p>}
 
             <label className={label}>Font
-              <select value={current['font-family'] || ''} onChange={e => setProp('font-family', e.target.value || null)} className={field}>
+              <SearchableSelect value={current['font-family'] || ''} onChange={e => setProp('font-family', e.target.value || null)} className={field}>
                 <option value="">{device === 'desktop' ? 'Site default' : 'Same as all screens'}</option>
                 {TEXT_FONTS.map(f => <option key={f.label} value={f.value}>{f.label}</option>)}
-              </select>
+              </SearchableSelect>
             </label>
 
             <div className="grid grid-cols-2 gap-2">
@@ -286,10 +289,10 @@ export const TextStyleEditor: React.FC<{
                   onChange={e => setProp('font-size', e.target.value ? `${e.target.value}px` : null)} className={field} />
               </label>
               <label className={label}>Weight
-                <select value={current['font-weight'] || ''} onChange={e => setProp('font-weight', e.target.value || null)} className={field}>
+                <SearchableSelect value={current['font-weight'] || ''} onChange={e => setProp('font-weight', e.target.value || null)} className={field}>
                   <option value="">{device === 'desktop' ? 'Default' : 'Same'}</option>
                   {WEIGHTS.map(w => <option key={w} value={w}>{w}</option>)}
-                </select>
+                </SearchableSelect>
               </label>
             </div>
 
@@ -338,13 +341,13 @@ export const TextStyleEditor: React.FC<{
 
             <div className="grid grid-cols-2 gap-2">
               <label className={label}>Case
-                <select value={current['text-transform'] || ''} onChange={e => setProp('text-transform', e.target.value || null)} className={field}>
+                <SearchableSelect value={current['text-transform'] || ''} onChange={e => setProp('text-transform', e.target.value || null)} className={field}>
                   <option value="">{device === 'desktop' ? 'As written' : 'Same'}</option>
                   <option value="uppercase">UPPERCASE</option>
                   <option value="lowercase">lowercase</option>
                   <option value="capitalize">Title Case</option>
                   <option value="none">As written (force)</option>
-                </select>
+                </SearchableSelect>
               </label>
               <div>
                 <span className={label}>Style</span>

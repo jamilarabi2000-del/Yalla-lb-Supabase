@@ -33,6 +33,7 @@ import {
   type SellerPrivateRow,
   type SellerStatusFilter,
 } from '../../lib/sellerAdmin';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 type Tab = 'registered' | 'signups' | 'bulk';
 
@@ -495,7 +496,7 @@ const SellerEditModal: React.FC<{
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs font-black text-slate-700">Governorate *</span>
-              <select value={form.governorate} onChange={e => setForm(f => ({ ...f, governorate: e.target.value, district: '' }))}
+              <SearchableSelect value={form.governorate} onChange={e => setForm(f => ({ ...f, governorate: e.target.value, district: '' }))}
                 aria-invalid={!!errors.governorate}
                 className={`mt-1 w-full px-3 py-2.5 rounded-xl border text-sm ${errors.governorate ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}>
                 <option value="">Select…</option>
@@ -503,12 +504,12 @@ const SellerEditModal: React.FC<{
                 {form.governorate && !LEBANON_GOVERNORATES_DATA[form.governorate] && (
                   <option value={form.governorate}>{form.governorate} (unrecognised)</option>
                 )}
-              </select>
+              </SearchableSelect>
               {errors.governorate && <span className="text-[11px] font-bold text-rose-600">{errors.governorate}</span>}
             </label>
             <label className="block">
               <span className="text-xs font-black text-slate-700">District *</span>
-              <select value={form.district} onChange={e => set('district', e.target.value)} disabled={!form.governorate}
+              <SearchableSelect value={form.district} onChange={e => set('district', e.target.value)} disabled={!form.governorate}
                 aria-invalid={!!errors.district}
                 className={`mt-1 w-full px-3 py-2.5 rounded-xl border text-sm disabled:bg-slate-50 ${errors.district ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}>
                 <option value="">Select…</option>
@@ -516,7 +517,7 @@ const SellerEditModal: React.FC<{
                 {form.district && !districts.includes(form.district) && (
                   <option value={form.district}>{form.district} (unrecognised)</option>
                 )}
-              </select>
+              </SearchableSelect>
               {errors.district && <span className="text-[11px] font-bold text-rose-600">{errors.district}</span>}
             </label>
           </div>
@@ -607,10 +608,10 @@ const DeleteSellerModal: React.FC<{
         {linked > 0 && (
           <label className="block mt-4">
             <span className="text-xs font-black text-slate-700">Reassign products to *</span>
-            <select value={target} onChange={e => setTarget(e.target.value)} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm">
+            <SearchableSelect value={target} onChange={e => setTarget(e.target.value)} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm">
               <option value="">Choose a seller…</option>
               {others.map(s => <option key={s.id} value={s.id}>{s.sellerCode ? `${s.sellerCode} · ` : ''}{s.nameEn}{s.isActive === false ? ' (inactive)' : ''}</option>)}
-            </select>
+            </SearchableSelect>
             {others.length === 0 && <span className="text-[11px] font-bold text-amber-700">Add another seller first — products cannot be left without one.</span>}
           </label>
         )}
@@ -699,14 +700,14 @@ const BulkImportPanel: React.FC<{ shop: any; sellers: Seller[]; products: any[];
 
       <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-3">
         <div className="flex flex-wrap gap-2">
-          <select value={target} onChange={e => setTarget(e.target.value)} aria-label="Target seller" className="px-3 py-2 rounded-xl border border-slate-200 text-sm">
+          <SearchableSelect value={target} onChange={e => setTarget(e.target.value)} aria-label="Target seller" className="px-3 py-2 rounded-xl border border-slate-200 text-sm">
             <option value="">Seller from each row</option>
             {sellers.map(s => <option key={s.id} value={s.id}>Assign all to {s.sellerCode ? `${s.sellerCode} · ` : ''}{s.nameEn}</option>)}
-          </select>
-          <select value={fallback} onChange={e => setFallback(e.target.value)} aria-label="Fallback category" className="px-3 py-2 rounded-xl border border-slate-200 text-sm">
+          </SearchableSelect>
+          <SearchableSelect value={fallback} onChange={e => setFallback(e.target.value)} aria-label="Fallback category" className="px-3 py-2 rounded-xl border border-slate-200 text-sm">
             <option value="">No fallback category</option>
             {categories.map((c: any) => <option key={c.id} value={c.id}>Fallback: {c.nameEn}</option>)}
-          </select>
+          </SearchableSelect>
         </div>
 
         <div role="button" tabIndex={0} aria-label="Drop a CSV file here or press Enter to choose one"

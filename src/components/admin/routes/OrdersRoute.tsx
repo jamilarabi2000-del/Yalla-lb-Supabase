@@ -21,6 +21,7 @@ import {
   Calendar,
   UserCheck
 } from 'lucide-react';
+import { SearchableSelect } from '../../ui/SearchableSelect';
 
 export const OrdersRoute: React.FC = () => {
   const { 
@@ -117,7 +118,7 @@ export const OrdersRoute: React.FC = () => {
 
         <div className="flex items-center gap-2.5 shrink-0 justify-between sm:justify-start">
           <span className="text-xs text-slate-500 font-bold whitespace-nowrap">Status:</span>
-          <select
+          <SearchableSelect
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="bg-white text-xs font-semibold text-slate-900 border border-slate-200 rounded-2xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 shadow-2xs cursor-pointer"
@@ -130,7 +131,7 @@ export const OrdersRoute: React.FC = () => {
             <option value="in_transit">In Transit</option>
             <option value="delivered">Delivered</option>
             <option value="cancelled">Cancelled</option>
-          </select>
+          </SearchableSelect>
         </div>
       </div>
 
@@ -200,7 +201,7 @@ export const OrdersRoute: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3.5 px-4">
-                        <select
+                        <SearchableSelect
                           value={order.status}
                           onChange={async (e) => {
                             const newStatus = e.target.value as OrderStatus;
@@ -224,7 +225,7 @@ export const OrdersRoute: React.FC = () => {
                           <option value="in_transit">In Transit</option>
                           <option value="delivered">Delivered</option>
                           <option value="cancelled">Cancelled</option>
-                        </select>
+                        </SearchableSelect>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <button
@@ -294,7 +295,7 @@ export const OrdersRoute: React.FC = () => {
             {/* Quick Status Control */}
             <div className="flex items-center justify-between p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 text-xs">
               <span className="font-bold text-indigo-950">Update Fulfillment Status:</span>
-              <select
+              <SearchableSelect
                 value={selectedInvoiceOrder.status}
                 onChange={async (e) => {
                   const newStatus = e.target.value as OrderStatus;
@@ -310,7 +311,7 @@ export const OrdersRoute: React.FC = () => {
                 <option value="in_transit">In Transit</option>
                 <option value="delivered">Delivered</option>
                 <option value="cancelled">Cancelled</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

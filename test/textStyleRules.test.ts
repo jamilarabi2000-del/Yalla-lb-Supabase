@@ -116,7 +116,8 @@ describe('the CSS a rule produces', () => {
 
   it('outranks the site-wide text roles and single-id design rules', () => {
     // From App.tsx: the Text Style Studio and the design-rule presets.
-    for (const other of [':root #main-content h1', ':root #main-content button', ':root nav a', '#main-content button', '#products-grid-section img']) {
+    for (const other of [':root #main-content h1', ':root #main-content button:not([role="combobox"])', ':root nav a',
+      '#main-content button:not([role="combobox"])', '#products-grid-section img']) {
       expect(outranks(ruleSelector('tr_abcdef123456'), other), other).toBe(true);
     }
   });

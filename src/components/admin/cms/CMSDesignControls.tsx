@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, Palette, RotateCcw, Save, Smartphone, Tablet, Monitor, Plus, Trash2 } from 'lucide-react';
 import { useShop } from '../../../context/ShopContext';
 import type { CMSDesignRule } from '../../../types';
+import { DESIGN_PRESET_SELECTORS } from '../../../lib/designSelectors';
 
 const TARGETS=[
  {id:'page',label:'Main page content',selector:'#main-content'},
  {id:'header',label:'Header / Navbar',selector:'header'},
- {id:'headerButtons',label:'Header buttons',selector:'header button'},
+ {id:'headerButtons',label:'Header buttons',selector:DESIGN_PRESET_SELECTORS.headerButtons},
  {id:'hero',label:'Hero banner',selector:'[class*="hero"]'},
  {id:'promo',label:'Promo slider',selector:'#homepage-content-slider'},
  {id:'productGrid',label:'Product grid',selector:'#products-grid-section'},
  {id:'productCards',label:'Product cards',selector:'#products-grid-section > *'},
  {id:'productImages',label:'Product images',selector:'#products-grid-section img'},
- {id:'buttons',label:'All storefront buttons',selector:'#main-content button'},
+ {id:'buttons',label:'All storefront buttons',selector:DESIGN_PRESET_SELECTORS.buttons},
  {id:'links',label:'All storefront links',selector:'#main-content a'},
- {id:'inputs',label:'Inputs / selects / textareas',selector:'#main-content input,#main-content select,#main-content textarea'},
+ {id:'inputs',label:'Inputs / selects / textareas',selector:DESIGN_PRESET_SELECTORS.inputs},
  {id:'cart',label:'Cart drawer',selector:'[role="dialog"]'},
  {id:'checkout',label:'Checkout',selector:'#main-content form'},
  {id:'account',label:'Account',selector:'#main-content'},

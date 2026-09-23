@@ -24,6 +24,7 @@ import {
   PlusCircle,
   FileText
 } from 'lucide-react';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 export const SellerDashboard: React.FC = () => {
   const { 
@@ -562,7 +563,7 @@ export const SellerDashboard: React.FC = () => {
                         {/* Status dropdown */}
                         <div className="flex items-center gap-2">
                           <label className="text-xs font-bold text-slate-500">Dispatch Status:</label>
-                          <select
+                          <SearchableSelect
                             value={order.status}
                             onChange={(e) => handleStatusChange(order.id, e.target.value as any)}
                             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
@@ -572,7 +573,7 @@ export const SellerDashboard: React.FC = () => {
                             <option value="shipped">Handed to Courier</option>
                             <option value="completed">Delivered Successfully</option>
                             <option value="cancelled">Cancelled</option>
-                          </select>
+                          </SearchableSelect>
                         </div>
                       </div>
                     </div>
@@ -753,7 +754,7 @@ export const SellerDashboard: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Category *</label>
-                  <select
+                  <SearchableSelect
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
@@ -761,7 +762,7 @@ export const SellerDashboard: React.FC = () => {
                     {categories.map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.nameEn}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Supplier / Item SKU Code</label>

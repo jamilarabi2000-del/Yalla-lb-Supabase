@@ -9,6 +9,7 @@ import {
   Plus
 } from 'lucide-react';
 import { SiteContent } from '../../../types';
+import { SearchableSelect } from '../../ui/SearchableSelect';
 
 interface CMSLivePreviewProps {
   content?: SiteContent;
@@ -204,7 +205,7 @@ export const CMSLivePreview: React.FC<CMSLivePreviewProps> = ({
           </div>
 
           {/* Page Picker */}
-          <select
+          <SearchableSelect
             value={previewPage}
             onChange={(e) => setPreviewPage(e.target.value as any)}
             className="px-2.5 py-1.5 rounded-xl bg-slate-950 border border-white/10 text-[11px] font-semibold text-white focus:outline-none focus:border-amber-400 cursor-pointer"
@@ -212,7 +213,7 @@ export const CMSLivePreview: React.FC<CMSLivePreviewProps> = ({
             <option value="home">🏠 Home Page</option>
             <option value="products">🛍️ Catalog Page</option>
             <option value="checkout">💳 Checkout Page</option>
-          </select>
+          </SearchableSelect>
         </div>
 
         {/* Right: Zoom Controls, Reload & Status */}
@@ -229,7 +230,7 @@ export const CMSLivePreview: React.FC<CMSLivePreviewProps> = ({
               <Minus className="w-3 h-3" />
             </button>
             
-            <select
+            <SearchableSelect
               value={zoomLevel}
               onChange={(e) => setZoomLevel(Number(e.target.value))}
               className="bg-transparent text-amber-400 font-bold px-1.5 py-1 text-[10px] focus:outline-none cursor-pointer appearance-none text-center"
@@ -238,7 +239,7 @@ export const CMSLivePreview: React.FC<CMSLivePreviewProps> = ({
               {ZOOM_LEVELS.map(lvl => (
                 <option key={lvl} value={lvl} className="bg-slate-900 text-white">{lvl}%</option>
               ))}
-            </select>
+            </SearchableSelect>
 
             <button
               type="button"

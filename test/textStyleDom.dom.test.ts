@@ -25,6 +25,7 @@ beforeEach(() => {
           </div></div>
         </section>
         <section id="related"><button id="add-related">Add to Cart</button></section>
+        <button id="sort" role="combobox"><span><span id="sort-value">Newest</span></span></button>
       </main>
       <div data-yalla-editor=""><button id="editor-btn">Add to Cart</button></div>
     </div>`;
@@ -43,6 +44,9 @@ describe('which element a click means', () => {
 
   it('never the editor, never something outside, never a wall of text', () => {
     expect(textTargetFrom($('#editor-btn'), root)).toBeNull();
+    // A dropdown shows whichever option is chosen, which is not the page's text.
+    expect(textTargetFrom($('#sort-value'), root)).toBeNull();
+    expect(textTargetFrom($('#sort'), root)).toBeNull();
     expect(textTargetFrom(document.body, root)).toBeNull();
     expect(textTargetFrom($('#long'), root)).toBeNull();
   });

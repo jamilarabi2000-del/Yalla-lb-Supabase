@@ -19,6 +19,7 @@ import {
   ChevronsRight,
   Grid
 } from 'lucide-react';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 export const ProductsView: React.FC = () => {
   const { 
@@ -362,7 +363,7 @@ export const ProductsView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-3.5 h-3.5 text-[#8F7137]" />
                 <span className="text-[#737373] uppercase tracking-wider text-[10px] font-bold">{language === 'ar' ? 'الترتيب:' : 'Sort:'}</span>
-                <select
+                <SearchableSelect
                   id="sort-by-select"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
@@ -372,13 +373,13 @@ export const ProductsView: React.FC = () => {
                   <option value="price_low">{language === 'ar' ? 'السعر: من الأقل للأعلى' : 'Price: Low to High'}</option>
                   <option value="price_high">{language === 'ar' ? 'السعر: من الأعلى للأقل' : 'Price: High to Low'}</option>
                   <option value="rating">{language === 'ar' ? 'التقييم' : 'Rating'}</option>
-                </select>
+                </SearchableSelect>
               </div>
 
               {/* Items Per Page dropdown */}
               <div className="flex items-center gap-2 border-l border-[#E5E5E5] pl-3 dir-ltr:border-l dir-rtl:border-r dir-rtl:pr-3">
                 <span className="text-[#737373] uppercase tracking-wider text-[10px] font-bold">{language === 'ar' ? 'في الصفحة:' : 'Per Page:'}</span>
-                <select
+                <SearchableSelect
                   id="items-per-page-select"
                   value={itemsPerPage}
                   onChange={(e) => setItemsPerPage(Number(e.target.value))}
@@ -390,7 +391,7 @@ export const ProductsView: React.FC = () => {
                   <option value={24}>24</option>
                   <option value={36}>36</option>
                   <option value={48}>48</option>
-                </select>
+                </SearchableSelect>
               </div>
 
               {/* In stock only toggle */}
@@ -522,7 +523,7 @@ export const ProductsView: React.FC = () => {
                     {/* Page Size Fast Select */}
                     <div className="flex items-center gap-2 text-xs font-medium text-[#737373]">
                       <span>{language === 'ar' ? 'منتجات في الصفحة:' : 'Items per page:'}</span>
-                      <select
+                      <SearchableSelect
                         value={itemsPerPage}
                         onChange={(e) => setItemsPerPage(Number(e.target.value))}
                         className="bg-white border border-[#E5E5E5] rounded-lg px-2 py-1 text-xs font-bold text-[#171717]"
@@ -533,7 +534,7 @@ export const ProductsView: React.FC = () => {
                         <option value={24}>24</option>
                         <option value={36}>36</option>
                         <option value={48}>48</option>
-                      </select>
+                      </SearchableSelect>
                     </div>
 
                   </div>

@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Layers
 } from 'lucide-react';
+import { SearchableSelect } from '../../ui/SearchableSelect';
 
 interface CMSCustomBlocksTabProps {
   customBlocks: CMSCustomBlock[];
@@ -143,7 +144,7 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Target Page</label>
-              <select
+              <SearchableSelect
                 value={formState.targetPage}
                 onChange={(e) => setFormState({ ...formState, targetPage: e.target.value as any })}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
@@ -154,12 +155,12 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
                 <option value="product_detail">Product Detail Page</option>
                 <option value="checkout">Checkout Page</option>
                 <option value="account">Account Page</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Page Position</label>
-              <select
+              <SearchableSelect
                 value={formState.position}
                 onChange={(e) => setFormState({ ...formState, position: e.target.value as any })}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
@@ -167,12 +168,12 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
                 <option value="top">Top (Above content)</option>
                 <option value="middle">Middle (Embedded in feed)</option>
                 <option value="bottom">Bottom (Before footer)</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Visual Theme / Background</label>
-              <select
+              <SearchableSelect
                 value={formState.bgStyle}
                 onChange={(e) => setFormState({ ...formState, bgStyle: e.target.value as any })}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
@@ -183,7 +184,7 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
                 <option value="light">Warm Ivory Clean Light</option>
                 <option value="glass">Frosted Translucent Glass</option>
                 <option value="custom_image">Custom Background Image</option>
-              </select>
+              </SearchableSelect>
             </div>
 
             <div className="md:col-span-2">

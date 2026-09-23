@@ -38,6 +38,7 @@ import {
 import { BilingualField } from './BilingualField';
 import { MediaAssetPicker } from './MediaAssetPicker';
 import { HomepagePromoSlider } from '../../HomepagePromoSlider';
+import { SearchableSelect } from '../../ui/SearchableSelect';
 
 // Lebanese Craft / Cultural Preset Images for Quick Selection
 const PROMO_IMAGE_PRESETS = [
@@ -657,7 +658,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                   <Tag className="w-4 h-4 text-blue-600" />
                   <span>Target Category</span>
                 </label>
-                <select
+                <SearchableSelect
                   value={activeSlide.targetCategory || ''}
                   onChange={(e) => handleUpdateCurrentSlide({ 
                     targetCategory: e.target.value,
@@ -671,7 +672,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                       {cat.nameEn} ({cat.nameAr || cat.nameEn})
                     </option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
             )}
 

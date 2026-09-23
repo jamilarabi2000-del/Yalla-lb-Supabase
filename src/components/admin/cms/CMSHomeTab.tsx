@@ -36,6 +36,7 @@ import { BilingualField } from './BilingualField';
 import { MediaAssetPicker } from './MediaAssetPicker';
 import { CMSFieldGroup } from './CMSFieldGroup';
 import { CMSPromoBannerEditor } from './CMSPromoBannerEditor';
+import { SearchableSelect } from '../../ui/SearchableSelect';
 
 // Helper to determine slide visibility and scheduling status
 export const getSlideScheduleStatus = (item: { 
@@ -744,7 +745,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <Monitor className="w-4 h-4" />
                   <span>Desktop & Laptop Aspect Ratio / Height</span>
                 </label>
-                <select
+                <SearchableSelect
                   value={heroData?.desktopAspectRatio || '16:9'}
                   onChange={(e) => onChangeHeroField('desktopAspectRatio', e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
@@ -753,7 +754,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value="16:9">🖥️ 16:9 Widescreen (Standard Laptops & Monitors)</option>
                   <option value="21:9">🎞️ 21:9 Ultrawide Cinematic Display</option>
                   <option value="4:3">📺 4:3 Classic Display</option>
-                </select>
+                </SearchableSelect>
                 <p className="text-[10px] text-slate-500">Smart Auto Height scales naturally without hard cropping on wide displays.</p>
               </div>
 
@@ -762,7 +763,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <Smartphone className="w-4 h-4" />
                   <span>Mobile Phone Aspect Ratio / Height</span>
                 </label>
-                <select
+                <SearchableSelect
                   value={heroData?.mobileAspectRatio || 'auto'}
                   onChange={(e) => onChangeHeroField('mobileAspectRatio', e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
@@ -772,7 +773,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value="9:16">📱 9:16 Smartphone Vertical (Full Portrait)</option>
                   <option value="3:4">📱 3:4 Mobile Tall</option>
                   <option value="1:1">⏹️ 1:1 Square</option>
-                </select>
+                </SearchableSelect>
                 <p className="text-[10px] text-slate-500">Smart Auto Height prevents awkward cropping on tall smartphone screens.</p>
               </div>
 
@@ -781,7 +782,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <Maximize2 className="w-4 h-4" />
                   <span>Default Slide Image Fit Behavior</span>
                 </label>
-                <select
+                <SearchableSelect
                   value={heroData?.defaultImageFit || 'contain'}
                   onChange={(e) => onChangeHeroField('defaultImageFit', e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
@@ -789,7 +790,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value="contain">✅ Auto Full Fit (Show Entire Image Uncropped - Recommended Default)</option>
                   <option value="cover">Cover (Fill Frame & Crop Image Edges)</option>
                   <option value="fill">Stretch (Force Full Width & Height)</option>
-                </select>
+                </SearchableSelect>
                 <p className="text-[10px] text-slate-500">
                   Auto Full Fit automatically scales the image to fit 100% inside the slider without cutting off top/bottom or sides, filling any widescreen margins with an ambient blurred reflection.
                 </p>
@@ -802,7 +803,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
                   Slider Auto-Play Speed (Seconds)
                 </label>
-                <select
+                <SearchableSelect
                   value={heroData?.slideInterval ?? 5}
                   onChange={(e) => onChangeHeroField('slideInterval', parseInt(e.target.value, 10))}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none font-medium"
@@ -813,7 +814,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value={8}>8 Seconds (Relaxed)</option>
                   <option value={10}>10 Seconds (Slow)</option>
                   <option value={15}>15 Seconds (Very Slow)</option>
-                </select>
+                </SearchableSelect>
               </div>
 
               <div>
@@ -885,14 +886,14 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           placeholder="Slide Title / Label (e.g. Cedar Forest Workshop)"
                           className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-500 focus:border-indigo-500 focus:outline-none min-w-[200px]"
                         />
-                        <select
+                        <SearchableSelect
                           value={item.type || 'image'}
                           onChange={(e) => handleUpdateMediaItem(idx, { type: e.target.value as 'image' | 'video' })}
                           className="px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                         >
                           <option value="image">🖼️ Image</option>
                           <option value="video">🎥 Video (MP4/WebM)</option>
-                        </select>
+                        </SearchableSelect>
                       </div>
 
                       <div className="flex items-center gap-1.5">
@@ -1010,7 +1011,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                           <div>
                             <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Focus</label>
-                            <select
+                            <SearchableSelect
                               value={item.objectPosition || 'center'}
                               onChange={(e) => handleUpdateMediaItem(idx, { objectPosition: e.target.value })}
                               className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1020,12 +1021,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               <option value="bottom">Bottom Center</option>
                               <option value="left">Left Center</option>
                               <option value="right">Right Center</option>
-                            </select>
+                            </SearchableSelect>
                           </div>
 
                           <div>
                             <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Aspect Ratio</label>
-                            <select
+                            <SearchableSelect
                               value={item.desktopAspectRatio || '16:9'}
                               onChange={(e) => handleUpdateMediaItem(idx, { desktopAspectRatio: e.target.value as any })}
                               className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1034,12 +1035,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               <option value="16:9">16:9 Widescreen</option>
                               <option value="21:9">21:9 Ultrawide</option>
                               <option value="4:3">4:3 Classic</option>
-                            </select>
+                            </SearchableSelect>
                           </div>
 
                           <div>
                             <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Fit Mode</label>
-                            <select
+                            <SearchableSelect
                               value={item.imageFit || 'contain'}
                               onChange={(e) => handleUpdateMediaItem(idx, { imageFit: e.target.value as any })}
                               className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1047,7 +1048,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               <option value="contain">✅ Full Fit (Auto Fit / No Crop - Default)</option>
                               <option value="cover">Cover (Fill Screen / Crop Edges)</option>
                               <option value="fill">Stretch (Full Frame)</option>
-                            </select>
+                            </SearchableSelect>
                           </div>
                         </div>
                       </div>
@@ -1178,7 +1179,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                           <div>
                             <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Focus</label>
-                            <select
+                            <SearchableSelect
                               value={item.mobileObjectPosition || item.objectPosition || 'center'}
                               onChange={(e) => handleUpdateMediaItem(idx, { mobileObjectPosition: e.target.value })}
                               className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1188,12 +1189,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               <option value="bottom">Bottom Center</option>
                               <option value="left">Left Center</option>
                               <option value="right">Right Center</option>
-                            </select>
+                            </SearchableSelect>
                           </div>
 
                           <div>
                             <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Aspect Ratio</label>
-                            <select
+                            <SearchableSelect
                               value={item.mobileAspectRatio || 'auto'}
                               onChange={(e) => handleUpdateMediaItem(idx, { mobileAspectRatio: e.target.value as any })}
                               className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1203,19 +1204,19 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               <option value="9:16">📱 9:16 Portrait (Phone)</option>
                               <option value="3:4">📐 3:4 Vertical</option>
                               <option value="1:1">⬛ 1:1 Square</option>
-                            </select>
+                            </SearchableSelect>
                           </div>
 
                           <div>
                             <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Fit Mode</label>
-                            <select
+                            <SearchableSelect
                               value={item.mobileImageFit || item.imageFit || 'cover'}
                               onChange={(e) => handleUpdateMediaItem(idx, { mobileImageFit: e.target.value as any })}
                               className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                             >
                               <option value="cover">Cover (Fill Screen & Crop Edges)</option>
                               <option value="contain">Contain (Full Uncropped)</option>
-                            </select>
+                            </SearchableSelect>
                           </div>
                         </div>
                       </div>
@@ -1797,7 +1798,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                         <div>
                           <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Focus</label>
-                          <select
+                          <SearchableSelect
                             value={slideForm.desktopObjectPosition || slideForm.objectPosition || 'center'}
                             onChange={(e) => setSlideForm({ ...slideForm, desktopObjectPosition: e.target.value, objectPosition: e.target.value })}
                             className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1807,12 +1808,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             <option value="bottom">Bottom Center</option>
                             <option value="left">Left Center</option>
                             <option value="right">Right Center</option>
-                          </select>
+                          </SearchableSelect>
                         </div>
 
                         <div>
                           <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Aspect Ratio</label>
-                          <select
+                          <SearchableSelect
                             value={slideForm.desktopAspectRatio || '16:9'}
                             onChange={(e) => setSlideForm({ ...slideForm, desktopAspectRatio: e.target.value as any })}
                             className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1821,12 +1822,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             <option value="16:9">16:9 Widescreen</option>
                             <option value="21:9">21:9 Ultrawide</option>
                             <option value="4:3">4:3 Classic</option>
-                          </select>
+                          </SearchableSelect>
                         </div>
 
                         <div>
                           <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Desktop Fit Mode</label>
-                          <select
+                          <SearchableSelect
                             value={slideForm.desktopImageFit || slideForm.imageFit || 'contain'}
                             onChange={(e) => setSlideForm({ ...slideForm, desktopImageFit: e.target.value as any, imageFit: e.target.value as any })}
                             className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1834,7 +1835,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             <option value="contain">✅ Full Fit (Auto Fit / No Crop - Default)</option>
                             <option value="cover">Cover (Fill Screen / Crop Edges)</option>
                             <option value="fill">Stretch (Full Frame)</option>
-                          </select>
+                          </SearchableSelect>
                         </div>
                       </div>
                     </div>
@@ -1965,7 +1966,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
                         <div>
                           <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Focus</label>
-                          <select
+                          <SearchableSelect
                             value={slideForm.mobileObjectPosition || slideForm.objectPosition || 'center'}
                             onChange={(e) => setSlideForm({ ...slideForm, mobileObjectPosition: e.target.value })}
                             className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1975,12 +1976,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             <option value="bottom">Bottom Center</option>
                             <option value="left">Left Center</option>
                             <option value="right">Right Center</option>
-                          </select>
+                          </SearchableSelect>
                         </div>
 
                         <div>
                           <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Aspect Ratio</label>
-                          <select
+                          <SearchableSelect
                             value={slideForm.mobileAspectRatio || 'auto'}
                             onChange={(e) => setSlideForm({ ...slideForm, mobileAspectRatio: e.target.value as any })}
                             className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
@@ -1990,19 +1991,19 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             <option value="9:16">📱 9:16 Portrait (Phone)</option>
                             <option value="3:4">📐 3:4 Vertical</option>
                             <option value="1:1">⬛ 1:1 Square</option>
-                          </select>
+                          </SearchableSelect>
                         </div>
 
                         <div>
                           <label className="block text-[10px] uppercase text-slate-500 font-bold mb-0.5">Mobile Fit Mode</label>
-                          <select
+                          <SearchableSelect
                             value={slideForm.mobileImageFit || slideForm.imageFit || 'contain'}
                             onChange={(e) => setSlideForm({ ...slideForm, mobileImageFit: e.target.value as any })}
                             className="w-full px-2 py-1 rounded-lg bg-black border border-slate-200 text-xs text-slate-900"
                           >
                             <option value="contain">✅ Full Fit (Auto Fit / No Crop - Default)</option>
                             <option value="cover">Cover (Fill Screen & Crop Edges)</option>
-                          </select>
+                          </SearchableSelect>
                         </div>
                       </div>
                     </div>
