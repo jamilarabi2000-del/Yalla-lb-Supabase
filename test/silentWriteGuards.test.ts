@@ -152,7 +152,21 @@ function findWriteSites(): WriteSite[] {
 
       let checksRowCount = false;
       if (binding) {
-        const after = lines.slice(index, Math.min(lines.length, index + 30)).join('\n');
+        // The check must belong to this write: stop at the next query or the
+        // next function, or a neighbour's `if (!data?.length)` would count.
+        // Search from the end of this statement, which may itself hold another
+        // .from() -- `cond ? from(t).update(p) : from(t).insert(p);`.
+        let stmtEnd = index;
+        while (stmtEnd < lines.length - 1 && !/;\s*$/.test(lines[stmtEnd])) stmtEnd++;
+        let end = Math.min(lines.length, index + 30);
+        for (let next = stmtEnd + 1; next < end; next++) {
+          if (/\.from\(/.test(lines[next])
+              || /^\s*(?:async\s+\w+\s*\(|(?:export\s+)?(?:async\s+)?function\b|const\s+\w+\s*=\s*async\b)/.test(lines[next])) {
+            end = next;
+            break;
+          }
+        }
+        const after = lines.slice(index, end).join('\n');
         const b = binding.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         checksRowCount = new RegExp(
           `!\\s*${b}\\b|${b}\\s*\\?\\.\\s*length|${b}\\s*\\.\\s*length|${b}\\s*===?\\s*null`,
