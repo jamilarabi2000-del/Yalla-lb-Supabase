@@ -9,7 +9,7 @@ import { supabaseProductService } from '../../services/supabaseProductService';
 import { supabaseCommerceService } from '../../services/supabaseCommerceService';
 import { supabase } from '../../lib/supabase';
 import type { Product } from '../../types';
-import { fromRegularAndPromo, toRegularAndPromo } from '../../lib/productPricing';
+import { fromRegularAndPromo, toRegularAndPromo, toPriceColumns } from '../../lib/productPricing';
 import { ProductsSequenceTableView } from './ProductsSequenceTableView';
 
 type ViewMode = 'grid' | 'sequence';
@@ -263,7 +263,13 @@ export const ProductsCatalogManagement: React.FC = () => {
             yalla_item_code: String(form.yallaItemCode || '').trim(),
             name: payload.name, arabic_name: payload.arabicName, artisan: payload.artisan, origin: payload.origin,
             brand: payload.brand, description: payload.description, craft_story: payload.craftStory, image: payload.image,
-            regular_price: payload.priceUSD, promo_price: payload.originalPriceUSD, stock: payload.stock, category_id: payload.category, seller_id: payload.sellerId,
+            // payload carries canonical fields (priceUSD = what the customer
+            // pays). Mapping them positionally onto the columns sent a
+            // discounted product as regular = selling, promo = was, which
+            // create_product_atomic resolves by dropping the promo: the product
+            // was created at its promo price with no discount.
+            ...toPriceColumns({ priceUSD: Number(payload.priceUSD), originalPriceUSD: payload.originalPriceUSD ?? undefined }),
+            stock: payload.stock, category_id: payload.category, seller_id: payload.sellerId,
             discount_percentage: payload.discountPercentage,
             video_url: payload.videoUrl, is_new_arrival: payload.isNewArrival, is_featured: payload.isFeatured,
             is_bestseller: payload.isBestseller, is_published: published, display_order: payload.displayOrder,
@@ -504,8 +510,8 @@ export const ProductsCatalogManagement: React.FC = () => {
   };
 
   const downloadCatalog = () => csvDownload(filtered.map(p => ({
-    id: p.id, seller_item_code: p.sellerItemCode || '', name_en: p.name, name_ar: p.arabicName || '', seller: p.seller || p.artisan || '', category: categoryLabel(p), regular_price: p.originalPriceUSD ?? p.priceUSD ?? 0,
-    promo_price: p.originalPriceUSD != null && p.originalPriceUSD !== p.priceUSD ? p.priceUSD : '',
+    id: p.id, seller_item_code: p.sellerItemCode || '', name_en: p.name, name_ar: p.arabicName || '', seller: p.seller || p.artisan || '', category: categoryLabel(p), regular_price: toRegularAndPromo(p).regular ?? 0,
+    promo_price: toRegularAndPromo(p).promo ?? '',
     stock: p.stock || 0, status: p.isPublished === false ? 'Draft' : 'Published', image: p.image || ''
   })), `yalla_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
 

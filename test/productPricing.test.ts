@@ -173,3 +173,45 @@ describe('the admin editor round-trips a promotion untouched', () => {
     expect(toPriceColumns(fromRegularAndPromo(2, 0))).toEqual({ regular_price: 2, promo_price: null });
   });
 });
+
+describe('no file outside productPricing maps canonical fields onto price columns', () => {
+  // priceUSD is what the customer pays and originalPriceUSD the "was" price;
+  // regular_price and promo_price are the database's list and discounted
+  // prices. They line up only when there is no discount, so any positional
+  // `regular_price: x.priceUSD` is the inversion that broke discounted saves
+  // and, on the create path, silently created discounted products at their
+  // promo price. Only src/lib/productPricing.ts may translate between them.
+  const srcFiles = (dir: string, acc: string[] = []): string[] => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) srcFiles(full, acc);
+      else if (/\.(ts|tsx)$/.test(full)) acc.push(full);
+    }
+    return acc;
+  };
+
+  it('finds no positional mapping', () => {
+    const offenders: string[] = [];
+    for (const file of srcFiles(path.resolve(process.cwd(), 'src'))) {
+      if (file.endsWith(path.join('lib', 'productPricing.ts'))) continue;
+      strip(fs.readFileSync(file, 'utf8')).split('\n').forEach((line, i) => {
+        if (/\b(regular_price|promo_price)\s*:[^,}\n]*\.(priceUSD|originalPriceUSD)\b/.test(line)) {
+          offenders.push(`${path.relative(process.cwd(), file)}:${i + 1}  ${line.trim().slice(0, 100)}`);
+        }
+      });
+    }
+    expect(offenders, `route these through toPriceColumns / toRegularAndPromo:\n${offenders.join('\n')}`).toEqual([]);
+  });
+
+  it('the create path maps a discount the way create_product_atomic keeps it', () => {
+    // create_product_atomic drops promo_price unless promo_price <= regular_price.
+    const cols = toPriceColumns({ priceUSD: 1, originalPriceUSD: 2 });
+    expect(cols.promo_price).not.toBeNull();
+    expect(cols.promo_price! <= cols.regular_price).toBe(true);
+    expect(adminCatalogSource()).toContain('toPriceColumns({ priceUSD: Number(payload.priceUSD)');
+  });
+});
+
+function adminCatalogSource() {
+  return strip(fs.readFileSync(path.resolve(process.cwd(), 'src/components/admin/ProductsCatalogManagement.tsx'), 'utf8'));
+}
