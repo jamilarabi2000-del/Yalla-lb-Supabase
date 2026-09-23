@@ -755,15 +755,18 @@ export interface RecentActivity {
   undoneAt?: string;
 }
 
+/** A row of public.reviews. */
 export interface Review {
   id: string;
   productId: string;
-  userId: string;
-  userName: string;
+  /** Absent once the author's account is deleted, or when not selected. */
+  userId?: string;
   rating: number;
-  comment: string;
+  title?: string;
+  body?: string;
+  /** New reviews wait for an administrator to publish them. */
+  isPublished: boolean;
   createdAt: string; // ISO timestamp string
-  orderId?: string;
   adminReply?: string;
   adminReplyAt?: string;
 }

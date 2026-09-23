@@ -1,9 +1,28 @@
 import { supabase } from '../lib/supabase';
 import { UserProfile, CartItem, Review } from '../types';
-import { generateUuidV4 } from '../utils/uuid';
 import { toUserFacingError } from '../utils/userFacingError';
 import type { CustomerProfileRow } from '../lib/customerIndex';
 import type { CartRow } from '../lib/activeCarts';
+
+const REVIEW_COLUMNS = 'id,product_id,user_id,rating,title,body,is_published,created_at,admin_reply,admin_reply_at';
+
+// Review writes are admin-only, and RLS filters an unverified session to zero rows.
+const UNVERIFIED_REVIEW_WRITE = 'The review was not changed. Your administrator session may not be verified.';
+
+function mapReview(r: Record<string, any>): Review {
+  return {
+    id: String(r.id),
+    productId: String(r.product_id),
+    userId: r.user_id ? String(r.user_id) : undefined,
+    rating: Number(r.rating),
+    title: r.title || undefined,
+    body: r.body || undefined,
+    isPublished: r.is_published === true,
+    createdAt: String(r.created_at),
+    adminReply: r.admin_reply || undefined,
+    adminReplyAt: r.admin_reply_at || undefined,
+  };
+}
 
 export const supabaseUserDataService = {
   async fetchProfile(userId: string): Promise<Partial<UserProfile> | null> {
@@ -147,32 +166,103 @@ export const supabaseUserDataService = {
     }
   },
 
-  async fetchReviews(productId?: string): Promise<Review[]> {
-    let query = supabase.from('reviews').select('*').order('created_at', { ascending: false });
-    if (productId) query = query.eq('product_id', productId);
-    const { data, error } = await query;
+  /**
+   * A product's published reviews, for the storefront. The is_published
+   * filter is explicit: RLS also shows an author their own pending review and
+   * an administrator every review, and neither belongs on the product page.
+   */
+  async fetchPublishedReviews(productId: string): Promise<Review[]> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('id,product_id,rating,title,body,is_published,created_at,admin_reply,admin_reply_at')
+      .eq('product_id', productId)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .limit(50);
     if (error) {
-      console.error('[supabaseUserDataService] fetchReviews failed:', error);
+      console.error('[supabaseUserDataService] fetchPublishedReviews failed:', error);
       throw toUserFacingError(error, 'Unable to load reviews right now.');
     }
-    if (!data) return [];
-    return data.map((r: any) => ({
-      id: String(r.id),
-      productId: String(r.product_id || r.productId),
-      userId: String(r.user_id || r.userId),
-      userName: String(r.user_name || r.userName || 'Customer'),
-      rating: Number(r.rating || 5),
-      comment: String(r.comment || ''),
-      createdAt: r.created_at || r.createdAt || new Date().toISOString(),
-      orderId: r.order_id || r.orderId,
-      adminReply: r.admin_reply || r.adminReply,
-      adminReplyAt: r.admin_reply_at || r.adminReplyAt,
-    }));
+    return (data ?? []).map(mapReview);
   },
 
-  async addReview(review: Omit<Review, 'id' | 'createdAt'> & { id?: string }): Promise<void> {
-    const payload = { id: review.id || generateUuidV4(), product_id: review.productId, user_id: review.userId, user_name: review.userName, rating: review.rating, comment: review.comment, order_id: review.orderId, created_at: new Date().toISOString() };
-    const { error } = await supabase.from('reviews').insert(payload);
-    if (error) throw toUserFacingError(error, 'Unable to submit your review right now.');
+  /** The signed-in shopper's own review of a product, published or not. */
+  async fetchMyReview(productId: string, userId: string): Promise<Review | null> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select(REVIEW_COLUMNS)
+      .eq('product_id', productId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) {
+      console.error('[supabaseUserDataService] fetchMyReview failed:', error);
+      throw toUserFacingError(error, 'Unable to load your review right now.');
+    }
+    return data ? mapReview(data) : null;
+  },
+
+  /**
+   * Posts a review. The database decides everything that matters: only a
+   * customer with a delivered order of the product may post, one review per
+   * product, and it waits unpublished until an administrator approves it.
+   */
+  async addReview(review: { productId: string; userId: string; rating: number; title?: string; body?: string }): Promise<void> {
+    const { error } = await supabase.from('reviews').insert({
+      product_id: review.productId,
+      user_id: review.userId,
+      rating: review.rating,
+      title: review.title?.trim() || null,
+      body: review.body?.trim() || null,
+    });
+    if (error) {
+      console.error('[supabaseUserDataService] addReview failed:', error);
+      throw error;
+    }
+  },
+
+  /** Every review, newest first, for the admin Reviews screen. */
+  async listReviewsForAdmin(): Promise<Review[]> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select(REVIEW_COLUMNS)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) {
+      console.error('[supabaseUserDataService] listReviewsForAdmin failed:', error);
+      throw toUserFacingError(error, 'Unable to load reviews right now.');
+    }
+    return (data ?? []).map(mapReview);
+  },
+
+  async setReviewPublished(reviewId: string, published: boolean): Promise<void> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .update({ is_published: published })
+      .eq('id', reviewId)
+      .select('id');
+    if (error) throw toUserFacingError(error, 'Unable to update this review right now.');
+    if (!data?.length) throw new Error(UNVERIFIED_REVIEW_WRITE);
+  },
+
+  /** Publishes, replaces or (with null) removes the store's reply. */
+  async saveReviewReply(reviewId: string, reply: string | null): Promise<void> {
+    const text = reply?.trim() || null;
+    const { data, error } = await supabase
+      .from('reviews')
+      .update({ admin_reply: text, admin_reply_at: text ? new Date().toISOString() : null })
+      .eq('id', reviewId)
+      .select('id');
+    if (error) throw toUserFacingError(error, 'Unable to save the reply right now.');
+    if (!data?.length) throw new Error(UNVERIFIED_REVIEW_WRITE);
+  },
+
+  async deleteReview(reviewId: string): Promise<void> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', reviewId)
+      .select('id');
+    if (error) throw toUserFacingError(error, 'Unable to delete this review right now.');
+    if (!data?.length) throw new Error(UNVERIFIED_REVIEW_WRITE);
   },
 };

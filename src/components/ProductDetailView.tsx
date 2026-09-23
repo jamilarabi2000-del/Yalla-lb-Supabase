@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, ShoppingBag, Heart, Truck, Minus, Plus, ShieldCheck, PackageCheck, Share2, Sparkles } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from './ProductCard';
+import { ProductReviews } from './ProductReviews';
 
 export const ProductDetailView: React.FC = () => {
   const shop = useShop() as any;
@@ -137,6 +138,16 @@ export const ProductDetailView: React.FC = () => {
             <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/60 text-[#8F7137] flex items-center justify-center"><Sparkles className="w-5 h-5" /></div><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8F7137]">{isRTL ? 'من الصانع' : 'From the Maker'}</p><h2 className="text-lg sm:text-xl font-serif font-semibold text-[#171717]">{p.artisan || p.seller}</h2></div></div>
             {p.artisanBio && <p className="text-sm leading-7 text-[#666666]">{p.artisanBio}</p>}
           </section>
+        )}
+
+        {show('detailCustomerReviews') && (
+          <ProductReviews
+            productId={p.id}
+            rating={Number(p.rating || 0)}
+            reviewsCount={Number(p.reviewsCount || 0)}
+            isRTL={isRTL}
+            outlined={!visibility.detailCustomerReviews && isVisualEditMode}
+          />
         )}
 
         {show('detailRelatedProducts') && related.length > 0 && (
