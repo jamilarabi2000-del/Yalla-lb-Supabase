@@ -1991,7 +1991,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // (has_account / account_email / account_uid) are deliberately not, since
     // they belong to the seller provisioning flow.
     try {
-      await supabaseCatalogService.upsertSeller({ ...updates, id });
+      // A plain UPDATE of the supplied fields. It was an upsert, which cannot
+      // carry a partial row on this table -- see updateSellerFields.
+      await supabaseCatalogService.updateSellerFields(id, updates);
     } catch (supaErr: any) {
       setSellers(previous);
       console.error('[ShopContext] updateSeller Supabase write failed:', supaErr);
@@ -2004,7 +2006,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const toggleSellerActive = async (sellerId: string, isActive: boolean) => {
     const previousSellers = [...sellers];
     try {
-      await supabaseCatalogService.upsertSeller({ id: sellerId, isActive });
+      await supabaseCatalogService.updateSellerFields(sellerId, { isActive });
     } catch (err: any) {
       console.error('[ShopContext] toggleSellerActive failed:', err);
       setSellers(previousSellers);
