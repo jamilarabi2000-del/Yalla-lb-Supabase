@@ -22,8 +22,7 @@ import {
   ProductBundle,
   CategoryItem,
   TerroirRegion,
-  Seller,
-  SearchLog
+  Seller
 } from '../types';
 
 import { applyDiscounts } from '../lib/pricing';
@@ -40,8 +39,7 @@ import {
   generateIdempotencyKey,
   generateUuidV4,
   isUuid,
-  secureRandomInt,
-  secureRandomString
+  secureRandomInt
 } from '../utils/uuid';
 
 import Papa from 'papaparse';
@@ -87,6 +85,15 @@ import {
 
 import { CheckoutError } from '../services/supabaseOrderService';
 import { supabaseAdminService } from '../services/supabaseAdminService';
+import {
+  MAX_PENDING_SEARCHES,
+  PENDING_SEARCHES_KEY,
+  addPending,
+  freshPending,
+  isRetryableLogError,
+  sendAs,
+  type PendingSearch,
+} from '../lib/searchLogQueue';
 import { supabaseProductPatchService } from '../services/supabaseProductPatchService';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
 
@@ -4270,6 +4277,42 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const lastLoggedSearchRef = useRef<{ query: string; time: number }>({ query: '', time: 0 });
 
+  const flushingSearchesRef = useRef(false);
+
+  /** Sends searches queued while offline, oldest first; keeps any that fail to send again. */
+  const flushPendingSearches = useCallback(async () => {
+    if (flushingSearchesRef.current || typeof window === 'undefined') return;
+    let pending: PendingSearch[];
+    try {
+      pending = freshPending(JSON.parse(localStorage.getItem(PENDING_SEARCHES_KEY) || '[]'), Date.now());
+    } catch {
+      return;
+    }
+    if (!pending.length) return;
+    flushingSearchesRef.current = true;
+    const kept: PendingSearch[] = [];
+    try {
+      for (const entry of [...pending].reverse()) {
+        try {
+          await supabaseAdminService.logSearch(entry.query, entry.origin, sendAs(entry, authUser?.uid), entry.at);
+        } catch (err) {
+          if (isRetryableLogError(err)) kept.unshift(entry);
+        }
+      }
+    } finally {
+      try {
+        // Keep anything queued while this flush ran.
+        const sent = new Set(pending.map(e => e.at + '|' + e.query));
+        const queuedMeanwhile = freshPending(JSON.parse(localStorage.getItem(PENDING_SEARCHES_KEY) || '[]'), Date.now())
+          .filter(e => !sent.has(e.at + '|' + e.query));
+        localStorage.setItem(PENDING_SEARCHES_KEY, JSON.stringify([...queuedMeanwhile, ...kept].slice(0, MAX_PENDING_SEARCHES)));
+      } catch {
+        // No storage to update.
+      }
+      flushingSearchesRef.current = false;
+    }
+  }, [authUser]);
+
   const logSearchQuery = useCallback(async (query: string, origin: 'navbar' | 'products_page' | 'mobile_menu' | 'direct' = 'direct') => {
     const trimmed = query.trim();
     if (!trimmed || trimmed.length < 2) return;
@@ -4284,33 +4327,37 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     lastLoggedSearchRef.current = { query: trimmed, time: now };
 
-    const searchEntry: SearchLog = {
-      id: `srch_${Date.now()}_${secureRandomString(5)}`,
-      query: trimmed,
-      timestamp: new Date().toISOString(),
-      userId: authUser?.uid || null,
-      userEmail: authUser?.email || user?.email || null,
-      userName: user?.name || null,
-      origin: origin
-    };
-
-    // Immediate Local Cache for instant UI updates & offline fallback
+    // A signed-in shopper's search carries their account; a guest's does not.
+    const userId = authUser?.uid ?? null;
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const raw = localStorage.getItem('yallalb_search_logs_cache');
-        const list: SearchLog[] = raw ? JSON.parse(raw) : [];
-        list.unshift(searchEntry);
-        localStorage.setItem('yallalb_search_logs_cache', JSON.stringify(list.slice(0, 200)));
+      await supabaseAdminService.logSearch(trimmed, origin, userId);
+    } catch (err) {
+      // Keep a search lost to a dropped connection and send it later; a
+      // refusal (RLS, the rate limit) would only be refused again.
+      if (isRetryableLogError(err)) {
+        try {
+          const at = Date.now();
+          const queued = JSON.parse(localStorage.getItem(PENDING_SEARCHES_KEY) || '[]');
+          localStorage.setItem(PENDING_SEARCHES_KEY, JSON.stringify(
+            addPending(queued, { query: trimmed, origin, at: new Date(at).toISOString(), userId }, at)));
+        } catch {
+          // No storage: the search is lost, as it always was.
+        }
+      } else {
+        console.warn('[ShopContext] Search not logged:', err);
       }
-    } catch (cacheErr) {
-      console.warn("[ShopContext] Search cache notice:", cacheErr);
+      return;
     }
+    flushPendingSearches();
+  }, [authUser, flushPendingSearches]);
 
-    // public.search_logs. `search_insert` permits user_id = auth.uid() OR
-    // NULL, so an anonymous visitor's search is recorded without being
-    // attributed to anyone.
-    await supabaseAdminService.logSearch(searchEntry.query, origin);
-  }, [authUser, user]);
+  // Send queued searches when the connection comes back.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onOnline = () => { flushPendingSearches(); };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [flushPendingSearches]);
 
   // Place Order — server-authoritative via private.checkout_create_order.
   //

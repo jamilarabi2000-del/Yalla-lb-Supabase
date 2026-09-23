@@ -37,12 +37,20 @@ export const supabaseAdminService = {
     }));
   },
 
-  async logSearch(query: string, origin: string) {
+  /**
+   * Records a storefront search. A signed-in shopper's search carries their
+   * account (search_insert accepts user_id = auth.uid() or null). `at` is sent
+   * only for a search queued while offline, so it keeps the time it happened.
+   * The error is thrown as PostgREST returned it, so the caller can tell a
+   * dropped connection, worth retrying, from a refusal.
+   */
+  async logSearch(query: string, origin: string, userId: string | null = null, at?: string) {
     const { error } = await supabase.from('search_logs').insert({
       query,
       origin,
-      user_id: null,
+      user_id: userId,
+      ...(at ? { created_at: at } : {}),
     });
-    if (error) throw toUserFacingError(error, 'Unable to save the search right now.');
+    if (error) throw error;
   },
 };
