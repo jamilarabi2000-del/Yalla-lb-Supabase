@@ -165,8 +165,13 @@ const MainAppContent: React.FC = () => {
       const hidden = rule.enabled === false ? 'display:none !important;' : '';
       return selector + '{' + hidden + base + '}' + hover + tablet + mobile;
     }).join('');
-    style.textContent = css + responsive + designCss + (siteContent.theme.customCss || '');
-  }, [siteContent?.theme]);
+    // Storefront styling stays on the storefront. The admin panel and seller
+    // portal render inside the same #main-content, so these rules restyled
+    // them too -- and hiding "All storefront buttons" hid the admin's own
+    // controls, including the one that would undo it.
+    const onStorefront = activeTab !== 'admin' && activeTab !== 'seller';
+    style.textContent = onStorefront ? css + responsive + designCss + (siteContent.theme.customCss || '') : '';
+  }, [siteContent?.theme, activeTab]);
 
   useEffect(() => {
     try {
