@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 interface UseDialogOptions {
   isOpen: boolean;
   onClose: () => void;
-  initialFocusRef?: React.RefObject<HTMLElement>;
+  initialFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function useDialog({ isOpen, onClose, initialFocusRef }: UseDialogOptions) {
