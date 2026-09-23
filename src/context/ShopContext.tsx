@@ -65,6 +65,7 @@ import {
 } from '../lib/productValidation';
 
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
+import { toUserFacingError } from '../utils/userFacingError';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
@@ -3582,7 +3583,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             first_name: tempSignup.firstName || '',
             last_name: tempSignup.lastName || '',
             name: tempSignup.firstName && tempSignup.lastName ? `${tempSignup.firstName} ${tempSignup.lastName}`.trim() : '',
-            phone: targetPhone || '',
             default_governorate: tempSignup.defaultGovernorate || '',
             default_city: tempSignup.defaultCity || '',
             default_address: tempSignup.defaultAddress || '',
@@ -3591,6 +3591,22 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }).eq('id', supaAuthData.user.id);
         } catch (profErr) {
           console.warn('[ShopContext] Safe profile update notice:', profErr);
+        }
+
+        // The phone is written on its own. The phone_registry trigger refuses a
+        // number another account holds, and in one update that refusal would
+        // also discard the name and address above. The pre-flight check
+        // normally catches a taken number before signup, but it fails open --
+        // on a race, or while throttled -- so this is where it can land.
+        if (targetPhone) {
+          const { error: phoneError } = await supabase
+            .from('profiles')
+            .update({ phone: targetPhone })
+            .eq('id', supaAuthData.user.id);
+          if (phoneError) {
+            console.warn('[ShopContext] Phone not saved at signup:', phoneError);
+            showToast(toUserFacingError(phoneError, 'Your phone number could not be saved. You can add it from your account.').message, 'warning');
+          }
         }
       }
 
@@ -4986,10 +5002,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * account's number simply comes back as missing. public.is_phone_available
    * answers server-side without disclosing who holds a number.
    *
-   * The real guarantee is still the phone_key primary key at claim time; this
-   * only lets the form warn before the round trip. A read failure therefore
-   * reports availability rather than blocking a legitimate signup — but it is
-   * logged, never swallowed.
+   * The guarantee is the phone_registry primary key, kept in step with
+   * profiles.phone by the sync_phone_registry trigger, which refuses a number
+   * another account holds (PHONE_ALREADY_REGISTERED). This check only lets the
+   * form warn before the round trip, and it is throttled server-side (per
+   * account or IP, plus a global ceiling) because it reveals whether a number
+   * belongs to a customer. A failure -- including PHONE_CHECK_RATE_LIMITED --
+   * therefore reports availability rather than blocking a legitimate signup;
+   * the trigger still refuses a taken number at save. It is logged, never
+   * swallowed.
    */
   const checkPhoneUniqueness = useCallback(async (phone: string, excludeUid?: string): Promise<{ available: boolean; reason?: string }> => {
     void excludeUid;

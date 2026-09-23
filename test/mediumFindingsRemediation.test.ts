@@ -16,6 +16,8 @@ import path from 'node:path';
 
 const read = (p: string) => fs.readFileSync(path.resolve(process.cwd(), p), 'utf8');
 const stripSql = (s: string) => s.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+// TypeScript comments; `(^|[^:])` keeps the `//` inside URLs.
+const stripTs = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 describe('V4: app_settings is private unless a key is allowlisted', () => {
   const sql = stripSql(read('supabase/migrations/20260923140000_app_settings_public_key_allowlist.sql'));
@@ -86,5 +88,90 @@ describe('V5: storefront visibility is enforced by RLS, not by a definer copy', 
       'PRIVATE_PRODUCT_COLUMNS_GRANTED_TO_ANON', 'GET_PUBLIC_PRODUCTS_STILL_PRESENT']) {
       expect(raw).toContain(marker);
     }
+  });
+});
+
+describe('V6: phone numbers are unique, and the check that reveals it is throttled', () => {
+  const raw = read('supabase/migrations/20260923170000_enforce_phone_uniqueness.sql');
+  const sql = stripSql(raw);
+
+  it('client normaliser agrees with private.normalize_lb_phone on every case', async () => {
+    const { normalizeLebanesePhone } = await import('../src/utils/phoneUtils');
+    // Right-hand side is the output of the SQL function on production,
+    // captured 2026-09-23. If these drift, the check and the trigger disagree
+    // about which number a customer entered.
+    const cases: Array<[string, string | null]> = [
+      ['70123456', '70123456'],
+      ['+961 70 123 456', '70123456'],
+      ['+961 70123456', '70123456'],
+      ['96170123456', '70123456'],
+      ['3123456', '03123456'],
+      ['03 123 456', '03123456'],
+      ['961 3 123 456', '03123456'],
+      ['123', null],
+      ['', null],
+      ['abc', null],
+      ['701234567', null],
+      ['٧٠١٢٣٤٥٦', null], // Arabic-Indic digits
+    ];
+    for (const [input, expected] of cases) {
+      const n = normalizeLebanesePhone(input);
+      expect(n.isValid ? n.cleanDigits : null, JSON.stringify(input)).toBe(expected);
+    }
+  });
+
+  it('strips non-ASCII digits the way JavaScript does', () => {
+    // Postgres's \\D can treat other scripts' digits as digits; JavaScript's
+    // cannot. [^0-9] is the form both agree on.
+    expect(sql).toContain("'[^0-9]'");
+  });
+
+  it('keeps the registry in step with profiles.phone', () => {
+    expect(sql).toMatch(/after insert or update of phone or delete on public\.profiles/i);
+    expect(sql).toMatch(/execute function private\.sync_phone_registry\(\)/i);
+    expect(raw).toContain('PHONE_ALREADY_REGISTERED');
+  });
+
+  it('restores the check for signed-out callers', () => {
+    expect(sql).toMatch(/grant execute on function private\.is_phone_available\(text\) to anon, authenticated/i);
+  });
+
+  it('declares both halves VOLATILE so PostgREST does not run them read-only', () => {
+    // A STABLE function runs in a read-only transaction; the throttle insert
+    // would fail and the client would silently fail open on every call.
+    expect(sql).toMatch(/create or replace function private\.is_phone_available[\s\S]*?\bvolatile\b/i);
+    expect(sql).toMatch(/create or replace function public\.is_phone_available[\s\S]*?\bvolatile\b/i);
+  });
+
+  it('throttles per caller and globally, and stores no raw IP', () => {
+    expect(sql).toMatch(/c_caller_limit\s+constant integer\s*:=\s*10/i);
+    expect(sql).toMatch(/c_global_limit\s+constant integer\s*:=\s*200/i);
+    expect(sql).toContain('PHONE_CHECK_RATE_LIMITED');
+    expect(sql).toMatch(/sha256\(convert_to\(/i);
+  });
+
+  it('asserts its own invariants at apply time', () => {
+    for (const marker of ['PHONE_CHECK_MUST_BE_VOLATILE', 'PHONE_CHECK_NOT_CALLABLE_SIGNED_OUT',
+      'PHONE_CHECK_ATTEMPTS_READABLE_BY_CLIENTS', 'PHONE_REGISTRY_TRIGGER_MISSING']) {
+      expect(raw).toContain(marker);
+    }
+  });
+
+  it('a taken number reaches the customer as that, not "item already exists"', async () => {
+    const { toUserFacingError } = await import('../src/utils/userFacingError');
+    const taken = toUserFacingError({ code: '23505', message: 'PHONE_ALREADY_REGISTERED' });
+    expect(taken.publicCode).toBe('PHONE_TAKEN');
+    expect(taken.message).toMatch(/phone number is already registered/i);
+    // Every other unique violation keeps the generic mapping.
+    expect(toUserFacingError({ code: '23505', message: 'duplicate key' }).publicCode).toBe('DUPLICATE');
+  });
+
+  it('signup writes the phone on its own, so a refusal cannot discard the address', () => {
+    const shop = stripTs(read('src/context/ShopContext.tsx'));
+    const signup = shop.slice(shop.indexOf('const signUpWithEmail'), shop.indexOf('const signUpWithEmail') + 9000);
+    const bulk = signup.match(/\.update\(\{\s*first_name:[\s\S]*?\}\)/)?.[0] ?? '';
+    expect(bulk).toContain('default_address');
+    expect(bulk).not.toMatch(/\bphone\s*:/);
+    expect(signup).toMatch(/\.update\(\{\s*phone:\s*targetPhone\s*\}\)/);
   });
 });

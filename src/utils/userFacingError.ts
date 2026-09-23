@@ -54,6 +54,13 @@ export function toUserFacingError(
   const status = typeof error.status === 'number' ? error.status : undefined;
   const signal = `${code} ${message}`.toLowerCase();
 
+  // Raised by the phone-registry trigger (errcode 23505). Checked before the
+  // generic duplicate case, which would tell the customer only that "this
+  // item already exists".
+  if (signal.includes('phone_already_registered')) {
+    return makeError('PHONE_TAKEN', 'This phone number is already registered to another account.');
+  }
+
   if (code === '23505' || signal.includes('duplicate') || signal.includes('already exists')) {
     return makeError('DUPLICATE', 'This item already exists. Please review the values and try again.');
   }
