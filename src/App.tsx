@@ -19,6 +19,7 @@ import { TextStyleLayer } from './components/TextStyleLayer';
 import { CustomBlockModal } from './components/CustomBlockModal';
 import { syncDomHead } from './utils/domHeadSync';
 import { currentDesignSelector } from './lib/designSelectors';
+import { isAdminEntryPath, rememberAdminEntry, rememberedAdminEntry } from './lib/adminEntry';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>) {
@@ -30,7 +31,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promis
         try {
           if (typeof window !== 'undefined' && window.sessionStorage) sessionStorage.removeItem('chunk_reload_attempted');
         } catch {}
-        return { default: module.default || module.AdminView || module.CheckoutView || module.SellerLoginView || Object.values(module)[0] };
+        return { default: module.default || module.AdminView || module.CheckoutView || Object.values(module)[0] };
       } catch (error) {
         attempts--;
         console.warn(`Dynamic module import failed (${attempts} attempts left), retrying...`, error);
@@ -52,7 +53,6 @@ function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promis
 
 const CheckoutView = lazyWithRetry(() => import('./components/CheckoutView'));
 const AdminView = lazyWithRetry(() => import('./components/AdminView'));
-const SellerLoginView = lazyWithRetry(() => import('./components/SellerLoginView'));
 
 const MainAppContent: React.FC = () => {
   const {
@@ -72,6 +72,7 @@ const MainAppContent: React.FC = () => {
     setCustomBlockToEdit,
     user,
     isSellerUser,
+    isAdminUser,
     language,
     setLanguage,
     searchQuery,
@@ -80,6 +81,23 @@ const MainAppContent: React.FC = () => {
   } = useShop();
   const isPopStateRef = useRef(false);
   const [notFoundPath, setNotFoundPath] = useState<string | null>(null);
+  // Set once this visit arrives at the private console address. The console
+  // (and its sign-in form) renders only then, or for a signed-in admin.
+  const [adminEntryOpen, setAdminEntryOpen] = useState(false);
+  const adminOpen = activeTab === 'admin' && (adminEntryOpen || isAdminUser);
+  // An admin screen nobody opened properly is just another missing page.
+  const showNotFound = Boolean(notFoundPath) || (activeTab === 'admin' && !adminOpen);
+
+  // The console and missing pages stay out of search results. Every address
+  // returns this same app, so a crawler cannot tell a missing page by status.
+  useEffect(() => {
+    if (!adminOpen && !showNotFound) return;
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, nofollow';
+    document.head.appendChild(meta);
+    return () => meta.remove();
+  }, [adminOpen, showNotFound]);
 
   useEffect(() => {
     syncDomHead(siteContent, language);
@@ -168,11 +186,11 @@ const MainAppContent: React.FC = () => {
       const hidden = rule.enabled === false ? 'display:none !important;' : '';
       return selector + '{' + hidden + base + '}' + hover + tablet + mobile;
     }).join('');
-    // Storefront styling stays on the storefront. The admin panel and seller
-    // portal render inside the same #main-content, so these rules restyled
-    // them too -- and hiding "All storefront buttons" hid the admin's own
-    // controls, including the one that would undo it.
-    const onStorefront = activeTab !== 'admin' && activeTab !== 'seller';
+    // Storefront styling stays on the storefront. The admin panel renders
+    // inside the same #main-content, so these rules restyled it too -- and
+    // hiding "All storefront buttons" hid the admin's own controls, including
+    // the one that would undo it.
+    const onStorefront = activeTab !== 'admin';
     style.textContent = onStorefront ? css + responsive + designCss + (siteContent.theme.customCss || '') : '';
   }, [siteContent?.theme, activeTab]);
 
@@ -222,18 +240,6 @@ const MainAppContent: React.FC = () => {
         return;
       }
 
-      if (rawPath === 'admin') {
-        setSelectedProductDetail(null);
-        setActiveTab('admin');
-        return;
-      }
-
-      if (rawPath === 'seller') {
-        setSelectedProductDetail(null);
-        setActiveTab('seller');
-        return;
-      }
-
       const productMatch = rawPath.match(/^product\/([^/]+)$/);
       if (productMatch) {
         const prodId = decodeURIComponent(productMatch[1]);
@@ -259,7 +265,18 @@ const MainAppContent: React.FC = () => {
       }
 
       setSelectedProductDetail(null);
-      setNotFoundPath('/' + rawPath);
+      // /admin and /seller land here like any unknown page. The only address
+      // that opens the console is the private one, recognised by its hash.
+      const checkedPath = window.location.pathname;
+      const notFound = () => setNotFoundPath('/' + rawPath);
+      isAdminEntryPath(rawPath).then(isEntry => {
+        if (window.location.pathname !== checkedPath) return; // navigated away meanwhile
+        if (!isEntry) return notFound();
+        rememberAdminEntry(rawPath);
+        setAdminEntryOpen(true);
+        isPopStateRef.current = true;
+        setActiveTab('admin');
+      }, notFound);
     };
 
     syncRouteFromUrl();
@@ -288,6 +305,18 @@ const MainAppContent: React.FC = () => {
     if (activeTab === 'product_detail' && selectedProductDetail) targetPath = `product/${selectedProductDetail.id}`;
     else if (activeTab === 'products' && selectedCategory && selectedCategory !== 'all') targetPath = `products/${encodeURIComponent(selectedCategory)}`;
     if (notFoundPath) return;
+    if (activeTab === 'admin') {
+      // The console's address is private: show it only if this tab opened it,
+      // and never write /admin.
+      const entry = rememberedAdminEntry();
+      try {
+        if (entry && window.location.pathname !== entry && window.history) {
+          const currentDepth = (window.history.state && typeof window.history.state.depth === 'number') ? window.history.state.depth : 0;
+          window.history.pushState({ appNav: true, depth: currentDepth + 1 }, '', entry);
+        }
+      } catch {}
+      return;
+    }
     const targetUrl = targetPath === '' || targetPath === 'home' ? '/' : `/${targetPath}`;
     const currentParams = new URLSearchParams(window.location.search);
     if (activeTab !== 'products') currentParams.delete('search');
@@ -307,11 +336,11 @@ const MainAppContent: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#F7F7F8] text-[#111111] selection:bg-[#F3E5AB] selection:text-[#111111] font-sans antialiased">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <div data-seo-source="builder" id="seo-snapshot" aria-hidden="true" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
-        <div><header><h1>Yalla.lb</h1><p>A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern digital commerce for a seamless, hyper-local shopping experience.</p></header><nav aria-label="Pages"><h2>Pages</h2><ul><li><a href="/products">Products</a> — Products on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/checkout">Checkout</a> — Checkout on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/account">Account</a> — Account on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/seller">Artisan Portal</a> — Merchant and artisan login portal for authentic Lebanese workshops and producers.</li></ul></nav></div>
+        <div><header><h1>Yalla.lb</h1><p>A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern digital commerce for a seamless, hyper-local shopping experience.</p></header><nav aria-label="Pages"><h2>Pages</h2><ul><li><a href="/products">Products</a> — Products on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/checkout">Checkout</a> — Checkout on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li><li><a href="/account">Account</a> — Account on Yalla.lb. A premium, high-velocity marketplace bridging Lebanese craftsmanship with modern.</li></ul></nav></div>
       </div>
-      {activeTab !== 'admin' && activeTab !== 'seller' && <Navbar />}
+      {!adminOpen && <Navbar />}
       <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
-        {notFoundPath ? (
+        {showNotFound ? (
           <section className="min-h-[60vh] flex items-center justify-center px-4 py-16">
             <div className="max-w-md w-full rounded-3xl border border-[#E5E5E5] bg-white p-8 text-center shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8F7137] mb-3">404</p>
@@ -328,18 +357,17 @@ const MainAppContent: React.FC = () => {
             {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><CheckoutView /></Suspense>}
             {activeTab === 'account' && <AccountViewController />}
             {activeTab === 'favorites' && <FavoritesView />}
-            {activeTab === 'seller' && <Suspense fallback={<div className="min-h-[80vh] bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><SellerLoginView /></Suspense>}
-            {activeTab === 'admin' && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
+            {adminOpen && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
           </>
         )}
       </main>
       <ProductModal />
       <CartDrawer />
-      <TextStyleLayer page={activeTab} enabled={activeTab !== 'admin' && activeTab !== 'seller'} />
+      <TextStyleLayer page={activeTab} enabled={!adminOpen} />
       <AdminQuickEditor onOpenCustomBlockModal={(block) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} />
       <CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} />
       {toast && <div className="fixed bottom-6 right-6 z-50 animate-fadeIn"><div className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold ${toast.type === 'success' ? 'bg-white border-[#16803C]/30 text-[#16803C]' : toast.type === 'warning' ? 'bg-white border-[#B89753]/40 text-[#8F7137]' : 'bg-white border-[#E5E5E5] text-[#111111]'}`}>{toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-[#16803C] flex-shrink-0" /> : toast.type === 'warning' ? <AlertCircle className="w-4 h-4 text-[#B89753] flex-shrink-0" /> : <Info className="w-4 h-4 text-[#666666] flex-shrink-0" />}<span>{toast.message}</span></div></div>}
-      {activeTab !== 'admin' && activeTab !== 'seller' && <><FooterQuickLinks /><Footer /></>}
+      {!adminOpen && <><FooterQuickLinks /><Footer /></>}
     </div>
   );
 };

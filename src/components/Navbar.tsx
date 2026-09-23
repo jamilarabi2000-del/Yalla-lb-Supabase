@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
+import { requestAccountSignIn } from '../lib/accountSignIn';
 import systemLogo from '../assets/images/system_logo_1786837577985.jpg';
 import { 
   ShoppingBag, 
@@ -31,6 +32,8 @@ export const Navbar: React.FC = () => {
   const showSearch = visibility.navbarSearch !== false;
   const showLanguage = visibility.languageSwitcher !== false;
   const showCurrency = visibility.currencySwitcher !== false;
+  // Sellers sign in on the Account page, where their workspace is.
+  const showSellerPortal = visibility.sellerPortal !== false;
   const showAdminTab = isAdminUser;
 
   const sortedActiveCategories = [...categories]
@@ -96,7 +99,7 @@ export const Navbar: React.FC = () => {
             </div>
             <button id="nav-products-btn" onClick={() => setActiveTab('products')} className={`px-3 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'products' ? 'text-[#171717] bg-[#F8F8F6] border border-[#E5E5E5]' : 'text-[#737373] hover:text-[#171717] hover:bg-[#F8F8F6]'}`}>{t('products')}</button>
             <button id="nav-checkout-btn" onClick={() => setActiveTab('checkout')} className={`px-3 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'checkout' ? 'text-[#171717] bg-[#F8F8F6] border border-[#E5E5E5]' : 'text-[#737373] hover:text-[#171717] hover:bg-[#F8F8F6]'}`}>{t('checkout')}</button>
-            <button id="nav-seller-btn" onClick={() => setActiveTab('seller')} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'seller' ? 'text-[#8F7137] bg-amber-50 border border-amber-300 font-bold' : 'text-[#737373] hover:text-[#8F7137] hover:bg-[#F8F8F6]'}`}><Store className="w-3.5 h-3.5 text-[#8F7137]" /><span>{language === 'ar' ? 'بوابة البائعين' : 'Seller Portal'}</span></button>
+            {showSellerPortal && <button id="nav-seller-btn" onClick={() => { requestAccountSignIn(); setActiveTab('account'); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer text-[#737373] hover:text-[#8F7137] hover:bg-[#F8F8F6]"><Store className="w-3.5 h-3.5 text-[#8F7137]" /><span>{language === 'ar' ? 'بوابة البائعين' : 'Seller Portal'}</span></button>}
             {showAdminTab && <button id="nav-admin-btn" onClick={() => setActiveTab('admin')} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer ${activeTab === 'admin' ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-[#737373] hover:text-emerald-700 hover:bg-[#F8F8F6]'}`}><ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /><span>{t('admin')}</span></button>}
           </nav>
 
@@ -127,7 +130,7 @@ export const Navbar: React.FC = () => {
 
           <button onClick={() => { setActiveTab('checkout'); setMobileMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 ${activeTab === 'checkout' ? 'bg-amber-50 text-[#171717] border border-amber-200' : 'text-[#737373] hover:bg-[#F8F8F6]'}`}><ShoppingBag className="w-4 h-4 text-[#8F7137]" /><span>{t('checkoutAndDelivery')}</span></button>
 
-          <button id="nav-mobile-seller-btn" onClick={() => { setActiveTab('seller'); setMobileMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between ${activeTab === 'seller' ? 'bg-amber-50 text-[#8F7137] border border-amber-300' : 'text-[#8F7137] hover:bg-[#F8F8F6]'}`}><span>{language === 'ar' ? 'بوابة البائعين والتجار' : 'Seller & Merchant Portal'}</span><Store className="w-4 h-4 text-[#8F7137]" /></button>
+          {showSellerPortal && <button id="nav-mobile-seller-btn" onClick={() => { requestAccountSignIn(); setActiveTab('account'); setMobileMenuOpen(false); }} className="w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between text-[#8F7137] hover:bg-[#F8F8F6]"><span>{language === 'ar' ? 'بوابة البائعين والتجار' : 'Seller & Merchant Portal'}</span><Store className="w-4 h-4 text-[#8F7137]" /></button>}
 
           {showAdminTab && <button onClick={() => { setActiveTab('admin'); setMobileMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-between ${activeTab === 'admin' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'text-emerald-700 hover:bg-[#F8F8F6]'}`}><span>{t('adminAndArtisanPortal')}</span><ShieldCheck className="w-4 h-4" /></button>}
 

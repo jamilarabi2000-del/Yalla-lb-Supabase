@@ -450,6 +450,8 @@ export interface SectionVisibilityConfig {
   navbarSearch: boolean;
   currencySwitcher: boolean;
   languageSwitcher: boolean;
+  /** The Seller Portal link in the menu and footer; shown unless false. */
+  sellerPortal?: boolean;
   
   // Home Page
   homeHero: boolean;

@@ -43,6 +43,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
         { key: 'navbarSearch' as const, label: 'Navbar Live Search Bar', desc: 'Global artisan & keyword search box' },
         { key: 'currencySwitcher' as const, label: 'Currency Switcher (USD / LBP)', desc: 'Dual currency toggle with real-time exchange rates' },
         { key: 'languageSwitcher' as const, label: 'Language Switcher (EN / AR)', desc: 'Arabic & English bilingual layout toggle' },
+        { key: 'sellerPortal' as const, label: 'Seller Portal Link', desc: 'Menu and footer link for sellers; they sign in on the Account page either way' },
       ]
     },
     {

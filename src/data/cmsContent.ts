@@ -23,6 +23,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     navbarSearch: true,
     currencySwitcher: true,
     languageSwitcher: true,
+    sellerPortal: true,
     
     // Home Page Sections
     homeHero: true,

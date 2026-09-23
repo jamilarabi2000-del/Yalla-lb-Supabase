@@ -142,8 +142,8 @@ describe('storage and wiring', () => {
 
   it('keeps storefront styling off the admin panel and seller portal', () => {
     const app = stripTs(read('src/App.tsx'));
-    expect(app).toMatch(/const onStorefront = activeTab !== 'admin' && activeTab !== 'seller';\s*style\.textContent = onStorefront \?/);
-    expect(app).toMatch(/<TextStyleLayer page=\{activeTab\} enabled=\{activeTab !== 'admin' && activeTab !== 'seller'\} \/>/);
+    expect(app).toMatch(/const onStorefront = activeTab !== 'admin';\s*style\.textContent = onStorefront \?/);
+    expect(app).toMatch(/<TextStyleLayer page=\{activeTab\} enabled=\{!adminOpen\} \/>/);
     const bar = stripTs(read('src/components/AdminQuickEditor.tsx'));
     expect(bar).toMatch(/isStylingText && onStorefront &&/);
   });

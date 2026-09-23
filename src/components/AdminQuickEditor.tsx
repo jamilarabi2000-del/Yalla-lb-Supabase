@@ -43,7 +43,7 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
   const [drawerTab, setDrawerTab] = useState<'visibility' | 'quick_text' | 'add_block'>('visibility');
   // Click-to-style for any storefront text; not offered over the admin panel or seller portal.
   const [isStylingText, setIsStylingText] = useState(false);
-  const onStorefront = activeTab !== 'admin' && activeTab !== 'seller';
+  const onStorefront = activeTab !== 'admin';
   useEffect(() => {
     if (!onStorefront) setIsStylingText(false);
   }, [onStorefront]);
@@ -62,6 +62,7 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
     navbarSearch: true,
     currencySwitcher: true,
     languageSwitcher: true,
+    sellerPortal: true,
     homeHero: true,
     homeCategories: true,
     homeOffers: true,

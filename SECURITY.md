@@ -305,6 +305,12 @@ These reduce blast radius. None of them is an authorization control.
   before this rule are purged at load. Route every write through
   `writeCatalogCache()`; never call `localStorage.setItem` on a cache key
   directly.
+- **Console address**: `/admin` and `/seller` show the same "page not found"
+  as any unknown address. The console opens only at a long random address;
+  the code holds just its SHA-256 (`src/lib/adminEntry.ts`, overridable with
+  `VITE_ADMIN_ENTRY_SHA256`), so the address cannot be read out of the
+  bundle. Sellers sign in on the Account page. This keeps bots away from the
+  sign-in form; the password, the second factor and RLS remain the controls.
 - **CSV export**: `src/utils/csvSafe.ts` prefixes `= + - @ TAB CR LF |`.
 - **Diagnostics**: `src/utils/dbLogger.ts` redacts PII by pattern and exposes
   its buffer on `window` only in development builds.

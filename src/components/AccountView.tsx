@@ -7,6 +7,7 @@ import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { SellerDashboard } from './SellerDashboard';
 import { validatePassword } from '../lib/passwordPolicy';
+import { ACCOUNT_SIGNIN_EVENT, takeAccountSignInRequest } from '../lib/accountSignIn';
 import { PhoneAuthModal } from './PhoneAuthModal';
 import { 
   User, 
@@ -55,7 +56,14 @@ export const AccountView: React.FC = () => {
     resendEmailVerification
   } = useShop();
 
-  const [activeAccountTab, setActiveAccountTab] = useState<'orders' | 'wishlist' | 'profile'>('orders');
+  const [activeAccountTab, setActiveAccountTab] = useState<'orders' | 'wishlist' | 'profile'>(
+    () => (takeAccountSignInRequest() ? 'profile' : 'orders'));
+  // The Seller Portal links open the sign-in form, which is on the profile tab.
+  useEffect(() => {
+    const openSignIn = () => { takeAccountSignInRequest(); setActiveAccountTab('profile'); };
+    window.addEventListener(ACCOUNT_SIGNIN_EVENT, openSignIn);
+    return () => window.removeEventListener(ACCOUNT_SIGNIN_EVENT, openSignIn);
+  }, []);
   const authVisibility = siteContent?.accountPage || {};
   const showAppleAuth = authVisibility.showAppleAuth !== false;
   const showGoogleAuth = authVisibility.showGoogleAuth !== false;
@@ -778,21 +786,15 @@ export const AccountView: React.FC = () => {
                         <span>{language === 'ar' ? 'إرسال رابط تسجيل دخول مباشر' : 'Send Direct Email Sign-In Link'}</span>
                       </button>
 
-                      {/* Seller Login Shortcut */}
-                      <div className="pt-3 border-t border-[#E5E5E5] text-center">
-                        <p className="text-xs text-[#737373] mb-1.5">
-                          {language === 'ar' ? 'هل أنت بائع أو مورد معتمد في المنصة؟' : 'Are you a verified Lebanese seller or merchant?'}
-                        </p>
-                        <button
-                          type="button"
-                          id="account-to-seller-portal-btn"
-                          onClick={() => setActiveTab('seller')}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#B89753]/10 hover:bg-[#B89753]/20 text-[#8F7137] border border-[#B89753]/30 text-xs font-bold transition-all cursor-pointer"
-                        >
-                          <Store className="w-3.5 h-3.5 text-[#B89753]" />
-                          <span>{language === 'ar' ? 'دخول بوابة البائعين والتجار' : 'Access Seller & Merchant Portal'}</span>
-                        </button>
-                      </div>
+                      {/* Sellers sign in with this same form; their workspace opens here. */}
+                      {siteContent?.visibility?.sellerPortal !== false && (
+                        <div id="account-seller-signin-hint" className="pt-3 border-t border-[#E5E5E5] text-center">
+                          <p className="inline-flex items-center gap-1.5 text-xs text-[#737373]">
+                            <Store className="w-3.5 h-3.5 text-[#B89753] shrink-0" aria-hidden="true" />
+                            <span>{language === 'ar' ? 'البائعون والتجار: سجّلوا الدخول هنا بالبريد الإلكتروني وكلمة المرور من يلا.' : 'Sellers and merchants: sign in here with the email and password Yalla gave you.'}</span>
+                          </p>
+                        </div>
+                      )}
                     </form>
                   ) : (
                     <form onSubmit={handleSignUp} className="space-y-4">

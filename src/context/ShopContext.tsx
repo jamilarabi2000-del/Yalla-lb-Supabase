@@ -200,8 +200,7 @@ export type NavTab =
   | 'checkout'
   | 'account'
   | 'admin'
-  | 'favorites'
-  | 'seller';
+  | 'favorites';
 
 const getInitialNavTab = (): NavTab => {
   if (typeof window === 'undefined') {
@@ -210,14 +209,8 @@ const getInitialNavTab = (): NavTab => {
 
   const path = window.location.pathname.replace(/^\/+/, '');
 
-  if (path === 'admin') {
-    return 'admin';
-  }
-
-  if (path === 'seller') {
-    return 'seller';
-  }
-
+  // Neither /admin nor /seller is a page any more: the console opens only at
+  // its private address (App.tsx), and sellers sign in on the Account page.
   if (path.startsWith('product/')) {
     return 'product_detail';
   }

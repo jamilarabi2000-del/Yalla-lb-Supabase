@@ -237,11 +237,6 @@ export const HomeTopContainer: React.FC = () => {
       return;
     }
 
-    if (targetUrl.startsWith('/admin')) {
-      setActiveTab('admin');
-      return;
-    }
-
     // Direct category name check
     const lower = targetUrl.toLowerCase().trim();
     if (lower === 'all' || lower === 'pantry' || lower === 'crafts' || lower === 'mouneh' || lower === 'fashion' || lower === 'home & art' || lower === 'jewelry') {

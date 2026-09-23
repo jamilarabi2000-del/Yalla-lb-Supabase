@@ -1,6 +1,7 @@
 import { safeHref } from '../lib/safeUrl';
 import React from 'react';
 import { useShop } from '../context/ShopContext';
+import { requestAccountSignIn } from '../lib/accountSignIn';
 import { PhoneCall, Mail, Instagram, Facebook, EyeOff, Store } from 'lucide-react';
 
 export const Footer: React.FC = () => {
@@ -52,7 +53,7 @@ export const Footer: React.FC = () => {
 
         {(visibility.footerCopyright || isVisualEditMode) && <div className={`pt-4 border-t border-white/10 w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-neutral-400 relative ${!visibility.footerCopyright && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-xl p-2' : ''}`}>
           <div className="flex items-center gap-2"><span className="whitespace-pre-line text-center sm:text-start leading-relaxed">{language === 'ar' ? (footerData.copyrightTextArabic || footerData.copyrightText || `© ${new Date().getFullYear()} يلا. جميع الحقوق محفوظة.`) : (footerData.copyrightText || `© ${new Date().getFullYear()} Yalla. All Rights Reserved.`)}</span></div>
-          <div className="flex items-center gap-4 shrink-0"><button type="button" id="footer-seller-portal-btn" onClick={() => setActiveTab('seller')} className="inline-flex items-center gap-1.5 text-[#B89753] hover:text-white font-bold transition-colors cursor-pointer"><Store className="w-3.5 h-3.5" /><span>{language === 'ar' ? 'بوابة البائعين والتجار' : 'Seller & Merchant Portal'}</span></button></div>
+          <div className="flex items-center gap-4 shrink-0">{visibility.sellerPortal !== false && <button type="button" id="footer-seller-portal-btn" onClick={() => { requestAccountSignIn(); setActiveTab('account'); }} className="inline-flex items-center gap-1.5 text-[#B89753] hover:text-white font-bold transition-colors cursor-pointer"><Store className="w-3.5 h-3.5" /><span>{language === 'ar' ? 'بوابة البائعين والتجار' : 'Seller & Merchant Portal'}</span></button>}</div>
         </div>}
       </div>
     </footer>

@@ -13,6 +13,7 @@ const HOME_SECTIONS = [
 const GLOBAL_CONTROLS = [
   ['announcementTicker', 'Announcement Bar'], ['phoneSupport', 'Phone Support'], ['navbarSearch', 'Navbar Search'],
   ['currencySwitcher', 'Currency Switcher'], ['languageSwitcher', 'Language Switcher'],
+  ['sellerPortal', 'Seller Portal Link'],
 ] as const;
 
 const PAGE_SECTIONS = [
