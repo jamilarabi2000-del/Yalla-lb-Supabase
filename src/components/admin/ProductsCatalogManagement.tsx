@@ -9,7 +9,7 @@ import { supabaseProductService } from '../../services/supabaseProductService';
 import { supabaseCommerceService } from '../../services/supabaseCommerceService';
 import { supabase } from '../../lib/supabase';
 import type { Product } from '../../types';
-import { fromRegularAndPromo } from '../../lib/productPricing';
+import { fromRegularAndPromo, toRegularAndPromo } from '../../lib/productPricing';
 import { ProductsSequenceTableView } from './ProductsSequenceTableView';
 
 type ViewMode = 'grid' | 'sequence';
@@ -138,13 +138,12 @@ export const ProductsCatalogManagement: React.FC = () => {
     setForm({
       ...emptyProduct(),
       ...editing,
-      // Product.priceUSD is the effective storefront price. When a promo exists,
-      // Product.originalPriceUSD contains the regular/original price. The admin
-      // form uses the canonical editing model: regular price + promo price.
-      priceUSD: editing.originalPriceUSD ?? editing.priceUSD ?? '',
-      originalPriceUSD: editing.originalPriceUSD != null && editing.originalPriceUSD !== editing.priceUSD
-        ? editing.priceUSD
-        : '',
+      // The form's two boxes are Regular Price and Promo Price; Product carries
+      // the canonical pair. toRegularAndPromo is the inverse of the
+      // fromRegularAndPromo the save path uses, so a load-then-save with no
+      // edits provably writes back the same promotion.
+      priceUSD: toRegularAndPromo(editing).regular ?? '',
+      originalPriceUSD: toRegularAndPromo(editing).promo ?? '',
       sellerId: (editing as any).sellerId || linkedSeller?.id || '',
       seller: (editing as any).seller || linkedSeller?.nameEn || ((editing as any).artisan && (editing as any).artisan !== 'Independent Artisan' ? (editing as any).artisan : ''),
       arabicSeller: (editing as any).arabicSeller || linkedSeller?.nameAr || '',
@@ -497,10 +496,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       // p.originalPriceUSD is the current "was" price and p.priceUSD the
       // current selling price, so the existing promo is p.priceUSD only when
       // a promo is actually in force.
-      const existingPromo = p.originalPriceUSD != null && p.originalPriceUSD > p.priceUSD
-        ? p.priceUSD
-        : null;
-      await updateProduct(p.id, { ...fromRegularAndPromo(price, existingPromo), stock });
+      await updateProduct(p.id, { ...fromRegularAndPromo(price, toRegularAndPromo(p).promo), stock });
       showToast(p.name + ' price/stock updated.', 'success');
     } catch (e: any) {
       showToast(e?.message || 'Could not update price/stock.', 'error');

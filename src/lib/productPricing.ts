@@ -120,3 +120,21 @@ export function fromRegularAndPromo(
 
   return { priceUSD: regular };
 }
+
+/**
+ * Canonical Product fields -> the admin editor's two boxes. The inverse of
+ * fromRegularAndPromo; the editor used to do this inline, which left the
+ * load and save halves of the same conversion in different places.
+ * `promo` is null when there is no promotion in force.
+ */
+export function toRegularAndPromo(product: {
+  priceUSD?: unknown;
+  originalPriceUSD?: unknown;
+}): { regular: number | null; promo: number | null } {
+  const price = Number(product.priceUSD);
+  if (isDiscounted(product.priceUSD, product.originalPriceUSD)) {
+    return { regular: Number(product.originalPriceUSD), promo: price };
+  }
+  return { regular: Number.isFinite(price) ? price : null, promo: null };
+}
+

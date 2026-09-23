@@ -6,6 +6,7 @@ import {
   fromPriceColumns,
   fromRegularAndPromo,
   isDiscounted,
+  toRegularAndPromo,
 } from '../src/lib/productPricing';
 
 const read = (p: string) => fs.readFileSync(path.resolve(process.cwd(), p), 'utf8');
@@ -141,5 +142,34 @@ describe('every price write goes through the shared mapping', () => {
     // the swapped convention that broke every discounted save.
     expect(adminCatalog).toContain('fromRegularAndPromo');
     expect(adminCatalog).not.toMatch(/priceUSD:\s*price,\s*\n\s*originalPriceUSD:/);
+  });
+});
+
+describe('the admin editor round-trips a promotion untouched', () => {
+  // A real admin save at 2026-09-23T13:27 left product c3f4be08 at
+  // regular 2.00 / promo NULL, having been 2.00 / 1.00. The only write was
+  // patchProduct. These pin the editor's load -> save path so that outcome can
+  // only come from the Promo box being cleared, never from the code.
+  const load = (regular_price: number, promo_price: number | null) =>
+    toRegularAndPromo(fromPriceColumns({ regular_price, promo_price }));
+
+  it('loads 2.00 / 1.00 into the boxes as Regular 2.00, Promo 1.00', () => {
+    expect(load(2, 1)).toEqual({ regular: 2, promo: 1 });
+  });
+
+  it('saves the loaded boxes back to exactly the same columns', () => {
+    for (const [regular, promo] of [[2, 1], [10, 7.5], [5, null], [1, null]] as const) {
+      const boxes = load(regular, promo);
+      const written = toPriceColumns(fromRegularAndPromo(boxes.regular!, boxes.promo));
+      expect(written, `regular=${regular} promo=${promo}`).toEqual({
+        regular_price: regular,
+        promo_price: promo,
+      });
+    }
+  });
+
+  it('clears the promotion only when the Promo box is emptied', () => {
+    expect(toPriceColumns(fromRegularAndPromo(2, null))).toEqual({ regular_price: 2, promo_price: null });
+    expect(toPriceColumns(fromRegularAndPromo(2, 0))).toEqual({ regular_price: 2, promo_price: null });
   });
 });
