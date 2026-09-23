@@ -3,6 +3,7 @@ import { UserProfile, CartItem, Review } from '../types';
 import { generateUuidV4 } from '../utils/uuid';
 import { toUserFacingError } from '../utils/userFacingError';
 import type { CustomerProfileRow } from '../lib/customerIndex';
+import type { CartRow } from '../lib/activeCarts';
 
 export const supabaseUserDataService = {
   async fetchProfile(userId: string): Promise<Partial<UserProfile> | null> {
@@ -88,6 +89,42 @@ export const supabaseUserDataService = {
       console.error('[supabaseUserDataService] saveCart failed:', error);
       throw toUserFacingError(error, 'Unable to save your cart right now.');
     }
+  },
+
+  /**
+   * The most recently touched saved carts, for the admin Active Carts view.
+   * Only administrators see other shoppers' carts (carts_admin_read); guest
+   * carts never leave the shopper's browser.
+   */
+  async listCartsForAdmin(): Promise<CartRow[]> {
+    const { data, error } = await supabase
+      .from('carts')
+      .select('user_id,items,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(1000);
+    if (error) {
+      console.error('[supabaseUserDataService] listCartsForAdmin failed:', error);
+      throw toUserFacingError(error, 'Unable to load carts right now.');
+    }
+    return (data ?? []) as CartRow[];
+  },
+
+  /**
+   * Deletes a shopper's saved cart. Only a verified administrator may
+   * (carts_verified_admin_delete); anyone else is filtered to zero rows,
+   * which is reported instead of being taken for success.
+   */
+  async clearCartAsAdmin(userId: string): Promise<void> {
+    const { data, error } = await supabase
+      .from('carts')
+      .delete()
+      .eq('user_id', userId)
+      .select('user_id');
+    if (error) {
+      console.error('[supabaseUserDataService] clearCartAsAdmin failed:', error);
+      throw toUserFacingError(error, 'Unable to clear this cart right now.');
+    }
+    if (!data?.length) throw new Error('The cart was not cleared. Your administrator session may not be verified.');
   },
 
   async fetchWishlist(userId: string): Promise<string[] | null> {

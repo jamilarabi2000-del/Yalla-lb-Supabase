@@ -58,7 +58,11 @@ export const NOT_COUNTED_STATUSES = ['cancelled', 'returned'];
 
 const clean = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-export function buildCustomerIndex(profiles: CustomerProfileRow[], ledger: OrderLedgerRow[]): CustomerRecord[] {
+export function buildCustomerIndex(
+  profiles: CustomerProfileRow[],
+  ledger: OrderLedgerRow[],
+  opts: { includeStaff?: boolean } = {},
+): CustomerRecord[] {
   const byUser = new Map<string, OrderLedgerRow[]>();
   for (const order of ledger) {
     // Checkout requires an account, so an order loses its user only when the
@@ -76,8 +80,9 @@ export function buildCustomerIndex(profiles: CustomerProfileRow[], ledger: Order
       .slice()
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const role = p.role === 'admin' ? 'admin' : p.role === 'seller' ? 'seller' : 'customer';
-    // Staff accounts belong here only once they have bought something.
-    if (role !== 'customer' && orders.length === 0) continue;
+    // Staff accounts belong in the directory only once they have bought
+    // something; resolving a cart's owner needs every account.
+    if (!opts.includeStaff && role !== 'customer' && orders.length === 0) continue;
 
     const counted = orders.filter(o => !NOT_COUNTED_STATUSES.includes(o.status));
     // Summed in cents: adding dollar floats drifts (0.1 + 0.2).
