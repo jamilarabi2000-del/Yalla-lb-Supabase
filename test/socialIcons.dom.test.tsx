@@ -101,8 +101,8 @@ describe('the glowing tiles', () => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
   const lift = 'transform:translateY(-5px) scale(1.05);';
 
-  it('are 56px squircles with a white mark', () => {
-    expect(css).toMatch(/\.social-btn \{[^}]*width:56px; height:56px; border-radius:16px;[^}]*color:#ffffff;[^}]*transition:all \.3s cubic-bezier\(0\.4, 0, 0\.2, 1\);/);
+  it('are 40px squircles with a white mark', () => {
+    expect(css).toMatch(/\.social-btn \{[^}]*width:40px; height:40px; border-radius:16px;[^}]*color:#ffffff;[^}]*transition:all \.3s cubic-bezier\(0\.4, 0, 0\.2, 1\);/);
   });
 
   it("rest in each brand's own colours, as specified", () => {
