@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Clock, Lightbulb, MessageCircle, RefreshCw, ShoppingCart, Sparkles, Trash2 } from 'lucide-react';
+import { Clock, Lightbulb, RefreshCw, ShoppingCart, Sparkles, Trash2 } from 'lucide-react';
+import { BrandIcon } from '../ui/BrandIcon';
 import { useShop } from '../../context/ShopContext';
 import { supabaseOrderService } from '../../services/supabaseOrderService';
 import { supabaseUserDataService } from '../../services/supabaseUserDataService';
@@ -177,14 +178,14 @@ export const ActiveCartsView: React.FC = () => {
                 <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
                   <p className="text-sm mr-auto">Subtotal: <span className="font-black">{usd(cart.subtotalUSD)}</span></p>
                   {wa ? (
-                    <a href={wa} target="_blank" rel="noreferrer"
-                      className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5">
-                      <MessageCircle className="w-4 h-4" aria-hidden /> WhatsApp Recovery
+                    <a href={wa} target="_blank" rel="noreferrer" data-brand="whatsapp"
+                      className="social-pill px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5">
+                      <BrandIcon brand="whatsapp" className="w-4 h-4" /> WhatsApp Recovery
                     </a>
                   ) : (
                     <span title={cart.subtotalUSD > 0 ? 'No number that can receive WhatsApp' : 'Nothing in this cart can be bought right now'}
                       className="px-3 py-2 rounded-xl bg-slate-100 text-slate-400 text-xs font-black flex items-center gap-1.5 cursor-not-allowed">
-                      <MessageCircle className="w-4 h-4" aria-hidden /> WhatsApp Recovery
+                      <BrandIcon brand="whatsapp" className="w-4 h-4" /> WhatsApp Recovery
                     </span>
                   )}
                   {cart.abandoned && (

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, ShieldCheck, Truck, RotateCcw, MessageCircle, BookOpen, Layers } from 'lucide-react';
+import { Search, ShieldCheck, Truck, RotateCcw, BookOpen, Layers } from 'lucide-react';
+import { BrandIcon } from '../../ui/BrandIcon';
 
 interface CMSProductDetailTabProps {
   detailData: {
@@ -43,7 +44,7 @@ export const CMSProductDetailTab: React.FC<CMSProductDetailTabProps> = ({
       {/* WhatsApp Inquiry Direct Concierge */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
         <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-emerald-400" />
+          <BrandIcon brand="whatsapp" className="w-5 h-5 text-[#25D366]" />
           <span>Direct Master Artisan WhatsApp Inquiries</span>
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

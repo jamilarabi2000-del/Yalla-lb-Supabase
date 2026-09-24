@@ -61,6 +61,33 @@
   .database-inspector { background:#0B0F17; color:#E2E8F0; }
 }
 
+/* Social links: each brand's own mark (BrandIcon), lit in the brand's own
+   colour on hover and keyboard focus. Unlayered, so it wins over the
+   resting-state utility classes on the same element. */
+.social-link { transition:color .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.social-link svg { transition:transform .2s ease, filter .2s ease; }
+.social-link:hover, .social-link:focus-visible { color:#fff; background:var(--brand-fill, var(--brand)); border-color:transparent; box-shadow:0 8px 20px -6px var(--brand-glow, var(--brand)); transform:translateY(-2px); }
+.social-link:hover svg, .social-link:focus-visible svg { transform:scale(1.12); }
+.social-link[data-brand="whatsapp"] { --brand:#25D366; }
+.social-link[data-brand="instagram"] { --brand:#FF0069; --brand-fill:radial-gradient(circle at 30% 107%, #FDF497 0%, #FDF497 5%, #FD5949 45%, #D6249F 60%, #285AEB 90%); --brand-glow:#D6249F; }
+.social-link[data-brand="facebook"] { --brand:#0866FF; }
+.social-link[data-brand="youtube"] { --brand:#FF0000; }
+.social-link[data-brand="tiktok"] { --brand:#000; --brand-glow:#FE2C55; }
+.social-link[data-brand="tiktok"]:hover svg, .social-link[data-brand="tiktok"]:focus-visible svg { filter:drop-shadow(-1.5px -1px 0 #25F4EE) drop-shadow(1.5px 1px 0 #FE2C55); }
+.social-link[data-brand="x"] { --brand:#000; --brand-glow:rgba(255,255,255,.3); }
+/* A button with a text label keeps its own readable colours and gains a ring
+   in the brand colour instead. */
+.social-pill { transition:box-shadow .2s ease, transform .2s ease, background-color .2s ease, border-color .2s ease; }
+.social-pill svg { transition:transform .2s ease; }
+.social-pill:not(:disabled):hover, .social-pill:not(:disabled):focus-visible { box-shadow:0 0 0 3px color-mix(in srgb, var(--brand) 40%, transparent), 0 8px 18px -8px var(--brand); transform:translateY(-1px); }
+.social-pill:not(:disabled):hover svg, .social-pill:not(:disabled):focus-visible svg { transform:scale(1.12); }
+.social-pill[data-brand="whatsapp"] { --brand:#25D366; }
+@media (prefers-reduced-motion: reduce) {
+  .social-link, .social-link svg, .social-pill, .social-pill svg { transition:none; }
+  .social-link:hover, .social-link:focus-visible, .social-pill:not(:disabled):hover, .social-pill:not(:disabled):focus-visible,
+  .social-link:hover svg, .social-link:focus-visible svg, .social-pill:not(:disabled):hover svg, .social-pill:not(:disabled):focus-visible svg { transform:none; }
+}
+
 .skip-link { position:absolute; top:-40px; left:0; background:var(--gold-dark); color:#fff; padding:8px 16px; z-index:100; border-radius:0 0 8px 8px; font-weight:600; }
 .skip-link:focus { top:0; }
 

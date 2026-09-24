@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, ShoppingBag, Heart, Truck, Minus, Plus, ShieldCheck, PackageCheck, Share2, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ShoppingBag, Heart, Truck, Minus, Plus, ShieldCheck, PackageCheck, Sparkles } from 'lucide-react';
+import { BrandIcon } from './ui/BrandIcon';
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from './ProductCard';
 import { ProductReviews } from './ProductReviews';
@@ -132,7 +133,7 @@ export const ProductDetailView: React.FC = () => {
                 </div>
 
                 {show('detailWhatsAppInquiry') && (
-                  <button type="button" onClick={() => { const text = encodeURIComponent(isRTL ? 'مرحباً، أنا مهتم بـ ' + displayName : 'Hello, I\'m interested in ' + displayName); if (p.whatsappNumber) window.open('https://wa.me/' + String(p.whatsappNumber).replace(/\D/g, '') + '?text=' + text, '_blank', 'noopener,noreferrer'); }} className={`mt-3 w-full h-11 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-black flex items-center justify-center gap-2 hover:bg-emerald-100 transition-colors ${!p.whatsappNumber ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} disabled={!p.whatsappNumber}><Share2 className="w-4 h-4" />{isRTL ? 'استفسر عبر واتساب' : 'Inquire on WhatsApp'}</button>
+                  <button type="button" onClick={() => { const text = encodeURIComponent(isRTL ? 'مرحباً، أنا مهتم بـ ' + displayName : 'Hello, I\'m interested in ' + displayName); if (p.whatsappNumber) window.open('https://wa.me/' + String(p.whatsappNumber).replace(/\D/g, '') + '?text=' + text, '_blank', 'noopener,noreferrer'); }} data-brand="whatsapp" className={`social-pill mt-3 w-full h-11 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-black flex items-center justify-center gap-2 hover:bg-emerald-100 hover:border-[#25D366] ${!p.whatsappNumber ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} disabled={!p.whatsappNumber}><BrandIcon brand="whatsapp" className="w-4 h-4 text-[#25D366]" />{isRTL ? 'استفسر عبر واتساب' : 'Inquire on WhatsApp'}</button>
                 )}
               </div>
             </div>

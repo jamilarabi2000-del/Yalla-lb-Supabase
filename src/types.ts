@@ -724,6 +724,10 @@ export interface SiteContent {
     whatsapp: string;
     email: string;
     phone: string;
+    /** Optional channels: the footer shows each only once it has a link. */
+    tiktok?: string;
+    youtube?: string;
+    x?: string;
   };
   footer: {
     aboutTitle: string;

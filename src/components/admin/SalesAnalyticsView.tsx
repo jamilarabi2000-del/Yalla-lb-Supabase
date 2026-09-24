@@ -30,6 +30,7 @@ import {
   Percent,
   Receipt
 } from 'lucide-react';
+import { BrandIcon } from '../ui/BrandIcon';
 import { SearchableSelect } from '../ui/SearchableSelect';
 
 type DateRangePreset = 
@@ -1264,9 +1265,10 @@ export const SalesAnalyticsView: React.FC = () => {
                               href={`https://wa.me/${item.sellerObj.contactPhone.replace(/[^0-9]/g, '')}`}
                               target="_blank"
                               rel="noopener noreferrer"
+                              aria-label={`WhatsApp ${item.sellerObj.contactPhone}`}
                               className="text-emerald-700 font-mono font-bold hover:underline inline-flex items-center gap-1"
                             >
-                              <Phone className="w-3 h-3" />
+                              <BrandIcon brand="whatsapp" className="w-3 h-3 text-[#25D366]" />
                               <span>{item.sellerObj.contactPhone}</span>
                             </a>
                           ) : (
@@ -1339,8 +1341,11 @@ export const SalesAnalyticsView: React.FC = () => {
                                 href={`https://wa.me/${item.phone.replace(/[^0-9]/g, '')}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold hover:bg-emerald-200"
+                                aria-label={`WhatsApp ${item.phone}`}
+                                data-brand="whatsapp"
+                                className="social-pill px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold hover:bg-emerald-200 inline-flex items-center gap-1"
                               >
+                                <BrandIcon brand="whatsapp" className="w-3 h-3 text-[#25D366]" />
                                 WA
                               </a>
                             </div>

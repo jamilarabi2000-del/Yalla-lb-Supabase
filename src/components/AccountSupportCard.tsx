@@ -1,5 +1,6 @@
 import React from 'react';
-import { Headphones, Mail, MessageCircle, Phone, EyeOff } from 'lucide-react';
+import { Headphones, Mail, Phone, EyeOff } from 'lucide-react';
+import { BrandIcon } from './ui/BrandIcon';
 import { useShop } from '../context/ShopContext';
 import { safeHref } from '../lib/safeUrl';
 
@@ -37,7 +38,7 @@ export const AccountSupportCard: React.FC = () => {
           <div className="flex flex-wrap gap-2">
             {phone && <a href={`tel:${phone}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#171717] text-white text-xs font-bold"><Phone className="w-3.5 h-3.5" />{phone}</a>}
             {email && <a href={`mailto:${email}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[#E5E5E5] text-[#171717] text-xs font-bold"><Mail className="w-3.5 h-3.5" />{email}</a>}
-            {whatsapp && <a href={safeHref(whatsapp.startsWith('http') ? whatsapp : `https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`, '')} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#16803C] text-white text-xs font-bold"><MessageCircle className="w-3.5 h-3.5" />WhatsApp</a>}
+            {whatsapp && <a href={safeHref(whatsapp.startsWith('http') ? whatsapp : `https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`, '')} target="_blank" rel="noopener noreferrer" data-brand="whatsapp" className="social-pill inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#16803C] text-white text-xs font-bold"><BrandIcon brand="whatsapp" className="w-3.5 h-3.5" />WhatsApp</a>}
           </div>
         </div>
       </div>

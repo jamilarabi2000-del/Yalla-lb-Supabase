@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
-import { CheckCircle2, Download, Eye, MapPin, MessageCircle, Package, RefreshCw, Search, Users, X } from 'lucide-react';
+import { CheckCircle2, Download, Eye, MapPin, Package, RefreshCw, Search, Users, X } from 'lucide-react';
+import { BrandIcon } from '../ui/BrandIcon';
 import { useDialog } from '../../hooks/useDialog';
 import { supabaseOrderService } from '../../services/supabaseOrderService';
 import { supabaseUserDataService } from '../../services/supabaseUserDataService';
@@ -159,14 +160,14 @@ export const CustomersView: React.FC = () => {
                     <td className="p-4">
                       <div className="flex justify-end gap-1.5">
                         {wa ? (
-                          <a href={wa} target="_blank" rel="noreferrer"
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 whitespace-nowrap">
-                            <MessageCircle className="w-3.5 h-3.5" aria-hidden /> WhatsApp Chat
+                          <a href={wa} target="_blank" rel="noreferrer" data-brand="whatsapp"
+                            className="social-pill px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 whitespace-nowrap">
+                            <BrandIcon brand="whatsapp" className="w-3.5 h-3.5" /> WhatsApp Chat
                           </a>
                         ) : (
                           <span title="No number that can receive WhatsApp"
                             className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[11px] font-black flex items-center gap-1 whitespace-nowrap cursor-not-allowed">
-                            <MessageCircle className="w-3.5 h-3.5" aria-hidden /> WhatsApp Chat
+                            <BrandIcon brand="whatsapp" className="w-3.5 h-3.5" /> WhatsApp Chat
                           </span>
                         )}
                         <button onClick={() => setViewing(c)}

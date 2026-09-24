@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Papa from 'papaparse';
 import {
   AlertTriangle, BarChart3, BookUser, Check, CheckCircle2, Download, Edit3, FileSpreadsheet,
-  Lock, Mail, MapPin, MessageCircle, Plus, Power, RefreshCw, Search, Store, Trash2, Upload, UserPlus, X, XCircle,
+  Lock, Mail, MapPin, Plus, Power, RefreshCw, Search, Store, Trash2, Upload, UserPlus, X, XCircle,
 } from 'lucide-react';
+import { BrandIcon } from '../ui/BrandIcon';
 import { useShop } from '../../context/ShopContext';
 import { supabase } from '../../lib/supabase';
 import { generateSecurePassword } from '../../lib/passwordPolicy';
@@ -297,7 +298,7 @@ export const SellersView: React.FC = () => {
 
                     <dl className="mt-4 space-y-1.5 text-xs text-slate-600">
                       <div className="flex items-center gap-2">
-                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden />
+                        <BrandIcon brand="whatsapp" className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
                         <dt className="sr-only">WhatsApp</dt>
                         <dd className="font-mono">{wa ? <a href={wa} target="_blank" rel="noreferrer" className="hover:underline">{s.contactPhone}</a> : (s.contactPhone || '—')}</dd>
                       </div>

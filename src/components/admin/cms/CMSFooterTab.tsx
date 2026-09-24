@@ -6,11 +6,9 @@ import {
   Mail, 
   MapPin, 
   Clock, 
-  Instagram, 
-  Facebook, 
-  MessageCircle,
   FileText
 } from 'lucide-react';
+import { BrandIcon } from '../../ui/BrandIcon';
 
 interface CMSFooterTabProps {
   footerData: {
@@ -37,6 +35,9 @@ interface CMSFooterTabProps {
     whatsapp: string;
     email: string;
     phone: string;
+    tiktok?: string;
+    youtube?: string;
+    x?: string;
   };
   onChangeFooterField: (field: string, value: string) => void;
   onChangeSocialField: (field: string, value: string) => void;
@@ -261,7 +262,7 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div>
             <label htmlFor="social-instagram" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
-              <Instagram className="w-3.5 h-3.5 text-pink-400" />
+              <BrandIcon brand="instagram" className="w-3.5 h-3.5 text-[#FF0069]" />
               <span>Instagram URL</span>
             </label>
             <input
@@ -276,7 +277,7 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
 
           <div>
             <label htmlFor="social-facebook" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
-              <Facebook className="w-3.5 h-3.5 text-blue-500" />
+              <BrandIcon brand="facebook" className="w-3.5 h-3.5 text-[#0866FF]" />
               <span>Facebook Page URL</span>
             </label>
             <input
@@ -291,7 +292,7 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
 
           <div>
             <label htmlFor="social-whatsapp" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
-              <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+              <BrandIcon brand="whatsapp" className="w-3.5 h-3.5 text-[#25D366]" />
               <span>WhatsApp Direct Link</span>
             </label>
             <input
@@ -303,7 +304,30 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
               placeholder="https://wa.me/961..."
             />
           </div>
+
+          {([
+            ['tiktok', 'TikTok URL', 'https://www.tiktok.com/@...', 'text-slate-900'],
+            ['youtube', 'YouTube Channel URL', 'https://www.youtube.com/@...', 'text-[#FF0000]'],
+            ['x', 'X (Twitter) URL', 'https://x.com/...', 'text-slate-900'],
+          ] as const).map(([brand, label, placeholder, tint]) => (
+            <div key={brand}>
+              <label htmlFor={`social-${brand}`} className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
+                <BrandIcon brand={brand} className={`w-3.5 h-3.5 ${tint}`} />
+                <span>{label}</span>
+                <span className="normal-case tracking-normal font-medium text-slate-400">(optional)</span>
+              </label>
+              <input
+                id={`social-${brand}`}
+                type="text"
+                value={socialLinks[brand] || ''}
+                onChange={(e) => onChangeSocialField(brand, e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
+                placeholder={placeholder}
+              />
+            </div>
+          ))}
         </div>
+        <p className="text-[11px] text-slate-500">Each icon appears in the store footer only when its link is filled in.</p>
       </div>
 
       {/* Copyright Banner */}

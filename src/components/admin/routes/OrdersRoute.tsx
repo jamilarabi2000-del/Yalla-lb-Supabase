@@ -21,6 +21,7 @@ import {
   Calendar,
   UserCheck
 } from 'lucide-react';
+import { BrandIcon } from '../../ui/BrandIcon';
 import { SearchableSelect } from '../../ui/SearchableSelect';
 
 export const OrdersRoute: React.FC = () => {
@@ -330,8 +331,10 @@ export const OrdersRoute: React.FC = () => {
                         href={`https://wa.me/${selectedInvoiceOrder.shipping.phone.replace(/[^0-9]/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-emerald-600 hover:text-emerald-700 font-bold text-[11px]"
+                        data-brand="whatsapp"
+                        className="social-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-emerald-600 hover:text-emerald-700 font-bold text-[11px]"
                       >
+                        <BrandIcon brand="whatsapp" className="w-3 h-3 text-[#25D366]" />
                         WhatsApp
                       </a>
                     )}
