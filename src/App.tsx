@@ -82,13 +82,12 @@ const MainAppContent: React.FC = () => {
     completeEmailLinkSignIn
   } = useShop();
   const isPopStateRef = useRef(false);
-  const [notFoundPath, setNotFoundPath] = useState<string | null>(null);
   // Set once this visit arrives at the private console address. The console
   // (and its sign-in form) renders only then, or for a signed-in admin.
   const [adminEntryOpen, setAdminEntryOpen] = useState(false);
   const adminOpen = activeTab === 'admin' && (adminEntryOpen || isAdminUser);
   // An admin screen nobody opened properly is just another missing page.
-  const showNotFound = Boolean(notFoundPath) || (activeTab === 'admin' && !adminOpen);
+  const showNotFound = activeTab === 'not_found' || (activeTab === 'admin' && !adminOpen);
 
   // The console and missing pages stay out of search results. Every address
   // returns this same app, so a crawler cannot tell a missing page by status.
@@ -234,7 +233,6 @@ const MainAppContent: React.FC = () => {
 
       if (urlLang === 'ar' || urlLang === 'en') setLanguage(urlLang);
       if (urlSearch !== null && urlSearch !== searchQueryRef.current) setSearchQuery(urlSearch);
-      setNotFoundPath(null);
 
       if (rawPath === '' || rawPath === 'home') {
         setSelectedProductDetail(null);
@@ -270,7 +268,7 @@ const MainAppContent: React.FC = () => {
       // /admin and /seller land here like any unknown page. The only address
       // that opens the console is the private one, recognised by its hash.
       const checkedPath = window.location.pathname;
-      const notFound = () => setNotFoundPath('/' + rawPath);
+      const notFound = () => setActiveTab('not_found');
       isAdminEntryPath(rawPath).then(isEntry => {
         if (window.location.pathname !== checkedPath) return; // navigated away meanwhile
         if (!isEntry) return notFound();
@@ -296,10 +294,10 @@ const MainAppContent: React.FC = () => {
       activeTab,
       selectedProductId: selectedProductDetail?.id,
       products: productsRef.current,
-      notFound: Boolean(notFoundPath),
+      notFound: activeTab === 'not_found',
     });
     if (product) openProductDetail(product);
-  }, [products, notFoundPath, activeTab, selectedProductDetail, openProductDetail]);
+  }, [products, activeTab, selectedProductDetail, openProductDetail]);
 
   useEffect(() => {
     if (isPopStateRef.current) {
@@ -309,7 +307,8 @@ const MainAppContent: React.FC = () => {
     let targetPath = activeTab === 'home' ? '' : activeTab;
     if (activeTab === 'product_detail' && selectedProductDetail) targetPath = `product/${selectedProductDetail.id}`;
     else if (activeTab === 'products' && selectedCategory && selectedCategory !== 'all') targetPath = `products/${encodeURIComponent(selectedCategory)}`;
-    if (notFoundPath) return;
+    // A missing page keeps the address it was asked for.
+    if (activeTab === 'not_found') return;
     if (activeTab === 'admin') {
       // The console's address is private: show it only if this tab opened it,
       // and never write /admin.
@@ -335,7 +334,7 @@ const MainAppContent: React.FC = () => {
         window.history.pushState({ appNav: true, depth: currentDepth + 1 }, '', fullTarget);
       }
     } catch {}
-  }, [activeTab, selectedProductDetail, selectedCategory, searchQuery, notFoundPath]);
+  }, [activeTab, selectedProductDetail, selectedCategory, searchQuery]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F7F7F8] text-[#111111] selection:bg-[#F3E5AB] selection:text-[#111111] font-sans antialiased">
@@ -351,7 +350,7 @@ const MainAppContent: React.FC = () => {
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8F7137] mb-3">404</p>
               <h1 className="text-2xl font-serif font-semibold text-[#171717] mb-3">Page not found</h1>
               <p className="text-sm leading-6 text-[#737373] mb-6">The requested Yalla page does not exist.</p>
-              <button type="button" onClick={() => { setNotFoundPath(null); setActiveTab('home'); }} className="gold-btn rounded-xl px-5 py-3 text-sm font-black">Back to Home</button>
+              <button type="button" onClick={() => setActiveTab('home')} className="gold-btn rounded-xl px-5 py-3 text-sm font-black">Back to Home</button>
             </div>
           </section>
         ) : (

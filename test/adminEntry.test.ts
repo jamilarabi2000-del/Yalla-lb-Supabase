@@ -56,18 +56,33 @@ describe('the app routes to it and nowhere else', () => {
   it('has no /admin or /seller page', () => {
     expect(app).not.toMatch(/rawPath === 'admin'|rawPath === 'seller'/);
     expect(ctx).not.toMatch(/path === 'admin'|path === 'seller'/);
-    expect(ctx).toMatch(/\| 'admin'\s*\| 'favorites';/);
+    expect(ctx).toMatch(/\| 'admin'\s*\| 'favorites'\s*\| 'not_found';/);
+    const navTab = ctx.slice(ctx.indexOf('export type NavTab'), ctx.indexOf(';', ctx.indexOf('export type NavTab')));
+    expect(navTab).not.toContain("'seller'");
     expect(fs.existsSync(path.resolve(process.cwd(), 'src/components/SellerLoginView.tsx'))).toBe(false);
     expect(app).not.toMatch(/href="\/seller"/);
   });
 
   it('opens the console only for its private address or a signed-in admin', () => {
     expect(app).toMatch(/const adminOpen = activeTab === 'admin' && \(adminEntryOpen \|\| isAdminUser\);/);
-    expect(app).toMatch(/const showNotFound = Boolean\(notFoundPath\) \|\| \(activeTab === 'admin' && !adminOpen\);/);
+    expect(app).toMatch(/const showNotFound = activeTab === 'not_found' \|\| \(activeTab === 'admin' && !adminOpen\);/);
     expect(app).toMatch(/\{adminOpen && <AdminErrorBoundary>/);
     expect(app).toMatch(/isAdminEntryPath\(rawPath\)\.then\(isEntry => \{[\s\S]*?if \(!isEntry\) return notFound\(\);\s*rememberAdminEntry\(rawPath\);\s*setAdminEntryOpen\(true\);/);
     // A CMS link to /admin used to open the console for anyone.
     expect(stripTs(read('src/components/HomeTopContainer.tsx'))).not.toMatch(/startsWith\('\/admin'\)/);
+  });
+
+  it('lets any link leave a missing page, Home included', () => {
+    // /admin, /seller or a typo is a tab of its own, so a link to any page --
+    // even Home, the tab underneath on arrival -- changes it and the 404 goes.
+    // A separate "not found" flag that only the 404's own button cleared left
+    // visitors stuck there.
+    expect(app).not.toMatch(/notFoundPath/);
+    expect(app).toMatch(/const notFound = \(\) => setActiveTab\('not_found'\);/);
+    expect(app).toMatch(/onClick=\{\(\) => setActiveTab\('home'\)\}[^>]*>Back to Home</);
+    // It keeps the address it was asked for, and nothing else is held back.
+    const sync = app.slice(app.indexOf('let targetPath ='), app.indexOf('const targetUrl ='));
+    expect(sync).toMatch(/if \(activeTab === 'not_found'\) return;/);
   });
 
   it('never writes /admin into the address bar', () => {

@@ -193,7 +193,10 @@ export type NavTab =
   | 'checkout'
   | 'account'
   | 'admin'
-  | 'favorites';
+  | 'favorites'
+  // An address that is no page (/admin, /seller, a typo): App shows the 404
+  // there. Being a tab of its own, any link -- Home included -- leaves it.
+  | 'not_found';
 
 const getInitialNavTab = (): NavTab => {
   if (typeof window === 'undefined') {
