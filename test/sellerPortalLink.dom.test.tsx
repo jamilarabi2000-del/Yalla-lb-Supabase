@@ -34,8 +34,9 @@ const withSellerPortal = (sellerPortal: boolean | undefined) => {
   act(() => { (host.querySelector('#mobile-menu-toggle-btn') as HTMLButtonElement).click(); });
 };
 
-const links = () => ['#nav-seller-btn', '#nav-mobile-seller-btn', '#footer-seller-portal-btn']
+const links = () => ['#nav-seller-btn', '#nav-mobile-seller-btn']
   .map(sel => host.querySelector(sel) as HTMLButtonElement | null);
+const footerText = () => host.querySelector('footer')?.textContent ?? '';
 
 beforeEach(() => {
   setActiveTab.mockClear();
@@ -50,7 +51,7 @@ afterEach(() => {
 });
 
 describe('the Seller Portal link', () => {
-  it('shows in the menu, mobile menu and footer, and opens the Account sign-in form', () => {
+  it('shows in the menu and mobile menu, and opens the Account sign-in form', () => {
     withSellerPortal(true);
     const signInRequests = vi.fn();
     window.addEventListener('yalla:account-signin', signInRequests);
@@ -61,8 +62,15 @@ describe('the Seller Portal link', () => {
       expect(takeAccountSignInRequest()).toBe(true);
     }
     window.removeEventListener('yalla:account-signin', signInRequests);
-    expect(signInRequests).toHaveBeenCalledTimes(3);
-    expect(setActiveTab.mock.calls.map(c => c[0])).toEqual(['account', 'account', 'account']);
+    expect(signInRequests).toHaveBeenCalledTimes(2);
+    expect(setActiveTab.mock.calls.map(c => c[0])).toEqual(['account', 'account']);
+  });
+
+  it('is not in the footer, even when the admin shows it', () => {
+    withSellerPortal(true);
+    expect(host.querySelector('footer')).not.toBeNull();
+    expect(host.querySelector('#footer-seller-portal-btn')).toBeNull();
+    expect(footerText()).not.toMatch(/Seller Portal|Seller & Merchant Portal/);
   });
 
   it('shows for sites saved before the switch existed', () => {
@@ -72,7 +80,7 @@ describe('the Seller Portal link', () => {
 
   it('disappears everywhere when the admin hides it', () => {
     withSellerPortal(false);
-    expect(links()).toEqual([null, null, null]);
+    expect(links()).toEqual([null, null]);
     expect(host.textContent).not.toMatch(/Seller Portal|Seller & Merchant Portal/);
   });
 });
