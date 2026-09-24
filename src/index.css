@@ -85,6 +85,15 @@
 .social-link.instagram [data-glyph] { transition:opacity .2s ease; }
 .social-link.instagram:hover [data-glyph="solid"], .social-link.instagram:focus-visible [data-glyph="solid"] { opacity:0; }
 .social-link.instagram:hover [data-glyph="gradient"], .social-link.instagram:focus-visible [data-glyph="gradient"] { opacity:1; }
+/* Email and Call the same way, each in its own colours (the Yalla gold with a
+   black glyph, green with a white one): the colour tile at rest; on hover or
+   keyboard focus the tile clears, the glyph takes the colour and the icon
+   grows. */
+.social-link.email { --tile:#B89753; --tile-glyph:#000; }
+.social-link.call { --tile:#16803C; --tile-glyph:#fff; }
+.social-link:is(.email, .call) { background:var(--tile); color:var(--tile-glyph); border-color:transparent; border-radius:20%; }
+.social-link:is(.email, .call):is(:hover, :focus-visible) { background:transparent; color:var(--tile); border-color:transparent; box-shadow:none; transform:scale(1.5); }
+.social-link:is(.email, .call):is(:hover, :focus-visible) svg { transform:none; }
 /* A button with a text label keeps its own readable colours and gains a ring
    in the brand colour instead. */
 .social-pill { transition:box-shadow .2s ease, transform .2s ease, background-color .2s ease, border-color .2s ease; }
@@ -97,6 +106,7 @@
   .social-link:hover, .social-link:focus-visible, .social-pill:not(:disabled):hover, .social-pill:not(:disabled):focus-visible,
   .social-link:hover svg, .social-link:focus-visible svg, .social-pill:not(:disabled):hover svg, .social-pill:not(:disabled):focus-visible svg { transform:none; }
   .social-link.instagram:hover, .social-link.instagram:focus-visible { transform:none; }
+  .social-link:is(.email, .call):is(:hover, :focus-visible) { transform:none; }
 }
 
 .skip-link { position:absolute; top:-40px; left:0; background:var(--gold-dark); color:#fff; padding:8px 16px; z-index:100; border-radius:0 0 8px 8px; font-weight:600; }
