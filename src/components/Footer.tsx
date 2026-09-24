@@ -43,7 +43,7 @@ export const Footer: React.FC = () => {
         )}
 
         {(visibility.footerSocial || isVisualEditMode) && (
-          <div className={`flex flex-wrap items-center justify-center gap-3 sm:gap-5 mb-6 relative ${!visibility.footerSocial && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-2' : ''}`}>
+          <div className={`social-container mb-6 relative ${!visibility.footerSocial && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-2' : ''}`}>
             {(siteContent?.socialLinks?.instagram || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.instagram, 'https://instagram.com/yalla.lb')} target="_blank" rel="noopener noreferrer" aria-label="Instagram" data-brand="instagram" className="social-btn instagram"><BrandIcon brand="instagram" /></a>}
             {(siteContent?.socialLinks?.whatsapp || (showPhoneSupport && footerData.phone) || isVisualEditMode) && <a href={`https://wa.me/${(siteContent?.socialLinks?.whatsapp || footerData.phone || '96170889234').replace(/[^0-9]/g, '')}?text=Hello%20Yalla,%20I%20would%20like%20to%20inquire%20about%20my%20order`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" data-brand="whatsapp" className="social-btn whatsapp"><BrandIcon brand="whatsapp" /></a>}
             {(siteContent?.socialLinks?.facebook || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.facebook, 'https://facebook.com/yallalb')} target="_blank" rel="noopener noreferrer" aria-label="Facebook" data-brand="facebook" className="social-btn facebook"><FacebookLetterIcon /></a>}

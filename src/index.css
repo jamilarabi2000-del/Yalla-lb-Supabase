@@ -64,6 +64,9 @@
 /* Social icons (footer), as the shop owner specified: a squircle tile in the
    brand's own colour with a white mark, which lifts and glows in its colours
    on hover and on keyboard focus. Unlayered, so it wins over utility classes. */
+/* The panel the footer's icons sit in, as specified; it wraps rather than
+   overflow a narrow phone when every optional channel is shown. */
+.social-container { display:flex; gap:10px; align-items:center; background-color:#1a1a1a; padding:25px 35px; border-radius:20px; box-shadow:0 10px 30px rgba(0, 0, 0, 0.5); flex-wrap:wrap; justify-content:center; max-width:100%; }
 .social-btn { position:relative; width:40px; height:40px; border-radius:16px; background-color:#242424; display:flex; justify-content:center; align-items:center; text-decoration:none; color:#ffffff; font-size:24px; transition:all .3s cubic-bezier(0.4, 0, 0.2, 1); border:1px solid rgba(255, 255, 255, 0.08); box-shadow:0 4px 6px rgba(0, 0, 0, 0.1); background-clip:padding-box; overflow:hidden; flex-shrink:0; }
 .social-btn svg { width:24px; height:24px; }
 .social-btn.instagram { background:radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); box-shadow:inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1); border:none; }

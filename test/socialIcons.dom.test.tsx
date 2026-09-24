@@ -101,6 +101,14 @@ describe('the glowing tiles', () => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
   const lift = 'transform:translateY(-5px) scale(1.05);';
 
+  it('sit in the dark panel, 10px apart', () => {
+    expect(css).toContain('.social-container { display:flex; gap:10px; align-items:center; background-color:#1a1a1a; padding:25px 35px; border-radius:20px; box-shadow:0 10px 30px rgba(0, 0, 0, 0.5);');
+    render({}, <Footer />);
+    const panel = host.querySelector('footer a.social-btn')!.parentElement!;
+    expect(panel.classList.contains('social-container')).toBe(true);
+    expect(panel.className).not.toMatch(/\bgap-/);
+  });
+
   it('are 40px squircles with a white mark', () => {
     expect(css).toMatch(/\.social-btn \{[^}]*width:40px; height:40px; border-radius:16px;[^}]*color:#ffffff;[^}]*transition:all \.3s cubic-bezier\(0\.4, 0, 0\.2, 1\);/);
   });
