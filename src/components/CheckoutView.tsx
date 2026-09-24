@@ -1,39 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
-import { useDialog } from '../hooks/useDialog';
-import { PaymentMethod } from '../types';
+import type { PaymentMethod, PhoneCodeChannel } from '../types';
 import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
 import { calcDeliveryFeeUSD, cartSubtotalUSD, everyItemShipsFree, lebanonDeliveryIsFree } from '../lib/delivery';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { PhoneAuthModal } from './PhoneAuthModal';
+import { EmailCodeSignIn } from './EmailCodeSignIn';
+import type { SignupDetails } from '../lib/signupDetails';
 import { generateIdempotencyKey } from '../utils/uuid';
 import { 
-  ShieldCheck, 
-  Truck, 
-  CreditCard, 
-  Banknote, 
-  CheckCircle2, 
-  Clock, 
-  Building2, 
+  ShieldCheck,
+  Truck,
+  CreditCard,
+  Banknote,
+  CheckCircle2,
+  Clock,
+  Building2,
   Lock,
   MapPin,
   Sparkles,
   PhoneCall,
   Smartphone,
   ArrowLeft,
-  LogIn,
-  UserPlus,
   LogOut,
   UserCheck,
   AlertCircle,
-  Mail,
   Check,
   Tag,
   Percent,
-  EyeOff,
-  Eye,
-  KeyRound
+  EyeOff
 } from 'lucide-react';
 import { SearchableSelect } from './ui/SearchableSelect';
 
@@ -59,10 +55,6 @@ export const CheckoutView: React.FC = () => {
     user,
     updateUser,
     checkPhoneUniqueness,
-    signInWithEmail,
-    signUpWithEmail,
-    sendEmailSignInLink,
-    resetPassword,
     signInWithGoogle,
     signInWithApple,
     signOutUser,
@@ -101,34 +93,6 @@ export const CheckoutView: React.FC = () => {
   }, [paymentMethod, showCODPayment, showWishPayment]);
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string | null>(null);
 
-  // Password visibility and reset modal states
-  const [showPassword, setShowPassword] = useState(false);
-  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isSendingReset, setIsSendingReset] = useState(false);
-
-  const { containerRef: forgotPasswordModalRef } = useDialog({
-    isOpen: showForgotPasswordModal,
-    onClose: () => setShowForgotPasswordModal(false)
-  });
-
-  const handleResetPassword = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const targetEmail = (forgotEmail || authEmail).trim();
-    if (!targetEmail) {
-      showToast(isArabic ? 'الرجاء إدخال البريد الإلكتروني لإعادة تعيين كلمة المرور' : 'Please enter your email address to reset password', 'warning');
-      return;
-    }
-    setIsSendingReset(true);
-    try {
-      await resetPassword(targetEmail);
-      setShowForgotPasswordModal(false);
-    } catch (err: any) {
-    } finally {
-      setIsSendingReset(false);
-    }
-  };
-  
   // Checkout form recipient data
   const [formData, setFormData] = useState({
     firstName: '',
@@ -136,7 +100,7 @@ export const CheckoutView: React.FC = () => {
     phone: '',
     email: '',
     governorate: 'beirut',
-    city: 'Achrafieh, Beirut',
+    city: '',
     street: '',
     building: '',
     floorApartment: '',
@@ -171,9 +135,6 @@ export const CheckoutView: React.FC = () => {
 
   // Auth Card Local State (when unauthenticated)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [signupFirstName, setSignupFirstName] = useState('');
   const [signupLastName, setSignupLastName] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
@@ -253,7 +214,7 @@ export const CheckoutView: React.FC = () => {
         phone: '',
         email: '',
         governorate: 'beirut',
-        city: 'Achrafieh, Beirut',
+        city: '',
         street: '',
         building: '',
         floorApartment: '',
@@ -326,104 +287,57 @@ export const CheckoutView: React.FC = () => {
 
   const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
 
-  // Sign In Handler from Checkout
-  const handleCheckoutSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authEmail || !authPassword) {
-      showToast(isArabic ? 'يرجى إدخال البريد الإلكتروني وكلمة المرور' : 'Please enter both email and password', 'warning');
-      return;
-    }
-    
-    setIsAuthLoading(true);
-    try {
-      await signInWithEmail(authEmail, authPassword);
-      showToast(isArabic ? 'تم تسجيل الدخول بنجاح! يمكنك الآن إتمام الطلب.' : 'Logged in successfully! You can now complete your order.', 'success');
-    } catch {
-      // Error handled with toast in context
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
+  // The sign-in methods shown follow the same Account page settings as /account.
+  const authVisibility = siteContent?.accountPage || {};
+  const showAppleAuth = authVisibility.showAppleAuth !== false;
+  const showGoogleAuth = authVisibility.showGoogleAuth !== false;
+  // A phone code needs a paid sender in Supabase, so it is off until the admin turns it on.
+  const showPhoneCode = authVisibility.showSmsAuth === true;
+  const phoneCodeChannel: PhoneCodeChannel = authVisibility.phoneCodeChannel === 'sms' ? 'sms' : 'whatsapp';
 
-  // Sign Up Handler from Checkout
-  const handleCheckoutSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  /**
+   * The new-account details for the emailed code to carry, checked; null
+   * (with the reason shown) when something is missing. City / Region and the
+   * address come from the delivery form below when filled in there; placing
+   * the order saves them to the profile in any case.
+   */
+  const collectCheckoutSignup = async (): Promise<SignupDetails | null> => {
     if (!signupFirstName.trim() || !signupLastName.trim()) {
       showToast(isArabic ? 'الاسم الأول واسم العائلة مطلوبان' : 'First name and last name are required', 'warning');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(authEmail)) {
-      showToast(isArabic ? 'صيغة البريد الإلكتروني غير صحيحة' : 'A valid email format is required', 'warning');
-      return;
-    }
-    if (!authPassword || authPassword.length < 6) {
-      showToast(isArabic ? 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل' : 'Password must be at least 6 characters', 'warning');
-      return;
-    }
-    if (authPassword !== authConfirmPassword) {
-      showToast(isArabic ? 'كلمات المرور غير متطابقة' : 'Passwords do not match', 'warning');
-      return;
+      return null;
     }
     const cleanPhone = signupPhone.replace(/\D/g, '');
     if (cleanPhone.length !== 8) {
       showToast(isArabic ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام' : 'Lebanese phone number must be strictly 8 digits', 'warning');
-      return;
+      return null;
     }
-
-    setIsAuthLoading(true);
-    // Strict uniqueness check before registering user from checkout
     const phoneAvailability = await checkPhoneUniqueness(cleanPhone);
     if (!phoneAvailability.available) {
       showToast(phoneAvailability.reason || (isArabic ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.'), 'warning');
-      setIsAuthLoading(false);
-      return;
+      return null;
     }
-
-    const fullName = `${signupFirstName.trim()} ${signupLastName.trim()}`;
-    const formattedPhone = `+961 ${cleanPhone}`;
-
-    try {
-      try {
-        localStorage.setItem('yallalb_signup_profile_temp', JSON.stringify({
-          firstName: signupFirstName.trim(),
-          lastName: signupLastName.trim(),
-          phone: formattedPhone,
-          defaultCity: formData.city || 'Achrafieh, Beirut',
-          defaultAddress: formData.street || '',
-          defaultBuilding: formData.building || '',
-          defaultNotes: formData.notes || ''
-        }));
-      } catch {}
-      await signUpWithEmail(authEmail, authPassword, cleanPhone);
-      await updateUser({
-        name: fullName,
-        firstName: signupFirstName.trim(),
-        lastName: signupLastName.trim(),
-        email: authEmail,
-        phone: formattedPhone,
-        defaultCity: formData.city || 'Achrafieh, Beirut',
-        defaultAddress: formData.street || '',
-        defaultBuilding: formData.building || '',
-        defaultNotes: formData.notes || ''
-      });
-      // Auto fill form data
-      setFormData(prev => ({
-        ...prev,
-        firstName: signupFirstName.trim(),
-        lastName: signupLastName.trim(),
-        phone: formattedPhone,
-        email: authEmail
-      }));
-      showToast(isArabic ? 'تم إنشاء الحساب وتسجيل الدخول بنجاح!' : 'Account created and signed in successfully!', 'success');
-    } catch {
-      // Error handled with toast in context
-    } finally {
-      setIsAuthLoading(false);
-    }
+    return {
+      firstName: signupFirstName,
+      lastName: signupLastName,
+      phone: `+961 ${cleanPhone}`,
+      city: formData.city || '',
+      address: formData.street || '',
+      building: formData.building || '',
+      notes: formData.notes || '',
+    };
   };
 
-  // Google Sign In Handler
+  // Once the code is accepted: carry what was typed into the delivery form.
+  const handleCheckoutSignedIn = (email: string) => {
+    setFormData(prev => ({
+      ...prev,
+      email,
+      firstName: signupFirstName.trim() || prev.firstName,
+      lastName: signupLastName.trim() || prev.lastName,
+      phone: signupPhone ? `+961 ${signupPhone.replace(/\D/g, '')}` : prev.phone,
+    }));
+  };
+
   const handleCheckoutGoogle = async () => {
     setIsAuthLoading(true);
     try {
@@ -845,6 +759,7 @@ export const CheckoutView: React.FC = () => {
 
                   {/* Social & Phone Instant Sign In */}
                   <div className="space-y-2.5">
+                    {showPhoneCode && (
                     <button
                       type="button"
                       id="checkout-phone-signin-btn"
@@ -853,9 +768,11 @@ export const CheckoutView: React.FC = () => {
                       className="w-full py-2.5 px-4 rounded-lg bg-[#171717] hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-3 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
                     >
                       <Smartphone className="w-4 h-4 text-[#B89753]" />
-                      <span>{isArabic ? 'تسجيل الدخول برقم الهاتف اللبناني (SMS)' : 'Sign In with Lebanese Phone (SMS)'}</span>
+                      <span>{phoneCodeChannel === 'whatsapp' ? (isArabic ? 'تسجيل الدخول برمز عبر واتساب' : 'Sign in with a WhatsApp code') : (isArabic ? 'تسجيل الدخول برمز SMS' : 'Sign in with an SMS code')}</span>
                     </button>
+                    )}
 
+                    {showGoogleAuth && (
                     <button
                       type="button"
                       id="checkout-google-signin-btn"
@@ -871,7 +788,9 @@ export const CheckoutView: React.FC = () => {
                       </svg>
                       <span>{isArabic ? 'المتابعة السريعة باستخدام حساب Google' : 'Continue with Google Account'}</span>
                     </button>
+                    )}
 
+                    {showAppleAuth && (
                     <button
                       type="button"
                       id="checkout-apple-signin-btn"
@@ -884,116 +803,20 @@ export const CheckoutView: React.FC = () => {
                       </svg>
                       <span>{isArabic ? 'المتابعة السريعة باستخدام حساب Apple' : 'Continue with Apple Account'}</span>
                     </button>
+                    )}
                   </div>
 
                   <div className="relative flex py-1 items-center">
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
                     <span className="flex-shrink mx-4 text-[11px] font-bold uppercase tracking-wider text-[#737373]">
-                      {isArabic ? 'أو عبر البريد الإلكتروني' : 'Or with email & password'}
+                      {isArabic ? 'أو عبر البريد الإلكتروني' : 'Or with email'}
                     </span>
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
                   </div>
 
-                  {/* Sign In Form */}
                   {authMode === 'signin' ? (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                          {isArabic ? 'البريد الإلكتروني *' : 'Email Address *'}
-                        </label>
-                        <input
-                          type="email"
-                          id="checkout-auth-email-input"
-                          placeholder="name@example.com"
-                          value={authEmail}
-                          onChange={(e) => setAuthEmail(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373]">
-                            {isArabic ? 'كلمة المرور *' : 'Password *'}
-                          </label>
-                          <button
-                            type="button"
-                            id="checkout-forgot-password-btn"
-                            onClick={() => {
-                              setForgotEmail(authEmail);
-                              setShowForgotPasswordModal(true);
-                            }}
-                            className="text-[11px] font-bold text-[#8F7137] hover:underline transition-colors cursor-pointer"
-                          >
-                            {isArabic ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
-                          </button>
-                        </div>
-                        <div className="relative flex items-center">
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            id="checkout-auth-password-input"
-                            placeholder="••••••••"
-                            value={authPassword}
-                            onChange={(e) => setAuthPassword(e.target.value)}
-                            className="w-full pl-3.5 pr-10 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 p-1 text-[#737373] hover:text-[#171717] transition-colors focus:outline-none cursor-pointer"
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            title={showPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        id="checkout-submit-signin-btn"
-                        onClick={handleCheckoutSignIn}
-                        disabled={isAuthLoading}
-                        className="w-full py-3 rounded-lg bg-[#171717] hover:bg-black text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        <LogIn className="w-4 h-4 text-[#B89753]" />
-                        <span>{isAuthLoading ? (isArabic ? 'جاري التحقق...' : 'Signing in...') : (isArabic ? 'تسجيل الدخول ومتابعة الطلب' : 'Sign In & Continue Checkout')}</span>
-                      </button>
-
-                      <div className="relative flex py-1 items-center">
-                        <div className="flex-grow border-t border-[#E5E5E5]"></div>
-                        <span className="flex-shrink mx-3 text-[10px] font-bold uppercase tracking-wider text-[#A3A3A3]">
-                          {isArabic ? 'أو بدون كلمة مرور' : 'Or Passwordless'}
-                        </span>
-                        <div className="flex-grow border-t border-[#E5E5E5]"></div>
-                      </div>
-
-                      <button
-                        type="button"
-                        id="checkout-email-link-btn"
-                        disabled={isAuthLoading || !authEmail}
-                        onClick={async () => {
-                          if (!authEmail) {
-                            showToast(isArabic ? 'يرجى إدخال البريد الإلكتروني أولاً' : 'Please enter your email address first', 'warning');
-                            return;
-                          }
-                          setIsAuthLoading(true);
-                          try {
-                            await sendEmailSignInLink(authEmail);
-                          } catch {
-                            // Error toast is handled in sendEmailSignInLink
-                          } finally {
-                            setIsAuthLoading(false);
-                          }
-                        }}
-                        className="w-full py-2.5 bg-[#8F7137]/10 hover:bg-[#8F7137]/20 text-[#8F7137] border border-[#8F7137]/30 font-bold rounded-lg text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>{isArabic ? 'إرسال رابط تسجيل دخول مباشر إلى البريد' : 'Send Direct Email Sign-In Link'}</span>
-                      </button>
-                    </div>
+                    <EmailCodeSignIn idPrefix="checkout-signin" purpose="signin" onSignedIn={handleCheckoutSignedIn} />
                   ) : (
-                    /* Sign Up Form */
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -1024,104 +847,28 @@ export const CheckoutView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                            {isArabic ? 'رقم الواتساب اللبناني *' : 'Lebanese WhatsApp Phone *'}
-                          </label>
-                          <div className="relative flex items-center">
-                            <div className="absolute left-3 flex items-center gap-1.5 pointer-events-none text-[#737373] font-bold text-xs select-none">
-                              <LebanonFlag className="w-4 h-3 rounded-xs" />
-                              <span>+961</span>
-                            </div>
-                            <input
-                              type="tel"
-                              id="checkout-signup-phone-input"
-                              placeholder="70 123456"
-                              maxLength={8}
-                              value={signupPhone}
-                              onChange={(e) => setSignupPhone(e.target.value.replace(/\D/g, ''))}
-                              className="w-full pl-20 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-mono transition-all"
-                            />
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                          {isArabic ? 'رقم الواتساب اللبناني *' : 'Lebanese WhatsApp Phone *'}
+                        </label>
+                        <div className="relative flex items-center">
+                          <div className="absolute left-3 flex items-center gap-1.5 pointer-events-none text-[#737373] font-bold text-xs select-none">
+                            <LebanonFlag className="w-4 h-3 rounded-xs" />
+                            <span>+961</span>
                           </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                            {isArabic ? 'البريد الإلكتروني *' : 'Email Address *'}
-                          </label>
                           <input
-                            type="email"
-                            id="checkout-signup-email-input"
-                            placeholder="name@example.com"
-                            value={authEmail}
-                            onChange={(e) => setAuthEmail(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
+                            type="tel"
+                            id="checkout-signup-phone-input"
+                            placeholder="70 123456"
+                            maxLength={8}
+                            value={signupPhone}
+                            onChange={(e) => setSignupPhone(e.target.value.replace(/\D/g, ''))}
+                            className="w-full pl-20 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-mono transition-all"
                           />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                            {isArabic ? 'كلمة المرور *' : 'Password *'}
-                          </label>
-                          <div className="relative flex items-center">
-                            <input
-                              type={showPassword ? 'text' : 'password'}
-                              id="checkout-signup-password-input"
-                              placeholder="Minimum 6 characters"
-                              value={authPassword}
-                              onChange={(e) => setAuthPassword(e.target.value)}
-                              className="w-full pl-3.5 pr-10 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 p-1 text-[#737373] hover:text-[#171717] transition-colors focus:outline-none cursor-pointer"
-                              aria-label={showPassword ? 'Hide password' : 'Show password'}
-                              title={showPassword ? 'Hide password' : 'Show password'}
-                            >
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                            {isArabic ? 'تأكيد كلمة المرور *' : 'Confirm Password *'}
-                          </label>
-                          <div className="relative flex items-center">
-                            <input
-                              type={showPassword ? 'text' : 'password'}
-                              id="checkout-signup-confirm-password-input"
-                              placeholder="Repeat password"
-                              value={authConfirmPassword}
-                              onChange={(e) => setAuthConfirmPassword(e.target.value)}
-                              className="w-full pl-3.5 pr-10 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 p-1 text-[#737373] hover:text-[#171717] transition-colors focus:outline-none cursor-pointer"
-                              aria-label={showPassword ? 'Hide password' : 'Show password'}
-                              title={showPassword ? 'Hide password' : 'Show password'}
-                            >
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        id="checkout-submit-signup-btn"
-                        onClick={handleCheckoutSignUp}
-                        disabled={isAuthLoading}
-                        className="w-full py-3 rounded-lg bg-[#171717] hover:bg-black text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        <UserPlus className="w-4 h-4 text-[#B89753]" />
-                        <span>{isAuthLoading ? (isArabic ? 'جاري الإنشاء...' : 'Creating Account...') : (isArabic ? 'إنشاء حساب ومتابعة الطلب' : 'Create Account & Continue Checkout')}</span>
-                      </button>
+                      <EmailCodeSignIn idPrefix="checkout-signup" purpose="signup" collectSignupDetails={collectCheckoutSignup} onSignedIn={handleCheckoutSignedIn} />
                     </div>
                   )}
                 </div>
@@ -1703,108 +1450,21 @@ export const CheckoutView: React.FC = () => {
       {/* Bottom Custom Divs / Banners */}
       <CustomBlocksRenderer page="checkout" position="bottom" />
 
-      {/* Forgot Password Modal */}
-      {showForgotPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div 
-            ref={forgotPasswordModalRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reset-password-modal-title"
-            className="bg-white rounded-xl shadow-2xl border border-[#E5E5E5] max-w-md w-full p-6 relative"
-          >
-            <button
-              type="button"
-              onClick={() => setShowForgotPasswordModal(false)}
-              className="absolute top-4 right-4 text-[#737373] hover:text-[#171717] text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-100 transition-colors cursor-pointer"
-            >
-              ✕
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#8F7137] flex items-center justify-center shrink-0">
-                <KeyRound className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 id="reset-password-modal-title" className="font-serif font-bold text-[#171717] text-base">
-                  {isArabic ? 'إعادة تعيين كلمة المرور' : 'Reset Your Password'}
-                </h3>
-                <p className="text-xs text-[#737373]">
-                  {isArabic ? 'أدخل بريدك الإلكتروني وسيتم إرسال رابط إعادة التعيين.' : 'Enter your registered email address to receive a reset link.'}
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                  {isArabic ? 'البريد الإلكتروني *' : 'Email Address *'}
-                </label>
-                <div className="relative flex items-center">
-                  <Mail className="w-4 h-4 absolute left-3.5 text-[#737373]" />
-                  <input
-                    type="email"
-                    required
-                    id="checkout-forgot-email-input"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPasswordModal(false)}
-                  className="px-4 py-2 rounded-lg border border-[#E5E5E5] text-[#171717] text-xs font-bold hover:bg-neutral-50 transition-colors cursor-pointer"
-                >
-                  {isArabic ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  id="checkout-send-reset-btn"
-                  disabled={isSendingReset}
-                  className="px-5 py-2 rounded-lg bg-[#171717] hover:bg-black text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isSendingReset ? (
-                    <span>{isArabic ? 'جاري الإرسال...' : 'Sending Link...'}</span>
-                  ) : (
-                    <span>{isArabic ? 'إرسال رابط التعيين' : 'Send Reset Link'}</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Native Firebase Phone Auth Modal */}
       <PhoneAuthModal
         isOpen={showPhoneAuthModal}
         onClose={() => setShowPhoneAuthModal(false)}
         language={isArabic ? 'ar' : 'en'}
+        channel={phoneCodeChannel}
         initialPhone={formData.phone}
       />
 
       {/*
-        No OTP modal here. OTPModal.tsx used to be mounted in this screen with
-        state nothing ever set, so it could not open; it has now been deleted
-        rather than kept.
-
-        It was a second interface for a capability this screen already offers:
-        both call supabase.auth.signInWithOtp, and the email Supabase sends
-        carries a magic link and a six digit code. sendEmailSignInLink uses the
-        link half and is wired to a real button; the modal used the code half
-        and was wired to nothing. It also re-sent on every targetContact
-        change, bypassing the sixty second guard on its own resend button.
-
-        If code entry is ever wanted alongside the link, no new auth code is
-        needed: completeEmailLinkSignIn already takes either a callback URL or
-        a six digit token and verifies the code path through verifyEmailOtp.
-        It needs a UI that collects six digits, not another OTP client. The
-        deleted file is in git history.
+        Signing in takes a code emailed each time (EmailCodeSignIn, through
+        sendEmailOtp / verifyEmailOtp); the same email carries a link that
+        signs in on the device where it is opened. There is no password field:
+        the auth hook refuses one to anyone but the administrator. The
+        OTPModal once mounted here could never open and was deleted.
       */}
     </div>
   );

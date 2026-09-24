@@ -1,3 +1,6 @@
+/** How a phone sign-in code is sent. */
+export type PhoneCodeChannel = 'sms' | 'whatsapp';
+
 export type Currency = 'USD';
 
 export interface Product {
@@ -709,7 +712,10 @@ export interface SiteContent {
     wishlistTabLabelArabic?: string;
     showAppleAuth?: boolean;
     showGoogleAuth?: boolean;
+    /** Sign-in by a code sent to the phone; off unless the admin turns it on. */
     showSmsAuth?: boolean;
+    /** How that code is sent. Needs a matching sender set up in Supabase (e.g. Twilio). */
+    phoneCodeChannel?: PhoneCodeChannel;
   };
   newsSection: {
     title: string;

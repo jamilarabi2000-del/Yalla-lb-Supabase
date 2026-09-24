@@ -46,6 +46,38 @@ Fine-grained permissions layer on top via `public.role_permissions` and
 `public.user_permissions`, resolved by `private.has_permission(key)`. A `deny`
 entry always wins over an `allow`.
 
+### Signing in: codes, not passwords
+
+Shoppers and sellers sign in on the Account page (and at checkout) with a
+code emailed each time (`EmailCodeSignIn`: `signInWithOtp` then `verifyOtp`),
+or with Google / Apple / a phone code where the admin shows them. There is no
+password field anywhere they sign in, so there is no shopper or seller
+password to guess.
+
+- `public.custom_access_token_hook` refuses a token to a **password session**
+  (signed in with a password, or refreshing one that began with a password)
+  unless the account's `profiles.role` is `admin`. It is inert until switched
+  on in Supabase -> Authentication -> Hooks -> Customize Access Token
+  (Postgres, `public.custom_access_token_hook`). Only `supabase_auth_admin`
+  may execute it.
+- An unknown email gets an account rather than an error
+  (`shouldCreateUser: true`), so the form does not reveal which emails are
+  registered.
+- The sign-up details travel as user metadata with the code request and
+  `public.handle_new_user` copies them into the profile (text only, trimmed
+  and bounded; never `role`), so they survive email confirmation and a code
+  used on another device.
+- City / Region is required: on the sign-up form, on saving the profile, and
+  for anyone signed in without one saved (`CityRegionPrompt`, which reads the
+  saved profile rather than the browser's cached checkout details).
+- Phone codes (`PhoneAuthModal`, SMS or WhatsApp per the admin's setting) are
+  off by default: they need a paid sender configured in Supabase.
+- The code email must carry `{{ .Token }}` (Supabase -> Authentication ->
+  Emails, "Magic Link" and "Confirm signup" templates); until then it carries
+  only the link, which still signs in on the device where it is opened.
+  Supabase's built-in sender allows very few emails an hour: connect an SMTP
+  provider before real traffic, or sign-ins will wait on that limit.
+
 ### Administrator second factor
 
 Administrator sign-in is password **then** a Supabase-native TOTP factor
@@ -365,6 +397,8 @@ These reduce blast radius. None of them is an authorization control.
 | Gap | Status |
 | :--- | :--- |
 | Leaked-password protection (HaveIBeenPwned) | **Not enabled** — requires a paid Supabase plan. |
+| Sign-in hook | **Must be switched on** in Supabase -> Authentication -> Hooks. Until then a shopper or seller who already has a password can still use it through the API; the site offers them none. |
+| Seller provisioning | `admin-seller-provision` still sets a password when the admin creates a seller login; sellers sign in with an emailed code, and once the hook is on that password is refused. |
 | Online card payment | **Not built.** No gateway, no payment state on `orders`. Checkout offers cash on delivery and Whish/OMT only, enforced by `trg_enforce_supported_payment_method`. |
 | `payment-webhook` edge function | **Never deployed.** Written and replay-protected in the repository, but not running. Nothing calls it and there is no payment state for it to reconcile. |
 | `supabase/migrations/` is not replayable | See `supabase/migrations/README.md`. The live database is authoritative until re-baselined. |

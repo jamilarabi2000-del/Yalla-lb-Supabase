@@ -53,6 +53,7 @@ import {
 
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
 import { toUserFacingError } from '../utils/userFacingError';
+import { signupMetadata, type SignupDetails } from '../lib/signupDetails';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
@@ -491,7 +492,10 @@ interface ShopContextType {
   authStatus: 'loading' | 'unauthenticated' | 'authenticated_non_admin' | 'authenticated_admin';
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, phone?: string) => Promise<void>;
-  sendEmailOtp: (email: string) => Promise<void>;
+  /** Emails a sign-in code; with sign-up details, a new account is created carrying them. */
+  sendEmailOtp: (email: string, signup?: SignupDetails) => Promise<void>;
+  /** After a sign-up code is accepted: saves what the sign-up form collected. */
+  saveSignupDetails: (details: SignupDetails) => Promise<void>;
   verifyEmailOtp: (email: string, token: string, type?: EmailOtpType) => Promise<void>;
   resendEmailVerification?: (email?: string) => Promise<void>;
   sendEmailSignInLink: (email: string) => Promise<void>;
@@ -3221,7 +3225,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const sendEmailOtp = async (email: string) => {
+  const sendEmailOtp = async (email: string, signup?: SignupDetails) => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       const msg = language === 'ar' ? 'الرجاء إدخال بريد إلكتروني صالح' : 'Please enter a valid email address.';
@@ -3233,7 +3237,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
+          // An unknown address gets an account rather than an error, so the
+          // form cannot be used to learn which emails are registered.
           shouldCreateUser: true,
+          ...(signup ? { data: signupMetadata(signup) } : {}),
           emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
           captchaToken: await getCaptchaToken(),
         },
@@ -3285,6 +3292,42 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showToast(msg, 'warning');
       throw err;
     }
+  };
+
+  /**
+   * After a sign-up code is accepted, write what the sign-up form collected.
+   * It reads the session itself: the caller rendered before the session
+   * existed. A new account already has these from handle_new_user (they
+   * travelled as user metadata); an existing one signing up again gets them
+   * updated. The phone is written on its own, as in signUpWithEmail: the
+   * phone_registry trigger refuses a number another account holds, and in one
+   * update that refusal would also discard the rest.
+   */
+  const saveSignupDetails = async (details: SignupDetails) => {
+    const { data } = await supabase.auth.getUser();
+    const uid = data?.user?.id;
+    if (!uid) return;
+    // Only what the form filled in: a blank must not erase a saved value (the
+    // checkout's sign-up form, for one, has no address fields of its own).
+    const filled = Object.fromEntries(Object.entries(signupMetadata(details)).filter(([, value]) => value !== ''));
+    const { error } = Object.keys(filled).length
+      ? await supabase.from('profiles').update(filled).eq('id', uid)
+      : { error: null };
+    if (error) {
+      console.warn('[ShopContext] Sign-up details not saved:', error);
+      showToast(toUserFacingError(error, 'Your details could not be saved. You can add them from your account.').message, 'warning');
+    }
+    if (details.phone) {
+      const { error: phoneError } = await supabase.from('profiles').update({ phone: details.phone }).eq('id', uid);
+      if (phoneError) {
+        console.warn('[ShopContext] Phone not saved at signup:', phoneError);
+        showToast(toUserFacingError(phoneError, 'Your phone number could not be saved. You can add it from your account.').message, 'warning');
+      }
+    }
+    try {
+      localStorage.removeItem('yallalb_signup_profile_temp');
+    } catch {}
+    await refreshUserProfile();
   };
 
   const resendEmailVerification = async (email?: string) => {
@@ -5043,6 +5086,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithEmail,
     signUpWithEmail,
     sendEmailOtp,
+    saveSignupDetails,
     verifyEmailOtp,
     resendEmailVerification,
     sendEmailSignInLink,

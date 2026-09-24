@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
-import { useDialog } from '../hooks/useDialog';
 import { ProductCard } from './ProductCard';
 import { OrderHistory } from './OrderHistory';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { SellerDashboard } from './SellerDashboard';
-import { validatePassword } from '../lib/passwordPolicy';
 import { ACCOUNT_SIGNIN_EVENT, takeAccountSignInRequest } from '../lib/accountSignIn';
 import { PhoneAuthModal } from './PhoneAuthModal';
+import { EmailCodeSignIn } from './EmailCodeSignIn';
+import { cityRegionProblem, type SignupDetails } from '../lib/signupDetails';
+import type { PhoneCodeChannel } from '../types';
 import { 
   User, 
   Package, 
@@ -20,9 +21,6 @@ import {
   AlertTriangle,
   Mail,
   Smartphone,
-  Eye,
-  EyeOff,
-  KeyRound,
   Save,
   Loader2,
   Store
@@ -49,10 +47,6 @@ export const AccountView: React.FC = () => {
     signInWithGoogle,
     signInWithApple,
     signOutUser,
-    signInWithEmail,
-    signUpWithEmail,
-    sendEmailSignInLink,
-    resetPassword,
     resendEmailVerification
   } = useShop();
 
@@ -67,7 +61,9 @@ export const AccountView: React.FC = () => {
   const authVisibility = siteContent?.accountPage || {};
   const showAppleAuth = authVisibility.showAppleAuth !== false;
   const showGoogleAuth = authVisibility.showGoogleAuth !== false;
-  const showSmsAuth = authVisibility.showSmsAuth !== false;
+  // A phone code needs a paid sender in Supabase, so it is off until the admin turns it on.
+  const showSmsAuth = authVisibility.showSmsAuth === true;
+  const phoneCodeChannel: PhoneCodeChannel = authVisibility.phoneCodeChannel === 'sms' ? 'sms' : 'whatsapp';
   
   // User-isolated orders: Only display orders belonging to this authenticated user
   const userOrders = React.useMemo(() => {
@@ -95,40 +91,9 @@ export const AccountView: React.FC = () => {
   const [profileBuilding, setProfileBuilding] = useState(user.defaultBuilding || '');
   const [profileNotes, setProfileNotes] = useState(user.defaultNotes || '');
   const [isSaving, setIsSaving] = useState(false);
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authConfirmPassword, setAuthConfirmPassword] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [isSendingVerification, setIsSendingVerification] = useState(false);
-
-  // Password visibility and reset password state
-  const [showPassword, setShowPassword] = useState(false);
-  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isSendingReset, setIsSendingReset] = useState(false);
-
-  const { containerRef: forgotPasswordModalRef } = useDialog({
-    isOpen: showForgotPasswordModal,
-    onClose: () => setShowForgotPasswordModal(false)
-  });
-
-  const handleResetPassword = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const targetEmail = (forgotEmail || authEmail).trim();
-    if (!targetEmail) {
-      showToast('Please enter your email address to reset password', 'warning');
-      return;
-    }
-    setIsSendingReset(true);
-    try {
-      await resetPassword(targetEmail);
-      setShowForgotPasswordModal(false);
-    } catch (err: any) {
-    } finally {
-      setIsSendingReset(false);
-    }
-  };
 
   const handleResendVerification = async () => {
     if (!firebaseUser) return;
@@ -198,24 +163,6 @@ export const AccountView: React.FC = () => {
 
   const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authEmail || !authPassword) {
-      showToast('Please enter both email and password', 'warning');
-      return;
-    }
-    
-    setIsAuthLoading(true);
-    try {
-      await signInWithEmail(authEmail, authPassword);
-      setProfileEmail(authEmail);
-    } catch (err) {
-      // Error is already handled with friendly toast in context
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
-
   const handleGoogleSignIn = async () => {
     setIsAuthLoading(true);
     try {
@@ -234,75 +181,44 @@ export const AccountView: React.FC = () => {
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profileFirstName || !profileFirstName.trim() || !profileLastName || !profileLastName.trim()) {
-      showToast('First name and last name are required', 'warning');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(authEmail)) {
-      showToast('A valid email format is required', 'warning');
-      return;
-    }
-    const passwordCheck = validatePassword(authPassword);
-    if (!passwordCheck.isValid) {
-      showToast(passwordCheck.message || 'Password must be at least 8 characters and include numbers and letters', 'warning');
-      return;
-    }
-    if (authPassword !== authConfirmPassword) {
-      showToast('Passwords do not match', 'warning');
-      return;
+  /**
+   * The sign-up form's details, checked, for the emailed code to carry; null
+   * (with the reason shown) when something is missing. No password: the code
+   * proves the email.
+   */
+  const collectSignupDetails = async (): Promise<SignupDetails | null> => {
+    const ar = language === 'ar';
+    if (!profileFirstName.trim() || !profileLastName.trim()) {
+      showToast(ar ? 'الاسم الأول واسم العائلة مطلوبان.' : 'First name and last name are required.', 'warning');
+      return null;
     }
     if (!/^\d{8}$/.test(profilePhone)) {
-      showToast(language === 'ar' ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام' : 'Lebanese phone number must be strictly 8 digits', 'warning');
-      return;
+      showToast(ar ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام' : 'Lebanese phone number must be strictly 8 digits', 'warning');
+      return null;
     }
-
-    setIsAuthLoading(true);
-    // Strict uniqueness check before registering user
+    const cityProblem = cityRegionProblem(profileCity, language);
+    if (cityProblem) {
+      showToast(cityProblem, 'warning');
+      return null;
+    }
+    if (!profileAddress.trim() || !profileBuilding.trim()) {
+      showToast(ar ? 'الشارع والمبنى مطلوبان.' : 'Street and building are required.', 'warning');
+      return null;
+    }
     const phoneAvailability = await checkPhoneUniqueness(profilePhone);
     if (!phoneAvailability.available) {
-      showToast(phoneAvailability.reason || (language === 'ar' ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.'), 'warning');
-      setIsAuthLoading(false);
-      return;
+      showToast(phoneAvailability.reason || (ar ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.'), 'warning');
+      return null;
     }
-    setIsAuthLoading(false);
-
-    const fullName = `${profileFirstName.trim()} ${profileLastName.trim()}`;
-    const formattedPhone = `+961 ${profilePhone}`;
-
-    setIsAuthLoading(true);
-    try {
-      try {
-        localStorage.setItem('yallalb_signup_profile_temp', JSON.stringify({
-          firstName: profileFirstName.trim(),
-          lastName: profileLastName.trim(),
-          phone: formattedPhone,
-          defaultCity: profileCity,
-          defaultAddress: profileAddress,
-          defaultBuilding: profileBuilding,
-          defaultNotes: profileNotes
-        }));
-      } catch {}
-      await signUpWithEmail(authEmail, authPassword, profilePhone);
-      await updateUser({
-        name: fullName,
-        firstName: profileFirstName.trim(),
-        lastName: profileLastName.trim(),
-        email: authEmail,
-        phone: formattedPhone,
-        defaultCity: profileCity,
-        defaultAddress: profileAddress,
-        defaultBuilding: profileBuilding,
-        defaultNotes: profileNotes
-      });
-      showToast(language === 'ar' ? 'تم إنشاء الحساب بنجاح!' : 'Account registered successfully!', 'success');
-    } catch (err) {
-      // Error handled with toast in context
-    } finally {
-      setIsAuthLoading(false);
-    }
+    return {
+      firstName: profileFirstName,
+      lastName: profileLastName,
+      phone: `+961 ${profilePhone}`,
+      city: profileCity,
+      address: profileAddress,
+      building: profileBuilding,
+      notes: profileNotes,
+    };
   };
 
   const wishlistProducts = products.filter(p => wishlist.includes(p.id));
@@ -319,6 +235,11 @@ export const AccountView: React.FC = () => {
     
     if (cleanPhone && cleanPhone.length !== 8) {
       showToast(language === 'ar' ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام' : 'Lebanese phone number must be strictly 8 digits', 'warning');
+      return;
+    }
+    const cityProblem = cityRegionProblem(profileCity, language);
+    if (cityProblem) {
+      showToast(cityProblem, 'warning');
       return;
     }
 
@@ -339,7 +260,7 @@ export const AccountView: React.FC = () => {
         lastName: profileLastName.trim(),
         email: profileEmail,
         phone: formattedPhone,
-        defaultCity: profileCity,
+        defaultCity: profileCity.trim(),
         defaultAddress: profileAddress,
         defaultBuilding: profileBuilding,
         defaultNotes: profileNotes
@@ -640,7 +561,7 @@ export const AccountView: React.FC = () => {
                   <div className="text-center mb-6">
                     <h2 className="text-xl font-serif font-bold text-[#171717]">{authMode === 'signin' ? 'Welcome Back' : 'Create Your Account'}</h2>
                     <p className="text-xs text-[#737373] mt-1">
-                      {authMode === 'signin' ? 'Sign in to access your orders and saved details.' : 'Fill in your personal details and set a secure password.'}
+                      {authMode === 'signin' ? 'Sign in to access your orders and saved details.' : 'Fill in your details. We will email you a code to confirm your address.'}
                     </p>
                   </div>
 
@@ -655,7 +576,7 @@ export const AccountView: React.FC = () => {
                       className="w-full py-2.5 px-4 rounded-lg bg-[#171717] hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-3 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
                     >
                       <Smartphone className="w-4 h-4 text-[#B89753]" />
-                      <span>{language === 'ar' ? 'تسجيل الدخول برقم الهاتف اللبناني (SMS)' : 'Sign In with Lebanese Phone (SMS)'}</span>
+                      <span>{phoneCodeChannel === 'whatsapp' ? (language === 'ar' ? 'تسجيل الدخول برمز عبر واتساب' : 'Sign in with a WhatsApp code') : (language === 'ar' ? 'تسجيل الدخول برمز SMS' : 'Sign in with an SMS code')}</span>
                     </button>
                     )}
 
@@ -702,102 +623,21 @@ export const AccountView: React.FC = () => {
                   </div>
 
                   {authMode === 'signin' ? (
-                    <form onSubmit={handleSignIn} className="space-y-4">
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Email Address</label>
-                        <input 
-                          type="email" 
-                          value={authEmail} 
-                          onChange={(e) => setAuthEmail(e.target.value)} 
-                          className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
-                          required 
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373]">Password (Required)</label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setForgotEmail(authEmail);
-                              setShowForgotPasswordModal(true);
-                            }}
-                            className="text-[11px] font-bold text-[#8F7137] hover:text-[#B89753] hover:underline transition-colors cursor-pointer"
-                          >
-                            Forgot Password?
-                          </button>
-                        </div>
-                        <div className="relative flex items-center">
-                          <input 
-                            type={showPassword ? 'text' : 'password'} 
-                            value={authPassword} 
-                            onChange={(e) => setAuthPassword(e.target.value)} 
-                            className="w-full pl-4 pr-10 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
-                            minLength={6}
-                            required 
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 p-1 text-[#737373] hover:text-[#171717] transition-colors focus:outline-none cursor-pointer"
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            title={showPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <button 
-                        type="submit" 
-                        disabled={isAuthLoading}
-                        className="w-full py-3 bg-[#171717] hover:bg-black text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer disabled:bg-neutral-300"
-                      >
-                        {isAuthLoading ? 'Signing In...' : 'Sign In'}
-                      </button>
-
-                      <div className="relative flex py-1 items-center">
-                        <div className="flex-grow border-t border-[#E5E5E5]"></div>
-                        <span className="flex-shrink mx-3 text-[10px] font-bold uppercase tracking-wider text-[#A3A3A3]">
-                          {language === 'ar' ? 'أو بدون كلمة مرور' : 'Or Passwordless'}
-                        </span>
-                        <div className="flex-grow border-t border-[#E5E5E5]"></div>
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={isAuthLoading || !authEmail}
-                        onClick={async () => {
-                          if (!authEmail) {
-                            showToast(language === 'ar' ? 'يرجى إدخال البريد الإلكتروني أولاً' : 'Please enter your email address first', 'warning');
-                            return;
-                          }
-                          setIsAuthLoading(true);
-                          try {
-                            await sendEmailSignInLink(authEmail);
-                          } catch {
-                            // Error toast is handled in sendEmailSignInLink
-                          } finally {
-                            setIsAuthLoading(false);
-                          }
-                        }}
-                        className="w-full py-2.5 bg-[#8F7137]/10 hover:bg-[#8F7137]/20 text-[#8F7137] border border-[#8F7137]/30 font-bold rounded-lg text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>{language === 'ar' ? 'إرسال رابط تسجيل دخول مباشر' : 'Send Direct Email Sign-In Link'}</span>
-                      </button>
+                    <div className="space-y-4">
+                      <EmailCodeSignIn idPrefix="account-signin" purpose="signin" onSignedIn={setProfileEmail} />
 
                       {/* Sellers sign in with this same form; their workspace opens here. */}
                       {siteContent?.visibility?.sellerPortal !== false && (
                         <div id="account-seller-signin-hint" className="pt-3 border-t border-[#E5E5E5] text-center">
                           <p className="inline-flex items-center gap-1.5 text-xs text-[#737373]">
                             <Store className="w-3.5 h-3.5 text-[#B89753] shrink-0" aria-hidden="true" />
-                            <span>{language === 'ar' ? 'البائعون والتجار: سجّلوا الدخول هنا بالبريد الإلكتروني وكلمة المرور من يلا.' : 'Sellers and merchants: sign in here with the email and password Yalla gave you.'}</span>
+                            <span>{language === 'ar' ? 'البائعون والتجار: سجّلوا الدخول هنا بالبريد الإلكتروني الذي سجّلته يلا لكم، وسنرسل إليكم رمزاً.' : 'Sellers and merchants: sign in here with the email Yalla registered for you. We will email you a code.'}</span>
                           </p>
                         </div>
                       )}
-                    </form>
+                    </div>
                   ) : (
-                    <form onSubmit={handleSignUp} className="space-y-4">
+                    <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">First Name (Required)</label>
@@ -822,63 +662,9 @@ export const AccountView: React.FC = () => {
                           />
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Email Address</label>
-                        <input 
-                          type="email" 
-                          value={authEmail} 
-                          onChange={(e) => setAuthEmail(e.target.value)} 
-                          className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
-                          required 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Password (Required)</label>
-                        <div className="relative flex items-center">
-                          <input 
-                            type={showPassword ? 'text' : 'password'} 
-                            value={authPassword} 
-                            onChange={(e) => setAuthPassword(e.target.value)} 
-                            className="w-full pl-4 pr-10 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
-                            minLength={6}
-                            required 
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 p-1 text-[#737373] hover:text-[#171717] transition-colors focus:outline-none cursor-pointer"
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            title={showPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Confirm Password</label>
-                        <div className="relative flex items-center">
-                          <input 
-                            type={showPassword ? 'text' : 'password'} 
-                            value={authConfirmPassword} 
-                            onChange={(e) => setAuthConfirmPassword(e.target.value)} 
-                            className="w-full pl-4 pr-10 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
-                            minLength={6}
-                            required 
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 p-1 text-[#737373] hover:text-[#171717] transition-colors focus:outline-none cursor-pointer"
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            title={showPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Phone (WhatsApp)</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Phone (WhatsApp) *</label>
                           <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white">
                             <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap">
                               <LebanonFlag className="w-5 h-3.5" />
@@ -900,11 +686,12 @@ export const AccountView: React.FC = () => {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">City / Region</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">City / Region *</label>
                           <input 
                             type="text" 
                             value={profileCity} 
                             onChange={(e) => setProfileCity(e.target.value)} 
+                            placeholder="e.g. Achrafieh, Beirut"
                             className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                             required 
                           />
@@ -944,14 +731,8 @@ export const AccountView: React.FC = () => {
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                         />
                       </div>
-                      <button 
-                        type="submit" 
-                        disabled={isAuthLoading}
-                        className="w-full py-3 bg-[#171717] hover:bg-black text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer disabled:bg-neutral-300 mt-2"
-                      >
-                        {isAuthLoading ? 'Creating Account...' : 'Create Account & Sign Up'}
-                      </button>
-                    </form>
+                      <EmailCodeSignIn idPrefix="account-signup" purpose="signup" collectSignupDetails={collectSignupDetails} onSignedIn={setProfileEmail} />
+                    </div>
                   )}
                 </div>
               ) : (
@@ -1029,7 +810,7 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">City / Region</label>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">City / Region *</label>
                         <input 
                           type="text" 
                           value={profileCity} 
@@ -1104,98 +885,23 @@ export const AccountView: React.FC = () => {
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
-      {showForgotPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div 
-            ref={forgotPasswordModalRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="account-reset-password-title"
-            className="bg-white rounded-xl shadow-2xl border border-[#E5E5E5] max-w-md w-full p-6 relative"
-          >
-            <button
-              type="button"
-              onClick={() => setShowForgotPasswordModal(false)}
-              className="absolute top-4 right-4 text-[#737373] hover:text-[#171717] text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-100 transition-colors cursor-pointer"
-            >
-              ✕
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#8F7137] flex items-center justify-center shrink-0">
-                <KeyRound className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 id="account-reset-password-title" className="font-serif font-bold text-[#171717] text-base">Reset Your Password</h3>
-                <p className="text-xs text-[#737373]">Enter your registered email address to receive a password reset link.</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
-                  Email Address *
-                </label>
-                <div className="relative flex items-center">
-                  <Mail className="w-4 h-4 absolute left-3.5 text-[#737373]" />
-                  <input
-                    type="email"
-                    required
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPasswordModal(false)}
-                  className="px-4 py-2 rounded-lg border border-[#E5E5E5] text-[#171717] text-xs font-bold hover:bg-neutral-50 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSendingReset}
-                  className="px-5 py-2 rounded-lg bg-[#171717] hover:bg-black text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isSendingReset ? 'Sending Link...' : 'Send Reset Link'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Native Firebase Phone Auth Modal */}
       <PhoneAuthModal
         isOpen={showPhoneAuthModal}
         onClose={() => setShowPhoneAuthModal(false)}
         language={language}
+        channel={phoneCodeChannel}
         initialPhone={profilePhone}
       />
 
       {/*
-        No OTP modal here. OTPModal.tsx used to be mounted in this screen with
-        state nothing ever set, so it could not open; it has now been deleted
-        rather than kept.
-
-        It was a second interface for a capability this screen already offers:
-        both call supabase.auth.signInWithOtp, and the email Supabase sends
-        carries a magic link and a six digit code. sendEmailSignInLink uses the
-        link half and is wired to a real button; the modal used the code half
-        and was wired to nothing. It also re-sent on every targetContact
-        change, bypassing the sixty second guard on its own resend button.
-
-        If code entry is ever wanted alongside the link, no new auth code is
-        needed: completeEmailLinkSignIn already takes either a callback URL or
-        a six digit token and verifies the code path through verifyEmailOtp.
-        It needs a UI that collects six digits, not another OTP client. The
-        deleted file is in git history.
+        Signing in takes a code emailed each time (EmailCodeSignIn, through
+        sendEmailOtp / verifyEmailOtp); the same email carries a link that
+        signs in on the device where it is opened (completeEmailLinkSignIn).
+        There is no password field: shoppers and sellers have no password to
+        guess, and the auth hook refuses one to anyone but the administrator.
+        The OTPModal that was once mounted here could never open and was
+        deleted; it is in git history.
       */}
     </div>
   );
