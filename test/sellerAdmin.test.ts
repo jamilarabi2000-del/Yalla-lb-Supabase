@@ -1,14 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import type { CategoryItem, Product, Seller } from '../src/types';
+import type { Product, Seller } from '../src/types';
 import {
-  CSV_TEMPLATE_HEADERS,
   buildSellerPayload,
-  catalogExportRows,
   filterSellers,
   isValidLbMobile,
   linkedProductCounts,
   mergeSellerPrivate,
-  previewCsvImport,
   sellerStatusCounts,
   sellerToForm,
   validateSellerForm,
@@ -25,11 +22,6 @@ const product = (over: Partial<Product> = {}): Product => ({
   id: 'p-1', name: 'Laurel Soap', priceUSD: 8, stock: 5, category: 'c-1',
   sellerId: 's-1', isPublished: true, ...over,
 } as Product);
-
-const category = (over: Partial<CategoryItem> = {}): CategoryItem => ({
-  id: 'c-1', nameEn: 'Soap', nameAr: 'صابون', icon: '', description: '', subcategories: [],
-  bannerUrl: '', ...over,
-} as CategoryItem);
 
 describe('editing a seller never wipes fields it did not change', () => {
   // What fetchSellers actually hands the admin screen: no commission, email or
@@ -144,62 +136,6 @@ describe('admin-only fields and codes', () => {
     expect(whatsAppHref('03 123 456')).toBe('https://wa.me/9613123456');
     expect(whatsAppHref('+961 70 123 456', 'Marhaba!')).toBe('https://wa.me/96170123456?text=Marhaba!');
     expect(whatsAppHref('12345')).toBeUndefined();
-  });
-});
-
-describe('CSV dry run predicts the importer', () => {
-  const ctx = { products: [product()], sellers: [seller()], categories: [category()] };
-  const base = { sku: 'new-1', name: 'Olive Oil', price_usd: '12.50', category_id: 'c-1', seller_id: 's-1', stock: '10' };
-
-  it('marks a complete row Ready and labels Create vs Update', () => {
-    const [created, updated] = previewCsvImport([base, { ...base, sku: 'p-1' }], ctx);
-    expect(created).toMatchObject({ row: 2, action: 'Create', seller: 'Chouf Eco Soap', category: 'Soap', issues: [] });
-    expect(updated.action).toBe('Update');
-  });
-
-  it('flags a missing stock, which the importer rejects and the old dry run ignored', () => {
-    const [row] = previewCsvImport([{ ...base, stock: '' }], ctx);
-    expect(row.issues.join(' ')).toMatch(/stock/i);
-  });
-
-  it('flags a missing or unknown seller code', () => {
-    const two = { ...ctx, sellers: [seller(), seller({ id: 's-2', nameEn: 'Koura Oil', sellerCode: 'SLR-102' })] };
-    expect(previewCsvImport([{ ...base, seller_id: '' }], two)[0].issues.join(' ')).toMatch(/Missing seller code/);
-    expect(previewCsvImport([{ ...base, seller_id: 'SLR-999' }], two)[0].issues.join(' ')).toMatch(/does not match/);
-    // A target seller chosen in the UI resolves it, exactly as the importer does.
-    expect(previewCsvImport([{ ...base, seller_id: '' }], { ...two, targetSellerId: 's-1' })[0].issues).toEqual([]);
-  });
-
-  it('like the importer, assigns a seller-less row to the only seller when there is one', () => {
-    expect(previewCsvImport([{ ...base, seller_id: '' }], ctx)[0]).toMatchObject({ seller: 'Chouf Eco Soap', issues: [] });
-  });
-
-  it('resolves a seller by code as well as by id', () => {
-    expect(previewCsvImport([{ ...base, seller_id: 'SLR-101' }], ctx)[0].issues).toEqual([]);
-  });
-
-  it('flags invalid prices, the $1.00 floor unless draft, and duplicate SKUs', () => {
-    const rows = previewCsvImport([
-      { ...base, sku: 'a', price_usd: 'abc' },
-      { ...base, sku: 'b', price_usd: '0.50' },
-      { ...base, sku: 'c', price_usd: '0.50', is_published: 'no' },
-      { ...base, sku: 'd' },
-      { ...base, sku: 'D' },
-    ], ctx);
-    expect(rows[0].issues.join(' ')).toMatch(/Invalid price/);
-    expect(rows[1].issues.join(' ')).toMatch(/\$1\.00 minimum/);
-    expect(rows[2].issues).toEqual([]);
-    expect(rows[4].issues.join(' ')).toMatch(/Duplicate SKU -- also on row 5/);
-  });
-
-  it('skips blank lines the way the importer does', () => {
-    expect(previewCsvImport([base, {}, { name: '' }], ctx)).toHaveLength(1);
-  });
-
-  it('exports the catalog in a format the template and importer share', () => {
-    const [row] = catalogExportRows([product({ originalPriceUSD: 10 })]);
-    for (const header of CSV_TEMPLATE_HEADERS) expect(row).toHaveProperty(header);
-    expect(row).toMatchObject({ sku: 'p-1', price_usd: 8, original_price_usd: 10, is_published: 'yes' });
   });
 });
 

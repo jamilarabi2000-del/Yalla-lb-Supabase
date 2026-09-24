@@ -38,24 +38,13 @@ import {
 import {
   generateIdempotencyKey,
   generateUuidV4,
-  isUuid,
-  secureRandomInt
+  isUuid
 } from '../utils/uuid';
-
-import Papa from 'papaparse';
 
 import {
   translations,
   Language
 } from '../utils/translations';
-
-import {
-  resolveSeller,
-  resolveCategory,
-  parsePrice,
-  parseStock,
-  isCsvRowEmpty
-} from '../utils/importerResolvers';
 
 import {
   checkDuplicateProductNumber,
@@ -96,6 +85,8 @@ import {
   type PendingSearch,
 } from '../lib/searchLogQueue';
 import { supabaseProductPatchService } from '../services/supabaseProductPatchService';
+import { supabaseProductService } from '../services/supabaseProductService';
+import { importTemplateRows, type TemplateCheck } from '../lib/productTemplate';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
 
 import {
@@ -596,7 +587,8 @@ interface ShopContextType {
   updateSeller: (id: string, updates: Partial<Seller>) => Promise<void>;
   toggleSellerActive: (sellerId: string, isActive: boolean) => Promise<void>;
   deleteSeller: (id: string, reassignSellerId?: string) => Promise<void>;
-  bulkImportProducts: (csvText: string, options?: { targetSellerId?: string; fallbackCategoryId?: string }) => Promise<{ created: number; updated: number; errors: string[] }>;
+  /** Imports a file checkProductTemplate accepted (src/lib/productTemplate.ts). */
+  bulkImportProducts: (check: TemplateCheck, onProgress?: (done: number, total: number) => void) => Promise<{ created: number; updated: number; errors: string[] }>;
 }
 
 const ShopContext = createContext<ShopContextType | undefined>(undefined);
@@ -2080,254 +2072,36 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   };
 
+  /**
+   * Imports a product template that checkProductTemplate accepted in full
+   * (src/lib/productTemplate.ts). New products go through
+   * create_product_atomic -- the product, its private fields and its images in
+   * one transaction -- and updates send only the fields that differ. The
+   * import stops at the first row the database refuses; the catalogue is then
+   * re-read, so the screen shows what was stored rather than what was sent.
+   */
   const bulkImportProducts = async (
-    csvText: string,
-    options?: { targetSellerId?: string; fallbackCategoryId?: string }
+    check: TemplateCheck,
+    onProgress?: (done: number, total: number) => void
   ): Promise<{ created: number; updated: number; errors: string[] }> => {
-    return new Promise((resolve, reject) => {
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: h => h.trim().toLowerCase(),
-        complete: async (results) => {
-          const rows = results.data as any[];
-          let created = 0;
-          let updated = 0;
-          const errors: string[] = [];
-          const validRows: any[] = [];
-          const seenSkusInFile = new Set<string>();
-          const seenItemCodesInFile = new Set<string>();
-          const seenDescriptionsInFile = new Map<string, string>(); // cleaned desc -> product name
+    const result = await importTemplateRows(check, {
+      create: input => supabaseProductService.createProduct(input),
+      update: (productId, update) => supabaseProductPatchService.patchProduct(productId, update),
+    }, onProgress);
 
-          rows.forEach((row, idx) => {
-            if (isCsvRowEmpty(row)) return;
-            const rowNum = idx + 2;
-            const name = (row.name_en || row.name || row.title || '').toString().trim();
-            const resolvedSeller = resolveSeller(row, sellers, options?.targetSellerId);
-            const resolvedCategory = resolveCategory(row, categories, options?.fallbackCategoryId);
-            const priceUSD = parsePrice(row.price_usd || row.price || row.unit_price);
-            const stock = parseStock(row.stock !== undefined ? row.stock : row.qty);
-            // Derived here rather than inlined: both are referenced twice
-            // below, once for the full new-product shape and once for the
-            // patch applied to an existing SKU. They were previously written
-            // as bare shorthand (`description,` / `craftStory,`) with no
-            // declaration in scope at all, which threw a ReferenceError the
-            // moment a valid row was reached and failed every CSV import.
-            // Column names match the conditions the patch block tests.
-            const description = (row.description_en || row.description || '').toString().trim();
-            const craftStory = (row.description_ar || row.craftstory || row.arabic_description || '').toString().trim();
-
-            if (!name) {
-              errors.push(`Row ${rowNum}: name_en is required`);
-              return;
-            }
-            if (!resolvedSeller) {
-              const rawSeller = row.seller_id || row.seller || row.seller_artisan || 'empty';
-              errors.push(`Row ${rowNum}: seller "${rawSeller}" could not be matched to an active seller. Please select a Target Seller dropdown.`);
-              return;
-            }
-            if (!resolvedCategory) {
-              const rawCat = row.category || row.category_id || 'empty';
-              errors.push(`Row ${rowNum}: category "${rawCat}" not found`);
-              return;
-            }
-            if (priceUSD <= 0) {
-              errors.push(`Row ${rowNum}: price_usd must be a positive number (found ${row.price_usd || row.price})`);
-              return;
-            }
-            if (isNaN(stock) || stock < 0) {
-              errors.push(`Row ${rowNum}: stock must be a non-negative integer (found "${row.stock !== undefined ? row.stock : row.qty}")`);
-              return;
-            }
-
-            const sku = (row.sku || row.product_id || '').toString().trim() || `prod-${Date.now()}-${idx}`;
-            const isPublished = !['false', '0', 'no', 'hidden'].includes(String(row.is_published ?? row.status ?? '').toLowerCase());
-            const sellerItemCode = (row.seller_item_code || row.seller_code || row.item_code || '').toString().trim() || `SIC-${secureRandomInt(10000, 100000)}`;
-
-            // 1. Validation: Duplicate Product Number (SKU & sellerItemCode)
-            const normSku = sku.toLowerCase();
-            const normItemCode = sellerItemCode.toLowerCase();
-            const sellerKey = (resolvedSeller?.sellerId || resolvedSeller?.sellerName || '').toLowerCase().trim();
-            const sellerCodeKey = `${sellerKey}::${normItemCode}`;
-
-            if (seenSkusInFile.has(normSku)) {
-              errors.push(`Row ${rowNum} ("${name}"): Duplicate SKU / Product ID "${sku}" appears multiple times in CSV import.`);
-              return;
-            }
-            if (seenItemCodesInFile.has(sellerCodeKey)) {
-              errors.push(`Row ${rowNum} ("${name}"): Duplicate Seller Item Code "${sellerItemCode}" for seller "${resolvedSeller.sellerName}" appears multiple times in CSV import.`);
-              return;
-            }
-
-            // Check against existing products in database
-            const existingProduct = products.find(p => p.id === sku);
-            const isExistingSku = !!existingProduct;
-            const dupCodeCheck = checkDuplicateProductNumber(sellerItemCode, isExistingSku ? sku : null, products, resolvedSeller.sellerId, resolvedSeller.sellerName);
-            if (dupCodeCheck.isDuplicate) {
-              errors.push(`Row ${rowNum} ("${name}"): Seller item code "${sellerItemCode}" is already assigned to existing product "${dupCodeCheck.conflictingProduct?.name}" for seller "${resolvedSeller.sellerName}".`);
-              return;
-            }
-
-            const hasMainImageColumn = row.image_url !== undefined || row.image !== undefined;
-            const mainImage = hasMainImageColumn
-              ? String(row.image_url ?? row.image ?? '').trim()
-              : undefined;
-            const addlImagesRaw = row.additional_images ?? row.images ?? row.gallery;
-            const hasAdditionalImagesColumn = row.additional_images !== undefined || row.images !== undefined || row.gallery !== undefined;
-            const additionalImages = hasAdditionalImagesColumn
-              ? String(addlImagesRaw ?? '').split(/[|,]/).map((u: string) => u.trim()).filter(Boolean)
-              : undefined;
-
-            const videoUrl = (row.video_url ?? row.video) !== undefined
-              ? String(row.video_url ?? row.video ?? '').trim() || undefined
-              : undefined;
-            const addlVideosRaw = row.additional_videos ?? row.videos;
-            const hasAdditionalVideosColumn = row.additional_videos !== undefined || row.videos !== undefined;
-            const additionalVideos = hasAdditionalVideosColumn
-              ? String(addlVideosRaw ?? '').split(/[|,]/).map((v: string) => v.trim()).filter(Boolean)
-              : undefined;
-
-            const nowIso = new Date().toISOString();
-            const product: Product = {
-              id: sku,
-              sellerItemCode,
-              name,
-              arabicName: (row.name_ar || row.arabic_name || name).toString().trim(),
-              artisan: resolvedSeller.sellerName,
-              seller: resolvedSeller.sellerName,
-              arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || '',
-              sellerId: resolvedSeller.sellerId,
-              sellerActive: true,
-              category: resolvedCategory.categoryId,
-              priceUSD,
-              originalPriceUSD: row.original_price_usd !== undefined ? parsePrice(row.original_price_usd) : undefined,
-              stock: Math.floor(stock),
-              // Product.image is required. A CSV with no image column leaves
-              // mainImage undefined, which made this literal not a Product at
-              // all; the existing-SKU patch below already falls back to ''.
-              // '' also matches the products.image column default.
-              image: mainImage ?? '',
-              ...(hasAdditionalImagesColumn ? { additionalImages: additionalImages && additionalImages.length > 0 ? additionalImages : [] } : {}),
-              ...(videoUrl !== undefined ? { videoUrl } : {}),
-              ...(hasAdditionalVideosColumn ? { additionalVideos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : [] } : {}),
-              ...(hasAdditionalVideosColumn || videoUrl !== undefined
-                ? { videos: additionalVideos && additionalVideos.length > 0 ? additionalVideos : (videoUrl ? [videoUrl] : []) }
-                : {}),
-              description,
-              craftStory,
-              tags: row.tags !== undefined
-                ? String(row.tags).split(/[|,]/).map((t: string) => t.trim()).filter(Boolean)
-                : ['Artisanal'],
-              rating: 0,
-              reviewsCount: 0,
-              origin: (row.origin || row.origin_terroir || 'Lebanon').toString().trim(),
-              weightOrVolume: (row.weight_or_volume || row.weight || row.volume || '').toString().trim() || undefined,
-              isPublished,
-              createdAt: existingProduct?.createdAt || nowIso,
-              updatedAt: nowIso
-            };
-
-            // Existing SKUs must receive only columns explicitly supplied by the CSV.
-            // This prevents omitted image/description/tag/etc. columns from erasing
-            // real database values. New SKUs still receive the complete product shape.
-            const existingUpdates: Partial<Product> = {
-              ...(row.name_en !== undefined || row.name !== undefined || row.title !== undefined ? { name } : {}),
-              ...(row.name_ar !== undefined || row.arabic_name !== undefined ? { arabicName: product.arabicName } : {}),
-              ...(row.seller_id !== undefined || row.seller !== undefined || row.seller_artisan !== undefined || options?.targetSellerId ? {
-                sellerId: resolvedSeller.sellerId, seller: resolvedSeller.sellerName, artisan: resolvedSeller.sellerName,
-                arabicSeller: resolvedSeller.arabicSeller || row.arabic_seller || ''
-              } : {}),
-              ...(row.category !== undefined || row.category_id !== undefined || options?.fallbackCategoryId ? { category: resolvedCategory.categoryId } : {}),
-              ...(row.price_usd !== undefined || row.price !== undefined || row.unit_price !== undefined ? { priceUSD } : {}),
-              ...(row.original_price_usd !== undefined ? { originalPriceUSD: product.originalPriceUSD } : {}),
-              ...(row.stock !== undefined || row.qty !== undefined ? { stock: Math.floor(stock) } : {}),
-              ...(row.is_published !== undefined || row.status !== undefined ? { isPublished } : {}),
-              ...(row.seller_item_code !== undefined || row.seller_code !== undefined || row.item_code !== undefined ? { sellerItemCode } : {}),
-              ...(row.description_en !== undefined || row.description !== undefined ? { description } : {}),
-              ...(row.description_ar !== undefined || row.craftstory !== undefined || row.arabic_description !== undefined ? { craftStory } : {}),
-              ...(row.tags !== undefined ? { tags: product.tags } : {}),
-              ...(row.origin !== undefined || row.origin_terroir !== undefined ? { origin: product.origin } : {}),
-              ...(row.weight_or_volume !== undefined || row.weight !== undefined || row.volume !== undefined ? { weightOrVolume: product.weightOrVolume } : {}),
-              ...(hasMainImageColumn ? { image: mainImage || '' } : {}),
-              ...(hasAdditionalImagesColumn ? { additionalImages: product.additionalImages } : {}),
-              ...(videoUrl !== undefined ? { videoUrl } : {}),
-              ...(hasAdditionalVideosColumn ? { additionalVideos: product.additionalVideos, videos: product.videos } : {})
-            };
-            const localResult = isExistingSku
-              ? { ...existingProduct, ...existingUpdates, updatedAt: nowIso }
-              : product;
-
-            validRows.push({
-              sku,
-              product,
-              updates: isExistingSku ? existingUpdates : product,
-              localResult,
-              isUpdate: isExistingSku
-            });
-          });
-
-          if (validRows.length === 0) {
-            resolve({ created, updated, errors });
-            return;
-          }
-
-          // Persist each validated row first. Existing SKUs use the safe partial
-          // patch service; new SKUs use the complete create/upsert path.
-          // Local state is updated only for rows that actually reached Supabase.
-          const successfulRows: any[] = [];
-          for (const item of validRows) {
-            try {
-              if (item.isUpdate) {
-                await supabaseProductPatchService.patchProduct(item.sku, item.updates);
-              } else {
-                await supabaseCatalogService.upsertProduct(item.product);
-              }
-              successfulRows.push(item);
-            } catch (err: any) {
-              errors.push(
-                `Row for SKU "${item.sku}" ("${item.product.name}"): ${err?.message || 'Supabase write failed'}`
-              );
-            }
-          }
-
-          if (successfulRows.length > 0) {
-            setProducts(prevProducts => {
-              const nextMap = new Map<string, Product>();
-              prevProducts.forEach(p => nextMap.set(p.id, p));
-              successfulRows.forEach(item => nextMap.set(item.sku, item.localResult));
-              const merged = Array.from(nextMap.values());
-              try {
-                writeCatalogCache(CATALOG_CACHE_KEYS.products, merged);
-              } catch {}
-              return merged;
-            });
-          }
-
-          successfulRows.forEach(item => {
-            if (item.isUpdate) updated++;
-            else created++;
-          });
-
-          const previousSnapshots = successfulRows
-            .map(r => products.find(p => p.id === r.sku))
-            .filter(Boolean);
-          const updatedSnapshots = successfulRows.map(r => r.localResult);
-
-          await logAdminActivity(
-            'product_bulk_update',
-            `CSV Bulk Import (${validRows.length} products)`,
-            `Created: ${created}, Updated: ${updated}, Errors: ${errors.length}`,
-            'bulk_csv_import',
-            previousSnapshots,
-            updatedSnapshots
-          );
-          resolve({ created, updated, errors });
-        },
-        error: (err: any) => {
-          reject(err);
-        }
-      });
-    });
+    if (result.written.length > 0) {
+      window.dispatchEvent(new Event('yalla-products-changed'));
+      const updatedIds = new Set(result.written.filter(w => w.action === 'update').map(w => w.productId));
+      await logAdminActivity(
+        'product_bulk_update',
+        `Template import (${result.written.length} products)`,
+        `Created: ${result.created}, Updated: ${result.updated}${result.errors.length ? ', stopped at a refused row' : ''}.`,
+        'bulk_template_import',
+        products.filter(p => updatedIds.has(p.id)),
+        result.written
+      );
+    }
+    return { created: result.created, updated: result.updated, errors: result.errors };
   };
 
   // Local storage persistence for CMS

@@ -12,6 +12,8 @@ import type { Product } from '../../types';
 import { fromRegularAndPromo, toRegularAndPromo, toPriceColumns } from '../../lib/productPricing';
 import { ProductsSequenceTableView } from './ProductsSequenceTableView';
 import { SearchableSelect } from '../ui/SearchableSelect';
+import { BulkProductImport } from './BulkProductImport';
+import { useDialog } from '../../hooks/useDialog';
 
 type ViewMode = 'grid' | 'sequence';
 
@@ -46,7 +48,8 @@ export const ProductsCatalogManagement: React.FC = () => {
   const deleteMultipleProducts = shop.deleteMultipleProducts ?? (async () => {});
   const reorderProducts = shop.reorderProducts ?? (async () => {});
   const showToast = shop.showToast ?? (() => {});
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const { containerRef: bulkDialogRef } = useDialog({ isOpen: bulkOpen, onClose: () => setBulkOpen(false) });
 
   const [query, setQuery] = useState('');
   const [sellerFilter, setSellerFilter] = useState('all');
@@ -524,57 +527,6 @@ export const ProductsCatalogManagement: React.FC = () => {
     downloadFullMasterReport(products, sellers, orders, 'yalla_full_master_report', rate ?? undefined);
   };
 
-  const handleBulkUpload = (file?: File) => {
-    if (!file) return;
-    Papa.parse(file, {
-      header: true, skipEmptyLines: true,
-      complete: async (result: any) => {
-        const rows = result.data || [];
-        let created = 0;
-        const skipped: { row: number; reason: string }[] = [];
-        const failed: { row: number; reason: string }[] = [];
-        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-          const row = rows[rowIndex];
-          const line = rowIndex + 2;
-          const name = String(row.name_en || row.name || row.product_name_en || '').trim();
-          if (!name) { skipped.push({ row: line, reason: 'Missing English product name' }); continue; }
-          const price = Number(row.regular_price ?? row.priceUSD ?? row.price ?? 0);
-          const promoRaw = row.promo_price ?? row.promoPrice ?? '';
-          const promo = promoRaw === '' || promoRaw == null ? null : Number(promoRaw);
-          const stock = Number(row.stock ?? row.stock_quantity ?? 0);
-          if (!Number.isFinite(price) || price <= 0 || (promo !== null && (!Number.isFinite(promo) || promo <= 0 || promo > price)) || !Number.isInteger(stock) || stock < 0) { skipped.push({ row: line, reason: 'Invalid regular/promo price or stock' }); continue; }
-          const categoryId = String(row.category_id || row.category || '').trim();
-          const brand = String(row.brand || '').trim();
-          const sellerItemCode = String(row.seller_item_code || '').trim();
-          if (!categoryId || !brand) { skipped.push({ row: line, reason: 'Category and brand are required' }); continue; }
-          if (sellerItemCode && checkDuplicateProductNumber(sellerItemCode, null, products, row.seller_id || undefined, row.seller || row.artisan).isDuplicate) {
-            skipped.push({ row: line, reason: 'Duplicate seller product code: ' + sellerItemCode }); continue;
-          }
-          try {
-            await supabaseProductService.createProduct({
-              product: {
-                name, arabic_name: row.name_ar || row.product_name_ar || undefined, artisan: row.artisan || row.seller || 'Independent Artisan',
-                origin: row.origin || 'Lebanon', brand, description: row.description || 'Imported product', craft_story: row.craft_story || 'Imported product',
-                image: row.image || row.image_url || '', regular_price: price, promo_price: promo, stock, category_id: categoryId,
-                seller_id: row.seller_id || undefined, seller_item_code: sellerItemCode || undefined,
-                is_published: String(row.status || '').toLowerCase() === 'published', publish_status: String(row.status || '').toLowerCase() === 'published' ? 'published' : 'draft'
-              },
-              privateData: { seller_id: row.seller_id || undefined, seller_item_code: sellerItemCode || undefined }
-            });
-            created++;
-          } catch (e: any) {
-            failed.push({ row: line, reason: e?.message || 'Create failed' });
-          }
-        }
-        const totalProblems = skipped.length + failed.length;
-        if (totalProblems) {
-          csvDownload([...skipped.map(x => ({ row: x.row, status: 'skipped', reason: x.reason })), ...failed.map(x => ({ row: x.row, status: 'failed', reason: x.reason }))], 'yalla_import_errors.csv');
-        }
-        showToast('Imported ' + created + ' of ' + rows.length + '. ' + skipped.length + ' skipped, ' + failed.length + ' failed.', totalProblems ? 'warning' : 'success');
-      }, error: () => showToast('Could not read the CSV file.', 'error')
-    });
-  };
-
   const setQuick = (p: Product, key: 'price' | 'stock', value: string) => setQuickValues(v => ({ ...v, [p.id]: { ...(v[p.id] || { price: String(p.priceUSD), stock: String(p.stock) }), [key]: value } }));
 
   const localDateTimeMin = useMemo(() => {
@@ -822,8 +774,7 @@ export const ProductsCatalogManagement: React.FC = () => {
       <div className="flex flex-wrap gap-2 mt-5">
         <button onClick={downloadMaster} className="px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-[11px] font-black flex items-center gap-1.5"><Download className="w-3.5 h-3.5"/>Download Full Master Report</button>
         <button onClick={downloadCatalog} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-[11px] font-black flex items-center gap-1.5"><FileSpreadsheet className="w-3.5 h-3.5"/>Catalog CSV</button>
-        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e=>{handleBulkUpload(e.target.files?.[0]);e.currentTarget.value='';}}/>
-        <button onClick={()=>fileRef.current?.click()} className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-black flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/>Bulk Upload CSV</button>
+        <button id="products-bulk-template-btn" onClick={()=>setBulkOpen(true)} className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-[11px] font-black flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/>Bulk Add / Update (Template)</button>
         <button onClick={()=>bulkPublish(false)} disabled={!selected.size} className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><Save className="w-3.5 h-3.5"/>Save Drafts</button>
         <button onClick={()=>bulkPublish(true)} disabled={!selected.size} className="px-3 py-2 rounded-xl bg-emerald-600 text-slate-900 text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5"/>Public Publish Live</button>
         <button onClick={async ()=>{
@@ -912,6 +863,15 @@ export const ProductsCatalogManagement: React.FC = () => {
       </div>
     </div>}
     {modalOpen && Modal()}
+    {bulkOpen && <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-start justify-center p-3 sm:p-6 overflow-y-auto">
+      <div ref={bulkDialogRef} role="dialog" aria-modal="true" aria-labelledby="products-bulk-title" tabIndex={-1} className="bg-slate-50 w-full max-w-5xl rounded-3xl p-4 sm:p-6 shadow-2xl my-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 id="products-bulk-title" className="text-lg font-black">Bulk add / update products</h2>
+          <button type="button" onClick={() => setBulkOpen(false)} aria-label="Close" className="p-2 rounded-xl hover:bg-slate-200"><X className="w-5 h-5"/></button>
+        </div>
+        <BulkProductImport products={products} sellers={sellers} categories={categories} />
+      </div>
+    </div>}
   </section>;
 };
 

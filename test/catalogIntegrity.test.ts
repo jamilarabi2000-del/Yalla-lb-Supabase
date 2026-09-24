@@ -190,51 +190,8 @@ describe('Storefront visibility is enforced in the database', () => {
   });
 });
 
-describe('CSV importer builds every field it references', () => {
-  const shop = fs.readFileSync(
-    path.resolve(process.cwd(), 'src/context/ShopContext.tsx'),
-    'utf8',
-  );
-
-  const importerBody = () => {
-    const start = shop.indexOf('const bulkImportProducts = async (');
-    expect(start).toBeGreaterThan(-1);
-    // Bound the slice at the next top-level const in the provider.
-    const after = shop.slice(start + 1);
-    const end = after.search(/\n  const [a-zA-Z]+ = (async )?\(/);
-    return after.slice(0, end === -1 ? undefined : end);
-  };
-
-  it('declares description and craftStory before using them', () => {
-    // These were written as bare shorthand properties with no declaration in
-    // scope, so the importer threw ReferenceError on the first valid row and
-    // every CSV import failed. TypeScript reported it as TS18004; CI never
-    // ran the type check, so it shipped.
-    const body = importerBody();
-    for (const name of ['description', 'craftStory']) {
-      expect(body).toMatch(new RegExp(`const ${name}\\s*=`));
-    }
-  });
-
-  it('derives them from the same columns the update patch tests for', () => {
-    // The patch block applies { description } only when row.description_en or
-    // row.description is present, so the value must be read from those same
-    // columns or an import writes a blank over a real one.
-    const body = importerBody();
-    expect(body).toContain('row.description_en || row.description');
-    expect(body).toContain('row.description_ar || row.craftstory || row.arabic_description');
-  });
-
-  it('references no shorthand property that has no declaration', () => {
-    // Guards the whole importer, not just these two fields.
-    const body = importerBody();
-    const shorthand = [...body.matchAll(/^\s{10,}([a-zA-Z_$][\w$]*),\s*$/gm)].map(m => m[1]);
-    const undeclared = shorthand.filter(
-      n => !new RegExp(`(const|let|var)\\s+${n}\\b|\\b${n}\\s*[:=]`).test(body)
-    );
-    expect(undeclared).toEqual([]);
-  });
-});
+// The loose CSV importer these tests guarded was replaced by the strict product
+// template; test/productTemplate.test.ts covers how it reads every column.
 
 describe('Catalogue fetch is not silently truncated', () => {
   const svc = fs.readFileSync(
