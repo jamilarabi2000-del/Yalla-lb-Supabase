@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
-import type { PaymentMethod, PhoneCodeChannel } from '../types';
+import type { Order, PaymentMethod, PhoneCodeChannel } from '../types';
 import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
 import { calcDeliveryFeeUSD, cartSubtotalUSD, everyItemShipsFree, lebanonDeliveryIsFree } from '../lib/delivery';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
@@ -142,7 +142,9 @@ export const CheckoutView: React.FC = () => {
   const [signupPhone, setSignupPhone] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
-  const [orderComplete, setOrderComplete] = useState<string | null>(null);
+  // The order the server confirmed. Its own total is what the shopper pays:
+  // the basket is emptied the moment the order succeeds.
+  const [orderComplete, setOrderComplete] = useState<Order | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync recipient fields from logged-in user profile
@@ -366,8 +368,8 @@ export const CheckoutView: React.FC = () => {
   };
 
   // Submit Final Order
-  const handleSubmitOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitOrder = async (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
 
     if (!authUser) {
       showToast(isArabic ? 'يرجى تسجيل الدخول أولاً' : 'Please sign in to place an order.', 'warning');
@@ -488,7 +490,7 @@ export const CheckoutView: React.FC = () => {
         }));
       } catch {}
 
-      setOrderComplete(newOrder.id);
+      setOrderComplete(newOrder);
     } catch {
       showToast('An error occurred while placing your order. Please try again.', 'warning');
     } finally {
@@ -497,6 +499,8 @@ export const CheckoutView: React.FC = () => {
   };
 
   if (orderComplete) {
+    const orderTotalUSD = orderComplete.totalUSD;
+    const orderReference = orderComplete.trackingNumber || `#${orderComplete.id.slice(0, 8)}`;
     const successBadge = isArabic 
       ? (siteContent?.checkoutSuccessPage?.successBadgeArabic ?? 'تم تأكيد الطلب بنجاح')
       : (siteContent?.checkoutSuccessPage?.successBadge ?? 'Order Placed Successfully');
@@ -518,11 +522,11 @@ export const CheckoutView: React.FC = () => {
       : (siteContent?.checkoutSuccessPage?.step2Text ?? 'You will receive a WhatsApp message from your dedicated courier to confirm exact GPS drop-off.');
 
     const step3 = isArabic
-      ? (siteContent?.checkoutSuccessPage?.step3TextArabic ?? `الدفع نقداً عند الاستلام بقيمة ($${finalTotalUSD.toFixed(2)}) أو بالليرة اللبنانية.`)
-      : (siteContent?.checkoutSuccessPage?.step3Text ?? `Settlement is strictly ($${finalTotalUSD.toFixed(2)}) upon handover or digital transfer.`);
+      ? (siteContent?.checkoutSuccessPage?.step3TextArabic ?? `الدفع نقداً عند الاستلام بقيمة ($${orderTotalUSD.toFixed(2)}) أو بالليرة اللبنانية.`)
+      : (siteContent?.checkoutSuccessPage?.step3Text ?? `Settlement is strictly ($${orderTotalUSD.toFixed(2)}) upon handover or digital transfer.`);
 
     // Support dynamic price insertion in CMS
-    const step3Replaced = step3.replace('{price}', `$${finalTotalUSD.toFixed(2)}`);
+    const step3Replaced = step3.replace('{price}', `$${orderTotalUSD.toFixed(2)}`);
 
     const btnTrack = isArabic
       ? (siteContent?.checkoutSuccessPage?.buttonTrackTextArabic ?? 'متابعة الطلب في حسابي')
@@ -547,7 +551,7 @@ export const CheckoutView: React.FC = () => {
               {successTitle} <span className="italic text-[#8F7137]">{isArabic ? 'بنجاح' : 'Confirmed'}</span>
             </h2>
             <p className="text-xs text-[#737373]">
-              {isArabic ? 'رمز التتبع المرجعي:' : 'Reference code:'} <span className="font-mono font-bold text-[#8F7137] bg-[#B89753]/10 px-3 py-1 rounded-lg border border-[#B89753]/20 inline-block mt-1">#{orderComplete}</span>
+              {isArabic ? 'رمز التتبع المرجعي:' : 'Reference code:'} <span className="font-mono font-bold text-[#8F7137] bg-[#B89753]/10 px-3 py-1 rounded-lg border border-[#B89753]/20 inline-block mt-1">{orderReference}</span>
             </p>
           </div>
 
@@ -646,7 +650,10 @@ export const CheckoutView: React.FC = () => {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          // Not a <form>: the sign-in card below has its own, and a form inside a
+          // form reloaded the page instead of emailing the code. Place Order
+          // calls handleSubmitOrder itself.
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
             {/* Left Column: Auth Gate, Delivery & Payment Details */}
             <div className="lg:col-span-7 space-y-6">
@@ -1403,7 +1410,8 @@ export const CheckoutView: React.FC = () => {
 
                 {/* Submit Order Button */}
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmitOrder}
                   id="place-order-btn"
                   disabled={isSubmitting}
                   className="w-full py-3.5 rounded-lg bg-[#171717] hover:bg-[#8F7137] text-white font-bold uppercase text-xs tracking-wider shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
@@ -1449,7 +1457,7 @@ export const CheckoutView: React.FC = () => {
 
             </div>
 
-          </form>
+          </div>
         )}
 
       </div>
