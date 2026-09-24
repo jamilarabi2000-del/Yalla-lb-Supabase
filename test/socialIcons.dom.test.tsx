@@ -7,13 +7,13 @@ import path from 'node:path';
 import { createRoot, type Root } from 'react-dom/client';
 import { DEFAULT_SITE_CONTENT } from '../src/data/cmsContent';
 
-// Social links carry each brand's own mark and light up in the brand's own
-// colour on hover. The shop context is large; these components read a few
-// fields of it.
+// Social links carry each brand's own mark on a tile in the brand's own colour
+// and glow in it on hover. The shop context is large; these components read a
+// few fields of it.
 const shop: Record<string, unknown> = {};
 vi.mock('../src/context/ShopContext', () => ({ useShop: () => shop }));
 
-const { SOCIAL_BRANDS, INSTAGRAM_GRADIENT } = await import('../src/components/ui/BrandIcon');
+const { SOCIAL_BRANDS, FACEBOOK_LETTER, GMAIL_LOGO } = await import('../src/components/ui/BrandIcon');
 const { Footer } = await import('../src/components/Footer');
 const { AccountSupportCard } = await import('../src/components/AccountSupportCard');
 
@@ -62,12 +62,13 @@ describe('the brand marks', () => {
 });
 
 describe('the footer', () => {
-  const links = () => Array.from(host.querySelectorAll<HTMLAnchorElement>('a.social-link[data-brand]'));
+  const links = () => Array.from(host.querySelectorAll<HTMLAnchorElement>('a.social-btn[data-brand]'));
 
   it('uses the brand marks, not generic icons', () => {
     render({}, <Footer />);
     expect(links().map(a => a.dataset.brand)).toEqual(['instagram', 'whatsapp', 'facebook']);
     for (const a of links()) {
+      expect(a.classList.contains(a.dataset.brand!), a.dataset.brand).toBe(true);
       expect(a.querySelector(`svg[data-brand-icon="${a.dataset.brand}"]`), a.dataset.brand).not.toBeNull();
       expect(a.getAttribute('aria-label')).toBe(SOCIAL_BRANDS[a.dataset.brand as keyof typeof SOCIAL_BRANDS].title);
     }
@@ -78,80 +79,65 @@ describe('the footer', () => {
     render({ tiktok: 'https://www.tiktok.com/@yalla.lb', youtube: '', x: 'javascript:alert(1)' }, <Footer />);
     expect(links().map(a => a.dataset.brand)).toEqual(['instagram', 'whatsapp', 'facebook', 'tiktok']);
     expect(host.querySelector<HTMLAnchorElement>('a[data-brand="tiktok"]')!.href).toBe('https://www.tiktok.com/@yalla.lb');
+    expect(host.querySelector('a[data-brand="tiktok"]')!.classList.contains('social-btn')).toBe(true);
+  });
+
+  it('draws Email as the Gmail logo and Call as a filled phone, each on its own tile', () => {
+    render({}, <Footer />);
+    const email = host.querySelector<HTMLAnchorElement>('footer a[aria-label="Email"]')!;
+    expect(email.getAttribute('href')).toMatch(/^mailto:/);
+    expect([...email.classList]).toEqual(['social-btn', 'gmail']);
+    expect([...email.querySelectorAll('svg[data-brand-icon="gmail"] path')].map(p => p.getAttribute('fill')))
+      .toEqual(['#4285f4', '#34a853', '#fbbc04', '#ea4335', '#c5221f']);
+    const call = host.querySelector<HTMLAnchorElement>('footer a[aria-label="Call"]')!;
+    expect(call.getAttribute('href')).toMatch(/^tel:/);
+    expect([...call.classList]).toEqual(['social-btn', 'phone']);
+    const phone = call.querySelector('svg.lucide-phone')!;
+    expect(phone.getAttribute('fill')).toBe('currentColor');
   });
 });
 
-describe('the Instagram icon', () => {
+describe('the glowing tiles', () => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
-  const gradient = 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)';
+  const lift = 'transform:translateY(-5px) scale(1.05);';
 
-  it('rests as the Instagram gradient tile with a white glyph', () => {
-    expect(css).toContain(`.social-link.instagram { background:${gradient}; color:#fff; border-color:transparent; border-radius:20%; }`);
-    render({}, <Footer />);
-    const link = host.querySelector<HTMLAnchorElement>('a[data-brand="instagram"]')!;
-    expect(link.classList.contains('instagram')).toBe(true);
+  it('are 56px squircles with a white mark', () => {
+    expect(css).toMatch(/\.social-btn \{[^}]*width:56px; height:56px; border-radius:16px;[^}]*color:#ffffff;[^}]*transition:all \.3s cubic-bezier\(0\.4, 0, 0\.2, 1\);/);
   });
 
-  it('on hover clears the tile, fills the glyph with the same gradient and grows it', () => {
-    expect(css).toMatch(/\.social-link\.instagram:hover, \.social-link\.instagram:focus-visible \{ background:transparent;[^}]*transform:scale\(1\.5\); \}/);
-    expect(css).toMatch(/\.social-link\.instagram:hover \[data-glyph="gradient"\][^{]*\{ opacity:1; \}/);
-    expect(css).toMatch(/\.social-link\.instagram:hover \[data-glyph="solid"\][^{]*\{ opacity:0; \}/);
-
-    render({}, <Footer />);
-    const svg = host.querySelector('a[data-brand="instagram"] svg')!;
-    const def = svg.querySelector('radialGradient')!;
-    expect(def.getAttribute('cx')).toBe('0.3');
-    expect(def.getAttribute('cy')).toBe('1.07');
-    expect([...def.querySelectorAll('stop')].map(s => [Number(s.getAttribute('offset')), s.getAttribute('stop-color')]))
-      .toEqual(INSTAGRAM_GRADIENT.map(([o, c]) => [o, c]));
-    // The same stops as the CSS tile, so hovering moves the colours, not changes them.
-    for (const [offset, color] of INSTAGRAM_GRADIENT) expect(gradient).toContain(`${color} ${offset * 100}%`);
-    const glyph = svg.querySelector('[data-glyph="gradient"]')!;
-    expect(glyph.getAttribute('fill')).toBe(`url(#${def.id})`);
-    expect(glyph.getAttribute('opacity')).toBe('0'); // until hovered
-    expect(svg.querySelector('[data-glyph="solid"]')).not.toBeNull();
+  it("rest in each brand's own colours, as specified", () => {
+    expect(css).toContain('.social-btn.instagram { background:radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%);');
+    expect(css).toContain('.social-btn.whatsapp { background-color:#25D366;');
+    expect(css).toContain('.social-btn.facebook { background-color:#1877F2;');
+    expect(css).toContain('.social-btn.gmail { background-color:#ffffff; border:none; }');
+    expect(css).toContain('.social-btn.phone { background:linear-gradient(135deg, #32d74b 0%, #28cd41 100%);');
   });
 
-  it('keeps still for reduced motion', () => {
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.social-link\.instagram:hover, \.social-link\.instagram:focus-visible \{ transform:none; \}/);
-  });
-});
-
-describe('the Email and Call icons', () => {
-  const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
-  const icon = (label: string) => host.querySelector<HTMLAnchorElement>(`footer a[aria-label="${label}"]`)!;
-
-  it('rest as a tile in their own colours: gold with a black glyph, green with a white one', () => {
-    expect(css).toContain('.social-link.email { --tile:#B89753; --tile-glyph:#000; }');
-    expect(css).toContain('.social-link.call { --tile:#16803C; --tile-glyph:#fff; }');
-    expect(css).toContain('.social-link:is(.email, .call) { background:var(--tile); color:var(--tile-glyph); border-color:transparent; border-radius:20%; }');
-    render({}, <Footer />);
-    for (const [label, name, glyph, href] of [['Email', 'email', 'lucide-mail', /^mailto:/], ['Call', 'call', 'lucide-phone-call', /^tel:/]] as const) {
-      const link = icon(label);
-      expect([...link.classList].filter(c => c === 'social-link' || c === name), label).toEqual(['social-link', name]);
-      expect(link.querySelector(`svg.${glyph}`), label).not.toBeNull();
-      expect(link.getAttribute('href'), label).toMatch(href);
-      // The old hover colours would fight the new rules.
-      expect(link.className, label).not.toMatch(/hover:/);
+  it('lift and glow in their own colours on hover and keyboard focus', () => {
+    const glow: Record<string, string> = {
+      instagram: 'inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 20px rgba(214, 36, 159, 0.8), 0 0 35px rgba(253, 89, 73, 0.6)',
+      whatsapp: '0 0 20px rgba(37, 211, 102, 0.8), 0 0 35px rgba(37, 211, 102, 0.5)',
+      facebook: '0 0 20px rgba(24, 119, 242, 0.8), 0 0 35px rgba(24, 119, 242, 0.5)',
+      gmail: '0 0 20px rgba(234, 67, 53, 0.6), 0 0 35px rgba(66, 133, 244, 0.4)',
+      phone: 'inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 20px rgba(50, 215, 75, 0.8), 0 0 35px rgba(40, 205, 65, 0.5)',
+    };
+    for (const [name, shadow] of Object.entries(glow)) {
+      expect(css, name).toContain(`.social-btn.${name}:hover, .social-btn.${name}:focus-visible { ${lift} box-shadow:${shadow}; }`);
     }
-  });
-
-  it('on hover clear the tile, turn the glyph to the colour and grow', () => {
-    expect(css).toContain('.social-link:is(.email, .call):is(:hover, :focus-visible) { background:transparent; color:var(--tile); border-color:transparent; box-shadow:none; transform:scale(1.5); }');
-    expect(css).toContain('.social-link:is(.email, .call):is(:hover, :focus-visible) svg { transform:none; }');
+    for (const name of ['tiktok', 'youtube', 'x']) {
+      expect(css, name).toContain(`.social-btn.${name}:hover, .social-btn.${name}:focus-visible { ${lift}`);
+    }
   });
 
   it('keep still for reduced motion', () => {
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.social-link:is\(\.email, \.call\):is\(:hover, :focus-visible\) \{ transform:none; \}/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.social-btn:hover, \.social-btn:focus-visible \{ transform:none !important; \}/);
   });
 
-  it('leave the Instagram, WhatsApp and Facebook colours as they were', () => {
-    expect(css).not.toMatch(/:is\([^)]*\.instagram/);
-    render({}, <Footer />);
-    for (const brand of ['instagram', 'whatsapp', 'facebook']) {
-      const link = host.querySelector<HTMLAnchorElement>(`a[data-brand="${brand}"]`)!;
-      expect(link.classList.contains('email') || link.classList.contains('call'), brand).toBe(false);
-    }
+  it('use the letter of the official Facebook mark and the Gmail logo', () => {
+    // The "f" is the official mark's own outline, closed along its baseline.
+    const cut = FACEBOOK_LETTER.path.lastIndexOf('v7.98z');
+    expect(SOCIAL_BRANDS.facebook.path.startsWith(FACEBOOK_LETTER.path.slice(0, cut))).toBe(true);
+    expect(GMAIL_LOGO.parts.map(([color]) => color)).toEqual(['#4285f4', '#34a853', '#fbbc04', '#ea4335', '#c5221f']);
   });
 });
 
@@ -177,18 +163,17 @@ describe('WhatsApp buttons', () => {
   });
 });
 
-describe('the hover highlight', () => {
+describe('the labelled WhatsApp button', () => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
 
-  it('fills each icon link with its brand colour on hover and keyboard focus', () => {
-    expect(css).toMatch(/\.social-link:hover, \.social-link:focus-visible \{[^}]*background:var\(--brand-fill, var\(--brand\)\)/);
-    for (const brand of Object.keys(SOCIAL_BRANDS)) {
-      expect(css, brand).toMatch(new RegExp(`\\.social-link\\[data-brand="${brand}"\\] \\{ --brand:`));
-    }
+  it('keeps its readable colours and gains a brand ring on hover, never when disabled', () => {
+    expect(css).toMatch(/\.social-pill:not\(:disabled\):hover/);
+    expect(css).toContain('.social-pill[data-brand="whatsapp"] { --brand:#25D366; }');
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.social-pill:not\(:disabled\):hover[\s\S]*transform:none/);
   });
 
-  it('keeps the highlight off disabled buttons and still for reduced motion', () => {
-    expect(css).toMatch(/\.social-pill:not\(:disabled\):hover/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.social-pill:not\(:disabled\):hover[\s\S]*transform:none/);
+  it('no footer rule is left from the old hover treatments', () => {
+    expect(css).not.toContain('.social-link');
+    expect(css).not.toContain('data-glyph');
   });
 });

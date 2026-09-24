@@ -2,8 +2,8 @@ import { safeHref } from '../lib/safeUrl';
 import React from 'react';
 import { useShop } from '../context/ShopContext';
 import { requestAccountSignIn } from '../lib/accountSignIn';
-import { PhoneCall, Mail, EyeOff, Store } from 'lucide-react';
-import { BrandIcon, SOCIAL_BRANDS } from './ui/BrandIcon';
+import { Phone, EyeOff, Store } from 'lucide-react';
+import { BrandIcon, FacebookLetterIcon, GmailIcon, SOCIAL_BRANDS } from './ui/BrandIcon';
 
 export const Footer: React.FC = () => {
   const { language, siteContent, isVisualEditMode, setActiveTab } = useShop();
@@ -43,17 +43,17 @@ export const Footer: React.FC = () => {
         )}
 
         {(visibility.footerSocial || isVisualEditMode) && (
-          <div className={`flex items-center justify-center gap-3 mb-6 relative ${!visibility.footerSocial && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-2' : ''}`}>
-            {(siteContent?.socialLinks?.instagram || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.instagram, 'https://instagram.com/yalla.lb')} target="_blank" rel="noopener noreferrer" aria-label="Instagram" data-brand="instagram" className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center shadow-2xs cursor-pointer social-link instagram"><BrandIcon brand="instagram" gradientGlyph className="w-7 h-7" /></a>}
-            {(siteContent?.socialLinks?.whatsapp || (showPhoneSupport && footerData.phone) || isVisualEditMode) && <a href={`https://wa.me/${(siteContent?.socialLinks?.whatsapp || footerData.phone || '96170889234').replace(/[^0-9]/g, '')}?text=Hello%20Yalla,%20I%20would%20like%20to%20inquire%20about%20my%20order`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" data-brand="whatsapp" className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center shadow-2xs cursor-pointer social-link"><BrandIcon brand="whatsapp" className="w-4 h-4" /></a>}
-            {(siteContent?.socialLinks?.facebook || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.facebook, 'https://facebook.com/yallalb')} target="_blank" rel="noopener noreferrer" aria-label="Facebook" data-brand="facebook" className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center shadow-2xs cursor-pointer social-link"><BrandIcon brand="facebook" className="w-4 h-4" /></a>}
+          <div className={`flex flex-wrap items-center justify-center gap-3 sm:gap-5 mb-6 relative ${!visibility.footerSocial && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-2' : ''}`}>
+            {(siteContent?.socialLinks?.instagram || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.instagram, 'https://instagram.com/yalla.lb')} target="_blank" rel="noopener noreferrer" aria-label="Instagram" data-brand="instagram" className="social-btn instagram"><BrandIcon brand="instagram" /></a>}
+            {(siteContent?.socialLinks?.whatsapp || (showPhoneSupport && footerData.phone) || isVisualEditMode) && <a href={`https://wa.me/${(siteContent?.socialLinks?.whatsapp || footerData.phone || '96170889234').replace(/[^0-9]/g, '')}?text=Hello%20Yalla,%20I%20would%20like%20to%20inquire%20about%20my%20order`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" data-brand="whatsapp" className="social-btn whatsapp"><BrandIcon brand="whatsapp" /></a>}
+            {(siteContent?.socialLinks?.facebook || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.facebook, 'https://facebook.com/yallalb')} target="_blank" rel="noopener noreferrer" aria-label="Facebook" data-brand="facebook" className="social-btn facebook"><FacebookLetterIcon /></a>}
             {(['tiktok', 'youtube', 'x'] as const).map(brand => {
               // Optional channels: shown only once the admin adds a link.
               const href = safeHref(siteContent?.socialLinks?.[brand], '');
-              return href && <a key={brand} href={href} target="_blank" rel="noopener noreferrer" aria-label={SOCIAL_BRANDS[brand].title} data-brand={brand} className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center shadow-2xs cursor-pointer social-link"><BrandIcon brand={brand} className="w-4 h-4" /></a>;
+              return href && <a key={brand} href={href} target="_blank" rel="noopener noreferrer" aria-label={SOCIAL_BRANDS[brand].title} data-brand={brand} className={`social-btn ${brand}`}><BrandIcon brand={brand} /></a>;
             })}
-            {(siteContent?.socialLinks?.email || footerData.email || isVisualEditMode) && <a href={`mailto:${siteContent?.socialLinks?.email || footerData.email || 'concierge@yalla.lb'}`} aria-label="Email" className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center shadow-2xs cursor-pointer social-link email"><Mail className="w-7 h-7" /></a>}
-            {showPhoneSupport && (siteContent?.socialLinks?.phone || footerData.phone || isVisualEditMode) && <a href={`tel:${siteContent?.socialLinks?.phone || footerData.phone || '+96170889234'}`} aria-label="Call" className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/10 text-neutral-300 flex items-center justify-center shadow-2xs cursor-pointer social-link call"><PhoneCall className="w-7 h-7" /></a>}
+            {(siteContent?.socialLinks?.email || footerData.email || isVisualEditMode) && <a href={`mailto:${siteContent?.socialLinks?.email || footerData.email || 'concierge@yalla.lb'}`} aria-label="Email" data-contact="email" className="social-btn gmail"><GmailIcon /></a>}
+            {showPhoneSupport && (siteContent?.socialLinks?.phone || footerData.phone || isVisualEditMode) && <a href={`tel:${siteContent?.socialLinks?.phone || footerData.phone || '+96170889234'}`} aria-label="Call" data-contact="call" className="social-btn phone"><Phone fill="currentColor" strokeWidth={1.5} /></a>}
           </div>
         )}
 

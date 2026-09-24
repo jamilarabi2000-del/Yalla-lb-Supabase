@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React from 'react';
 
 /**
  * Official brand marks for social links and contact buttons.
@@ -43,53 +43,56 @@ export const SOCIAL_BRANDS = {
 
 export type SocialBrand = keyof typeof SOCIAL_BRANDS;
 
-/**
- * Instagram's gradient: the stops of radial-gradient(circle at 30% 107%,
- * #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%), the tile
- * behind the footer's Instagram icon.
- */
-export const INSTAGRAM_GRADIENT = [
-  [0, '#fdf497'], [0.05, '#fdf497'], [0.45, '#fd5949'], [0.6, '#d6249f'], [0.9, '#285AEB'],
-] as const;
-
 interface BrandIconProps {
   brand: SocialBrand;
   className?: string;
   /** Names the icon for assistive technology; omit when a text label sits beside it. */
   title?: string;
-  /**
-   * Instagram only: also draws the glyph filled with INSTAGRAM_GRADIENT,
-   * hidden until CSS shows it (the footer does on hover). CSS cannot do this
-   * itself: background-clip: text colours text, not an SVG.
-   */
-  gradientGlyph?: boolean;
 }
 
-export const BrandIcon: React.FC<BrandIconProps> = ({ brand, className, title, gradientGlyph }) => {
-  // Unique per icon, so several can sit on one page.
-  const gradientId = `brand-gradient-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const path = SOCIAL_BRANDS[brand].path;
-  const layered = gradientGlyph && brand === 'instagram';
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      data-brand-icon={brand}
-      {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
-      focusable="false"
-    >
-      {layered && (
-        <defs>
-          {/* "circle at 30% 107%", reaching the farthest corner as the CSS
-              gradient does: sqrt(0.7^2 + 1.07^2) of the icon's box. */}
-          <radialGradient id={gradientId} cx="0.3" cy="1.07" r="1.2787">
-            {INSTAGRAM_GRADIENT.map(([offset, color]) => <stop key={offset} offset={offset} stopColor={color} />)}
-          </radialGradient>
-        </defs>
-      )}
-      <path d={path} data-glyph={layered ? 'solid' : undefined} />
-      {layered && <path d={path} data-glyph="gradient" fill={`url(#${gradientId})`} opacity={0} />}
-    </svg>
-  );
-};
+export const BrandIcon: React.FC<BrandIconProps> = ({ brand, className, title }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    data-brand-icon={brand}
+    {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
+    focusable="false"
+  >
+    <path d={SOCIAL_BRANDS[brand].path} />
+  </svg>
+);
+
+/**
+ * Facebook's "f" on its own, for a tile that is already Facebook blue: the
+ * letter cut from the official mark above (Simple Icons, CC0), closed along
+ * its baseline, in a square view box centred on it.
+ */
+export const FACEBOOK_LETTER = {
+  viewBox: '2.0975 4.0885 20 20',
+  path: 'M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v7.98z',
+} as const;
+
+export const FacebookLetterIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg viewBox={FACEBOOK_LETTER.viewBox} fill="currentColor" className={className} data-brand-icon="facebook" aria-hidden="true" focusable="false">
+    <path d={FACEBOOK_LETTER.path} />
+  </svg>
+);
+
+/** The Gmail logo (2020) in its own colours, for the footer's email link. */
+export const GMAIL_LOGO = {
+  viewBox: '52 42 88 66',
+  parts: [
+    ['#4285f4', 'M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6'],
+    ['#34a853', 'M120 108h14c3.32 0 6-2.69 6-6V59l-20 15'],
+    ['#fbbc04', 'M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2'],
+    ['#ea4335', 'M72 74V48l24 18 24-18v26L96 92'],
+    ['#c5221f', 'M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2'],
+  ],
+} as const;
+
+export const GmailIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg viewBox={GMAIL_LOGO.viewBox} className={className} data-brand-icon="gmail" aria-hidden="true" focusable="false">
+    {GMAIL_LOGO.parts.map(([fill, d]) => <path key={fill} fill={fill} d={d} />)}
+  </svg>
+);

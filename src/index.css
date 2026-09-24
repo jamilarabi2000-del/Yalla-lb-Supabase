@@ -61,39 +61,27 @@
   .database-inspector { background:#0B0F17; color:#E2E8F0; }
 }
 
-/* Social links: each brand's own mark (BrandIcon), lit in the brand's own
-   colour on hover and keyboard focus. Unlayered, so it wins over the
-   resting-state utility classes on the same element. */
-.social-link { transition:color .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
-.social-link svg { transition:transform .2s ease, filter .2s ease; }
-.social-link:hover, .social-link:focus-visible { color:#fff; background:var(--brand-fill, var(--brand)); border-color:transparent; box-shadow:0 8px 20px -6px var(--brand-glow, var(--brand)); transform:translateY(-2px); }
-.social-link:hover svg, .social-link:focus-visible svg { transform:scale(1.12); }
-.social-link[data-brand="whatsapp"] { --brand:#25D366; }
-.social-link[data-brand="instagram"] { --brand:#FF0069; --brand-fill:radial-gradient(circle at 30% 107%, #FDF497 0%, #FDF497 5%, #FD5949 45%, #D6249F 60%, #285AEB 90%); --brand-glow:#D6249F; }
-.social-link[data-brand="facebook"] { --brand:#0866FF; }
-.social-link[data-brand="youtube"] { --brand:#FF0000; }
-.social-link[data-brand="tiktok"] { --brand:#000; --brand-glow:#FE2C55; }
-.social-link[data-brand="tiktok"]:hover svg, .social-link[data-brand="tiktok"]:focus-visible svg { filter:drop-shadow(-1.5px -1px 0 #25F4EE) drop-shadow(1.5px 1px 0 #FE2C55); }
-.social-link[data-brand="x"] { --brand:#000; --brand-glow:rgba(255,255,255,.3); }
-/* Instagram, as specified: its gradient tile with a white glyph; on hover or
-   keyboard focus the tile clears, the gradient moves into the glyph and the
-   icon grows. The gradient glyph is drawn in the SVG (BrandIcon
-   gradientGlyph), since background-clip: text colours text, not an SVG. */
-.social-link.instagram { background:radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); color:#fff; border-color:transparent; border-radius:20%; }
-.social-link.instagram:hover, .social-link.instagram:focus-visible { background:transparent; border-color:transparent; box-shadow:none; transform:scale(1.5); }
-.social-link.instagram:hover svg, .social-link.instagram:focus-visible svg { transform:none; }
-.social-link.instagram [data-glyph] { transition:opacity .2s ease; }
-.social-link.instagram:hover [data-glyph="solid"], .social-link.instagram:focus-visible [data-glyph="solid"] { opacity:0; }
-.social-link.instagram:hover [data-glyph="gradient"], .social-link.instagram:focus-visible [data-glyph="gradient"] { opacity:1; }
-/* Email and Call the same way, each in its own colours (the Yalla gold with a
-   black glyph, green with a white one): the colour tile at rest; on hover or
-   keyboard focus the tile clears, the glyph takes the colour and the icon
-   grows. */
-.social-link.email { --tile:#B89753; --tile-glyph:#000; }
-.social-link.call { --tile:#16803C; --tile-glyph:#fff; }
-.social-link:is(.email, .call) { background:var(--tile); color:var(--tile-glyph); border-color:transparent; border-radius:20%; }
-.social-link:is(.email, .call):is(:hover, :focus-visible) { background:transparent; color:var(--tile); border-color:transparent; box-shadow:none; transform:scale(1.5); }
-.social-link:is(.email, .call):is(:hover, :focus-visible) svg { transform:none; }
+/* Social icons (footer), as the shop owner specified: a squircle tile in the
+   brand's own colour with a white mark, which lifts and glows in its colours
+   on hover and on keyboard focus. Unlayered, so it wins over utility classes. */
+.social-btn { position:relative; width:56px; height:56px; border-radius:16px; background-color:#242424; display:flex; justify-content:center; align-items:center; text-decoration:none; color:#ffffff; font-size:24px; transition:all .3s cubic-bezier(0.4, 0, 0.2, 1); border:1px solid rgba(255, 255, 255, 0.08); box-shadow:0 4px 6px rgba(0, 0, 0, 0.1); background-clip:padding-box; overflow:hidden; flex-shrink:0; }
+.social-btn svg { width:24px; height:24px; }
+.social-btn.instagram { background:radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); box-shadow:inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1); border:none; }
+.social-btn.whatsapp { background-color:#25D366; border-color:rgba(255, 255, 255, 0.2); }
+.social-btn.facebook { background-color:#1877F2; border-color:rgba(255, 255, 255, 0.2); }
+.social-btn.gmail { background-color:#ffffff; border:none; }
+.social-btn.gmail svg { width:32px; height:32px; }
+.social-btn.phone { background:linear-gradient(135deg, #32d74b 0%, #28cd41 100%); box-shadow:inset 0 0 0 1px rgba(255, 255, 255, 0.2), 0 4px 6px rgba(0, 0, 0, 0.1); border:none; }
+.social-btn.tiktok, .social-btn.x { background-color:#000000; border-color:rgba(255, 255, 255, 0.2); }
+.social-btn.youtube { background-color:#FF0000; border-color:rgba(255, 255, 255, 0.2); }
+.social-btn.instagram:hover, .social-btn.instagram:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 20px rgba(214, 36, 159, 0.8), 0 0 35px rgba(253, 89, 73, 0.6); }
+.social-btn.whatsapp:hover, .social-btn.whatsapp:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:0 0 20px rgba(37, 211, 102, 0.8), 0 0 35px rgba(37, 211, 102, 0.5); }
+.social-btn.facebook:hover, .social-btn.facebook:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:0 0 20px rgba(24, 119, 242, 0.8), 0 0 35px rgba(24, 119, 242, 0.5); }
+.social-btn.gmail:hover, .social-btn.gmail:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:0 0 20px rgba(234, 67, 53, 0.6), 0 0 35px rgba(66, 133, 244, 0.4); }
+.social-btn.phone:hover, .social-btn.phone:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 20px rgba(50, 215, 75, 0.8), 0 0 35px rgba(40, 205, 65, 0.5); }
+.social-btn.tiktok:hover, .social-btn.tiktok:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:0 0 20px rgba(37, 244, 238, 0.6), 0 0 35px rgba(254, 44, 85, 0.5); }
+.social-btn.youtube:hover, .social-btn.youtube:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:0 0 20px rgba(255, 0, 0, 0.8), 0 0 35px rgba(255, 0, 0, 0.5); }
+.social-btn.x:hover, .social-btn.x:focus-visible { transform:translateY(-5px) scale(1.05); box-shadow:0 0 20px rgba(255, 255, 255, 0.35), 0 0 35px rgba(255, 255, 255, 0.2); }
 /* A button with a text label keeps its own readable colours and gains a ring
    in the brand colour instead. */
 .social-pill { transition:box-shadow .2s ease, transform .2s ease, background-color .2s ease, border-color .2s ease; }
@@ -102,11 +90,11 @@
 .social-pill:not(:disabled):hover svg, .social-pill:not(:disabled):focus-visible svg { transform:scale(1.12); }
 .social-pill[data-brand="whatsapp"] { --brand:#25D366; }
 @media (prefers-reduced-motion: reduce) {
-  .social-link, .social-link svg, .social-pill, .social-pill svg { transition:none; }
-  .social-link:hover, .social-link:focus-visible, .social-pill:not(:disabled):hover, .social-pill:not(:disabled):focus-visible,
-  .social-link:hover svg, .social-link:focus-visible svg, .social-pill:not(:disabled):hover svg, .social-pill:not(:disabled):focus-visible svg { transform:none; }
-  .social-link.instagram:hover, .social-link.instagram:focus-visible { transform:none; }
-  .social-link:is(.email, .call):is(:hover, :focus-visible) { transform:none; }
+  .social-pill, .social-pill svg { transition:none; }
+  .social-pill:not(:disabled):hover, .social-pill:not(:disabled):focus-visible,
+  .social-pill:not(:disabled):hover svg, .social-pill:not(:disabled):focus-visible svg { transform:none; }
+  .social-btn { transition:box-shadow .3s cubic-bezier(0.4, 0, 0.2, 1); }
+  .social-btn:hover, .social-btn:focus-visible { transform:none !important; }
 }
 
 .skip-link { position:absolute; top:-40px; left:0; background:var(--gold-dark); color:#fff; padding:8px 16px; z-index:100; border-radius:0 0 8px 8px; font-weight:600; }
