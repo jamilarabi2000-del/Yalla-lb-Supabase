@@ -2,7 +2,7 @@
 export interface SignupDetails {
   firstName: string;
   lastName: string;
-  /** "+961 70123456", or '' when not given. */
+  /** "+961 70123456". */
   phone: string;
   city: string;
   address: string;
@@ -27,6 +27,34 @@ export function signupMetadata(details: SignupDetails): Record<string, string> {
     default_building: details.building.trim(),
     default_notes: details.notes.trim(),
   };
+}
+
+/**
+ * Supabase's refusal when the sign-in form is given an email that has no
+ * account: that form reaches existing accounts only (shouldCreateUser false),
+ * so the shopper is sent to sign up first.
+ */
+export function isNoAccountError(error: unknown): boolean {
+  const e = error as { code?: unknown; message?: unknown } | null | undefined;
+  return e?.code === 'otp_disabled' || (typeof e?.message === 'string' && /signups not allowed for otp/i.test(e.message));
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Why an email address cannot be used, or null when it can. */
+export function emailProblem(email: string | undefined | null, language: 'en' | 'ar'): string | null {
+  const value = (email ?? '').trim();
+  if (!value) return language === 'ar' ? 'البريد الإلكتروني مطلوب.' : 'Email address is required.';
+  if (!EMAIL_PATTERN.test(value)) return language === 'ar' ? 'يرجى إدخال بريد إلكتروني صالح.' : 'Please enter a valid email address.';
+  return null;
+}
+
+/** Why a phone number (the 8 digits after +961) cannot be saved, or null when it can. */
+export function phoneProblem(digits: string | undefined | null, language: 'en' | 'ar'): string | null {
+  const value = (digits ?? '').replace(/\D/g, '');
+  if (!value) return language === 'ar' ? 'رقم الهاتف مطلوب.' : 'Phone number is required.';
+  if (value.length !== 8) return language === 'ar' ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام' : 'Lebanese phone number must be strictly 8 digits';
+  return null;
 }
 
 /** handle_new_user keeps at most this much of it. */

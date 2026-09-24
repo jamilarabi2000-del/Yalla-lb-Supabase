@@ -60,16 +60,34 @@ password to guess.
   on in Supabase -> Authentication -> Hooks -> Customize Access Token
   (Postgres, `public.custom_access_token_hook`). Only `supabase_auth_admin`
   may execute it.
-- An unknown email gets an account rather than an error
-  (`shouldCreateUser: true`), so the form does not reveal which emails are
-  registered.
+- A new shopper signs up first. Only the sign-up form can create an account
+  (`shouldCreateUser` is true only when it sends its details); the sign-in
+  form, and the unused `sendEmailSignInLink`, reach existing accounts only.
+  Supabase refuses an unknown email there (`otp_disabled`), no email is sent,
+  and the shopper is moved to the sign-up form with the address filled in.
+  **Trade-off, chosen by the owner:** the sign-in form therefore says whether
+  an email has an account. Supabase's per-IP limits on sign-in requests
+  apply, and CAPTCHA makes scripted checking harder once it is switched on.
+  The phone check at sign-up already says whether a number is registered,
+  throttled in the database (`is_phone_available`).
 - The sign-up details travel as user metadata with the code request and
   `public.handle_new_user` copies them into the profile (text only, trimmed
   and bounded; never `role`), so they survive email confirmation and a code
-  used on another device.
-- City / Region is required: on the sign-up form, on saving the profile, and
-  for anyone signed in without one saved (`CityRegionPrompt`, which reads the
-  saved profile rather than the browser's cached checkout details).
+  used on another device. The phone is not among them: it is written only
+  after the code proves the email (`confirmSignupCode`), so no number is
+  claimed by an account nobody confirmed.
+- Every shopper's account carries what the sign-up form requires: first and
+  last name, phone (8 digits after +961, one account per number through
+  `phone_registry`), email, City / Region, street and building. The sign-up
+  and profile forms require them; anyone signed in without all of them saved
+  (Google, a phone code, a sign-up code opened on another device, or an older
+  account) is asked for what is missing and can only save it or sign out
+  (`RequiredDetailsPrompt`, which reads the saved profile rather than the
+  browser's cached checkout details, and waits while a sign-up is still
+  saving its details).
+- An account that signs in by email keeps that address as its profile email:
+  the profile form shows it read-only, so the two cannot drift apart and the
+  shopper is never shown an email they cannot sign in with.
 - Phone codes (`PhoneAuthModal`, SMS or WhatsApp per the admin's setting) are
   off by default: they need a paid sender configured in Supabase.
 - The code email must carry `{{ .Token }}` (Supabase -> Authentication ->

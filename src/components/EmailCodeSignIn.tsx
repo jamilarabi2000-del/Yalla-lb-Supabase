@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, KeyRound, Mail, RefreshCw } from 'lucide-react';
 import { useShop } from '../context/ShopContext';
-import type { SignupDetails } from '../lib/signupDetails';
+import { emailProblem, isNoAccountError, type SignupDetails } from '../lib/signupDetails';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Supabase sends six digits unless the project is set to more (up to ten). */
 const CODE_PATTERN = /^\d{6,10}$/;
 /** Supabase refuses a new code to the same address within a minute. */
@@ -17,18 +16,23 @@ interface EmailCodeSignInProps {
   collectSignupDetails?: () => Promise<SignupDetails | null>;
   /** Runs once the code is accepted and the session exists. */
   onSignedIn?: (email: string) => void;
+  /** Sign-in: the email has no account yet, so the shopper should sign up first. */
+  onNoAccount?: (email: string) => void;
+  /** Sign-up: the email the sign-in form found no account for; the form starts with it and says so. */
+  noAccountEmail?: string;
 }
 
 /**
  * Sign in, or create an account, with a code emailed each time: there is no
  * password for a shopper or a seller to guess. The email also carries a link
- * that signs in on the device where it is opened.
+ * that signs in on the device where it is opened. Signing in reaches existing
+ * accounts only; a new shopper creates the account first, with its details.
  */
-export const EmailCodeSignIn: React.FC<EmailCodeSignInProps> = ({ idPrefix, purpose, collectSignupDetails, onSignedIn }) => {
-  const { language, sendEmailOtp, verifyEmailOtp, saveSignupDetails, showToast } = useShop();
+export const EmailCodeSignIn: React.FC<EmailCodeSignInProps> = ({ idPrefix, purpose, collectSignupDetails, onSignedIn, onNoAccount, noAccountEmail }) => {
+  const { language, sendEmailOtp, verifyEmailOtp, confirmSignupCode, showToast } = useShop();
   const ar = language === 'ar';
   const [step, setStep] = useState<'email' | 'code'>('email');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(noAccountEmail ?? '');
   const [code, setCode] = useState('');
   const [details, setDetails] = useState<SignupDetails | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,8 +53,9 @@ export const EmailCodeSignIn: React.FC<EmailCodeSignInProps> = ({ idPrefix, purp
 
   const onSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!EMAIL_PATTERN.test(email.trim())) {
-      showToast(ar ? 'يرجى إدخال بريد إلكتروني صالح.' : 'Please enter a valid email address.', 'warning');
+    const problem = emailProblem(email, language);
+    if (problem) {
+      showToast(problem, 'warning');
       return;
     }
     setBusy(true);
@@ -62,8 +67,9 @@ export const EmailCodeSignIn: React.FC<EmailCodeSignInProps> = ({ idPrefix, purp
       }
       setDetails(collected);
       await send(collected);
-    } catch {
+    } catch (err) {
       // sendEmailOtp has already said what went wrong.
+      if (purpose === 'signin' && isNoAccountError(err)) onNoAccount?.(email.trim());
     } finally {
       setBusy(false);
     }
@@ -89,8 +95,8 @@ export const EmailCodeSignIn: React.FC<EmailCodeSignInProps> = ({ idPrefix, purp
     }
     setBusy(true);
     try {
-      await verifyEmailOtp(email.trim(), token);
-      if (details) await saveSignupDetails(details);
+      if (details) await confirmSignupCode(email.trim(), token, details);
+      else await verifyEmailOtp(email.trim(), token);
       onSignedIn?.(email.trim());
     } catch {
       // verifyEmailOtp has already said what went wrong.
@@ -106,6 +112,13 @@ export const EmailCodeSignIn: React.FC<EmailCodeSignInProps> = ({ idPrefix, purp
   if (step === 'email') {
     return (
       <form id={`${idPrefix}-code-form`} onSubmit={onSend} className="space-y-3" data-step="email">
+        {purpose === 'signup' && noAccountEmail && (
+          <p id={`${idPrefix}-no-account-note`} className="text-xs text-[#8F7137] bg-[#B89753]/10 border border-[#B89753]/30 rounded-lg px-3 py-2 leading-relaxed" role="status">
+            {ar
+              ? `لا يوجد حساب بالبريد ${noAccountEmail} بعد. يرجى إدخال بياناتك أعلاه لإنشاء حساب أولاً.`
+              : `There is no account for ${noAccountEmail} yet. Please fill in your details above to create one first.`}
+          </p>
+        )}
         <div>
           <label htmlFor={`${idPrefix}-code-email`} className={label}>{ar ? 'البريد الإلكتروني *' : 'Email Address *'}</label>
           <input

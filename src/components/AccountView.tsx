@@ -8,7 +8,7 @@ import { SellerDashboard } from './SellerDashboard';
 import { ACCOUNT_SIGNIN_EVENT, takeAccountSignInRequest } from '../lib/accountSignIn';
 import { PhoneAuthModal } from './PhoneAuthModal';
 import { EmailCodeSignIn } from './EmailCodeSignIn';
-import { cityRegionProblem, type SignupDetails } from '../lib/signupDetails';
+import { cityRegionProblem, emailProblem, phoneProblem, type SignupDetails } from '../lib/signupDetails';
 import type { PhoneCodeChannel } from '../types';
 import { 
   User, 
@@ -93,7 +93,14 @@ export const AccountView: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  // The email the sign-in form found no account for: sign-up starts with it.
+  const [noAccountEmail, setNoAccountEmail] = useState('');
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  // An account that signs in by email (a code, Google or Apple) keeps that
+  // address as its email; only one without, such as a phone-code account,
+  // types one in. The two never drift apart, so the profile never shows an
+  // email the shopper cannot sign in with.
+  const signInEmail = (firebaseUser?.email || '').trim();
 
   const handleResendVerification = async () => {
     if (!firebaseUser) return;
@@ -135,7 +142,7 @@ export const AccountView: React.FC = () => {
       fName = fName || '';
       lName = lName || '';
 
-      const emailVal = user.email || (firebaseUser ? firebaseUser.email : '') || '';
+      const emailVal = (firebaseUser ? firebaseUser.email : '') || user.email || '';
       
       let phoneVal = user.phone || '';
       if (!phoneVal || phoneVal.trim() === '') {
@@ -230,35 +237,44 @@ export const AccountView: React.FC = () => {
       return;
     }
     const fullName = `${profileFirstName.trim()} ${profileLastName.trim()}`;
-    const cleanPhone = profilePhone.replace(/\D/g, '');
-    const formattedPhone = cleanPhone ? `+961 ${cleanPhone}` : '';
-    
-    if (cleanPhone && cleanPhone.length !== 8) {
-      showToast(language === 'ar' ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام' : 'Lebanese phone number must be strictly 8 digits', 'warning');
+    // Email and phone are required on every account, and saved with it.
+    const email = (signInEmail || profileEmail).trim();
+    const emailIssue = emailProblem(email, language);
+    if (emailIssue) {
+      showToast(emailIssue, 'warning');
       return;
     }
+    const cleanPhone = profilePhone.replace(/\D/g, '');
+    const phoneIssue = phoneProblem(cleanPhone, language);
+    if (phoneIssue) {
+      showToast(phoneIssue, 'warning');
+      return;
+    }
+    const formattedPhone = `+961 ${cleanPhone}`;
     const cityProblem = cityRegionProblem(profileCity, language);
     if (cityProblem) {
       showToast(cityProblem, 'warning');
       return;
     }
+    if (!profileAddress.trim() || !profileBuilding.trim()) {
+      showToast(language === 'ar' ? 'الشارع والمبنى مطلوبان.' : 'Street and building are required.', 'warning');
+      return;
+    }
 
     setIsSaving(true);
     try {
-      if (cleanPhone) {
-        const phoneCheck = await checkPhoneUniqueness(cleanPhone, firebaseUser?.uid || user.uid);
-        if (!phoneCheck.available) {
-          showToast(phoneCheck.reason || (language === 'ar' ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.'), 'warning');
-          setIsSaving(false);
-          return;
-        }
+      const phoneCheck = await checkPhoneUniqueness(cleanPhone, firebaseUser?.uid || user.uid);
+      if (!phoneCheck.available) {
+        showToast(phoneCheck.reason || (language === 'ar' ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.'), 'warning');
+        setIsSaving(false);
+        return;
       }
 
       await updateUser({
         name: fullName,
         firstName: profileFirstName.trim(),
         lastName: profileLastName.trim(),
-        email: profileEmail,
+        email,
         phone: formattedPhone,
         defaultCity: profileCity.trim(),
         defaultAddress: profileAddress,
@@ -624,7 +640,12 @@ export const AccountView: React.FC = () => {
 
                   {authMode === 'signin' ? (
                     <div className="space-y-4">
-                      <EmailCodeSignIn idPrefix="account-signin" purpose="signin" onSignedIn={setProfileEmail} />
+                      <EmailCodeSignIn
+                        idPrefix="account-signin"
+                        purpose="signin"
+                        onSignedIn={setProfileEmail}
+                        onNoAccount={email => { setNoAccountEmail(email); setAuthMode('signup'); }}
+                      />
 
                       {/* Sellers sign in with this same form; their workspace opens here. */}
                       {siteContent?.visibility?.sellerPortal !== false && (
@@ -731,7 +752,7 @@ export const AccountView: React.FC = () => {
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                         />
                       </div>
-                      <EmailCodeSignIn idPrefix="account-signup" purpose="signup" collectSignupDetails={collectSignupDetails} onSignedIn={setProfileEmail} />
+                      <EmailCodeSignIn idPrefix="account-signup" purpose="signup" noAccountEmail={noAccountEmail} collectSignupDetails={collectSignupDetails} onSignedIn={setProfileEmail} />
                     </div>
                   )}
                 </div>
@@ -775,25 +796,36 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Email Address</label>
+                        <label htmlFor="profile-email-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Email Address *</label>
                         <input 
+                          id="profile-email-input"
                           type="email" 
-                          value={profileEmail} 
+                          autoComplete="email"
+                          value={signInEmail || profileEmail} 
                           onChange={(e) => setProfileEmail(e.target.value)} 
-                          className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white transition-all" 
+                          readOnly={Boolean(signInEmail)}
+                          aria-describedby={signInEmail ? 'profile-email-note' : undefined}
+                          className={`w-full px-4 py-2.5 bg-[#F8F8F6] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] transition-all ${signInEmail ? 'cursor-default text-[#525252]' : 'text-[#171717] focus:bg-white'}`} 
                           required 
                         />
+                        {signInEmail && (
+                          <p id="profile-email-note" className="mt-1 text-[11px] text-[#737373]">
+                            {language === 'ar' ? 'تسجّل الدخول بهذا البريد، لذا لا يمكن تغييره هنا.' : 'You sign in with this email, so it cannot be changed here.'}
+                          </p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Phone (WhatsApp)</label>
+                        <label htmlFor="profile-phone-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Phone (WhatsApp) *</label>
                         <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white transition-all">
                           <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap shrink-0">
                             <LebanonFlag className="w-5 h-3.5" />
                             <span>+961</span>
                           </span>
                           <input 
+                            id="profile-phone-input"
                             type="tel" 
                             inputMode="numeric"
+                            autoComplete="tel-national"
                             maxLength={8}
                             placeholder="70123456"
                             value={profilePhone} 

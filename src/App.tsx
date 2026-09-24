@@ -12,7 +12,7 @@ import { AdminSessionGate } from './components/AdminSessionGate';
 import { ProductDetailView } from './components/ProductDetailView';
 import { ProductModal } from './components/ProductModal';
 import { CartDrawer } from './components/CartDrawer';
-import { CityRegionPrompt } from './components/CityRegionPrompt';
+import { RequiredDetailsPrompt } from './components/RequiredDetailsPrompt';
 import { Footer } from './components/Footer';
 import { FooterQuickLinks } from './components/FooterQuickLinks';
 import { AdminQuickEditor } from './components/AdminQuickEditor';
@@ -368,7 +368,7 @@ const MainAppContent: React.FC = () => {
       </main>
       <ProductModal />
       <CartDrawer />
-      {!adminOpen && <CityRegionPrompt />}
+      {!adminOpen && <RequiredDetailsPrompt />}
       <TextStyleLayer page={activeTab} enabled={!adminOpen} />
       <AdminQuickEditor onOpenCustomBlockModal={(block) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} />
       <CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} />

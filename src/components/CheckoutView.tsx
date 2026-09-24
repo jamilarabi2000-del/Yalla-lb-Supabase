@@ -135,6 +135,8 @@ export const CheckoutView: React.FC = () => {
 
   // Auth Card Local State (when unauthenticated)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  // The email the sign-in form found no account for: sign-up starts with it.
+  const [noAccountEmail, setNoAccountEmail] = useState('');
   const [signupFirstName, setSignupFirstName] = useState('');
   const [signupLastName, setSignupLastName] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
@@ -815,7 +817,12 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   {authMode === 'signin' ? (
-                    <EmailCodeSignIn idPrefix="checkout-signin" purpose="signin" onSignedIn={handleCheckoutSignedIn} />
+                    <EmailCodeSignIn
+                      idPrefix="checkout-signin"
+                      purpose="signin"
+                      onSignedIn={handleCheckoutSignedIn}
+                      onNoAccount={email => { setNoAccountEmail(email); setAuthMode('signup'); }}
+                    />
                   ) : (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -868,7 +875,7 @@ export const CheckoutView: React.FC = () => {
                         </div>
                       </div>
 
-                      <EmailCodeSignIn idPrefix="checkout-signup" purpose="signup" collectSignupDetails={collectCheckoutSignup} onSignedIn={handleCheckoutSignedIn} />
+                      <EmailCodeSignIn idPrefix="checkout-signup" purpose="signup" noAccountEmail={noAccountEmail} collectSignupDetails={collectCheckoutSignup} onSignedIn={handleCheckoutSignedIn} />
                     </div>
                   )}
                 </div>

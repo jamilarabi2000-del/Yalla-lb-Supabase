@@ -53,7 +53,7 @@ import {
 
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
 import { toUserFacingError } from '../utils/userFacingError';
-import { signupMetadata, type SignupDetails } from '../lib/signupDetails';
+import { isNoAccountError, signupMetadata, type SignupDetails } from '../lib/signupDetails';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
@@ -492,10 +492,15 @@ interface ShopContextType {
   authStatus: 'loading' | 'unauthenticated' | 'authenticated_non_admin' | 'authenticated_admin';
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, phone?: string) => Promise<void>;
-  /** Emails a sign-in code; with sign-up details, a new account is created carrying them. */
+  /**
+   * Emails a sign-in code. Without sign-up details it reaches an existing
+   * account only; with them, a new account is created carrying them.
+   */
   sendEmailOtp: (email: string, signup?: SignupDetails) => Promise<void>;
-  /** After a sign-up code is accepted: saves what the sign-up form collected. */
-  saveSignupDetails: (details: SignupDetails) => Promise<void>;
+  /** The sign-up form's last step: the code signs the new account in, then its details are saved. */
+  confirmSignupCode: (email: string, token: string, details: SignupDetails) => Promise<void>;
+  /** True while confirmSignupCode runs: the account exists but its details are still being saved. */
+  isCompletingSignup: boolean;
   verifyEmailOtp: (email: string, token: string, type?: EmailOtpType) => Promise<void>;
   resendEmailVerification?: (email?: string) => Promise<void>;
   sendEmailSignInLink: (email: string) => Promise<void>;
@@ -3237,9 +3242,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          // An unknown address gets an account rather than an error, so the
-          // form cannot be used to learn which emails are registered.
-          shouldCreateUser: true,
+          // Only the sign-up form makes an account, carrying the details an
+          // account needs. The sign-in form reaches existing accounts only:
+          // Supabase refuses an unknown email (otp_disabled) and the shopper
+          // is sent to sign up first. That answer does say whether an email
+          // is registered; see SECURITY.md.
+          shouldCreateUser: Boolean(signup),
           ...(signup ? { data: signupMetadata(signup) } : {}),
           emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
           captchaToken: await getCaptchaToken(),
@@ -3256,6 +3264,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : `Verification code sent to ${cleanEmail}! Please check your email inbox.`;
       showToast(successMsg, 'success');
     } catch (err: any) {
+      if (!signup && isNoAccountError(err)) {
+        showToast(language === 'ar'
+          ? 'لا يوجد حساب بهذا البريد الإلكتروني بعد. يرجى إنشاء حساب أولاً.'
+          : 'There is no account with this email yet. Please sign up first.', 'warning');
+        throw err;
+      }
       console.error("[ShopContext] sendEmailOtp error:", err);
       let msg = err.message || 'Failed to send OTP code';
       showToast(msg, 'warning');
@@ -3299,9 +3313,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * It reads the session itself: the caller rendered before the session
    * existed. A new account already has these from handle_new_user (they
    * travelled as user metadata); an existing one signing up again gets them
-   * updated. The phone is written on its own, as in signUpWithEmail: the
-   * phone_registry trigger refuses a number another account holds, and in one
-   * update that refusal would also discard the rest.
+   * updated. The phone is written here only, once the code has proved the
+   * email, and on its own, as in signUpWithEmail: the phone_registry trigger
+   * refuses a number another account holds, and in one update that refusal
+   * would also discard the rest. A code used on another device skips this;
+   * RequiredDetailsPrompt then asks for the phone there.
    */
   const saveSignupDetails = async (details: SignupDetails) => {
     const { data } = await supabase.auth.getUser();
@@ -3328,6 +3344,19 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('yallalb_signup_profile_temp');
     } catch {}
     await refreshUserProfile();
+  };
+
+  // While it is true the new account's details are still being written, so
+  // RequiredDetailsPrompt waits instead of asking for what is on its way.
+  const [isCompletingSignup, setIsCompletingSignup] = useState(false);
+  const confirmSignupCode = async (email: string, token: string, details: SignupDetails) => {
+    setIsCompletingSignup(true);
+    try {
+      await verifyEmailOtp(email, token);
+      await saveSignupDetails(details);
+    } finally {
+      setIsCompletingSignup(false);
+    }
   };
 
   const resendEmailVerification = async (email?: string) => {
@@ -3518,6 +3547,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
+          // A sign-in link reaches existing accounts only, as sendEmailOtp does.
+          shouldCreateUser: false,
           emailRedirectTo: `${window.location.origin}/account`,
           captchaToken: await getCaptchaToken(),
         },
@@ -5086,7 +5117,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithEmail,
     signUpWithEmail,
     sendEmailOtp,
-    saveSignupDetails,
+    confirmSignupCode,
+    isCompletingSignup,
     verifyEmailOtp,
     resendEmailVerification,
     sendEmailSignInLink,
@@ -5190,6 +5222,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isEmailVerified,
     isAdminUser,
     isSellerUser,
+    isCompletingSignup,
     searchQuery,
     logSearchQuery,
     selectedCategory,

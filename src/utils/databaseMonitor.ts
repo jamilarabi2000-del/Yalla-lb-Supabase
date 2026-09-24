@@ -6,7 +6,13 @@ export interface FirestoreLogRecord{id:string;timestamp:string;isoTimestamp:stri
 export interface SyncDiagnosticsSummary{totalOperations:number;totalReads:number;totalWrites:number;successfulWrites:number;failedWrites:number;writeSuccessRate:number;avgLatencyMs:number;lastSuccessfulSync:string|null;lastFailedSync:string|null;lastError:string|null;activeMonitoredPaths:string[]}
 const logs:FirestoreLogRecord[]=[];
 export const redactPII=(data:any):any=>{if(!data||typeof data!=='object')return data;if(Array.isArray(data))return data.map(redactPII);const copy={...data};for(const k of ['email','phone','address','fullName','firstName','lastName','shipping','profile','user'])if(k in copy)copy[k]='[REDACTED_PII]';return copy};
-export const sanitizeDocumentData=redactPII;
+/**
+ * Readies a payload for a database write: drops undefined values, at every
+ * depth, and changes nothing else. It is not redactPII, which is for logs: it
+ * once was, and every profile saved through updateUser had its email, phone
+ * and names stored as the text "[REDACTED_PII]".
+ */
+export const sanitizeDocumentData=(data:any):any=>{if(Array.isArray(data))return data.map(sanitizeDocumentData);if(!data||typeof data!=='object'||Object.getPrototypeOf(data)!==Object.prototype)return data;return Object.fromEntries(Object.entries(data).filter(([,v])=>v!==undefined).map(([k,v])=>[k,sanitizeDocumentData(v)]))};
 
 /** Add only sanitized diagnostics to the browser-visible monitoring buffer. */
 export const sanitizeDatabaseError=(error:unknown)=>{const safe=safeErrorMessage(error);const diagnostic=diagnosticError(error);return {errorMessage:safe,errorCode:diagnostic.code};};
