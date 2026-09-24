@@ -9,7 +9,7 @@ import {
   normalizeText, ruleAppliesOn, sanitizeStyle, styleCss,
   type CMSTextRule, type TextDevice, type TextStyleProp,
 } from '../lib/textStyleRules';
-import { SELECT_POPOVER_ATTR, SearchableSelect } from './ui/SearchableSelect';
+import { OPEN_SELECT_SELECTOR, SearchableSelect } from './ui/SearchableSelect';
 
 interface Selection {
   text: string;
@@ -109,7 +109,7 @@ export const TextStyleEditor: React.FC<{
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       // An open dropdown (the font list, say) closes itself first.
-      if (e.target instanceof Element && e.target.closest(`[${SELECT_POPOVER_ATTR}]`)) return;
+      if (e.target instanceof Element && e.target.closest(OPEN_SELECT_SELECTOR)) return;
       e.stopPropagation();
       if (selectionRef.current) clearSelection();
       else onClose();

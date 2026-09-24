@@ -8,6 +8,7 @@ import {
   SearchableSelect,
   readOptions,
   selectedIndexFor,
+  splitSelectClasses,
 } from '../src/components/ui/SearchableSelect';
 import { foldForSearch, optionMatcher } from '../src/lib/optionSearch';
 
@@ -29,9 +30,9 @@ afterEach(() => {
 });
 
 const render = (ui: React.ReactElement) => act(() => root.render(ui));
-const trigger = () => host.querySelector('[role="combobox"]') as HTMLButtonElement;
+const field = () => host.querySelector('[role="combobox"]') as HTMLInputElement;
+const arrow = () => host.querySelector('[data-select-arrow]') as HTMLElement;
 const popover = () => document.querySelector(`[${SELECT_POPOVER_ATTR}]`) as HTMLElement | null;
-const search = () => popover()!.querySelector('input') as HTMLInputElement;
 const rows = () => Array.from(document.querySelectorAll('[role="option"]')) as HTMLElement[];
 const labels = () => rows().map(r => r.textContent);
 
@@ -40,11 +41,13 @@ const press = (el: Element, type: 'mousedown' | 'click', detail = 1) =>
 const click = (el: Element, detail = 1) => { press(el, 'mousedown', detail); press(el, 'click', detail); };
 const key = (el: Element, k: string) =>
   act(() => { el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true })); });
+/** What the field holds after the user types, as the browser reports it. */
 const type = (text: string) => act(() => {
-  const input = search();
+  const input = field();
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 });
+const focus = () => act(() => field().focus());
 
 function Fruit({ initial = 'b', onPick, ...rest }: { initial?: string; onPick?: (v: string) => void } & Record<string, unknown>) {
   const [value, setValue] = useState(initial);
@@ -107,131 +110,170 @@ describe('what the user types matches', () => {
 });
 
 describe('the dropdown', () => {
-  it('shows the chosen option and opens a searchable list', () => {
+  it('shows the chosen option in a field that opens the whole list', () => {
     render(<Fruit />);
-    expect(trigger().textContent).toContain('Banana');
-    expect(trigger().getAttribute('aria-expanded')).toBe('false');
-    click(trigger());
-    expect(trigger().getAttribute('aria-expanded')).toBe('true');
+    expect(field().tagName).toBe('INPUT');
+    expect(field().value).toBe('Banana');
+    expect(field().getAttribute('aria-expanded')).toBe('false');
+    focus();
+    click(field());
+    expect(field().getAttribute('aria-expanded')).toBe('true');
     expect(labels()).toEqual(['Apple', 'Banana', 'Cherry']);
     expect(rows()[1].getAttribute('aria-selected')).toBe('true');
-    expect(trigger().getAttribute('aria-controls')).toBe(document.querySelector('[role="listbox"]')!.id);
-    expect(document.activeElement).toBe(search());
+    expect(field().getAttribute('aria-controls')).toBe(document.querySelector('[role="listbox"]')!.id);
+    expect(document.activeElement).toBe(field());
   });
 
-  it('narrows as the user types, and Enter picks the highlighted option', () => {
+  it('is writable: typing in the field opens the list and narrows it, and Enter picks', () => {
     const onPick = vi.fn();
     render(<Fruit onPick={onPick} />);
-    click(trigger());
+    focus();
     type('ch');
+    expect(field().getAttribute('aria-expanded')).toBe('true');
+    expect(field().value).toBe('ch');
     expect(labels()).toEqual(['Cherry']);
-    key(search(), 'Enter');
+    expect(onPick).not.toHaveBeenCalled(); // typing alone changes nothing
+    key(field(), 'Enter');
     expect(onPick).toHaveBeenCalledWith('c');
     expect(popover()).toBeNull();
-    expect(trigger().textContent).toContain('Cherry');
-    expect(document.activeElement).toBe(trigger());
+    expect(field().value).toBe('Cherry');
+    expect(document.activeElement).toBe(field());
   });
 
-  it('moves the highlight with the arrow keys', () => {
+  it('starts a fresh search when typing after the chosen name', () => {
+    render(<Fruit />);
+    focus();
+    type('Bananaap'); // caret was after "Banana"
+    expect(field().value).toBe('ap');
+    expect(labels()).toEqual(['Apple']);
+  });
+
+  it('moves the highlight with the arrow keys, which also open the list', () => {
     const onPick = vi.fn();
     render(<Fruit onPick={onPick} />);
-    click(trigger());
-    key(search(), 'ArrowDown');
-    expect(search().getAttribute('aria-activedescendant')).toBe(rows()[2].id);
-    key(search(), 'ArrowDown');
-    expect(search().getAttribute('aria-activedescendant')).toBe(rows()[2].id);
-    key(search(), 'ArrowUp');
-    key(search(), 'ArrowUp');
-    key(search(), 'Enter');
+    focus();
+    key(field(), 'ArrowDown');
+    expect(popover()).not.toBeNull();
+    expect(field().getAttribute('aria-activedescendant')).toBe(rows()[1].id);
+    key(field(), 'ArrowDown');
+    expect(field().getAttribute('aria-activedescendant')).toBe(rows()[2].id);
+    key(field(), 'ArrowDown');
+    expect(field().getAttribute('aria-activedescendant')).toBe(rows()[2].id);
+    key(field(), 'ArrowUp');
+    key(field(), 'ArrowUp');
+    key(field(), 'Enter');
     expect(onPick).toHaveBeenCalledWith('a');
+  });
+
+  it('opens and closes from its arrow, keeping focus in the field', () => {
+    render(<Fruit />);
+    press(arrow(), 'mousedown');
+    expect(popover()).not.toBeNull();
+    expect(document.activeElement).toBe(field());
+    press(arrow(), 'mousedown');
+    expect(popover()).toBeNull();
   });
 
   it('picks an option clicked with the mouse', () => {
     const onPick = vi.fn();
     render(<Fruit onPick={onPick} />);
-    click(trigger());
+    focus();
+    click(field());
     click(rows()[0]);
     expect(onPick).toHaveBeenCalledWith('a');
     expect(popover()).toBeNull();
+    expect(field().value).toBe('Apple');
   });
 
   it('reports no change when the chosen option is picked again', () => {
     const onPick = vi.fn();
     render(<Fruit onPick={onPick} />);
-    click(trigger());
-    key(search(), 'Enter');
+    focus();
+    click(field());
+    key(field(), 'Enter');
     expect(onPick).not.toHaveBeenCalled();
     expect(popover()).toBeNull();
   });
 
-  it('starts a search with the letter typed on the closed control', () => {
-    render(<Fruit />);
-    act(() => trigger().focus());
-    key(trigger(), 'c');
-    expect(search().value).toBe('c');
-    expect(labels()).toEqual(['Cherry']);
-  });
-
-  it('closes on Escape without closing the modal behind it', () => {
+  it('Escape closes the list and restores the name, without closing the modal behind it', () => {
     // useDialog closes a modal from a window keydown listener.
     const modalEscape = vi.fn();
     window.addEventListener('keydown', modalEscape);
     try {
       render(<Fruit />);
-      click(trigger());
-      key(search(), 'Escape');
+      focus();
+      type('che');
+      key(field(), 'Escape');
       expect(popover()).toBeNull();
-      expect(document.activeElement).toBe(trigger());
+      expect(field().value).toBe('Banana');
+      expect(document.activeElement).toBe(field());
       expect(modalEscape).not.toHaveBeenCalled();
       // With the list closed, Escape reaches the modal as before.
-      key(trigger(), 'Escape');
+      key(field(), 'Escape');
       expect(modalEscape).toHaveBeenCalledTimes(1);
     } finally {
       window.removeEventListener('keydown', modalEscape);
     }
   });
 
-  it('closes on Tab and hands focus back to the control', () => {
-    render(<Fruit />);
-    click(trigger());
-    key(search(), 'Tab');
-    expect(popover()).toBeNull();
-    expect(document.activeElement).toBe(trigger());
-  });
-
-  it('closes on a press outside without changing anything', () => {
+  it('Tab takes the match the user typed for; otherwise it just closes', () => {
     const onPick = vi.fn();
     render(<Fruit onPick={onPick} />);
-    click(trigger());
+    focus();
+    type('app');
+    key(field(), 'Tab');
+    expect(onPick).toHaveBeenCalledWith('a');
+    expect(popover()).toBeNull();
+    onPick.mockClear();
+    click(field());
+    key(field(), 'Tab');
+    expect(onPick).not.toHaveBeenCalled();
+    expect(popover()).toBeNull();
+  });
+
+  it('a press outside, or leaving the field, restores the name and changes nothing', () => {
+    const onPick = vi.fn();
+    render(<><Fruit onPick={onPick} /><input id="next" /></>);
+    focus();
+    type('ch');
     press(document.body, 'mousedown');
     expect(popover()).toBeNull();
+    expect(field().value).toBe('Banana');
+    type('ch');
+    act(() => (document.getElementById('next') as HTMLInputElement).focus());
+    expect(popover()).toBeNull();
+    expect(field().value).toBe('Banana');
     expect(onPick).not.toHaveBeenCalled();
   });
 
   it('stays shut when disabled', () => {
     render(<Fruit disabled />);
-    expect(trigger().disabled).toBe(true);
-    click(trigger());
+    expect(field().disabled).toBe(true);
+    press(arrow(), 'mousedown');
+    click(field());
     expect(popover()).toBeNull();
   });
 
   it('is named by its label and never submits the form around it', () => {
     const submit = vi.fn((e: React.FormEvent) => e.preventDefault());
-    render(<form onSubmit={submit}><label htmlFor="fruit">Fruit</label><Fruit id="fruit" /></form>);
-    expect(trigger().type).toBe('button');
-    expect((document.querySelector('label') as HTMLLabelElement).control).toBe(trigger());
-    click(trigger());
-    key(search(), 'Enter');
+    render(<form onSubmit={submit}><label htmlFor="fruit">Fruit</label><Fruit id="fruit" /><button type="submit">Save</button></form>);
+    expect((document.querySelector('label') as HTMLLabelElement).control).toBe(field());
+    focus();
+    key(field(), 'Enter'); // closed: opens the list
+    expect(popover()).not.toBeNull();
+    key(field(), 'Enter'); // open: picks
     expect(submit).not.toHaveBeenCalled();
   });
 
-  it('keeps events inside the list from reaching the components around it', () => {
+  it('keeps the list\'s clicks and keys from reaching the components around it', () => {
     const outerClick = vi.fn();
     const outerKey = vi.fn();
     render(<div onClick={outerClick} onKeyDown={outerKey}><Fruit /></div>);
-    click(trigger());
+    focus();
+    click(field());
     outerClick.mockClear();
-    key(search(), 'ArrowDown');
+    outerKey.mockClear();
+    key(field(), 'ArrowDown');
     click(rows()[0]);
     expect(outerClick).not.toHaveBeenCalled();
     expect(outerKey).not.toHaveBeenCalled();
@@ -239,7 +281,8 @@ describe('the dropdown', () => {
 
   it('marks the list as editor UI, never as a dialog', () => {
     render(<Fruit />);
-    click(trigger());
+    focus();
+    click(field());
     expect(popover()!.hasAttribute('data-yalla-editor')).toBe(true);
     expect(popover()!.closest('[role="dialog"]')).toBeNull();
     expect(popover()!.parentElement).toBe(document.body);
@@ -248,7 +291,8 @@ describe('the dropdown', () => {
   it('draws at most MAX_SHOWN rows, and says so', () => {
     const many = Array.from({ length: MAX_SHOWN + 50 }, (_, i) => <option key={i} value={String(i)}>{`Item ${i}`}</option>);
     render(<SearchableSelect value="0" onChange={() => {}}>{many}</SearchableSelect>);
-    click(trigger());
+    focus();
+    click(field());
     expect(rows()).toHaveLength(MAX_SHOWN);
     expect(popover()!.textContent).toContain(`Showing ${MAX_SHOWN} of ${MAX_SHOWN + 50}`);
     type('item 349');
@@ -262,8 +306,8 @@ describe('the dropdown', () => {
     document.documentElement.lang = 'ar';
     try {
       render(<Fruit />);
-      click(trigger());
-      expect(search().placeholder).toBe('اكتب للبحث…');
+      expect(field().placeholder).toBe('اكتب للبحث…');
+      focus();
       type('zzz');
       expect(popover()!.textContent).toContain('لا توجد نتائج مطابقة');
     } finally {
@@ -281,10 +325,23 @@ describe('the dropdown', () => {
         <option value="akkar">عكّار</option>
       </SearchableSelect>,
     );
-    click(trigger());
+    focus();
     type('عكار');
     expect(labels()).toEqual(['عكّار']);
-    key(search(), 'Enter');
+    key(field(), 'Enter');
     expect(onPick).toHaveBeenCalledWith('akkar');
+  });
+
+  it('puts placement classes on its box and dress classes on the field', () => {
+    expect(splitSelectClasses('w-full mt-1.5 md:col-span-2 min-w-[130px] px-3 py-2 border rounded-xl focus:border-amber-500 text-center')).toEqual({
+      box: 'w-full mt-1.5 md:col-span-2 min-w-[130px]',
+      field: 'px-3 py-2 border rounded-xl focus:border-amber-500 text-center',
+    });
+    render(<Fruit className="w-full mt-1 px-3 border focus:border-indigo-500" />);
+    const box = field().parentElement!;
+    expect(box.className).toContain('w-full');
+    expect(box.className).toContain('mt-1');
+    expect(field().className).toContain('focus:border-indigo-500');
+    expect(field().className).not.toContain('mt-1');
   });
 });

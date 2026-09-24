@@ -33,7 +33,7 @@ export function useDialog({ isOpen, onClose, initialFocusRef }: UseDialogOptions
         initialFocusRef.current.focus();
       } else if (containerRef.current) {
         // Prefer focusing the first interactive text input if available
-        // [role="combobox"]: dropdowns are SearchableSelect buttons.
+        // Dropdowns (SearchableSelect) are text fields with role="combobox".
         const inputs = containerRef.current.querySelectorAll<HTMLElement>(
           'input:not([type="hidden"]), select, textarea, [role="combobox"]'
         );

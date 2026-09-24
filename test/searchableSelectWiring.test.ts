@@ -65,6 +65,6 @@ describe('the rest of the app knows about the list', () => {
   it('the text-style editor leaves Escape to an open dropdown', () => {
     const editor = stripTs(read('src/components/TextStyleEditor.tsx'));
     const onKey = editor.slice(editor.indexOf('const onKey'), editor.indexOf('const redraw'));
-    expect(onKey).toMatch(/if \(e\.key !== 'Escape'\) return;\s*if \(e\.target instanceof Element && e\.target\.closest\(`\[\$\{SELECT_POPOVER_ATTR\}\]`\)\) return;\s*e\.stopPropagation\(\);/);
+    expect(onKey).toMatch(/if \(e\.key !== 'Escape'\) return;\s*if \(e\.target instanceof Element && e\.target\.closest\(OPEN_SELECT_SELECTOR\)\) return;\s*e\.stopPropagation\(\);/);
   });
 });
