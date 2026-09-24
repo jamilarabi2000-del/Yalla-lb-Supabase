@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 /**
  * Official brand marks for social links and contact buttons.
@@ -43,22 +43,53 @@ export const SOCIAL_BRANDS = {
 
 export type SocialBrand = keyof typeof SOCIAL_BRANDS;
 
+/**
+ * Instagram's gradient: the stops of radial-gradient(circle at 30% 107%,
+ * #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%), the tile
+ * behind the footer's Instagram icon.
+ */
+export const INSTAGRAM_GRADIENT = [
+  [0, '#fdf497'], [0.05, '#fdf497'], [0.45, '#fd5949'], [0.6, '#d6249f'], [0.9, '#285AEB'],
+] as const;
+
 interface BrandIconProps {
   brand: SocialBrand;
   className?: string;
   /** Names the icon for assistive technology; omit when a text label sits beside it. */
   title?: string;
+  /**
+   * Instagram only: also draws the glyph filled with INSTAGRAM_GRADIENT,
+   * hidden until CSS shows it (the footer does on hover). CSS cannot do this
+   * itself: background-clip: text colours text, not an SVG.
+   */
+  gradientGlyph?: boolean;
 }
 
-export const BrandIcon: React.FC<BrandIconProps> = ({ brand, className, title }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    className={className}
-    data-brand-icon={brand}
-    {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
-    focusable="false"
-  >
-    <path d={SOCIAL_BRANDS[brand].path} />
-  </svg>
-);
+export const BrandIcon: React.FC<BrandIconProps> = ({ brand, className, title, gradientGlyph }) => {
+  // Unique per icon, so several can sit on one page.
+  const gradientId = `brand-gradient-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const path = SOCIAL_BRANDS[brand].path;
+  const layered = gradientGlyph && brand === 'instagram';
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      data-brand-icon={brand}
+      {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
+      focusable="false"
+    >
+      {layered && (
+        <defs>
+          {/* "circle at 30% 107%", reaching the farthest corner as the CSS
+              gradient does: sqrt(0.7^2 + 1.07^2) of the icon's box. */}
+          <radialGradient id={gradientId} cx="0.3" cy="1.07" r="1.2787">
+            {INSTAGRAM_GRADIENT.map(([offset, color]) => <stop key={offset} offset={offset} stopColor={color} />)}
+          </radialGradient>
+        </defs>
+      )}
+      <path d={path} data-glyph={layered ? 'solid' : undefined} />
+      {layered && <path d={path} data-glyph="gradient" fill={`url(#${gradientId})`} opacity={0} />}
+    </svg>
+  );
+};

@@ -13,7 +13,7 @@ import { DEFAULT_SITE_CONTENT } from '../src/data/cmsContent';
 const shop: Record<string, unknown> = {};
 vi.mock('../src/context/ShopContext', () => ({ useShop: () => shop }));
 
-const { SOCIAL_BRANDS } = await import('../src/components/ui/BrandIcon');
+const { SOCIAL_BRANDS, INSTAGRAM_GRADIENT } = await import('../src/components/ui/BrandIcon');
 const { Footer } = await import('../src/components/Footer');
 const { AccountSupportCard } = await import('../src/components/AccountSupportCard');
 
@@ -78,6 +78,42 @@ describe('the footer', () => {
     render({ tiktok: 'https://www.tiktok.com/@yalla.lb', youtube: '', x: 'javascript:alert(1)' }, <Footer />);
     expect(links().map(a => a.dataset.brand)).toEqual(['instagram', 'whatsapp', 'facebook', 'tiktok']);
     expect(host.querySelector<HTMLAnchorElement>('a[data-brand="tiktok"]')!.href).toBe('https://www.tiktok.com/@yalla.lb');
+  });
+});
+
+describe('the Instagram icon', () => {
+  const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
+  const gradient = 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%)';
+
+  it('rests as the Instagram gradient tile with a white glyph', () => {
+    expect(css).toContain(`.social-link.instagram { background:${gradient}; color:#fff; border-color:transparent; border-radius:20%; }`);
+    render({}, <Footer />);
+    const link = host.querySelector<HTMLAnchorElement>('a[data-brand="instagram"]')!;
+    expect(link.classList.contains('instagram')).toBe(true);
+  });
+
+  it('on hover clears the tile, fills the glyph with the same gradient and grows it', () => {
+    expect(css).toMatch(/\.social-link\.instagram:hover, \.social-link\.instagram:focus-visible \{ background:transparent;[^}]*transform:scale\(1\.5\); \}/);
+    expect(css).toMatch(/\.social-link\.instagram:hover \[data-glyph="gradient"\][^{]*\{ opacity:1; \}/);
+    expect(css).toMatch(/\.social-link\.instagram:hover \[data-glyph="solid"\][^{]*\{ opacity:0; \}/);
+
+    render({}, <Footer />);
+    const svg = host.querySelector('a[data-brand="instagram"] svg')!;
+    const def = svg.querySelector('radialGradient')!;
+    expect(def.getAttribute('cx')).toBe('0.3');
+    expect(def.getAttribute('cy')).toBe('1.07');
+    expect([...def.querySelectorAll('stop')].map(s => [Number(s.getAttribute('offset')), s.getAttribute('stop-color')]))
+      .toEqual(INSTAGRAM_GRADIENT.map(([o, c]) => [o, c]));
+    // The same stops as the CSS tile, so hovering moves the colours, not changes them.
+    for (const [offset, color] of INSTAGRAM_GRADIENT) expect(gradient).toContain(`${color} ${offset * 100}%`);
+    const glyph = svg.querySelector('[data-glyph="gradient"]')!;
+    expect(glyph.getAttribute('fill')).toBe(`url(#${def.id})`);
+    expect(glyph.getAttribute('opacity')).toBe('0'); // until hovered
+    expect(svg.querySelector('[data-glyph="solid"]')).not.toBeNull();
+  });
+
+  it('keeps still for reduced motion', () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.social-link\.instagram:hover, \.social-link\.instagram:focus-visible \{ transform:none; \}/);
   });
 });
 

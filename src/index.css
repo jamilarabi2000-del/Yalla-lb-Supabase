@@ -75,6 +75,16 @@
 .social-link[data-brand="tiktok"] { --brand:#000; --brand-glow:#FE2C55; }
 .social-link[data-brand="tiktok"]:hover svg, .social-link[data-brand="tiktok"]:focus-visible svg { filter:drop-shadow(-1.5px -1px 0 #25F4EE) drop-shadow(1.5px 1px 0 #FE2C55); }
 .social-link[data-brand="x"] { --brand:#000; --brand-glow:rgba(255,255,255,.3); }
+/* Instagram, as specified: its gradient tile with a white glyph; on hover or
+   keyboard focus the tile clears, the gradient moves into the glyph and the
+   icon grows. The gradient glyph is drawn in the SVG (BrandIcon
+   gradientGlyph), since background-clip: text colours text, not an SVG. */
+.social-link.instagram { background:radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); color:#fff; border-color:transparent; border-radius:20%; }
+.social-link.instagram:hover, .social-link.instagram:focus-visible { background:transparent; border-color:transparent; box-shadow:none; transform:scale(1.5); }
+.social-link.instagram:hover svg, .social-link.instagram:focus-visible svg { transform:none; }
+.social-link.instagram [data-glyph] { transition:opacity .2s ease; }
+.social-link.instagram:hover [data-glyph="solid"], .social-link.instagram:focus-visible [data-glyph="solid"] { opacity:0; }
+.social-link.instagram:hover [data-glyph="gradient"], .social-link.instagram:focus-visible [data-glyph="gradient"] { opacity:1; }
 /* A button with a text label keeps its own readable colours and gains a ring
    in the brand colour instead. */
 .social-pill { transition:box-shadow .2s ease, transform .2s ease, background-color .2s ease, border-color .2s ease; }
@@ -86,6 +96,7 @@
   .social-link, .social-link svg, .social-pill, .social-pill svg { transition:none; }
   .social-link:hover, .social-link:focus-visible, .social-pill:not(:disabled):hover, .social-pill:not(:disabled):focus-visible,
   .social-link:hover svg, .social-link:focus-visible svg, .social-pill:not(:disabled):hover svg, .social-pill:not(:disabled):focus-visible svg { transform:none; }
+  .social-link.instagram:hover, .social-link.instagram:focus-visible { transform:none; }
 }
 
 .skip-link { position:absolute; top:-40px; left:0; background:var(--gold-dark); color:#fff; padding:8px 16px; z-index:100; border-radius:0 0 8px 8px; font-weight:600; }
