@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
-import { FREE_DELIVERY_THRESHOLD_USD } from '../lib/delivery';
+import { cartSubtotalUSD, everyItemShipsFree, lebanonDeliveryIsFree } from '../lib/delivery';
 import { 
    X, 
    Trash2, 
@@ -32,7 +32,9 @@ export const CartDrawer: React.FC = () => {
     formatPrice, 
     setActiveTab,
     t,
-    language
+    language,
+    categories,
+    freeDeliveryFromUSD
   } = useShop();
 
   const [couponInput, setCouponInput] = useState('');
@@ -45,7 +47,16 @@ export const CartDrawer: React.FC = () => {
 
   if (!isCartOpen) return null;
 
-  const rawSubtotal = Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100;
+  const rawSubtotal = cartSubtotalUSD(cart);
+  // Checkout's rule for orders in Lebanon, measured on the subtotal before
+  // discounts as the server measures it.
+  const shipsFree = lebanonDeliveryIsFree({
+    subtotalUSD: rawSubtotal,
+    freeFromUSD: freeDeliveryFromUSD,
+    allItemsShipFree: everyItemShipsFree(cart, categories)
+  });
+  const freeFrom = freeDeliveryFromUSD;
+  const progress = shipsFree || !freeFrom ? 100 : Math.min(100, (rawSubtotal / freeFrom) * 100);
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,27 +123,30 @@ export const CartDrawer: React.FC = () => {
               </div>
             </div>
 
-            {/* Free Delivery progress bar */}
-            <div className="mt-4 pt-3 border-t border-[#E5E5E5] space-y-1.5">
+            {/* Free Delivery progress bar: hidden while the administrator has
+                free delivery off and no category in the cart earns it. */}
+            {(shipsFree || freeFrom !== null) && cart.length > 0 && (
+            <div id="cart-free-delivery-progress" className="mt-4 pt-3 border-t border-[#E5E5E5] space-y-1.5">
               <div className="flex justify-between items-center text-[11px] font-medium text-[#171717]">
                 <span className="truncate pr-2">
-                  {rawSubtotal >= FREE_DELIVERY_THRESHOLD_USD 
-                    ? (language === 'ar' ? '🎉 تم فتح التوصيل السريع المجاني!' : '🎉 Free Beirut Express Delivery Unlocked!') 
+                  {shipsFree
+                    ? (language === 'ar' ? '🎉 حصلت على توصيل مجاني في كل لبنان!' : '🎉 Free delivery across Lebanon unlocked!')
                     : (language === 'ar' 
-                        ? `أضف ${formatPrice(FREE_DELIVERY_THRESHOLD_USD - rawSubtotal)} للحصول على توصيل مجاني`
-                        : `Add ${formatPrice(FREE_DELIVERY_THRESHOLD_USD - rawSubtotal)} for Free Delivery`)}
+                        ? `أضف ${formatPrice((freeFrom ?? 0) - rawSubtotal)} للحصول على توصيل مجاني`
+                        : `Add ${formatPrice((freeFrom ?? 0) - rawSubtotal)} for Free Delivery`)}
                 </span>
                 <span className="text-[#8F7137] font-bold flex-shrink-0">
-                  {Math.min(100, Math.round((rawSubtotal / FREE_DELIVERY_THRESHOLD_USD) * 100))}%
+                  {Math.round(progress)}%
                 </span>
               </div>
               <div className="h-1.5 w-full bg-[#E5E5E5] rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-[#B89753] transition-all duration-300 rounded-full"
-                  style={{ width: `${Math.min(100, (rawSubtotal / FREE_DELIVERY_THRESHOLD_USD) * 100)}%` }}
+                  style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
+            )}
           </div>
 
           {/* Cart Items List */}
@@ -290,7 +304,7 @@ export const CartDrawer: React.FC = () => {
                 <div className="flex justify-between items-center text-[#737373]">
                   <span className="font-medium">{language === 'ar' ? 'توصيل سريع داخل لبنان' : 'Hyper-Local Beirut Dispatch'}</span>
                   <span className="font-bold text-[#16803C]">
-                    {cartTotalUSD >= FREE_DELIVERY_THRESHOLD_USD 
+                    {shipsFree
                       ? (language === 'ar' ? 'مجاني' : 'FREE') 
                       : (language === 'ar' ? 'يُحتسب عند الدفع' : 'Calculated at checkout')}
                   </span>

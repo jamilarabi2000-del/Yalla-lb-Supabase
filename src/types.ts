@@ -101,6 +101,8 @@ export interface CategoryItem {
   englishKeywords?: string[];
   isPublished?: boolean;
   displayOrder?: number;
+  /** Orders in Lebanon whose items are all in such categories ship free. */
+  freeDeliveryLebanon?: boolean;
 }
 
 export interface TerroirRegion {

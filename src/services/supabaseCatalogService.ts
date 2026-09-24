@@ -324,6 +324,9 @@ export function mapSupabaseCategory(
       Number(
         row.display_order ?? 0,
       ),
+
+    freeDeliveryLebanon:
+      row.free_delivery_lebanon === true,
   };
 }
 
@@ -1168,7 +1171,8 @@ export const supabaseCatalogService = {
         arabic_keywords,
         english_keywords,
         is_published,
-        display_order
+        display_order,
+        free_delivery_lebanon
       `)
       .eq(
         'is_published',
@@ -1663,6 +1667,7 @@ export const supabaseCatalogService = {
       ...(Object.prototype.hasOwnProperty.call(category, 'englishKeywords') ? { english_keywords: category.englishKeywords } : {}),
       ...(Object.prototype.hasOwnProperty.call(category, 'isPublished') ? { is_published: category.isPublished } : {}),
       ...(Object.prototype.hasOwnProperty.call(category, 'displayOrder') ? { display_order: category.displayOrder } : {}),
+      ...(Object.prototype.hasOwnProperty.call(category, 'freeDeliveryLebanon') ? { free_delivery_lebanon: category.freeDeliveryLebanon === true } : {}),
       updated_at: new Date().toISOString(),
     });
 

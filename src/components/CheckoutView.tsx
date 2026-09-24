@@ -3,7 +3,7 @@ import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
 import { PaymentMethod } from '../types';
 import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
-import { calcDeliveryFeeUSD } from '../lib/delivery';
+import { calcDeliveryFeeUSD, cartSubtotalUSD, everyItemShipsFree, lebanonDeliveryIsFree } from '../lib/delivery';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { PhoneAuthModal } from './PhoneAuthModal';
@@ -67,7 +67,10 @@ export const CheckoutView: React.FC = () => {
     signInWithApple,
     signOutUser,
     siteContent,
-    isVisualEditMode
+    isVisualEditMode,
+    regions,
+    categories,
+    freeDeliveryFromUSD
   } = useShop();
 
   const visibility = siteContent?.visibility || {
@@ -302,12 +305,22 @@ export const CheckoutView: React.FC = () => {
     || LEBANON_REGIONS.find(r => r.majorCities.some(c => (formData.city || '').toLowerCase().includes(c.toLowerCase().split(' ')[0])))
     || LEBANON_REGIONS[0];
 
-  const deliveryFeeUSD = calcDeliveryFeeUSD({
-    speed: deliverySpeed,
-    regionId: matchedRegion?.id,
-    matchedRegion,
-    subtotalUSD: cartTotalUSD
+  // The fee checkout will charge: the region's fee as stored in the database
+  // (the administrator edits it in Categories & Details), and the free
+  // delivery rule applied to the subtotal before discounts, as the server does.
+  const pricedRegion = regions.find(r => r.id === matchedRegion?.id) ?? matchedRegion;
+  const itemsSubtotalUSD = cartSubtotalUSD(cart);
+  const allItemsShipFree = everyItemShipsFree(cart, categories);
+  const deliveryFeeFor = (speed: string) => calcDeliveryFeeUSD({
+    speed,
+    regionId: pricedRegion?.id,
+    matchedRegion: pricedRegion,
+    subtotalUSD: itemsSubtotalUSD,
+    freeFromUSD: freeDeliveryFromUSD,
+    allItemsShipFree
   });
+  const deliveryFeeUSD = deliveryFeeFor(deliverySpeed);
+  const feeLabel = (fee: number) => (fee === 0 ? (isArabic ? 'مجاني' : 'FREE') : formatPrice(fee));
 
   const finalTotalUSD = cartTotalUSD + (cart.length > 0 ? deliveryFeeUSD : 0);
 
@@ -513,7 +526,7 @@ export const CheckoutView: React.FC = () => {
         },
         paymentMethod: paymentMethod,
         currency: currency,
-        subtotalUSD: Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100,
+        subtotalUSD: itemsSubtotalUSD,
         deliveryFeeUSD: deliveryFeeUSD,
         totalUSD: finalTotalUSD,
         // total_lbp is calculated authoritatively by the checkout RPC.
@@ -1367,7 +1380,7 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'بيروت السريع' : 'Beirut Express'}
                         </span>
-                        <span className="text-[11px] font-bold text-[#8F7137]">$3.00</span>
+                        <span className="text-[11px] font-bold text-[#8F7137]">{feeLabel(deliveryFeeFor('express_beirut'))}</span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
                         {isArabic ? 'خلال ساعتين في بيروت' : 'Within 2 Hours in Beirut'}
@@ -1387,7 +1400,7 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'كافة المناطق' : 'Standard All Lebanon'}
                         </span>
-                        <span className="text-[11px] font-bold text-[#8F7137]">$2.00</span>
+                        <span className="text-[11px] font-bold text-[#8F7137]">{feeLabel(deliveryFeeFor('standard'))}</span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
                         {isArabic ? '24 - 48 ساعة لكافة المناطق' : '24 - 48 Hours Nationwide'}
@@ -1407,13 +1420,26 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'شحن الاغتراب' : 'Diaspora Air Express'}
                         </span>
-                        <span className="text-[11px] font-bold text-[#8F7137]">$28.00</span>
+                        <span className="text-[11px] font-bold text-[#8F7137]">{feeLabel(deliveryFeeFor('diaspora_air'))}</span>
                       </div>
                       <p className="text-[11px] text-[#737373]">
                         {isArabic ? '3 - 5 أيام عمل دولياً' : '3 - 5 Business Days DHL'}
                       </p>
                     </button>
                   </div>
+                  {deliverySpeed !== 'diaspora_air' && (
+                    lebanonDeliveryIsFree({ subtotalUSD: itemsSubtotalUSD, freeFromUSD: freeDeliveryFromUSD, allItemsShipFree }) ? (
+                      <p id="checkout-free-delivery-note" className="text-[11px] font-bold text-[#16803C]">
+                        {isArabic ? '🎉 التوصيل مجاني لهذا الطلب في كل لبنان' : '🎉 Free delivery across Lebanon applies to this order.'}
+                      </p>
+                    ) : freeDeliveryFromUSD !== null ? (
+                      <p id="checkout-free-delivery-note" className="text-[11px] text-[#737373]">
+                        {isArabic
+                          ? `أضف ${formatPrice(freeDeliveryFromUSD - itemsSubtotalUSD)} للحصول على توصيل مجاني في كل لبنان`
+                          : `Add ${formatPrice(freeDeliveryFromUSD - itemsSubtotalUSD)} more for free delivery across Lebanon.`}
+                      </p>
+                    ) : null
+                  )}
                 </div>
               )}
 
@@ -1608,7 +1634,7 @@ export const CheckoutView: React.FC = () => {
 
                   <div className="flex justify-between text-[#737373]">
                     <span>{isArabic ? 'أجور التوصيل والشحن' : 'Delivery Courier Fee'}</span>
-                    <span className="font-bold text-[#8F7137]">+{formatPrice(deliveryFeeUSD)}</span>
+                    <span className="font-bold text-[#8F7137]">{deliveryFeeUSD === 0 ? feeLabel(0) : `+${formatPrice(deliveryFeeUSD)}`}</span>
                   </div>
 
                   <div className="pt-3 border-t border-[#E5E5E5] flex items-baseline justify-between">

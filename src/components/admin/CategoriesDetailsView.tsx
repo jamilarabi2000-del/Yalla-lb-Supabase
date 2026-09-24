@@ -39,6 +39,7 @@ import {
   Save
 } from 'lucide-react';
 import { SearchableSelect } from '../ui/SearchableSelect';
+import { FreeDeliveryPanel } from './FreeDeliveryPanel';
 
 const EMOJI_SUGGESTIONS = ['🫒', '🧼', '✈️', '🏺', '🧵', '✨', '🧸', '⚡', '🔧', '🚰', '💡', '🔌', '🧹', '🎨', '🍯', '🌿', '☕', '🍞', '🧀', '🍇', '🇱🇧', '🕯️', '📦'];
 
@@ -110,6 +111,7 @@ export const CategoriesDetailsView: React.FC = () => {
     englishKeywords: string[];
     newEnglishKeywordInput: string;
     isPublished: boolean;
+    freeDeliveryLebanon: boolean;
   }>({
     id: '',
     nameEn: '',
@@ -124,7 +126,8 @@ export const CategoriesDetailsView: React.FC = () => {
     newArabicKeywordInput: '',
     englishKeywords: [],
     newEnglishKeywordInput: '',
-    isPublished: true
+    isPublished: true,
+    freeDeliveryLebanon: false
   });
 
   // Delete Category Safeguard Modal
@@ -213,7 +216,8 @@ export const CategoriesDetailsView: React.FC = () => {
       newArabicKeywordInput: '',
       englishKeywords: ['mouneh', 'artisan', 'lebanese'],
       newEnglishKeywordInput: '',
-      isPublished: true
+      isPublished: true,
+      freeDeliveryLebanon: false
     });
     setIsCategoryModalOpen(true);
   };
@@ -235,7 +239,8 @@ export const CategoriesDetailsView: React.FC = () => {
       newArabicKeywordInput: '',
       englishKeywords: [...(cat.englishKeywords || [])],
       newEnglishKeywordInput: '',
-      isPublished: cat.isPublished !== false
+      isPublished: cat.isPublished !== false,
+      freeDeliveryLebanon: cat.freeDeliveryLebanon === true
     });
     setIsCategoryModalOpen(true);
   };
@@ -260,7 +265,8 @@ export const CategoriesDetailsView: React.FC = () => {
       bannerUrl: catForm.bannerUrl.trim(),
       arabicKeywords: catForm.arabicKeywords.filter(Boolean),
       englishKeywords: catForm.englishKeywords.filter(Boolean),
-      isPublished: targetPublish
+      isPublished: targetPublish,
+      freeDeliveryLebanon: catForm.freeDeliveryLebanon
     };
 
     try {
@@ -285,6 +291,22 @@ export const CategoriesDetailsView: React.FC = () => {
       setIsCategoryModalOpen(false);
     } catch (err: any) {
       showToast(err.message || 'Could not save category. Please try again.', 'warning');
+    }
+  };
+
+  // Free delivery across Lebanon, straight from the category card.
+  const handleToggleFreeDelivery = async (cat: CategoryItem) => {
+    const next = cat.freeDeliveryLebanon !== true;
+    try {
+      await updateCategory(cat.id, { freeDeliveryLebanon: next });
+      showToast(
+        next
+          ? `"${cat.nameEn}" now ships free across Lebanon.`
+          : `"${cat.nameEn}" no longer ships free.`,
+        'success'
+      );
+    } catch {
+      // updateCategory has already restored the card and shown the error.
     }
   };
 
@@ -637,6 +659,8 @@ export const CategoriesDetailsView: React.FC = () => {
         )}
       </div>
 
+      <FreeDeliveryPanel />
+
       {/* Live Storefront Navigation Sequence Strip */}
       {activeTab === 'categories' && categories.length > 0 && (
         <div className="bg-gradient-to-r from-indigo-900/90 via-slate-900 to-slate-900 text-slate-900 p-3.5 sm:p-4 rounded-2xl border border-indigo-500/20 shadow-sm space-y-2">
@@ -802,6 +826,12 @@ export const CategoriesDetailsView: React.FC = () => {
                             <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                               {cat.id}
                             </span>
+                            {cat.freeDeliveryLebanon && (
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                <Truck className="w-3 h-3" />
+                                <span>Free delivery across Lebanon</span>
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
@@ -1046,6 +1076,29 @@ export const CategoriesDetailsView: React.FC = () => {
                         <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                           {cat.description || 'No description provided.'}
                         </p>
+
+                        {/* Free delivery across Lebanon */}
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={cat.freeDeliveryLebanon === true}
+                          id={`category-free-delivery-${cat.id}`}
+                          onClick={() => handleToggleFreeDelivery(cat)}
+                          title="Orders in Lebanon ship free when every item in them is from a free-delivery category"
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            cat.freeDeliveryLebanon
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Truck className="w-3.5 h-3.5" />
+                            <span>Free delivery across Lebanon</span>
+                          </span>
+                          <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${cat.freeDeliveryLebanon ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${cat.freeDeliveryLebanon ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </span>
+                        </button>
 
                         {/* Arabic SEO Keywords Chip Section */}
                         <div className="space-y-1.5 pt-2 border-t border-slate-100">
@@ -1601,6 +1654,36 @@ export const CategoriesDetailsView: React.FC = () => {
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
                       catForm.isPublished ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Free delivery across Lebanon */}
+              <div className="flex items-center justify-between gap-3 p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200/70">
+                <div>
+                  <span className="flex items-center gap-1.5 font-bold text-slate-800">
+                    <Truck className="w-4 h-4 text-emerald-600" />
+                    <span>Free delivery across Lebanon</span>
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Orders in Lebanon ship free when every item in them is from a category with this on. Diaspora shipping is not affected.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  id="category-form-free-delivery"
+                  aria-checked={catForm.freeDeliveryLebanon}
+                  aria-label="Free delivery across Lebanon"
+                  onClick={() => setCatForm({ ...catForm, freeDeliveryLebanon: !catForm.freeDeliveryLebanon })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                    catForm.freeDeliveryLebanon ? 'bg-emerald-500' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      catForm.freeDeliveryLebanon ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
                 </button>

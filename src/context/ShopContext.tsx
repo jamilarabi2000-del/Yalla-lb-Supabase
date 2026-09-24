@@ -26,7 +26,7 @@ import {
 } from '../types';
 
 import { applyDiscounts } from '../lib/pricing';
-import { calcDeliveryFeeUSD } from '../lib/delivery';
+import { DEFAULT_FREE_DELIVERY_FROM_USD, type FreeDeliveryFrom } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
 import { LEBANON_REGIONS } from '../data/regions';
 
@@ -585,6 +585,9 @@ interface ShopContextType {
   updateRegion: (id: string, updates: Partial<TerroirRegion>) => Promise<void>;
   addRegion: (reg: TerroirRegion) => Promise<void>;
   deleteRegion: (id: string) => Promise<void>;
+  /** Orders in Lebanon ship free from this subtotal (0: every order; null: off). */
+  freeDeliveryFromUSD: FreeDeliveryFrom;
+  saveFreeDeliveryFrom: (from: FreeDeliveryFrom) => Promise<void>;
 
   // Sellers Management
   sellers: Seller[];
@@ -1893,6 +1896,37 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw err;
     }
     await logAdminActivity('region_update', `Region zone "${target?.nameEn || id}" deleted`, `Removed shipping zone ${id}.`);
+  };
+
+  /**
+   * Free delivery across Lebanon, from app_settings. checkout_create_order
+   * applies it; the cart and checkout read it here to show the same rule.
+   * Until it loads, and if the read fails, the $50 default stands -- the
+   * value the setting was seeded with.
+   */
+  const [freeDeliveryFromUSD, setFreeDeliveryFromUSD] = useState<FreeDeliveryFrom>(DEFAULT_FREE_DELIVERY_FROM_USD);
+
+  useEffect(() => {
+    let isMounted = true;
+    supabaseCommerceService
+      .fetchFreeDeliveryFrom()
+      .then(from => { if (isMounted) setFreeDeliveryFromUSD(from); })
+      .catch((err: unknown) => {
+        console.error('[ShopContext] Failed to load the free delivery setting:', err);
+      });
+    return () => { isMounted = false; };
+  }, []);
+
+  const saveFreeDeliveryFrom = async (from: FreeDeliveryFrom) => {
+    const previous = freeDeliveryFromUSD;
+    await supabaseCommerceService.saveFreeDeliveryFrom(from);
+    setFreeDeliveryFromUSD(from);
+    const describe = (v: FreeDeliveryFrom) => (v === null ? 'off' : v === 0 ? 'every order' : `orders from $${v}`);
+    await logAdminActivity(
+      'region_update',
+      'Free delivery across Lebanon updated',
+      `Free delivery across Lebanon: ${describe(previous)} -> ${describe(from)}.`
+    );
   };
 
 // Sellers Management State & Sync
@@ -5301,6 +5335,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateRegion,
     addRegion,
     deleteRegion,
+    freeDeliveryFromUSD,
+    saveFreeDeliveryFrom,
     sellers,
     addSeller,
     updateSeller,
@@ -5357,6 +5393,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addBundleToCart,
     categories,
     regions,
+    freeDeliveryFromUSD,
     sellers
   ]);
 

@@ -37,6 +37,8 @@ export const ProductDetailView: React.FC = () => {
   const price = shop.formatPrice?.(p.priceUSD) || '$' + p.priceUSD;
   const originalPrice = p.originalPriceUSD ? (shop.formatPrice?.(p.originalPriceUSD) || '$' + p.originalPriceUSD) : null;
   const inStock = Number(p.stock || 0) > 0;
+  // Its category ships free across Lebanon (Categories & Details).
+  const shipsFreeInLebanon = ((shop.categories || []) as any[]).some(c => c.id === p.category && c.freeDeliveryLebanon === true);
   const maxQty = Math.max(1, Number(p.stock || 1));
   const discount = p.discountPercentage || (p.originalPriceUSD && p.priceUSD < p.originalPriceUSD ? Math.round((1 - p.priceUSD / p.originalPriceUSD) * 100) : 0);
 
@@ -121,7 +123,11 @@ export const ProductDetailView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-5 border-t border-[#E5E5E5]">
                   <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><ShieldCheck className="w-4 h-4 text-[#8F7137] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'دفع آمن' : 'Secure checkout'}</p></div>
-                  <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><Truck className="w-4 h-4 text-[#8F7137] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'توصيل موثوق' : 'Tracked delivery'}</p></div>
+                  {shipsFreeInLebanon ? (
+                    <div id="product-free-delivery-badge" className="rounded-xl bg-emerald-50 border border-emerald-200 p-3"><Truck className="w-4 h-4 text-emerald-700 mb-2" /><p className="text-[10px] font-bold text-emerald-800">{isRTL ? 'توصيل مجاني في كل لبنان' : 'Free delivery across Lebanon'}</p></div>
+                  ) : (
+                    <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><Truck className="w-4 h-4 text-[#8F7137] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'توصيل موثوق' : 'Tracked delivery'}</p></div>
+                  )}
                   <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><PackageCheck className="w-4 h-4 text-[#8F7137] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{p.sellerItemCode || p.id}</p></div>
                 </div>
 

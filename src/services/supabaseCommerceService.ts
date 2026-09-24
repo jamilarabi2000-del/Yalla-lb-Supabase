@@ -1,4 +1,13 @@
 import { supabase } from '../lib/supabase';
+import {
+  DEFAULT_FREE_DELIVERY_FROM_USD,
+  formatFreeDeliveryFrom,
+  parseFreeDeliveryFrom,
+  type FreeDeliveryFrom,
+} from '../lib/delivery';
+
+/** The app_settings row private.lebanon_free_delivery_applies() reads. */
+export const FREE_DELIVERY_SETTING_KEY = 'lebanon_free_delivery_from_usd';
 
 /**
  * Storage shape for a discount rule.
@@ -221,6 +230,33 @@ export const supabaseCommerceService = {
     if (error) throw error;
     const rate = Number(data?.value);
     return Number.isFinite(rate) && rate > 0 ? rate : null;
+  },
+
+  /**
+   * The subtotal from which orders in Lebanon ship free (null: the rule is
+   * off), as checkout_create_order reads it.
+   */
+  async fetchFreeDeliveryFrom(): Promise<FreeDeliveryFrom> {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', FREE_DELIVERY_SETTING_KEY)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? parseFreeDeliveryFrom(data.value) : DEFAULT_FREE_DELIVERY_FROM_USD;
+  },
+
+  async saveFreeDeliveryFrom(from: FreeDeliveryFrom): Promise<void> {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .update({ value: formatFreeDeliveryFrom(from) })
+      .eq('key', FREE_DELIVERY_SETTING_KEY)
+      .select('key');
+    if (error) throw error;
+    // A write blocked by RLS returns success with zero rows, never an error.
+    if (!data || data.length === 0) {
+      throw new Error('Free delivery was not saved. Complete administrator verification and try again.');
+    }
   },
 
   async fetchDiscountRules() {
