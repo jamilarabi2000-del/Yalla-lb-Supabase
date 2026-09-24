@@ -1,8 +1,10 @@
-import { safeHref } from '../lib/safeUrl';
 import React from 'react';
 import { useShop } from '../context/ShopContext';
-import { Phone, EyeOff } from 'lucide-react';
-import { BrandIcon, FacebookLetterIcon, GmailIcon, SOCIAL_BRANDS } from './ui/BrandIcon';
+import { EyeOff } from 'lucide-react';
+import { SocialIconLinks } from './SocialIconLinks';
+import { channelAlign, shownChannels, type SocialAlign } from '../lib/socialChannels';
+
+const ALIGN_SELF: Record<SocialAlign, string> = { start: 'self-start', center: 'self-center', end: 'self-end' };
 
 export const Footer: React.FC = () => {
   const { language, siteContent, isVisualEditMode } = useShop();
@@ -17,6 +19,13 @@ export const Footer: React.FC = () => {
     hours: 'Mon - Sat: 9:00 AM - 7:00 PM (EET)', hoursArabic: 'الإثنين - السبت: 9:00 ص - 7:00 م',
     copyrightText: '© 2026 Yalla. All Rights Reserved.'
   };
+  // Every icon, its order and the panel's place are the admin's (CMS -> Footer).
+  // A switched-off channel shows only in the admin's preview mode, dimmed.
+  const socialItems = shownChannels(
+    { socialLinks: siteContent?.socialLinks, footer: footerData, socialDisplay: siteContent?.socialDisplay },
+    { includeHidden: isVisualEditMode },
+  );
+  const socialAlign = channelAlign(siteContent?.socialDisplay);
 
   return (
     <footer data-cms-element="footer" className="bg-[#171717] border-t border-[#B89753]/30 text-neutral-400 text-xs relative overflow-hidden select-none">
@@ -41,18 +50,9 @@ export const Footer: React.FC = () => {
           </div>
         )}
 
-        {(visibility.footerSocial || isVisualEditMode) && (
-          <div className={`social-container mb-6 relative ${!visibility.footerSocial && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-2' : ''}`}>
-            {(siteContent?.socialLinks?.instagram || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.instagram, 'https://instagram.com/yalla.lb')} target="_blank" rel="noopener noreferrer" aria-label="Instagram" data-brand="instagram" className="social-btn instagram"><BrandIcon brand="instagram" /></a>}
-            {(siteContent?.socialLinks?.whatsapp || (showPhoneSupport && footerData.phone) || isVisualEditMode) && <a href={`https://wa.me/${(siteContent?.socialLinks?.whatsapp || footerData.phone || '96170889234').replace(/[^0-9]/g, '')}?text=Hello%20Yalla,%20I%20would%20like%20to%20inquire%20about%20my%20order`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" data-brand="whatsapp" className="social-btn whatsapp"><BrandIcon brand="whatsapp" /></a>}
-            {(siteContent?.socialLinks?.facebook || isVisualEditMode) && <a href={safeHref(siteContent?.socialLinks?.facebook, 'https://facebook.com/yallalb')} target="_blank" rel="noopener noreferrer" aria-label="Facebook" data-brand="facebook" className="social-btn facebook"><FacebookLetterIcon /></a>}
-            {(['tiktok', 'youtube', 'x'] as const).map(brand => {
-              // Optional channels: shown only once the admin adds a link.
-              const href = safeHref(siteContent?.socialLinks?.[brand], '');
-              return href && <a key={brand} href={href} target="_blank" rel="noopener noreferrer" aria-label={SOCIAL_BRANDS[brand].title} data-brand={brand} className={`social-btn ${brand}`}><BrandIcon brand={brand} /></a>;
-            })}
-            {(siteContent?.socialLinks?.email || footerData.email || isVisualEditMode) && <a href={`mailto:${siteContent?.socialLinks?.email || footerData.email || 'concierge@yalla.lb'}`} aria-label="Email" data-contact="email" className="social-btn gmail"><GmailIcon /></a>}
-            {showPhoneSupport && (siteContent?.socialLinks?.phone || footerData.phone || isVisualEditMode) && <a href={`tel:${siteContent?.socialLinks?.phone || footerData.phone || '+96170889234'}`} aria-label="Call" data-contact="call" className="social-btn phone"><Phone fill="currentColor" strokeWidth={1.5} /></a>}
+        {(visibility.footerSocial || isVisualEditMode) && socialItems.length > 0 && (
+          <div data-social-align={socialAlign} className={`social-container mb-6 relative ${ALIGN_SELF[socialAlign]} ${!visibility.footerSocial && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-2' : ''}`}>
+            <SocialIconLinks items={socialItems} />
           </div>
         )}
 

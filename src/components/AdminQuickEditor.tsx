@@ -159,7 +159,7 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
         return [
           { key: 'announcementTicker', label: 'Top Announcement Ticker', desc: 'Header banner with delivery & exchange rate' },
           { key: 'navbarSearch', label: 'Header Search Bar', desc: 'Top search input in navigation' },
-          { key: 'phoneSupport', label: 'Header Support Phone', desc: 'WhatsApp / Phone contact in header' },
+          { key: 'phoneSupport', label: 'Footer Support Phone', desc: 'Phone number in the footer contact details' },
           { key: 'footerAbout', label: 'Footer About Section', desc: 'Platform narrative and social links' },
           { key: 'footerSocial', label: 'Footer Social Channels', desc: 'Instagram, WhatsApp, Facebook buttons' }
         ];

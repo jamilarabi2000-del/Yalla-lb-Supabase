@@ -6,9 +6,56 @@ import {
   Mail, 
   MapPin, 
   Clock, 
-  FileText
+  FileText,
+  ChevronUp,
+  ChevronDown,
+  AlignLeft,
+  AlignCenter,
+  AlignRight
 } from 'lucide-react';
-import { BrandIcon } from '../../ui/BrandIcon';
+import { BrandIcon, GmailIcon } from '../../ui/BrandIcon';
+import { SocialIconLinks } from '../../SocialIconLinks';
+import type { SocialChannel, SocialDisplay } from '../../../types';
+import {
+  SOCIAL_CHANNELS,
+  SOCIAL_CHANNEL_LABELS,
+  channelAlign,
+  channelOrder,
+  isChannelHidden,
+  shownChannels,
+  type SocialAlign,
+} from '../../../lib/socialChannels';
+
+/** What each channel's field asks for. Email, Call and WhatsApp fall back to the support contact above. */
+const CHANNEL_FIELDS: Record<SocialChannel, { label: string; placeholder: string; type: 'text' | 'email' | 'tel'; hint?: string }> = {
+  instagram: { label: 'Instagram URL', placeholder: 'https://instagram.com/...', type: 'text' },
+  whatsapp: { label: 'WhatsApp link or number', placeholder: 'https://wa.me/961... or +961 70 123 456', type: 'text', hint: 'Empty: uses the support phone number above.' },
+  facebook: { label: 'Facebook Page URL', placeholder: 'https://facebook.com/...', type: 'text' },
+  tiktok: { label: 'TikTok URL', placeholder: 'https://www.tiktok.com/@...', type: 'text' },
+  youtube: { label: 'YouTube Channel URL', placeholder: 'https://www.youtube.com/@...', type: 'text' },
+  x: { label: 'X (Twitter) URL', placeholder: 'https://x.com/...', type: 'text' },
+  email: { label: 'Email address', placeholder: 'name@example.com', type: 'email', hint: 'Empty: uses the support email address above.' },
+  phone: { label: 'Call number', placeholder: '+961 70 123 456', type: 'tel', hint: 'Empty: uses the support phone number above.' },
+};
+
+const MARK_TINT: Partial<Record<SocialChannel, string>> = {
+  instagram: 'text-[#FF0069]', whatsapp: 'text-[#25D366]', facebook: 'text-[#0866FF]',
+  tiktok: 'text-slate-900', youtube: 'text-[#FF0000]', x: 'text-slate-900',
+};
+
+const ChannelMark: React.FC<{ channel: SocialChannel }> = ({ channel }) => {
+  if (channel === 'email') return <GmailIcon className="w-3.5 h-3.5 shrink-0" />;
+  if (channel === 'phone') return <Phone className="w-3.5 h-3.5 shrink-0 text-emerald-500" aria-hidden="true" />;
+  return <BrandIcon brand={channel} className={`w-3.5 h-3.5 shrink-0 ${MARK_TINT[channel] ?? ''}`} />;
+};
+
+const ALIGN_OPTIONS: { value: SocialAlign; label: string; Icon: typeof AlignLeft }[] = [
+  { value: 'start', label: 'Left', Icon: AlignLeft },
+  { value: 'center', label: 'Center', Icon: AlignCenter },
+  { value: 'end', label: 'Right', Icon: AlignRight },
+];
+
+const ALIGN_SELF: Record<SocialAlign, string> = { start: 'self-start', center: 'self-center', end: 'self-end' };
 
 interface CMSFooterTabProps {
   footerData: {
@@ -39,8 +86,11 @@ interface CMSFooterTabProps {
     youtube?: string;
     x?: string;
   };
+  /** Which icons show, their order and the footer panel's alignment. */
+  socialDisplay?: SocialDisplay;
   onChangeFooterField: (field: string, value: string) => void;
   onChangeSocialField: (field: string, value: string) => void;
+  onChangeSocialDisplay: (next: SocialDisplay) => void;
 }
 
 export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
@@ -69,9 +119,32 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
     email: 'concierge@yalla.lb',
     phone: '+961 70 889 234'
   },
+  socialDisplay,
   onChangeFooterField,
   onChangeSocialField,
+  onChangeSocialDisplay,
 }) => {
+  const display: SocialDisplay = socialDisplay || {};
+  const order = channelOrder(display);
+  const align = channelAlign(display);
+  const previewItems = shownChannels({ socialLinks, footer: footerData, socialDisplay: display }, { includeHidden: true });
+
+  // Switching a channel off keeps its link; the list is stored in the default order.
+  const toggleChannel = (channel: SocialChannel) => {
+    const hidden = new Set(display.hidden || []);
+    if (hidden.has(channel)) hidden.delete(channel);
+    else hidden.add(channel);
+    onChangeSocialDisplay({ ...display, hidden: SOCIAL_CHANNELS.filter(c => hidden.has(c)) });
+  };
+
+  const moveChannel = (index: number, step: -1 | 1) => {
+    const target = index + step;
+    if (target < 0 || target >= order.length) return;
+    const next = [...order];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChangeSocialDisplay({ ...display, order: next });
+  };
+
   return (
     <div className="space-y-6">
       {/* About Us Brand Narrative Block */}
@@ -253,81 +326,89 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
         </div>
       </div>
 
-      {/* Social Media Channels */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
-        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <Share2 className="w-5 h-5 text-blue-400" />
-          <span>Social Media & Concierge Links</span>
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="social-instagram" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
-              <BrandIcon brand="instagram" className="w-3.5 h-3.5 text-[#FF0069]" />
-              <span>Instagram URL</span>
-            </label>
-            <input
-              id="social-instagram"
-              type="text"
-              value={socialLinks.instagram || ''}
-              onChange={(e) => onChangeSocialField('instagram', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-              placeholder="https://instagram.com/..."
-            />
-          </div>
-
-          <div>
-            <label htmlFor="social-facebook" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
-              <BrandIcon brand="facebook" className="w-3.5 h-3.5 text-[#0866FF]" />
-              <span>Facebook Page URL</span>
-            </label>
-            <input
-              id="social-facebook"
-              type="text"
-              value={socialLinks.facebook || ''}
-              onChange={(e) => onChangeSocialField('facebook', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-              placeholder="https://facebook.com/..."
-            />
-          </div>
-
-          <div>
-            <label htmlFor="social-whatsapp" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
-              <BrandIcon brand="whatsapp" className="w-3.5 h-3.5 text-[#25D366]" />
-              <span>WhatsApp Direct Link</span>
-            </label>
-            <input
-              id="social-whatsapp"
-              type="text"
-              value={socialLinks.whatsapp || ''}
-              onChange={(e) => onChangeSocialField('whatsapp', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-              placeholder="https://wa.me/961..."
-            />
-          </div>
-
-          {([
-            ['tiktok', 'TikTok URL', 'https://www.tiktok.com/@...', 'text-slate-900'],
-            ['youtube', 'YouTube Channel URL', 'https://www.youtube.com/@...', 'text-[#FF0000]'],
-            ['x', 'X (Twitter) URL', 'https://x.com/...', 'text-slate-900'],
-          ] as const).map(([brand, label, placeholder, tint]) => (
-            <div key={brand}>
-              <label htmlFor={`social-${brand}`} className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 flex items-center gap-1.5 cursor-pointer">
-                <BrandIcon brand={brand} className={`w-3.5 h-3.5 ${tint}`} />
-                <span>{label}</span>
-                <span className="normal-case tracking-normal font-medium text-slate-400">(optional)</span>
-              </label>
-              <input
-                id={`social-${brand}`}
-                type="text"
-                value={socialLinks[brand] || ''}
-                onChange={(e) => onChangeSocialField(brand, e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
-                placeholder={placeholder}
-              />
+      {/* Social Media & Concierge Links: one list for every icon on the site */}
+      <div id="cms-social-links" className="bg-white border border-slate-200 rounded-3xl p-6 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Share2 className="w-5 h-5 text-blue-400" />
+            <span>Social Media & Concierge Links</span>
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Footer icons</span>
+            <div role="radiogroup" aria-label="Footer icon alignment" className="flex items-center gap-1 bg-white/70 p-1 rounded-xl border border-slate-200">
+              {ALIGN_OPTIONS.map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={align === value}
+                  id={`social-align-${value}`}
+                  onClick={() => onChangeSocialDisplay({ ...display, align: value })}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${align === value ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
-        <p className="text-[11px] text-slate-500">Each icon appears in the store footer only when its link is filled in.</p>
+
+        <div className="rounded-2xl bg-[#171717] px-4 py-5 flex flex-col items-center" aria-hidden="true" inert>
+          {previewItems.length > 0 ? (
+            <div id="cms-social-preview" className={`social-container ${ALIGN_SELF[align]}`}>
+              <SocialIconLinks items={previewItems} />
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-400">No icon has a link yet.</p>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-500 -mt-2">Preview of the store footer. Dimmed icons are hidden from visitors. The same switches and order apply to the support card on the Account page; the Arabic site mirrors left and right.</p>
+
+        <ol className="space-y-2">
+          {order.map((channel, index) => {
+            const field = CHANNEL_FIELDS[channel];
+            const label = SOCIAL_CHANNEL_LABELS[channel];
+            const shown = !isChannelHidden(display, channel);
+            return (
+              <li key={channel} data-channel={channel} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-2xl border border-slate-200 p-3 ${shown ? 'bg-white' : 'bg-slate-50'}`}>
+                <div className="flex items-center gap-2 sm:w-64 shrink-0">
+                  <div className="flex flex-col">
+                    <button type="button" aria-label={`Move ${label} up`} disabled={index === 0} onClick={() => moveChannel(index, -1)} className="p-0.5 rounded text-slate-400 hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                      <ChevronUp className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                    <button type="button" aria-label={`Move ${label} down`} disabled={index === order.length - 1} onClick={() => moveChannel(index, 1)} className="p-0.5 rounded text-slate-400 hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                      <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <ChannelMark channel={channel} />
+                  <label htmlFor={`social-${channel}`} className="text-xs font-bold uppercase tracking-wider text-slate-600 cursor-pointer">{field.label}</label>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <input
+                    id={`social-${channel}`}
+                    type={field.type}
+                    value={socialLinks[channel] || ''}
+                    onChange={(e) => onChangeSocialField(channel, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
+                  />
+                  {field.hint && <p className="text-[11px] text-slate-400 mt-1">{field.hint}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button type="button" role="switch" aria-checked={shown} aria-label={`${label} icon visibility`} onClick={() => toggleChannel(channel)} className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${shown ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${shown ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                  <span className={`w-12 text-[10px] font-bold uppercase tracking-wider ${shown ? 'text-emerald-700' : 'text-slate-500'}`}>{shown ? 'Shown' : 'Hidden'}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="text-[11px] text-slate-500">
+          An icon shows when it has a link and is switched on; switching it off keeps the link for later. The arrows set the order.
+          To change the colour, font, size or alignment of any text on the store, open the store as admin and use <strong>Style Text</strong> in the admin bar.
+        </p>
       </div>
 
       {/* Copyright Banner */}

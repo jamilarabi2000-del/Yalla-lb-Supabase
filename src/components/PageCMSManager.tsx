@@ -798,6 +798,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               <CMSFooterTab
                 footerData={cmsForm.footer as any}
                 socialLinks={cmsForm.socialLinks as any}
+                socialDisplay={cmsForm.socialDisplay}
                 onChangeFooterField={(field, value) => {
                   handleUpdate(prev => ({
                     ...prev,
@@ -815,6 +816,9 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
                       [field]: value
                     }
                   }));
+                }}
+                onChangeSocialDisplay={(next) => {
+                  handleUpdate(prev => ({ ...prev, socialDisplay: next }));
                 }}
               />
             )}

@@ -513,6 +513,19 @@ export interface SectionVisibilityConfig {
   footerCopyright: boolean;
 }
 
+/** A social or concierge channel the shop can show as an icon. */
+export type SocialChannel = 'instagram' | 'whatsapp' | 'facebook' | 'tiktok' | 'youtube' | 'x' | 'email' | 'phone';
+
+/** How the social and concierge icons show on the site; set in CMS -> Footer. */
+export interface SocialDisplay {
+  /** Switched off: the link is kept, but the icon shows nowhere. */
+  hidden?: SocialChannel[];
+  /** Icon order; a channel missing from it follows in the default order. */
+  order?: SocialChannel[];
+  /** Where the footer's icon panel sits; centred unless set. */
+  align?: 'start' | 'center' | 'end';
+}
+
 export interface SiteContent {
   theme?: CMSThemeConfig;
   seo?: {
@@ -735,6 +748,8 @@ export interface SiteContent {
     youtube?: string;
     x?: string;
   };
+  /** Which social and concierge icons show, their order and alignment (CMS -> Footer). */
+  socialDisplay?: SocialDisplay;
   footer: {
     aboutTitle: string;
     aboutTitleArabic?: string;

@@ -39,7 +39,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
       color: 'text-indigo-600',
       items: [
         { key: 'announcementTicker' as const, label: 'Top Announcement Ticker', desc: 'Displays live LBP rate & express delivery updates' },
-        { key: 'phoneSupport' as const, label: 'Phone Support Header Contact', desc: 'Displays WhatsApp concierge hotline in header' },
+        { key: 'phoneSupport' as const, label: 'Footer Support Phone', desc: 'The phone number in the footer contact details. The Call and WhatsApp icons have their own switches in Footer → Social Media & Concierge Links' },
         { key: 'navbarSearch' as const, label: 'Navbar Live Search Bar', desc: 'Global artisan & keyword search box' },
         { key: 'currencySwitcher' as const, label: 'Currency Switcher (USD / LBP)', desc: 'Dual currency toggle with real-time exchange rates' },
         { key: 'languageSwitcher' as const, label: 'Language Switcher (EN / AR)', desc: 'Arabic & English bilingual layout toggle' },

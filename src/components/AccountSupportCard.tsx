@@ -2,7 +2,7 @@ import React from 'react';
 import { Headphones, Mail, Phone, EyeOff } from 'lucide-react';
 import { BrandIcon } from './ui/BrandIcon';
 import { useShop } from '../context/ShopContext';
-import { safeHref } from '../lib/safeUrl';
+import { shownChannels } from '../lib/socialChannels';
 
 /** CMS-owned support block for the Account page. */
 export const AccountSupportCard: React.FC = () => {
@@ -15,7 +15,11 @@ export const AccountSupportCard: React.FC = () => {
 
   const phone = social?.phone || footer?.phone || '';
   const email = social?.email || footer?.email || '';
-  const whatsapp = social?.whatsapp || phone;
+  // The same switches and order as the footer icons (CMS -> Footer).
+  const contacts = shownChannels(
+    { socialLinks: social, footer, socialDisplay: siteContent?.socialDisplay },
+    { includeHidden: isVisualEditMode },
+  ).filter(({ channel }) => channel === 'phone' || channel === 'email' || channel === 'whatsapp');
 
   return (
     <section className={`max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 ${!visible && isVisualEditMode ? 'opacity-60' : ''}`}>
@@ -36,9 +40,12 @@ export const AccountSupportCard: React.FC = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {phone && <a href={`tel:${phone}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#171717] text-white text-xs font-bold"><Phone className="w-3.5 h-3.5" />{phone}</a>}
-            {email && <a href={`mailto:${email}`} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[#E5E5E5] text-[#171717] text-xs font-bold"><Mail className="w-3.5 h-3.5" />{email}</a>}
-            {whatsapp && <a href={safeHref(whatsapp.startsWith('http') ? whatsapp : `https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`, '')} target="_blank" rel="noopener noreferrer" data-brand="whatsapp" className="social-pill inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#16803C] text-white text-xs font-bold"><BrandIcon brand="whatsapp" className="w-3.5 h-3.5" />WhatsApp</a>}
+            {contacts.map(({ channel, href, hidden }) => {
+              const dim = hidden ? { 'data-hidden': 'true', title: 'Hidden from visitors', style: { opacity: 0.4 } } : {};
+              if (channel === 'phone') return <a key={channel} href={href} {...dim} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#171717] text-white text-xs font-bold"><Phone className="w-3.5 h-3.5" />{phone}</a>;
+              if (channel === 'email') return <a key={channel} href={href} {...dim} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[#E5E5E5] text-[#171717] text-xs font-bold"><Mail className="w-3.5 h-3.5" />{email}</a>;
+              return <a key={channel} href={href} {...dim} target="_blank" rel="noopener noreferrer" data-brand="whatsapp" className="social-pill inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#16803C] text-white text-xs font-bold"><BrandIcon brand="whatsapp" className="w-3.5 h-3.5" />WhatsApp</a>;
+            })}
           </div>
         </div>
       </div>
