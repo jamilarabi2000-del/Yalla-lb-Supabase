@@ -20,6 +20,7 @@ import { CustomBlockModal } from './components/CustomBlockModal';
 import { syncDomHead } from './utils/domHeadSync';
 import { currentDesignSelector } from './lib/designSelectors';
 import { isAdminEntryPath, rememberAdminEntry, rememberedAdminEntry } from './lib/adminEntry';
+import { pendingDeepLinkProduct } from './lib/productDeepLink';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>) {
@@ -284,17 +285,20 @@ const MainAppContent: React.FC = () => {
     return () => window.removeEventListener('popstate', syncRouteFromUrl);
   }, []);
 
-  // Resolve a direct product deep link after the Supabase catalogue finishes hydrating.
+  // Resolve a direct product deep link after the Supabase catalogue finishes
+  // hydrating (see pendingDeepLinkProduct for why only while the product page
+  // is still the one showing). The address already names the product, so
+  // there is nothing to write back to it.
   useEffect(() => {
-    if (notFoundPath || !window.location.pathname.match(/^\/product\/[^/]+$/)) return;
-    const prodId = decodeURIComponent(window.location.pathname.slice('/product/'.length));
-    const foundProduct = productsRef.current.find(p => p.id === prodId);
-    if (foundProduct && selectedProductDetail?.id !== foundProduct.id) {
-      isPopStateRef.current = true;
-      setActiveTab('product_detail');
-      openProductDetail(foundProduct);
-    }
-  }, [products, notFoundPath, selectedProductDetail, openProductDetail, setActiveTab]);
+    const product = pendingDeepLinkProduct({
+      pathname: window.location.pathname,
+      activeTab,
+      selectedProductId: selectedProductDetail?.id,
+      products: productsRef.current,
+      notFound: Boolean(notFoundPath),
+    });
+    if (product) openProductDetail(product);
+  }, [products, notFoundPath, activeTab, selectedProductDetail, openProductDetail]);
 
   useEffect(() => {
     if (isPopStateRef.current) {
