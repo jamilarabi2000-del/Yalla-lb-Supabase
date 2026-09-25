@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 import { HomepagePromoSlider } from './HomepagePromoSlider';
 
-import lebaneseMountainTownImg from '../assets/images/rachaya_mountain_perfect_1786799009637.jpg';
-import raoucheSunsetImg from '../assets/images/raouche_rocks_sunset_1786799732002.jpg';
+import lebaneseMountainTownImg from '../assets/images/rachaya_mountain_perfect_1786799009637.webp';
+import raoucheSunsetImg from '../assets/images/raouche_rocks_sunset_1786799732002.webp';
 
 interface ConsolidatedSlide {
   id: string;

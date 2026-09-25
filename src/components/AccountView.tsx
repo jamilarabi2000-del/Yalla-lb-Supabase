@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useShop } from '../context/ShopContext';
 import { ProductCard } from './ProductCard';
 import { OrderHistory } from './OrderHistory';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
-import { SellerDashboard } from './SellerDashboard';
 import { ACCOUNT_SIGNIN_EVENT, takeAccountSignInRequest } from '../lib/accountSignIn';
 import { EmailPasswordSignIn } from './EmailPasswordSignIn';
 import { cityRegionProblem, emailProblem, phoneProblem, type SignupDetails } from '../lib/signupDetails';
@@ -22,6 +21,9 @@ import {
   Loader2,
   Store
 } from 'lucide-react';
+
+// Only sellers see the dashboard, so shoppers never download it.
+const SellerDashboard = lazy(() => import('./SellerDashboard').then(m => ({ default: m.SellerDashboard })));
 
 export const AccountView: React.FC = () => {
   const { 
@@ -309,7 +311,9 @@ export const AccountView: React.FC = () => {
             </div>
           </div>
         </div>
-        <SellerDashboard />
+        <Suspense fallback={<div className="py-16 flex justify-center"><Loader2 className="w-7 h-7 animate-spin text-[#7d6230]" aria-label="Loading" /></div>}>
+          <SellerDashboard />
+        </Suspense>
       </div>
     );
   }

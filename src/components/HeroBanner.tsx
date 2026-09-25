@@ -15,8 +15,8 @@ import {
 
 import mountainTownImg from '../assets/images/mountain_town_1786766825066.jpg';
 import cobblestoneStreetImg from '../assets/images/cobblestone_street_1786766842879.jpg';
-import lebaneseMountainTownImg from '../assets/images/rachaya_mountain_perfect_1786799009637.jpg';
-import raoucheSunsetImg from '../assets/images/raouche_rocks_sunset_1786799732002.jpg';
+import lebaneseMountainTownImg from '../assets/images/rachaya_mountain_perfect_1786799009637.webp';
+import raoucheSunsetImg from '../assets/images/raouche_rocks_sunset_1786799732002.webp';
 import schoolBannerImg from '../assets/images/school_banner_1786797167259.jpg';
 
 interface ConsolidatedSlide {

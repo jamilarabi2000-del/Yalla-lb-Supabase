@@ -3,11 +3,9 @@ import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
 import { HomeView } from './components/HomeView';
 import { ProductsView } from './components/ProductsView';
-import { AccountViewController } from './components/AccountViewController';
 import { FavoritesView } from './components/FavoritesView';
 import { AdminErrorBoundary } from './components/AdminErrorBoundary';
 import { StorefrontErrorBoundary } from './components/StorefrontErrorBoundary';
-import { AdminGuard } from './components/AdminGuard';
 import { AdminSessionGate } from './components/AdminSessionGate';
 import { ProductDetailView } from './components/ProductDetailView';
 import { ProductModal } from './components/ProductModal';
@@ -16,7 +14,6 @@ import { RequiredDetailsPrompt } from './components/RequiredDetailsPrompt';
 import { NewPasswordPrompt } from './components/NewPasswordPrompt';
 import { Footer } from './components/Footer';
 import { FooterQuickLinks } from './components/FooterQuickLinks';
-import { AdminQuickEditor } from './components/AdminQuickEditor';
 import { TextStyleLayer } from './components/TextStyleLayer';
 import { CustomBlockModal } from './components/CustomBlockModal';
 import { syncDomHead } from './utils/domHeadSync';
@@ -26,7 +23,7 @@ import { pendingDeepLinkProduct } from './lib/productDeepLink';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { darken, readableTextOn } from './lib/colorContrast';
 
-function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>) {
+function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>): React.LazyExoticComponent<T> {
   return lazy(async () => {
     let attempts = 3;
     while (attempts > 0) {
@@ -52,10 +49,15 @@ function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promis
       }
     }
     throw new Error('Failed to load module');
-  });
+  }) as React.LazyExoticComponent<T>;
 }
 
 const CheckoutView = lazyWithRetry(() => import('./components/CheckoutView'));
+// Loaded when needed: shoppers who never open their account, and everyone who
+// is not an administrator, do not download these.
+const AccountViewController = lazyWithRetry(() => import('./components/AccountViewController'));
+const AdminGuard = lazyWithRetry(() => import('./components/AdminGuard').then(m => ({ default: m.AdminGuard })));
+const AdminQuickEditor = lazyWithRetry(() => import('./components/AdminQuickEditor').then(m => ({ default: m.AdminQuickEditor })));
 const AdminView = lazyWithRetry(() => import('./components/AdminView'));
 
 const MainAppContent: React.FC = () => {
@@ -368,7 +370,7 @@ const MainAppContent: React.FC = () => {
             {activeTab === 'products' && <ProductsView />}
             {activeTab === 'product_detail' && <ProductDetailView />}
             {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><CheckoutView /></Suspense>}
-            {activeTab === 'account' && <AccountViewController />}
+            {activeTab === 'account' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AccountViewController /></Suspense>}
             {activeTab === 'favorites' && <FavoritesView />}
             {adminOpen && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
           </>
@@ -379,7 +381,7 @@ const MainAppContent: React.FC = () => {
       {!adminOpen && <RequiredDetailsPrompt />}
       <NewPasswordPrompt />
       <TextStyleLayer page={activeTab} enabled={!adminOpen} />
-      <AdminQuickEditor onOpenCustomBlockModal={(block) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} />
+      {isAdminUser && <Suspense fallback={null}><AdminQuickEditor onOpenCustomBlockModal={(block: any) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} /></Suspense>}
       <CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} />
       {toast && <div className="fixed bottom-6 right-6 z-50 animate-fadeIn"><div className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold ${toast.type === 'success' ? 'bg-white border-[#16803C]/30 text-[#16803C]' : toast.type === 'warning' ? 'bg-white border-[#B89753]/40 text-[#8F7137]' : 'bg-white border-[#E5E5E5] text-[#111111]'}`}>{toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-[#16803C] flex-shrink-0" /> : toast.type === 'warning' ? <AlertCircle className="w-4 h-4 text-[#B89753] flex-shrink-0" /> : <Info className="w-4 h-4 text-[#666666] flex-shrink-0" />}<span>{toast.message}</span></div></div>}
       {!adminOpen && <><FooterQuickLinks /><Footer /></>}

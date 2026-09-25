@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
 import { requestAccountSignIn } from '../lib/accountSignIn';
-import systemLogo from '../assets/images/system_logo_1786837577985.jpg';
+import systemLogo from '../assets/images/system_logo_1786837577985.webp';
 import { 
   ShoppingBag, 
   Heart, 
