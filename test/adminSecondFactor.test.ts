@@ -37,6 +37,20 @@ describe('administrator reads need the second factor', () => {
     expect(sql).toMatch(/create policy notifications_require_verified_admin_update on public\.notifications\s+as restrictive for update to authenticated\s+using \(user_id = \(select auth\.uid\(\)\) or \(select private\.is_admin_verified\(\)\) or not \(select private\.is_admin\(\)\)\)/);
   });
 
+  // 20260925175748: the business tables a password alone still opened.
+  const business = read('supabase/migrations/20260925175748_admin_business_reads_need_second_factor.sql').replace(/--.*$/gm, '');
+  it.each(['product_private', 'inventory_ledger', 'cms_content_versions', 'permissions', 'role_permissions'])(
+    '%s: business data only with the factor', table => {
+      const match = business.match(new RegExp(
+        `create policy ${table}_admin_read_needs_second_factor on public\\.${table}\\s+as restrictive for select to authenticated\\s+using \\(([^;]*)\\);`));
+      expect(match, table).not.toBeNull();
+      expect(match![1]).toBe('not (select private.is_admin()) or (select private.session_has_second_factor())');
+    });
+
+  it('reviews waiting for moderation only with the factor; published ones and your own stay readable', () => {
+    expect(business).toMatch(/create policy reviews_admin_read_needs_second_factor on public\.reviews\s+as restrictive for select to authenticated\s+using \(is_published or user_id = \(select auth\.uid\(\)\) or not \(select private\.is_admin\(\)\) or \(select private\.session_has_second_factor\(\)\)\);/);
+  });
+
   it('SECURITY.md describes reads as protected', () => {
     const doc = read('SECURITY.md');
     expect(doc).not.toMatch(/SELECT is never restricted/);
