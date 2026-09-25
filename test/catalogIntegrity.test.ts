@@ -117,15 +117,14 @@ describe('Public product projection stays within the anon column grant', () => {
     const m = svc.match(new RegExp('const ' + name + ' = `([\\s\\S]*?)`;'));
     if (!m) throw new Error(name + ' not found');
     return m[1]
-      .replace(/\w+!\w+\s*\([^)]*\)/g, '')       // drop embedded joins
+      .replace(/\w+(?:!\w+)?\s*\([^)]*\)/g, '') // drop embedded joins
       .split(/[,\n]/).map(c => c.trim()).filter(c => /^\w+$/.test(c));
   };
 
-  // anon holds COLUMN-level SELECT on products. PostgreSQL fails the whole
-  // statement if a SELECT names any column the role cannot read, so adding one
-  // of these to the public projection empties the storefront for every
-  // logged-out visitor — while staying invisible to a signed-in admin, who has
-  // a table-level grant.
+  // anon and authenticated both hold COLUMN-level SELECT on products.
+  // PostgreSQL fails the whole statement if a SELECT names any column the role
+  // cannot read, so adding one of these to a products projection empties the
+  // catalogue for everyone using it.
   const NEVER_PUBLIC = [
     'cost_price_usd', 'seller_item_code', 'low_stock_threshold',
     'low_stock_notice', 'custom_stock_label',
@@ -136,9 +135,36 @@ describe('Public product projection stays within the anon column grant', () => {
     expect(pub.filter(c => NEVER_PUBLIC.includes(c))).toEqual([]);
   });
 
-  it('keeps the private columns available to the admin projection', () => {
-    const adm = projection('ADMIN_PRODUCT_COLUMNS');
-    for (const c of NEVER_PUBLIC) expect(adm).toContain(c);
+  it('reads the private columns for admins and sellers from product_private, never from products', () => {
+    const raw = svc.match(/const ADMIN_PRODUCT_COLUMNS = `([\s\S]*?)`;/)![1];
+    const embedded = raw.match(/product_private\s*\(([^)]*)\)/);
+    expect(embedded, 'product_private embed').not.toBeNull();
+    for (const c of NEVER_PUBLIC) expect(embedded![1]).toContain(c);
+    expect(projection('ADMIN_PRODUCT_COLUMNS').filter(c => NEVER_PUBLIC.includes(c))).toEqual([]);
+    // The mapper takes them from the embedded row.
+    expect(svc).toMatch(/const merchant: Record<string, any> =\s*\(Array\.isArray\(row\.product_private\)/);
+    for (const c of NEVER_PUBLIC) expect(svc).toContain(`merchant.${c}`);
+  });
+
+  it('asks the authenticated role only for columns it may read (20260925 grant)', () => {
+    const grantFile = fs.readdirSync(path.resolve(process.cwd(), 'supabase/migrations'))
+      .find(f => /(?:^|_)products_merchant_fields_hidden_from_shoppers\.sql$/.test(f));
+    expect(grantFile, 'grant migration').toBeTruthy();
+    const grant = fs.readFileSync(path.resolve(process.cwd(), 'supabase/migrations', grantFile!), 'utf-8')
+      .replace(/--.*$/gm, '');
+    expect(grant).toMatch(/revoke select on table public\.products from authenticated;/);
+    const granted = grant.match(/grant select \(([^)]*)\) on public\.products to authenticated;/)![1]
+      .split(',').map(c => c.trim());
+    expect(granted.filter(c => NEVER_PUBLIC.includes(c))).toEqual([]);
+    // Every column the admin/seller catalogue requests from products must be granted,
+    // or the whole request fails for every administrator and seller.
+    expect(projection('ADMIN_PRODUCT_COLUMNS').filter(c => !granted.includes(c))).toEqual([]);
+  });
+
+  it('creates a product with a plain insert, which needs no read access to the merchant columns', () => {
+    const upsert = svc.slice(svc.indexOf('async upsertProduct('), svc.indexOf('upsertProduct products:'));
+    expect(upsert).toMatch(/\.from\('products'\)[\s\S]*?\.insert\(\s*productPayload,?\s*\)\s*\.select\('id'\)/);
+    expect(upsert).not.toMatch(/onConflict:\s*'id'/);
   });
 
   it('documents the grant any newly public column needs', () => {

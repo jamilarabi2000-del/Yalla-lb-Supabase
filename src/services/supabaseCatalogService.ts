@@ -89,6 +89,12 @@ export function mapSupabaseProduct(
   const videos =
     toStringArray(row.videos);
 
+  // Merchant fields come from product_private, embedded by
+  // ADMIN_PRODUCT_COLUMNS: the products copy of them is not readable by the
+  // authenticated role (so a signed-in shopper cannot read it either).
+  const merchant: Record<string, any> =
+    (Array.isArray(row.product_private) ? row.product_private[0] : row.product_private) ?? row;
+
   return {
     id: String(row.id || ''),
 
@@ -203,25 +209,25 @@ export function mapSupabaseProduct(
      * storefront query.
      */
     sellerItemCode:
-      row.seller_item_code ??
+      merchant.seller_item_code ??
       undefined,
 
     lowStockThreshold:
       toNumberOrUndefined(
-        row.low_stock_threshold,
+        merchant.low_stock_threshold,
       ),
 
     lowStockNotice:
-      row.low_stock_notice ??
+      merchant.low_stock_notice ??
       undefined,
 
     customStockLabel:
-      row.custom_stock_label ??
+      merchant.custom_stock_label ??
       undefined,
 
     costPriceUSD:
       toNumberOrUndefined(
-        row.cost_price_usd,
+        merchant.cost_price_usd,
       ),
 
     tags:
@@ -609,7 +615,8 @@ function buildProductMediaRows(
  * PUBLIC PRODUCT COLUMNS
  *
  * IMPORTANT:
- * Never include:
+ * Never include (the authenticated role cannot read them on products; admin
+ * and seller reads take them from product_private, see ADMIN_PRODUCT_COLUMNS):
  * - seller_item_code
  * - low_stock_threshold
  * - low_stock_notice
@@ -698,11 +705,13 @@ const ADMIN_PRODUCT_COLUMNS = `
   is_published,
   display_order,
 
-  seller_item_code,
-  low_stock_threshold,
-  low_stock_notice,
-  custom_stock_label,
-  cost_price_usd,
+  product_private (
+    seller_item_code,
+    low_stock_threshold,
+    low_stock_notice,
+    custom_stock_label,
+    cost_price_usd
+  ),
 
   tags,
   keywords,
@@ -1469,12 +1478,13 @@ export const supabaseCatalogService = {
       error: productError,
     } = await supabase
       .from('products')
-      .upsert(
+      // A plain INSERT: this path only ever creates a product (addProduct
+      // gives it a fresh id). An upsert's ON CONFLICT DO UPDATE would need
+      // SELECT on every column it sets, and the merchant columns are not
+      // readable by the authenticated role. An id that already exists now
+      // fails loudly instead of overwriting that product.
+      .insert(
         productPayload,
-        {
-          onConflict:
-            'id',
-        },
       )
       .select('id');
 
