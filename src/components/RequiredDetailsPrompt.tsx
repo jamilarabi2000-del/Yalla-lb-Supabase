@@ -30,17 +30,18 @@ export function missingRequiredDetails(profile: Partial<UserProfile> | null, sig
 /**
  * Every shopper's account carries what the sign-up form requires: name,
  * phone, email, City / Region, street and building. Whoever signs in without
- * all of it saved -- by Google, a phone code, a sign-up code opened on another
- * device, or an account from before the rule -- is asked here for what is
- * missing, and the only ways on are saving it or signing out. The saved
- * profile decides, not the browser's cached checkout details. It waits while
- * a sign-up is still saving its details, stays off the checkout, which asks
+ * all of it saved -- by Google, a sign-up code opened on another device, or
+ * an account from before the rule -- is asked here for what is missing, and
+ * the only ways on are saving it or signing out. The saved profile decides,
+ * not the browser's cached checkout details. It waits while a sign-up is
+ * still saving its details and while a Forgot password sign-in is choosing
+ * its new password (NewPasswordPrompt), stays off the checkout, which asks
  * for these itself and saves them with the order, and never shows for the
  * administrator or a seller.
  */
 export const RequiredDetailsPrompt: React.FC = () => {
   const {
-    authUser, isLoadingAuth, isAdminUser, isSellerUser, isCompletingSignup, activeTab, user,
+    authUser, isLoadingAuth, isAdminUser, isSellerUser, isCompletingSignup, passwordRecoveryPending, activeTab, user,
     updateUser, checkPhoneUniqueness, signOutUser, language, showToast,
   } = useShop();
   const ar = language === 'ar';
@@ -55,7 +56,7 @@ export const RequiredDetailsPrompt: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const uid = authUser?.uid;
   const signInEmail = String(authUser?.email ?? '').trim();
-  const eligible = Boolean(uid) && !isLoadingAuth && !isAdminUser && !isSellerUser && !isCompletingSignup;
+  const eligible = Boolean(uid) && !isLoadingAuth && !isAdminUser && !isSellerUser && !isCompletingSignup && !passwordRecoveryPending;
 
   useEffect(() => {
     if (!eligible || !uid) {

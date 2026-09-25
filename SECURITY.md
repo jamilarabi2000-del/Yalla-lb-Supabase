@@ -46,55 +46,85 @@ Fine-grained permissions layer on top via `public.role_permissions` and
 `public.user_permissions`, resolved by `private.has_permission(key)`. A `deny`
 entry always wins over an `allow`.
 
-### Signing in: codes, not passwords
+### Signing in: a password, then an emailed code
 
-Shoppers and sellers sign in on the Account page (and at checkout) with a
-code emailed each time (`EmailCodeSignIn`: `signInWithOtp` then `verifyOtp`),
-or with Google / Apple / a phone code where the admin shows them. There is no
-password field anywhere they sign in, so there is no shopper or seller
-password to guess.
+Shoppers and sellers sign in on the Account page (and at checkout) with their
+password and then a code emailed to them (`EmailPasswordSignIn`), or with
+Google / Apple where the admin shows them. A new account is made with a
+password typed twice, and its email is confirmed with an emailed code.
+Forgot password emails a code; once it is entered the shopper must choose a
+new password (`NewPasswordPrompt`) or sign out.
 
-- `public.custom_access_token_hook` refuses a token to a **password session**
-  (signed in with a password, or refreshing one that began with a password)
-  unless the account's `profiles.role` is `admin`. It is inert until switched
-  on in Supabase -> Authentication -> Hooks -> Customize Access Token
-  (Postgres, `public.custom_access_token_hook`). Only `supabase_auth_admin`
-  may execute it.
-- A new shopper signs up first. Only the sign-up form can create an account
-  (`shouldCreateUser` is true only when it sends its details); the sign-in
-  form, and the unused `sendEmailSignInLink`, reach existing accounts only.
-  Supabase refuses an unknown email there (`otp_disabled`), no email is sent,
-  and the shopper is moved to the sign-up form with the address filled in.
-  **Trade-off, chosen by the owner:** the sign-in form therefore says whether
-  an email has an account. Supabase's per-IP limits on sign-in requests
-  apply, and CAPTCHA makes scripted checking harder once it is switched on.
-  The phone check at sign-up already says whether a number is registered,
-  throttled in the database (`is_phone_available`).
-- The sign-up details travel as user metadata with the code request and
+- **The password step** is `public.verify_login_password(email, password)`
+  (a thin wrapper over the `SECURITY DEFINER` `private.verify_login_password`).
+  It compares the password with the account's own bcrypt hash through
+  pgcrypto and answers `ok`, `wrong`, `no_account` or `locked`. Wrong
+  passwords are limited per email (5 in 15 minutes, 20 in a day, both cleared
+  by the right password) and per caller (30 in 15 minutes; the account when
+  signed in, else `cf-connecting-ip`), and parallel guesses queue behind an
+  advisory lock so a burst cannot outrun the counts. Emails and caller
+  addresses are stored only as SHA-256 hashes (`private.login_failures`).
+  On `ok` it writes a note in `private.login_proofs`.
+- **Supabase enforces the pair.** `public.custom_access_token_hook` refuses a
+  password on its own (and a refresh of a session that began with one), and
+  lets an emailed code or link sign in -- `otp`, `magiclink`, `email/signup`,
+  `recovery`, `invite` -- only when that account has a note from the last 15
+  minutes, which it deletes. Supabase issues every typed code's token as
+  `otp`, sign-in and reset alike, so the note, not the method, tells them
+  apart. Refreshes, Google/Apple (`oauth`), email changes and a second factor
+  pass; any other method is refused. The administrator is not affected
+  (password + authenticator code, below). The hook is inert until switched on
+  in Supabase -> Authentication -> Hooks -> Customize Access Token (Postgres,
+  `public.custom_access_token_hook`); only `supabase_auth_admin` may execute
+  it. The form re-runs the password step just before the code, so a slow
+  email does not run out the 15 minutes.
+- **Forgot password needs only the email, by design.** `public.begin_password_reset(email)`
+  writes the note (and answers nothing, so it does not say whether the email
+  has an account) before Supabase emails the reset code. The consequence,
+  accepted by the owner: whoever controls a shopper's mailbox can reset the
+  password and get in, as on any site with email password reset. The
+  password protects against everyone who does not have the mailbox.
+- **Google and Apple** sign in without the password and code: Google or Apple
+  vouches for the email instead. Hide them (CMS -> Account) and switch the
+  providers off in Supabase to require password + code from everyone.
+- A new shopper signs up first. Only the sign-up form creates an account
+  (`supabase.auth.signUp` with the password and details); codes reach existing
+  accounts only (`shouldCreateUser: false`). The password step answers
+  `no_account` for an unknown email and the shopper is moved to the sign-up
+  form with the address filled in; the sign-up form likewise sends an email
+  that already has an account back to signing in. **Trade-off, chosen by the
+  owner:** the sign-in form therefore says whether an email has an account
+  (Supabase's code request already did). The per-caller limit above throttles
+  scripted checking; the phone check at sign-up says the same of phone
+  numbers, throttled in the database (`is_phone_available`).
+- The sign-up details travel as user metadata with `signUp` and
   `public.handle_new_user` copies them into the profile (text only, trimmed
-  and bounded; never `role`), so they survive email confirmation and a code
-  used on another device. The phone is not among them: it is written only
+  and bounded; never `role`). The phone is not among them: it is written only
   after the code proves the email (`confirmSignupCode`), so no number is
   claimed by an account nobody confirmed.
 - Every shopper's account carries what the sign-up form requires: first and
   last name, phone (8 digits after +961, one account per number through
   `phone_registry`), email, City / Region, street and building. The sign-up
   and profile forms require them; anyone signed in without all of them saved
-  (Google, a phone code, a sign-up code opened on another device, or an older
-  account) is asked for what is missing and can only save it or sign out
+  (Google, a sign-up code opened on another device, or an older account) is
+  asked for what is missing and can only save it or sign out
   (`RequiredDetailsPrompt`, which reads the saved profile rather than the
   browser's cached checkout details, and waits while a sign-up is still
-  saving its details).
+  saving its details or a new password is being chosen).
 - An account that signs in by email keeps that address as its profile email:
   the profile form shows it read-only, so the two cannot drift apart and the
   shopper is never shown an email they cannot sign in with.
-- Phone codes (`PhoneAuthModal`, SMS or WhatsApp per the admin's setting) are
-  off by default: they need a paid sender configured in Supabase.
-- The code email must carry `{{ .Token }}` (Supabase -> Authentication ->
-  Emails, "Magic Link" and "Confirm signup" templates); until then it carries
-  only the link, which still signs in on the device where it is opened.
-  Supabase's built-in sender allows very few emails an hour: connect an SMTP
-  provider before real traffic, or sign-ins will wait on that limit.
+- Phone-code sign-in (`PhoneAuthModal`, SMS or WhatsApp) was removed with its
+  CMS switch: a phone code cannot be the second step after the password, and
+  the hook refuses a code without the password step.
+- Accounts made before passwords (the old emailed-code sign-up) have a random
+  password nobody knows: their owners use Forgot password once to set one.
+- The emails must carry `{{ .Token }}` (Supabase -> Authentication -> Emails:
+  "Confirm signup", "Magic Link" and "Reset Password"); until then they carry
+  only the link, which still works on the device where the form was used,
+  within the 15 minutes. Supabase's built-in sender allows very few emails an
+  hour and every sign-in now sends one: connect an SMTP provider before real
+  traffic.
 
 ### Administrator second factor
 
@@ -335,7 +365,8 @@ historical order is misreported the next time the rate moves.
 | `orders.shipping` | ≤8 KiB |
 | `search_logs` purge | Verified-administrator DELETE only (`search_logs_admin_delete`) |
 | Payment webhook | HMAC-SHA256, ±300 s timestamp window, unique `provider_event_id` |
-| Sign-in, sign-up, email links, SMS codes, password resets | Supabase Auth's per-IP limits; CAPTCHA once switched on (below) |
+| Sign-in, sign-up, email links, password resets | Supabase Auth's per-IP limits; CAPTCHA once switched on (below) |
+| Password step (`verify_login_password`) | 5 wrong / 15 min and 20 / day per email, 30 / 15 min per caller, serialized by advisory locks |
 
 ### CAPTCHA (Cloudflare Turnstile, free)
 
@@ -415,8 +446,9 @@ These reduce blast radius. None of them is an authorization control.
 | Gap | Status |
 | :--- | :--- |
 | Leaked-password protection (HaveIBeenPwned) | **Not enabled** — requires a paid Supabase plan. |
-| Sign-in hook | **Must be switched on** in Supabase -> Authentication -> Hooks. Until then a shopper or seller who already has a password can still use it through the API; the site offers them none. |
-| Seller provisioning | `admin-seller-provision` still sets a password when the admin creates a seller login; sellers sign in with an emailed code, and once the hook is on that password is refused. |
+| Sign-in hook | **Must be switched on** in Supabase -> Authentication -> Hooks. Until then Supabase itself does not insist on the password + code pair: a password alone, or a code alone, still signs in through the API; the site's own forms always ask for both. |
+| Forgot password | Needs only the mailbox, by the owner's choice (above). |
+| Seller provisioning | `admin-seller-provision` sets the temporary password the admin passes on; the seller signs in with it and an emailed code, and can change it with Forgot password. |
 | Online card payment | **Not built.** No gateway, no payment state on `orders`. Checkout offers cash on delivery and Whish/OMT only, enforced by `trg_enforce_supported_payment_method`. |
 | `payment-webhook` edge function | **Never deployed.** Written and replay-protected in the repository, but not running. Nothing calls it and there is no payment state for it to reconcile. |
 | `supabase/migrations/` is not replayable | See `supabase/migrations/README.md`. The live database is authoritative until re-baselined. |

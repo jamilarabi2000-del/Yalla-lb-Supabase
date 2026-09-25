@@ -1,4 +1,4 @@
-/** What a sign-up form collects before the sign-in code is emailed. */
+/** What a sign-up form collects besides the email and password. */
 export interface SignupDetails {
   firstName: string;
   lastName: string;
@@ -30,9 +30,10 @@ export function signupMetadata(details: SignupDetails): Record<string, string> {
 }
 
 /**
- * Supabase's refusal when the sign-in form is given an email that has no
- * account: that form reaches existing accounts only (shouldCreateUser false),
- * so the shopper is sent to sign up first.
+ * Supabase's refusal when a sign-in code is asked for an email that has no
+ * account: codes reach existing accounts only (shouldCreateUser false), so
+ * the shopper is sent to sign up first. The password step usually says so
+ * first ('no_account'); this covers an account removed in between.
  */
 export function isNoAccountError(error: unknown): boolean {
   const e = error as { code?: unknown; message?: unknown } | null | undefined;

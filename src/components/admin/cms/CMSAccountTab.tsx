@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Package, BookmarkCheck, Sliders, Apple, Chrome, Smartphone } from 'lucide-react';
+import { User, Package, BookmarkCheck, Sliders, Apple, Chrome } from 'lucide-react';
 
 interface CMSAccountTabProps {
   accountData: {
@@ -15,8 +15,6 @@ interface CMSAccountTabProps {
     wishlistTabLabelArabic?: string;
     showAppleAuth?: boolean;
     showGoogleAuth?: boolean;
-    showSmsAuth?: boolean;
-    phoneCodeChannel?: 'sms' | 'whatsapp';
   };
   onChangeField: (field: string, value: string) => void;
 }
@@ -185,9 +183,9 @@ export const CMSAccountTab: React.FC<CMSAccountTabProps> = ({
             <Sliders className="w-5 h-5 text-indigo-600" />
             <span>Login / Sign-Up Authentication Methods</span>
           </h3>
-          <p className="text-xs text-slate-500 mt-1">Customers and sellers always sign in with a code emailed to them; there are no passwords on the Account page. Choose which other ways they can see.</p>
+          <p className="text-xs text-slate-500 mt-1">Customers and sellers always sign in with their password and then a code emailed to them; Forgot password emails a code to choose a new one. Choose which other ways they can see: Google and Apple sign in without the password and code.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[
             { key: 'showAppleAuth', label: 'Apple', icon: Apple, description: 'Continue with Apple', needs: 'Also switch Apple on in Supabase → Authentication → Providers.' },
             { key: 'showGoogleAuth', label: 'Google', icon: Chrome, description: 'Continue with Google', needs: 'Also switch Google on in Supabase → Authentication → Providers, or the button fails.' },
@@ -206,40 +204,6 @@ export const CMSAccountTab: React.FC<CMSAccountTabProps> = ({
               </div>
             );
           })}
-          {(() => {
-            // Off until turned on: a phone code needs a paid sender in Supabase.
-            const enabled = accountData.showSmsAuth === true;
-            const channel = accountData.phoneCodeChannel === 'sms' ? 'sms' : 'whatsapp';
-            return (
-              <div id="cms-phone-code-card" className={`rounded-2xl border p-4 ${enabled ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50'}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div><div className="flex items-center gap-2"><Smartphone className="w-4 h-4 text-slate-700" /><span className="text-sm font-bold text-slate-900">Phone code</span></div><p className="text-[11px] text-slate-500 mt-1">A code sent to a Lebanese phone number</p></div>
-                  <button type="button" role="switch" aria-checked={enabled} aria-label="Phone code sign-in visibility" onClick={() => onChangeField('showSmsAuth', !enabled as any)} className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </button>
-                </div>
-                <div role="radiogroup" aria-label="Send the phone code by" className="mt-3 flex items-center gap-1 bg-white/70 p-1 rounded-xl border border-slate-200">
-                  {(['whatsapp', 'sms'] as const).map(value => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={channel === value}
-                      id={`cms-phone-code-${value}`}
-                      onClick={() => onChangeField('phoneCodeChannel', value)}
-                      className={`flex-1 px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${channel === value ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      {value === 'whatsapp' ? 'WhatsApp' : 'SMS'}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-slate-500 mt-2">
-                  Before turning this on, set up a {channel === 'whatsapp' ? 'WhatsApp sender (Twilio)' : 'SMS provider (e.g. Twilio)'} in Supabase → Authentication → Providers → Phone. Messages are charged by the provider.
-                </p>
-                <div className={`mt-3 text-[10px] font-bold uppercase tracking-wider ${enabled ? 'text-emerald-700' : 'text-slate-500'}`}>{enabled ? `Visible to customers (${channel === 'whatsapp' ? 'WhatsApp' : 'SMS'})` : 'Off'}</div>
-              </div>
-            );
-          })()}
         </div>
       </div>
     </div>

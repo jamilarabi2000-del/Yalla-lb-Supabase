@@ -6,10 +6,8 @@ import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { SellerDashboard } from './SellerDashboard';
 import { ACCOUNT_SIGNIN_EVENT, takeAccountSignInRequest } from '../lib/accountSignIn';
-import { PhoneAuthModal } from './PhoneAuthModal';
-import { EmailCodeSignIn } from './EmailCodeSignIn';
+import { EmailPasswordSignIn } from './EmailPasswordSignIn';
 import { cityRegionProblem, emailProblem, phoneProblem, type SignupDetails } from '../lib/signupDetails';
-import type { PhoneCodeChannel } from '../types';
 import { 
   User, 
   Package, 
@@ -20,7 +18,6 @@ import {
   Sparkles,
   AlertTriangle,
   Mail,
-  Smartphone,
   Save,
   Loader2,
   Store
@@ -61,9 +58,6 @@ export const AccountView: React.FC = () => {
   const authVisibility = siteContent?.accountPage || {};
   const showAppleAuth = authVisibility.showAppleAuth !== false;
   const showGoogleAuth = authVisibility.showGoogleAuth !== false;
-  // A phone code needs a paid sender in Supabase, so it is off until the admin turns it on.
-  const showSmsAuth = authVisibility.showSmsAuth === true;
-  const phoneCodeChannel: PhoneCodeChannel = authVisibility.phoneCodeChannel === 'sms' ? 'sms' : 'whatsapp';
   
   // User-isolated orders: Only display orders belonging to this authenticated user
   const userOrders = React.useMemo(() => {
@@ -95,11 +89,13 @@ export const AccountView: React.FC = () => {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   // The email the sign-in form found no account for: sign-up starts with it.
   const [noAccountEmail, setNoAccountEmail] = useState('');
+  // The email the sign-up form found an account for: sign-in starts with it.
+  const [existingAccountEmail, setExistingAccountEmail] = useState('');
   const [isSendingVerification, setIsSendingVerification] = useState(false);
-  // An account that signs in by email (a code, Google or Apple) keeps that
-  // address as its email; only one without, such as a phone-code account,
-  // types one in. The two never drift apart, so the profile never shows an
-  // email the shopper cannot sign in with.
+  // An account that signs in by email (password and code, Google or Apple)
+  // keeps that address as its email; only one without, such as an old
+  // phone-code account, types one in. The two never drift apart, so the
+  // profile never shows an email the shopper cannot sign in with.
   const signInEmail = (firebaseUser?.email || '').trim();
 
   const handleResendVerification = async () => {
@@ -168,8 +164,6 @@ export const AccountView: React.FC = () => {
     }
   }, [user, firebaseUser]);
 
-  const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
-
   const handleGoogleSignIn = async () => {
     setIsAuthLoading(true);
     try {
@@ -189,8 +183,9 @@ export const AccountView: React.FC = () => {
   };
 
   /**
-   * The sign-up form's details, checked, for the emailed code to carry; null
-   * (with the reason shown) when something is missing. No password: the code
+   * The sign-up form's details, checked, for the new account to carry; null
+   * (with the reason shown) when something is missing. The password is
+   * typed and checked in EmailPasswordSignIn below them, and the emailed code
    * proves the email.
    */
   const collectSignupDetails = async (): Promise<SignupDetails | null> => {
@@ -577,25 +572,12 @@ export const AccountView: React.FC = () => {
                   <div className="text-center mb-6">
                     <h2 className="text-xl font-serif font-bold text-[#171717]">{authMode === 'signin' ? 'Welcome Back' : 'Create Your Account'}</h2>
                     <p className="text-xs text-[#737373] mt-1">
-                      {authMode === 'signin' ? 'Sign in to access your orders and saved details.' : 'Fill in your details. We will email you a code to confirm your address.'}
+                      {authMode === 'signin' ? 'Sign in with your email and password. We then email you a code.' : 'Fill in your details and choose a password. We will email you a code to confirm your address.'}
                     </p>
                   </div>
 
                   {/* Social & Phone Sign In Options */}
                   <div className="mb-6 space-y-2.5">
-                    {showSmsAuth && (
-                    <button
-                      type="button"
-                      id="account-phone-signin-btn"
-                      onClick={() => setShowPhoneAuthModal(true)}
-                      disabled={isAuthLoading}
-                      className="w-full py-2.5 px-4 rounded-lg bg-[#171717] hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-3 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-                    >
-                      <Smartphone className="w-4 h-4 text-[#B89753]" />
-                      <span>{phoneCodeChannel === 'whatsapp' ? (language === 'ar' ? 'تسجيل الدخول برمز عبر واتساب' : 'Sign in with a WhatsApp code') : (language === 'ar' ? 'تسجيل الدخول برمز SMS' : 'Sign in with an SMS code')}</span>
-                    </button>
-                    )}
-
                     {showGoogleAuth && (
                     <button
                       type="button"
@@ -640,11 +622,12 @@ export const AccountView: React.FC = () => {
 
                   {authMode === 'signin' ? (
                     <div className="space-y-4">
-                      <EmailCodeSignIn
+                      <EmailPasswordSignIn
                         idPrefix="account-signin"
                         purpose="signin"
                         onSignedIn={setProfileEmail}
                         onNoAccount={email => { setNoAccountEmail(email); setAuthMode('signup'); }}
+                        existingAccountEmail={existingAccountEmail}
                       />
 
                       {/* Sellers sign in with this same form; their workspace opens here. */}
@@ -652,7 +635,7 @@ export const AccountView: React.FC = () => {
                         <div id="account-seller-signin-hint" className="pt-3 border-t border-[#E5E5E5] text-center">
                           <p className="inline-flex items-center gap-1.5 text-xs text-[#737373]">
                             <Store className="w-3.5 h-3.5 text-[#B89753] shrink-0" aria-hidden="true" />
-                            <span>{language === 'ar' ? 'البائعون والتجار: سجّلوا الدخول هنا بالبريد الإلكتروني الذي سجّلته يلا لكم، وسنرسل إليكم رمزاً.' : 'Sellers and merchants: sign in here with the email Yalla registered for you. We will email you a code.'}</span>
+                            <span>{language === 'ar' ? 'البائعون والتجار: سجّلوا الدخول هنا بالبريد الإلكتروني وكلمة المرور اللذين أعطتكم إياهما يلا، ثم نرسل إليكم رمزاً.' : 'Sellers and merchants: sign in here with the email and password Yalla gave you. We will then email you a code.'}</span>
                           </p>
                         </div>
                       )}
@@ -752,7 +735,14 @@ export const AccountView: React.FC = () => {
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                         />
                       </div>
-                      <EmailCodeSignIn idPrefix="account-signup" purpose="signup" noAccountEmail={noAccountEmail} collectSignupDetails={collectSignupDetails} onSignedIn={setProfileEmail} />
+                      <EmailPasswordSignIn
+                        idPrefix="account-signup"
+                        purpose="signup"
+                        noAccountEmail={noAccountEmail}
+                        collectSignupDetails={collectSignupDetails}
+                        onSignedIn={setProfileEmail}
+                        onAccountExists={email => { setExistingAccountEmail(email); setAuthMode('signin'); }}
+                      />
                     </div>
                   )}
                 </div>
@@ -917,23 +907,15 @@ export const AccountView: React.FC = () => {
         </div>
       </div>
 
-      {/* Native Firebase Phone Auth Modal */}
-      <PhoneAuthModal
-        isOpen={showPhoneAuthModal}
-        onClose={() => setShowPhoneAuthModal(false)}
-        language={language}
-        channel={phoneCodeChannel}
-        initialPhone={profilePhone}
-      />
-
       {/*
-        Signing in takes a code emailed each time (EmailCodeSignIn, through
-        sendEmailOtp / verifyEmailOtp); the same email carries a link that
-        signs in on the device where it is opened (completeEmailLinkSignIn).
-        There is no password field: shoppers and sellers have no password to
-        guess, and the auth hook refuses one to anyone but the administrator.
-        The OTPModal that was once mounted here could never open and was
-        deleted; it is in git history.
+        Signing in takes the account's password and then a code emailed to it
+        (EmailPasswordSignIn); the same email carries a link that signs in on
+        the device where it is opened. Supabase enforces the pair: the sign-in
+        hook refuses a password on its own, and a code unless the password
+        step (or Forgot password) came just before. The phone-code sign-in
+        that was here is gone: a phone code cannot be that second step. The
+        OTPModal that was once mounted here could never open and was deleted;
+        both are in git history.
       */}
     </div>
   );

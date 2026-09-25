@@ -13,6 +13,7 @@ import { ProductDetailView } from './components/ProductDetailView';
 import { ProductModal } from './components/ProductModal';
 import { CartDrawer } from './components/CartDrawer';
 import { RequiredDetailsPrompt } from './components/RequiredDetailsPrompt';
+import { NewPasswordPrompt } from './components/NewPasswordPrompt';
 import { Footer } from './components/Footer';
 import { FooterQuickLinks } from './components/FooterQuickLinks';
 import { AdminQuickEditor } from './components/AdminQuickEditor';
@@ -368,6 +369,7 @@ const MainAppContent: React.FC = () => {
       <ProductModal />
       <CartDrawer />
       {!adminOpen && <RequiredDetailsPrompt />}
+      <NewPasswordPrompt />
       <TextStyleLayer page={activeTab} enabled={!adminOpen} />
       <AdminQuickEditor onOpenCustomBlockModal={(block) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} />
       <CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} />

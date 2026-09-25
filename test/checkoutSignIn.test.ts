@@ -2,19 +2,19 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Checkout wrapped its whole page in one <form>. The emailed-code sign-in
-// card inside it has a form of its own, and a form inside a form reloaded the
-// page when "Email me a sign-in code" was pressed: no code was sent, the
-// email was wiped, and a shopper who was not signed in could never order.
+// Checkout wrapped its whole page in one <form>. The sign-in card inside it
+// has forms of its own, and a form inside a form reloaded the page when the
+// sign-in button was pressed: no code was sent, the email was wiped, and a
+// shopper who was not signed in could never order.
 const read = (f: string) => fs.readFileSync(path.resolve(process.cwd(), f), 'utf8');
 const strip = (s: string) => s.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-/** Where each <EmailCodeSignIn sits, counted in open <form> elements around it. */
+/** Where each <EmailPasswordSignIn sits, counted in open <form> elements around it. */
 function signInFormDepths(source: string): number[] {
   const code = strip(source);
   const depths: number[] = [];
   let depth = 0;
-  const tokens = /<form[\s>]|<\/form>|<EmailCodeSignIn\b/g;
+  const tokens = /<form[\s>]|<\/form>|<EmailPasswordSignIn\b/g;
   for (let m = tokens.exec(code); m; m = tokens.exec(code)) {
     if (m[0] === '</form>') depth -= 1;
     else if (m[0].startsWith('<form')) depth += 1;

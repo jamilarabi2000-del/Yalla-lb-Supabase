@@ -371,9 +371,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     wishlistTabLabel: 'Saved Wishlist',
     wishlistTabLabelArabic: 'قائمة المفضلة',
     showAppleAuth: true,
-    showGoogleAuth: true,
-    showSmsAuth: false,
-    phoneCodeChannel: 'whatsapp'
+    showGoogleAuth: true
   },
   newsSection: {
     title: 'News & Announcements',

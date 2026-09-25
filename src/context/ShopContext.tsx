@@ -54,6 +54,7 @@ import {
 import { filterPublicCmsContent } from '../utils/cmsPublicProjection';
 import { toUserFacingError } from '../utils/userFacingError';
 import { isNoAccountError, signupMetadata, type SignupDetails } from '../lib/signupDetails';
+import { isLoginPasswordStatus, loginStatusMessage, noAccountMessage, signInRefusalMessage, type LoginPasswordStatus } from '../lib/passwordSignIn';
 import { assertHighRiskAuthorization } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
@@ -496,10 +497,17 @@ interface ShopContextType {
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, phone?: string) => Promise<void>;
   /**
-   * Emails a sign-in code. Without sign-up details it reaches an existing
-   * account only; with them, a new account is created carrying them.
+   * The password step of signing in: the database checks it (with attempt
+   * limits) and, on 'ok', lets the code emailed next sign the account in.
    */
-  sendEmailOtp: (email: string, signup?: SignupDetails) => Promise<void>;
+  verifyLoginPassword: (email: string, password: string) => Promise<LoginPasswordStatus>;
+  /** Emails a sign-in code to an existing account. */
+  sendEmailOtp: (email: string) => Promise<void>;
+  /**
+   * Creates the account with its password and details; Supabase emails a code
+   * to confirm the address. 'exists' when the email already has an account.
+   */
+  signUpWithPassword: (email: string, password: string, details: SignupDetails) => Promise<'code_sent' | 'exists'>;
   /** The sign-up form's last step: the code signs the new account in, then its details are saved. */
   confirmSignupCode: (email: string, token: string, details: SignupDetails) => Promise<void>;
   /** True while confirmSignupCode runs: the account exists but its details are still being saved. */
@@ -508,7 +516,14 @@ interface ShopContextType {
   resendEmailVerification?: (email?: string) => Promise<void>;
   sendEmailSignInLink: (email: string) => Promise<void>;
   completeEmailLinkSignIn: (email?: string, url?: string) => Promise<void>;
+  /** Forgot password: emails a code (and link) that lets the account choose a new password. */
   resetPassword: (email: string) => Promise<void>;
+  /** Forgot password: the emailed code signs the account in to choose a new password. */
+  confirmPasswordResetCode: (email: string, token: string) => Promise<void>;
+  /** Signed in by a Forgot password code or link, and no new password chosen yet. */
+  passwordRecoveryPending: boolean;
+  /** Forgot password's last step. */
+  setNewPassword: (password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOutUser: () => Promise<void>;
@@ -2925,6 +2940,35 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleAuthUser(null);
     });
 
+    // An emailed link that did not sign in -- expired, already used, or
+    // refused by the sign-in hook (opened more than 15 minutes after the
+    // password step) -- says so only in the URL or in the failed code
+    // exchange. Without this the page would just load signed out.
+    if (typeof window !== 'undefined') {
+      const callback = new URLSearchParams(`${window.location.search.slice(1)}&${window.location.hash.slice(1)}`);
+      if (callback.has('code') || callback.has('error_description')) {
+        supabase.auth.initialize().then(async ({ error }: { error: AuthError | null }) => {
+          let message = error?.message || callback.get('error_description') || '';
+          // A link opened in another browser: the code in it can only be
+          // traded where it was asked for, so nothing happens here.
+          if (!message && new URLSearchParams(window.location.search).has('code')) {
+            const { data } = await supabase.auth.getSession();
+            if (!data?.session) {
+              message = language === 'ar'
+                ? 'يعمل هذا الرابط فقط في المتصفح الذي طلبته منه. أدخل الرمز الموجود في الرسالة هناك بدلاً منه.'
+                : 'This link only works in the browser where you asked for it. Enter the code from the email there instead.';
+            }
+          }
+          if (!isMounted || !message) return;
+          console.warn('[ShopContext] Email link sign-in failed:', message);
+          showToast(signInRefusalMessage(message, language), 'warning');
+          const url = new URL(window.location.href);
+          ['code', 'error', 'error_code', 'error_description'].forEach(key => url.searchParams.delete(key));
+          window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}`);
+        });
+      }
+    }
+
     // 2. Auth State Change Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       console.log(`[ShopContext] Supabase Auth event: ${event}`, session?.user?.id ?? "None (Guest)");
@@ -3206,34 +3250,96 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(msg);
     }
 
+    // OWASP user enumeration prevention: the same answer whether or not the
+    // email has an account.
+    const sentMsg = language === 'ar'
+      ? 'إذا كان البريد مسجلاً لدينا، فقد أرسلنا إليه رمزاً لإعادة تعيين كلمة المرور.'
+      : 'If an account exists for this email, we emailed it a code to reset the password.';
+    // The note that lets the reset code sign the account in: the sign-in hook
+    // refuses an emailed code otherwise. It answers nothing either way. Its
+    // own failure is reported as such, never as "we emailed you a code".
+    const { error: noteError } = await supabase.rpc('begin_password_reset', { p_email: cleanEmail });
+    if (noteError) {
+      console.error('[ShopContext] begin_password_reset failed:', noteError);
+      showToast(language === 'ar' ? 'تعذر إرسال رمز إعادة التعيين. حاول مرة أخرى.' : 'Could not send the reset code. Please try again.', 'warning');
+      throw noteError;
+    }
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account?resetPassword=true` : undefined,
+        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
         captchaToken: await getCaptchaToken(),
       });
       if (error) throw error;
-
-      const successMsg = language === 'ar'
-        ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
-        : 'If an account exists for this email address, a password reset link has been sent.';
-      showToast(successMsg, 'success');
+      showToast(sentMsg, 'success');
     } catch (error: any) {
       if (classifyAuthError(error) === 'not_found') {
-        // OWASP User Enumeration Prevention: generic response prevents email address discovery
-        const successMsg = language === 'ar'
-          ? 'إذا كان البريد مسجلاً لدينا، فقد تم إرسال رابط إعادة تعيين كلمة المرور إلى صندوق الوارد.'
-          : 'If an account exists for this email address, a password reset link has been sent.';
-        showToast(successMsg, 'success');
+        showToast(sentMsg, 'success');
         return;
       }
-      let msg = language === 'ar' ? 'فشل إرسال رابط إعادة التعيين: ' : 'Failed to send reset email: ';
-      msg += error.message || '';
+      console.error('[ShopContext] resetPassword error:', error);
+      let msg = language === 'ar' ? 'تعذر إرسال رمز إعادة التعيين: ' : 'Could not send the reset code: ';
+      msg += classifyAuthError(error) === 'rate_limited'
+        ? (language === 'ar' ? 'انتظر دقيقة ثم حاول مرة أخرى.' : 'please wait a minute and try again.')
+        : error.message || '';
       showToast(msg, 'warning');
       throw error;
     }
   };
 
-  const sendEmailOtp = async (email: string, signup?: SignupDetails) => {
+  /**
+   * Forgot password, second step: the emailed code signs the account in so
+   * it can choose a new password (NewPasswordPrompt asks for it). The note is
+   * renewed first, in case the code took a while to arrive.
+   */
+  const confirmPasswordResetCode = async (email: string, token: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const { error: noteError } = await supabase.rpc('begin_password_reset', { p_email: cleanEmail });
+    if (noteError) {
+      console.error('[ShopContext] begin_password_reset failed:', noteError);
+      showToast(language === 'ar' ? 'تعذر التحقق من الرمز. حاول مرة أخرى.' : 'Could not check the code. Please try again.', 'warning');
+      throw noteError;
+    }
+    await verifyEmailOtp(cleanEmail, token, 'recovery');
+  };
+
+  const setNewPassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      console.error('[ShopContext] setNewPassword error:', error);
+      const code = String((error as any)?.code ?? '');
+      let msg = error.message || (language === 'ar' ? 'تعذر تغيير كلمة المرور.' : 'Could not change the password.');
+      if (code === 'same_password') {
+        msg = language === 'ar' ? 'اختر كلمة مرور مختلفة عن القديمة.' : 'Choose a password different from your old one.';
+      } else if (classifyAuthError(error) === 'weak_password') {
+        msg = language === 'ar' ? 'كلمة المرور ضعيفة. اختر كلمة أقوى.' : 'That password is too weak. Please choose a stronger one.';
+      }
+      showToast(msg, 'warning');
+      throw error;
+    }
+    endPasswordRecovery();
+    showToast(language === 'ar' ? 'تم تغيير كلمة المرور. أنت الآن مسجّل الدخول.' : 'Password changed. You are signed in.', 'success');
+  };
+
+  /**
+   * The password step of signing in. 'ok' leaves the database a note that
+   * lets the code emailed next sign this account in; the database also limits
+   * wrong guesses per email and per caller.
+   */
+  const verifyLoginPassword = async (email: string, password: string): Promise<LoginPasswordStatus> => {
+    const { data, error } = await supabase.rpc('verify_login_password', {
+      p_email: email.trim().toLowerCase(),
+      p_password: password,
+    });
+    if (error || !isLoginPasswordStatus(data)) {
+      console.error('[ShopContext] verify_login_password failed:', error ?? data);
+      const msg = language === 'ar' ? 'تعذر التحقق من كلمة المرور. حاول مرة أخرى.' : 'Could not check your password. Please try again.';
+      showToast(msg, 'warning');
+      throw error ?? new Error(msg);
+    }
+    return data;
+  };
+
+  const sendEmailOtp = async (email: string) => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       const msg = language === 'ar' ? 'الرجاء إدخال بريد إلكتروني صالح' : 'Please enter a valid email address.';
@@ -3245,13 +3351,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanEmail,
         options: {
-          // Only the sign-up form makes an account, carrying the details an
-          // account needs. The sign-in form reaches existing accounts only:
-          // Supabase refuses an unknown email (otp_disabled) and the shopper
-          // is sent to sign up first. That answer does say whether an email
-          // is registered; see SECURITY.md.
-          shouldCreateUser: Boolean(signup),
-          ...(signup ? { data: signupMetadata(signup) } : {}),
+          // Reaches existing accounts only: accounts are made by the sign-up
+          // form, with a password (signUpWithPassword). The password step
+          // before this has already said whether the email has an account;
+          // see SECURITY.md.
+          shouldCreateUser: false,
           emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
           captchaToken: await getCaptchaToken(),
         },
@@ -3267,10 +3371,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : `Verification code sent to ${cleanEmail}! Please check your email inbox.`;
       showToast(successMsg, 'success');
     } catch (err: any) {
-      if (!signup && isNoAccountError(err)) {
-        showToast(language === 'ar'
-          ? 'لا يوجد حساب بهذا البريد الإلكتروني بعد. يرجى إنشاء حساب أولاً.'
-          : 'There is no account with this email yet. Please sign up first.', 'warning');
+      if (isNoAccountError(err)) {
+        showToast(noAccountMessage(language), 'warning');
         throw err;
       }
       console.error("[ShopContext] sendEmailOtp error:", err);
@@ -3305,7 +3407,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       showToast(language === 'ar' ? 'تم التحقق بنجاح!' : 'Verification successful!', 'success');
     } catch (err: any) {
       console.error("[ShopContext] verifyEmailOtp error:", err);
-      let msg = err.message || 'Invalid or expired verification code.';
+      // The sign-in hook's refusals arrive here in English.
+      const msg = err.message
+        ? signInRefusalMessage(err.message, language)
+        : (language === 'ar' ? 'الرمز غير صحيح أو انتهت صلاحيته.' : 'Invalid or expired verification code.');
       showToast(msg, 'warning');
       throw err;
     }
@@ -3361,6 +3466,95 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsCompletingSignup(false);
     }
   };
+
+  /**
+   * Creates the account with the password the shopper chose; Supabase emails
+   * a code to confirm the address. The details travel as user metadata
+   * (handle_new_user copies them into the profile) and are saved again once
+   * the code is accepted (confirmSignupCode).
+   */
+  const signUpWithPassword = async (email: string, password: string, details: SignupDetails): Promise<'code_sent' | 'exists'> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const ar = language === 'ar';
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: signupMetadata(details),
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/account` : undefined,
+          captchaToken: await getCaptchaToken(),
+        },
+      });
+      if (error) throw error;
+      // An address that already has a confirmed account gets a stand-in user
+      // with no identities, and no email.
+      if (Array.isArray(data?.user?.identities) && data.user.identities.length === 0) return 'exists';
+    } catch (err: any) {
+      const kind = classifyAuthError(err);
+      if (kind === 'already_registered') return 'exists';
+      console.error('[ShopContext] signUpWithPassword error:', err);
+      const msg =
+        kind === 'weak_password' ? (ar ? 'كلمة المرور ضعيفة. اختر كلمة أقوى.' : 'That password is too weak. Please choose a stronger one.')
+        : kind === 'invalid_email' ? (ar ? 'يرجى إدخال بريد إلكتروني صالح.' : 'Please enter a valid email address.')
+        : kind === 'rate_limited' ? (ar ? 'محاولات كثيرة. انتظر دقيقة ثم حاول مرة أخرى.' : 'Too many attempts. Please wait a minute and try again.')
+        : kind === 'network' ? (ar ? 'تعذر الاتصال. تحقق من الإنترنت وحاول مرة أخرى.' : 'Network connection error. Please check your internet connection and try again.')
+        : (ar ? 'تعذر إنشاء الحساب: ' : 'Could not create the account: ') + (err?.message || '');
+      showToast(msg, 'warning');
+      throw err;
+    }
+
+    // The note for the code on its way. A wrong password here means the email
+    // already had an account (Supabase keeps an existing password).
+    const status = await verifyLoginPassword(cleanEmail, password);
+    if (status === 'wrong') return 'exists';
+    if (status !== 'ok') {
+      const msg = status === 'locked'
+        ? loginStatusMessage('locked', language)
+        : (ar ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : 'Could not create the account. Please try again.');
+      showToast(msg, 'warning');
+      throw new Error(msg);
+    }
+    try {
+      window.localStorage.setItem('emailForSignIn', cleanEmail);
+    } catch {}
+    showToast(ar ? `أرسلنا رمز تأكيد إلى ${cleanEmail}.` : `We emailed a confirmation code to ${cleanEmail}.`, 'success');
+    return 'code_sent';
+  };
+
+  // Signed in by a Forgot password code or link, with no new password chosen
+  // yet: NewPasswordPrompt asks for one. Kept for this tab, so a reload in
+  // between still asks.
+  const PASSWORD_RECOVERY_KEY = 'yallalb_password_recovery';
+  const [passwordRecoveryPending, setPasswordRecoveryPending] = useState(false);
+  const endPasswordRecovery = () => {
+    try {
+      sessionStorage.removeItem(PASSWORD_RECOVERY_KEY);
+    } catch {}
+    setPasswordRecoveryPending(false);
+  };
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        try {
+          sessionStorage.setItem(PASSWORD_RECOVERY_KEY, session.user.id);
+        } catch {}
+        setPasswordRecoveryPending(true);
+      } else if (event === 'SIGNED_OUT') {
+        endPasswordRecovery();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    const uid = authUser?.uid;
+    if (!uid) return;
+    let saved: string | null = null;
+    try {
+      saved = sessionStorage.getItem(PASSWORD_RECOVERY_KEY);
+    } catch {}
+    if (saved === uid) setPasswordRecoveryPending(true);
+  }, [authUser?.uid]);
 
   const resendEmailVerification = async (email?: string) => {
     const targetEmail = (email || authUser?.email || user.email || '').trim().toLowerCase();
@@ -5119,7 +5313,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isEmailVerified,
     signInWithEmail,
     signUpWithEmail,
+    verifyLoginPassword,
     sendEmailOtp,
+    signUpWithPassword,
     confirmSignupCode,
     isCompletingSignup,
     verifyEmailOtp,
@@ -5127,6 +5323,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sendEmailSignInLink,
     completeEmailLinkSignIn,
     resetPassword,
+    confirmPasswordResetCode,
+    passwordRecoveryPending,
+    setNewPassword,
     signInWithGoogle,
     signInWithApple,
     signOutUser,
@@ -5226,6 +5425,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdminUser,
     isSellerUser,
     isCompletingSignup,
+    passwordRecoveryPending,
     searchQuery,
     logSearchQuery,
     selectedCategory,

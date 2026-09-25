@@ -992,12 +992,12 @@ describe('There is one email-OTP client, not several', () => {
   });
 
   it('keeps email OTP inside the context, not in components', () => {
-    // Components must not call the auth OTP API directly for email; the
-    // context owns it. PhoneAuthModal is the deliberate exception -- SMS OTP
-    // has no context equivalent.
+    // Components must not call the auth OTP API directly; the context owns
+    // it. (PhoneAuthModal, the one exception, went with phone-code sign-in:
+    // a phone code cannot be the second step after the password.)
     const offenders: string[] = [];
     for (const f of fs.readdirSync(path.resolve(process.cwd(), 'src/components'))) {
-      if (!f.endsWith('.tsx') || f === 'PhoneAuthModal.tsx') continue;
+      if (!f.endsWith('.tsx')) continue;
       const body = read(`src/components/${f}`)
         .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
         .replace(/\/\*[\s\S]*?\*\//g, '')

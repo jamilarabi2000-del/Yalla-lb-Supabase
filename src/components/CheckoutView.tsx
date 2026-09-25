@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
-import type { Order, PaymentMethod, PhoneCodeChannel } from '../types';
+import type { Order, PaymentMethod } from '../types';
 import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
 import { calcDeliveryFeeUSD, cartSubtotalUSD, everyItemShipsFree, lebanonDeliveryIsFree } from '../lib/delivery';
 import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
-import { PhoneAuthModal } from './PhoneAuthModal';
-import { EmailCodeSignIn } from './EmailCodeSignIn';
+import { EmailPasswordSignIn } from './EmailPasswordSignIn';
 import type { SignupDetails } from '../lib/signupDetails';
 import { generateIdempotencyKey } from '../utils/uuid';
 import { 
@@ -21,7 +20,6 @@ import {
   MapPin,
   Sparkles,
   PhoneCall,
-  Smartphone,
   ArrowLeft,
   LogOut,
   UserCheck,
@@ -137,6 +135,8 @@ export const CheckoutView: React.FC = () => {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   // The email the sign-in form found no account for: sign-up starts with it.
   const [noAccountEmail, setNoAccountEmail] = useState('');
+  // The email the sign-up form found an account for: sign-in starts with it.
+  const [existingAccountEmail, setExistingAccountEmail] = useState('');
   const [signupFirstName, setSignupFirstName] = useState('');
   const [signupLastName, setSignupLastName] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
@@ -289,18 +289,13 @@ export const CheckoutView: React.FC = () => {
 
   const finalTotalUSD = cartTotalUSD + (cart.length > 0 ? deliveryFeeUSD : 0);
 
-  const [showPhoneAuthModal, setShowPhoneAuthModal] = useState<boolean>(false);
-
   // The sign-in methods shown follow the same Account page settings as /account.
   const authVisibility = siteContent?.accountPage || {};
   const showAppleAuth = authVisibility.showAppleAuth !== false;
   const showGoogleAuth = authVisibility.showGoogleAuth !== false;
-  // A phone code needs a paid sender in Supabase, so it is off until the admin turns it on.
-  const showPhoneCode = authVisibility.showSmsAuth === true;
-  const phoneCodeChannel: PhoneCodeChannel = authVisibility.phoneCodeChannel === 'sms' ? 'sms' : 'whatsapp';
 
   /**
-   * The new-account details for the emailed code to carry, checked; null
+   * The new-account details for the account to carry, checked; null
    * (with the reason shown) when something is missing. City / Region and the
    * address come from the delivery form below when filled in there; placing
    * the order saves them to the profile in any case.
@@ -766,21 +761,8 @@ export const CheckoutView: React.FC = () => {
                       : 'To track courier dispatch, receive WhatsApp notifications, and auto-fill your delivery coordinates, please sign in or register below.'}
                   </p>
 
-                  {/* Social & Phone Instant Sign In */}
+                  {/* Social Instant Sign In */}
                   <div className="space-y-2.5">
-                    {showPhoneCode && (
-                    <button
-                      type="button"
-                      id="checkout-phone-signin-btn"
-                      onClick={() => setShowPhoneAuthModal(true)}
-                      disabled={isAuthLoading}
-                      className="w-full py-2.5 px-4 rounded-lg bg-[#171717] hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-3 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-                    >
-                      <Smartphone className="w-4 h-4 text-[#B89753]" />
-                      <span>{phoneCodeChannel === 'whatsapp' ? (isArabic ? 'تسجيل الدخول برمز عبر واتساب' : 'Sign in with a WhatsApp code') : (isArabic ? 'تسجيل الدخول برمز SMS' : 'Sign in with an SMS code')}</span>
-                    </button>
-                    )}
-
                     {showGoogleAuth && (
                     <button
                       type="button"
@@ -824,11 +806,12 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   {authMode === 'signin' ? (
-                    <EmailCodeSignIn
+                    <EmailPasswordSignIn
                       idPrefix="checkout-signin"
                       purpose="signin"
                       onSignedIn={handleCheckoutSignedIn}
                       onNoAccount={email => { setNoAccountEmail(email); setAuthMode('signup'); }}
+                      existingAccountEmail={existingAccountEmail}
                     />
                   ) : (
                     <div className="space-y-4">
@@ -882,7 +865,14 @@ export const CheckoutView: React.FC = () => {
                         </div>
                       </div>
 
-                      <EmailCodeSignIn idPrefix="checkout-signup" purpose="signup" noAccountEmail={noAccountEmail} collectSignupDetails={collectCheckoutSignup} onSignedIn={handleCheckoutSignedIn} />
+                      <EmailPasswordSignIn
+                        idPrefix="checkout-signup"
+                        purpose="signup"
+                        noAccountEmail={noAccountEmail}
+                        collectSignupDetails={collectCheckoutSignup}
+                        onSignedIn={handleCheckoutSignedIn}
+                        onAccountExists={email => { setExistingAccountEmail(email); setAuthMode('signin'); }}
+                      />
                     </div>
                   )}
                 </div>
@@ -1465,21 +1455,13 @@ export const CheckoutView: React.FC = () => {
       {/* Bottom Custom Divs / Banners */}
       <CustomBlocksRenderer page="checkout" position="bottom" />
 
-      {/* Native Firebase Phone Auth Modal */}
-      <PhoneAuthModal
-        isOpen={showPhoneAuthModal}
-        onClose={() => setShowPhoneAuthModal(false)}
-        language={isArabic ? 'ar' : 'en'}
-        channel={phoneCodeChannel}
-        initialPhone={formData.phone}
-      />
-
       {/*
-        Signing in takes a code emailed each time (EmailCodeSignIn, through
-        sendEmailOtp / verifyEmailOtp); the same email carries a link that
-        signs in on the device where it is opened. There is no password field:
-        the auth hook refuses one to anyone but the administrator. The
-        OTPModal once mounted here could never open and was deleted.
+        Signing in takes the account's password and then a code emailed to it
+        (EmailPasswordSignIn); the same email carries a link that signs in on
+        the device where it is opened. Supabase enforces the pair (the sign-in
+        hook). The phone-code sign-in that was here is gone: a phone code
+        cannot be that second step. The OTPModal once mounted here could never
+        open and was deleted.
       */}
     </div>
   );
