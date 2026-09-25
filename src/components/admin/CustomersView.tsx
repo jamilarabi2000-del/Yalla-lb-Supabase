@@ -154,19 +154,19 @@ export const CustomersView: React.FC = () => {
                     <td className="p-4 font-black text-slate-900">{usd(c.totalSpentUSD)}</td>
                     <td className="p-4 text-xs whitespace-nowrap">
                       {c.lastOrderDate ? shortDate(c.lastOrderDate) : (
-                        <span className="text-slate-400">No orders yet{c.joinedAt ? ` · joined ${shortDate(c.joinedAt)}` : ''}</span>
+                        <span className="text-slate-500">No orders yet{c.joinedAt ? ` · joined ${shortDate(c.joinedAt)}` : ''}</span>
                       )}
                     </td>
                     <td className="p-4">
                       <div className="flex justify-end gap-1.5">
                         {wa ? (
                           <a href={wa} target="_blank" rel="noreferrer" data-brand="whatsapp"
-                            className="social-pill px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 whitespace-nowrap">
+                            className="social-pill px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black flex items-center gap-1 whitespace-nowrap">
                             <BrandIcon brand="whatsapp" className="w-3.5 h-3.5" /> WhatsApp Chat
                           </a>
                         ) : (
                           <span title="No number that can receive WhatsApp"
-                            className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 text-[11px] font-black flex items-center gap-1 whitespace-nowrap cursor-not-allowed">
+                            className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-black flex items-center gap-1 whitespace-nowrap cursor-not-allowed">
                             <BrandIcon brand="whatsapp" className="w-3.5 h-3.5" /> WhatsApp Chat
                           </span>
                         )}

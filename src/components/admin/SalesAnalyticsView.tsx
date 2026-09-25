@@ -685,7 +685,7 @@ export const SalesAnalyticsView: React.FC = () => {
       {/* 1. TOP HEADER & TITLE */}
       <div className="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-slate-900 flex items-center justify-center shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-sm">
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
@@ -715,7 +715,7 @@ export const SalesAnalyticsView: React.FC = () => {
 
           <button
             onClick={handleExportFilteredSalesCSV}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-slate-900 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs hover:shadow-md active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs hover:shadow-md active:scale-95"
             title="Export currently filtered dataset to CSV"
           >
             <Download className="w-3.5 h-3.5" />
@@ -759,7 +759,7 @@ export const SalesAnalyticsView: React.FC = () => {
                 onClick={() => setDatePreset(preset.id as DateRangePreset)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   datePreset === preset.id
-                    ? 'bg-indigo-600 text-slate-900 shadow-xs'
+                    ? 'bg-indigo-600 text-white shadow-xs'
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
@@ -904,7 +904,7 @@ export const SalesAnalyticsView: React.FC = () => {
         <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/50 border border-emerald-100 shadow-xs">
           <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block mb-1">Delivered (Settled)</span>
           <div className="text-xl sm:text-2xl font-black text-emerald-700">{formatPrice(kpis.deliveredRevenueUSD)}</div>
-          <span className="text-[10px] text-emerald-600 font-bold mt-0.5 block">
+          <span className="text-[10px] text-emerald-700 font-bold mt-0.5 block">
             {kpis.totalDeliveredUnits} units delivered
           </span>
         </div>
@@ -969,7 +969,7 @@ export const SalesAnalyticsView: React.FC = () => {
                   onClick={() => setActiveTab(tab.id as SalesTab)}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
                     isActive
-                      ? 'bg-indigo-600 text-slate-900 shadow-xs'
+                      ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
                 >
@@ -1086,7 +1086,7 @@ export const SalesAnalyticsView: React.FC = () => {
                       <Store className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Top Sellers by Sales</span>
                     </span>
-                    <button onClick={() => setActiveTab('sellers')} className="text-[10px] font-bold text-emerald-600 hover:underline">
+                    <button onClick={() => setActiveTab('sellers')} className="text-[10px] font-bold text-emerald-700 hover:underline">
                       View all
                     </button>
                   </div>
@@ -1119,7 +1119,7 @@ export const SalesAnalyticsView: React.FC = () => {
                       <Users className="w-3.5 h-3.5 text-sky-600" />
                       <span>Top Buyers in Period</span>
                     </span>
-                    <button onClick={() => setActiveTab('customers')} className="text-[10px] font-bold text-sky-600 hover:underline">
+                    <button onClick={() => setActiveTab('customers')} className="text-[10px] font-bold text-sky-700 hover:underline">
                       View all
                     </button>
                   </div>

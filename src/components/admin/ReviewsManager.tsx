@@ -14,7 +14,7 @@ const shortDate = (iso?: string) =>
 const Stars: React.FC<{ rating: number; size?: string }> = ({ rating, size = 'w-4 h-4' }) => (
   <span className="inline-flex" aria-label={`${rating} out of 5 stars`}>
     {[1, 2, 3, 4, 5].map(n => (
-      <Star key={n} aria-hidden className={`${size} ${n <= rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`} />
+      <Star key={n} aria-hidden className={`${size} ${n <= rating ? 'fill-amber-400 text-amber-700' : 'text-slate-500'}`} />
     ))}
   </span>
 );
@@ -82,7 +82,7 @@ export const ReviewsManager: React.FC<{ products?: Product[] }> = ({ products = 
     <section className="space-y-5 text-slate-900">
       <header className="flex flex-col lg:flex-row lg:items-end gap-4">
         <div className="mr-auto">
-          <p className="text-[11px] font-black uppercase tracking-wider text-amber-500">Moderation</p>
+          <p className="text-[11px] font-black uppercase tracking-wider text-amber-700">Moderation</p>
           <h2 className="text-2xl font-black tracking-tight">Customer Reviews &amp; Store Replies</h2>
           <p className="mt-1 text-sm text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="inline-flex items-center gap-1 font-black text-slate-900">
@@ -115,7 +115,7 @@ export const ReviewsManager: React.FC<{ products?: Product[] }> = ({ products = 
         <div role="group" aria-label="Filter by rating" className="flex flex-wrap gap-1.5">
           {(['all', 5, 4, 3, 2, 1] as const).map(value => (
             <button key={value} aria-pressed={rating === value} onClick={() => setRating(value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-black ${rating === value ? 'bg-[#a37f35] text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>
+              className={`px-3 py-1.5 rounded-full text-xs font-black ${rating === value ? 'bg-[#7d6230] text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>
               {value === 'all' ? 'All Ratings' : `${value} Star${value === 1 ? '' : 's'}`}
             </button>
           ))}
@@ -166,7 +166,7 @@ export const ReviewsManager: React.FC<{ products?: Product[] }> = ({ products = 
                   </div>
                   {review.title && <h3 className="mt-2 font-black">{review.title}</h3>}
                   {review.body ? <p className="mt-1 text-sm text-slate-700 whitespace-pre-line">"{review.body}"</p>
-                    : <p className="mt-1 text-sm text-slate-400">Rating only, no comment.</p>}
+                    : <p className="mt-1 text-sm text-slate-500">Rating only, no comment.</p>}
                 </div>
               </div>
 
@@ -176,7 +176,7 @@ export const ReviewsManager: React.FC<{ products?: Product[] }> = ({ products = 
                 </p>
                 {review.adminReply && (
                   <p className="mt-2 text-sm text-slate-700 whitespace-pre-line">
-                    "{review.adminReply}" <span className="text-[11px] text-slate-400">· {shortDate(review.adminReplyAt)}</span>
+                    "{review.adminReply}" <span className="text-[11px] text-slate-500">· {shortDate(review.adminReplyAt)}</span>
                   </p>
                 )}
                 <textarea value={draft} onChange={e => setDrafts(d => ({ ...d, [review.id]: e.target.value }))}
@@ -186,7 +186,7 @@ export const ReviewsManager: React.FC<{ products?: Product[] }> = ({ products = 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <button disabled={isBusy || !draft.trim() || draft.trim() === (review.adminReply || '')}
                     onClick={() => run(review.id, () => supabaseUserDataService.saveReviewReply(review.id, draft), 'Store reply published.')}
-                    className="px-3 py-2 rounded-xl bg-[#a37f35] hover:bg-[#8F7137] text-white text-xs font-black disabled:opacity-50">
+                    className="px-3 py-2 rounded-xl bg-[#7d6230] hover:bg-[#6B5428] text-white text-xs font-black disabled:opacity-50">
                     Publish Store Reply
                   </button>
                   {review.adminReply && (

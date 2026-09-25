@@ -86,7 +86,7 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (value: 
 function PreviewBlock({ block }: { block: CMSCustomBlock }) {
   const bg = block.bgStyle === 'light' ? 'bg-white text-slate-900 border-slate-200'
     : block.bgStyle === 'glass' ? 'bg-slate-50 text-slate-900 border-slate-200 backdrop-blur'
-    : block.bgStyle === 'emerald_gradient' ? 'bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-slate-900 border-emerald-500/20'
+    : block.bgStyle === 'emerald_gradient' ? 'bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white border-emerald-500/20'
     : block.bgStyle === 'gold_gradient' ? 'bg-gradient-to-r from-amber-950 via-[#1f190e] to-slate-950 text-slate-900 border-amber-500/20'
     : 'bg-slate-50 text-slate-900 border-slate-800';
   return (

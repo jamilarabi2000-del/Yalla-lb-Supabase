@@ -163,7 +163,7 @@ export const ActiveCartsView: React.FC = () => {
 
                 <ul className="mt-4 pt-3 border-t border-slate-100 space-y-1 text-sm">
                   {cart.lines.map((line, i) => (
-                    <li key={`${line.productId}-${i}`} className={line.problem ? 'text-slate-400' : ''}>
+                    <li key={`${line.productId}-${i}`} className={line.problem ? 'text-slate-500' : ''}>
                       • {line.quantity}× {line.name}{' '}
                       {line.problem
                         ? <span className="text-[11px] font-bold">({PROBLEM_LABEL[line.problem]})</span>
@@ -171,7 +171,7 @@ export const ActiveCartsView: React.FC = () => {
                     </li>
                   ))}
                   {cart.ignoredLines > 0 && (
-                    <li className="text-[11px] text-slate-400">{cart.ignoredLines} unreadable line{cart.ignoredLines === 1 ? '' : 's'} ignored</li>
+                    <li className="text-[11px] text-slate-500">{cart.ignoredLines} unreadable line{cart.ignoredLines === 1 ? '' : 's'} ignored</li>
                   )}
                 </ul>
 
@@ -179,12 +179,12 @@ export const ActiveCartsView: React.FC = () => {
                   <p className="text-sm mr-auto">Subtotal: <span className="font-black">{usd(cart.subtotalUSD)}</span></p>
                   {wa ? (
                     <a href={wa} target="_blank" rel="noreferrer" data-brand="whatsapp"
-                      className="social-pill px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5">
+                      className="social-pill px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black flex items-center gap-1.5">
                       <BrandIcon brand="whatsapp" className="w-4 h-4" /> WhatsApp Recovery
                     </a>
                   ) : (
                     <span title={cart.subtotalUSD > 0 ? 'No number that can receive WhatsApp' : 'Nothing in this cart can be bought right now'}
-                      className="px-3 py-2 rounded-xl bg-slate-100 text-slate-400 text-xs font-black flex items-center gap-1.5 cursor-not-allowed">
+                      className="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed">
                       <BrandIcon brand="whatsapp" className="w-4 h-4" /> WhatsApp Recovery
                     </span>
                   )}

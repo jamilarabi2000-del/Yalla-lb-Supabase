@@ -413,7 +413,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                     onClick={() => setSelectedCategory(cat.id as any)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       selectedCategory === cat.id
-                        ? 'bg-indigo-600 text-slate-900 shadow-sm'
+                        ? 'bg-indigo-600 text-white shadow-sm'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
@@ -453,7 +453,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                           </span>
                         </div>
                         {isSelected && (
-                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 text-slate-900 flex items-center justify-center shadow-md">
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md">
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </div>
                         )}

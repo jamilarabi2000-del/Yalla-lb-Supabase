@@ -70,7 +70,7 @@ export const CMSConfirmModal: React.FC<CMSConfirmModalProps> = ({
             onClick={onConfirm}
             className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
               isDanger
-                ? 'bg-rose-600 hover:bg-rose-500 text-slate-900'
+                ? 'bg-rose-600 hover:bg-rose-500 text-white'
                 : 'bg-amber-500 hover:bg-indigo-700 text-slate-950'
             }`}
           >

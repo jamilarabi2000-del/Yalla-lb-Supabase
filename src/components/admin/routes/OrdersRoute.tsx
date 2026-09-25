@@ -144,13 +144,13 @@ export const OrdersRoute: React.FC = () => {
               <Truck className="w-6 h-6" />
             </div>
             <p className="text-sm font-bold text-slate-700">No orders found</p>
-            <p className="text-xs text-slate-400">Try adjusting search query or status filters</p>
+            <p className="text-xs text-slate-500">Try adjusting search query or status filters</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                <tr className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-black uppercase tracking-wider text-slate-500">
                   <th className="py-3.5 px-4">Order ID & Date</th>
                   <th className="py-3.5 px-4">Customer & Phone</th>
                   <th className="py-3.5 px-4">Destination</th>
@@ -167,7 +167,7 @@ export const OrdersRoute: React.FC = () => {
                     <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-4">
                         <div className="font-mono font-bold text-indigo-950 text-xs">#{order.id}</div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3 h-3" />
                           <span>{order.date}</span>
                         </div>
@@ -181,7 +181,7 @@ export const OrdersRoute: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="font-medium text-slate-800">{order.shipping?.city || 'Lebanon'}</div>
-                        <div className="text-[10px] text-slate-400">{order.shipping?.governorate || ''}</div>
+                        <div className="text-[10px] text-slate-500">{order.shipping?.governorate || ''}</div>
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="px-2.5 py-1 rounded-full bg-slate-100 font-bold text-[11px] text-slate-700 border border-slate-200">
@@ -196,7 +196,7 @@ export const OrdersRoute: React.FC = () => {
                             problem was: an order with no stored total_lbp has no
                             LBP figure to report. */}
                         {order.totalLBP > 0 && (
-                          <div className="text-[10px] text-slate-400 font-medium">
+                          <div className="text-[10px] text-slate-500 font-medium">
                             {order.totalLBP.toLocaleString()} LBP
                           </div>
                         )}
@@ -317,7 +317,7 @@ export const OrdersRoute: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                <h4 className="font-bold uppercase text-[10px] tracking-wider text-slate-400 mb-1">Customer & Recipient</h4>
+                <h4 className="font-bold uppercase text-[10px] tracking-wider text-slate-500 mb-1">Customer & Recipient</h4>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Name:</span>
                   <span className="font-bold text-slate-900">{selectedInvoiceOrder.shipping?.fullName || 'Anonymous Shopper'}</span>
@@ -332,7 +332,7 @@ export const OrdersRoute: React.FC = () => {
                         target="_blank"
                         rel="noreferrer"
                         data-brand="whatsapp"
-                        className="social-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-emerald-600 hover:text-emerald-700 font-bold text-[11px]"
+                        className="social-pill inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-emerald-700 hover:text-emerald-700 font-bold text-[11px]"
                       >
                         <BrandIcon brand="whatsapp" className="w-3 h-3 text-[#25D366]" />
                         WhatsApp
@@ -347,7 +347,7 @@ export const OrdersRoute: React.FC = () => {
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                <h4 className="font-bold uppercase text-[10px] tracking-wider text-slate-400 mb-1">Shipping & Address</h4>
+                <h4 className="font-bold uppercase text-[10px] tracking-wider text-slate-500 mb-1">Shipping & Address</h4>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Governorate:</span>
                   <span className="font-bold text-slate-900">{selectedInvoiceOrder.shipping?.governorate || 'N/A'}</span>
@@ -365,7 +365,7 @@ export const OrdersRoute: React.FC = () => {
 
             {/* Line items */}
             <div className="space-y-3">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-400">Order Line Items ({selectedInvoiceOrder.items?.length || 0})</h4>
+              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">Order Line Items ({selectedInvoiceOrder.items?.length || 0})</h4>
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
                 {selectedInvoiceOrder.items?.map((item, idx) => (
                   <div key={idx} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">

@@ -107,9 +107,9 @@ export const ProductsSequenceTableView: React.FC<ProductsSequenceTableViewProps>
                       <div className="min-w-0">
                         <h4 className="font-bold text-slate-900 line-clamp-1 text-xs">{prod.name}</h4>
                         {prod.arabicName && (
-                          <p className="text-[11px] text-[#c5a059] font-serif font-bold line-clamp-1">{prod.arabicName}</p>
+                          <p className="text-[11px] text-[#7d6230] font-serif font-bold line-clamp-1">{prod.arabicName}</p>
                         )}
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-mono">
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500 font-mono">
                           <span>ID: {prod.id}</span>
                           {prod.sellerItemCode && (
                             <span className="text-indigo-600 font-bold">Code: {prod.sellerItemCode}</span>
@@ -173,8 +173,8 @@ export const ProductsSequenceTableView: React.FC<ProductsSequenceTableViewProps>
                         onClick={() => onTogglePublish(prod.id)}
                         className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                           isPublished 
-                            ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' 
-                            : 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                            ? 'text-slate-500 hover:text-amber-600 hover:bg-amber-50' 
+                            : 'text-amber-700 bg-amber-50 hover:bg-amber-100'
                         }`}
                         title={isPublished ? "Hide from catalog" : "Unhide product"}
                       >
@@ -184,7 +184,7 @@ export const ProductsSequenceTableView: React.FC<ProductsSequenceTableViewProps>
                       <button
                         type="button"
                         onClick={() => onEditProduct(prod)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
                         title="Full Edit"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -193,7 +193,7 @@ export const ProductsSequenceTableView: React.FC<ProductsSequenceTableViewProps>
                       <button
                         type="button"
                         onClick={() => onQuickPriceStock(prod)}
-                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                         title="Quick Price & Stock"
                       >
                         <DollarSign className="w-3.5 h-3.5" />
@@ -202,7 +202,7 @@ export const ProductsSequenceTableView: React.FC<ProductsSequenceTableViewProps>
                       <button
                         type="button"
                         onClick={() => onDeleteProduct(prod)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         title="Delete Product"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

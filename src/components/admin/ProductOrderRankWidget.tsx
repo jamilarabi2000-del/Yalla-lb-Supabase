@@ -65,7 +65,7 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-black tracking-tight ${
                 isTop 
                   ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-900 shadow-xs' 
-                  : 'bg-slate-800 text-slate-900'
+                  : 'bg-slate-800 text-white'
               }`}
               title={`Current Rank Sequence: #${currentRank} of ${totalProducts}`}
             >
@@ -128,7 +128,7 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
           <button
             type="submit"
             disabled={!targetRankInput.trim()}
-            className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-slate-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors"
           >
             Go
           </button>
@@ -231,7 +231,7 @@ export const ProductOrderRankWidget: React.FC<ProductOrderRankWidgetProps> = ({
         <button
           type="submit"
           disabled={!targetRankInput.trim()}
-          className="px-2.5 py-1 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-slate-900 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          className="px-2.5 py-1 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition-colors whitespace-nowrap"
         >
           Move
         </button>

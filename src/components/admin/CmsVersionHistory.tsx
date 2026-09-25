@@ -78,9 +78,9 @@ export const CmsVersionHistory: React.FC = () => {
       {message && <div className="mx-5 mt-4 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-700">{message}</div>}
 
       {loading ? (
-        <div className="p-8 flex items-center justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+        <div className="p-8 flex items-center justify-center text-slate-500"><Loader2 className="w-5 h-5 animate-spin" /></div>
       ) : versions.length === 0 ? (
-        <div className="p-8 text-center text-xs text-slate-400">No saved CMS versions yet.</div>
+        <div className="p-8 text-center text-xs text-slate-500">No saved CMS versions yet.</div>
       ) : (
         <div className="divide-y divide-slate-100">
           {versions.map((version) => {

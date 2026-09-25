@@ -279,7 +279,7 @@ export const SellersView: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[11px] font-black font-mono">{s.sellerCode || 'NO CODE'}</span>
-                          <span className="text-[10px] font-mono text-slate-400 truncate" title={s.id}>{s.legacyId || s.id.slice(0, 8)}</span>
+                          <span className="text-[10px] font-mono text-slate-500 truncate" title={s.id}>{s.legacyId || s.id.slice(0, 8)}</span>
                           {inactive && <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black">Inactive</span>}
                         </div>
                         <h3 className="mt-2 font-black leading-tight">{s.nameEn}</h3>
@@ -288,7 +288,7 @@ export const SellersView: React.FC = () => {
                       <button onClick={() => togglePower(s)} aria-pressed={!inactive}
                         aria-label={inactive ? `Activate ${s.nameEn} store-wide` : `Deactivate ${s.nameEn} store-wide`}
                         title={inactive ? 'Activate store-wide' : 'Deactivate store-wide'}
-                        className={`p-2 rounded-xl border ${inactive ? 'border-slate-200 text-slate-400' : 'border-emerald-200 bg-emerald-50 text-emerald-600'}`}>
+                        className={`p-2 rounded-xl border ${inactive ? 'border-slate-200 text-slate-500' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
                         <Power className="w-4 h-4" aria-hidden />
                       </button>
                     </div>
@@ -312,12 +312,12 @@ export const SellersView: React.FC = () => {
                     </dl>
 
                     <p className="mt-3 text-xs font-black text-slate-800">
-                      {live} Products Linked{total !== live && <span className="font-semibold text-slate-400"> ({total} incl. drafts)</span>}
+                      {live} Products Linked{total !== live && <span className="font-semibold text-slate-500"> ({total} incl. drafts)</span>}
                     </p>
 
                     <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5 mt-auto">
                       <button onClick={() => manageAccount(s)} className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-[11px] font-black flex items-center gap-1">
-                        <UserPlus className="w-3.5 h-3.5" aria-hidden /> Manage Account{s.hasAccount && <span className="text-emerald-600"> · linked</span>}
+                        <UserPlus className="w-3.5 h-3.5" aria-hidden /> Manage Account{s.hasAccount && <span className="text-emerald-700"> · linked</span>}
                       </button>
                       <button onClick={() => setEditing({ id: s.id, initial: sellerToForm(s) })} className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-[11px] font-black flex items-center gap-1">
                         <Edit3 className="w-3.5 h-3.5" aria-hidden /> Edit
@@ -366,7 +366,7 @@ export const SellersView: React.FC = () => {
                 )}
                 {a.status === 'pending' && (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button onClick={() => approve(a)} disabled={handling !== null} className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 disabled:opacity-50">
+                    <button onClick={() => approve(a)} disabled={handling !== null} className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black flex items-center gap-1.5 disabled:opacity-50">
                       <CheckCircle2 className="w-4 h-4" aria-hidden /> {handling === a.id ? 'Working…' : 'Approve & Assign Code'}
                     </button>
                     <button onClick={() => decline(a)} disabled={handling !== null} className="px-3 py-2 rounded-xl bg-rose-50 text-rose-700 text-xs font-black flex items-center gap-1.5 disabled:opacity-50">

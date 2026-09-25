@@ -157,7 +157,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2.5 relative z-10 w-full md:w-auto">
           <button
             onClick={() => onNavigateToTab('sales')}
-            className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-slate-900 rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs hover:shadow-md cursor-pointer active:scale-95 text-center"
+            className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs hover:shadow-md cursor-pointer active:scale-95 text-center"
             title="Open dedicated Sales Analytics dashboard with period & entity filters"
           >
             <TrendingUp className="w-3.5 h-3.5 text-slate-900 shrink-0" />
@@ -177,7 +177,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           <button
             onClick={handleSyncDatabase}
             disabled={isSyncingDb}
-            className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-900 rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-md cursor-pointer disabled:opacity-50 active:scale-95 text-center"
+            className="flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-md cursor-pointer disabled:opacity-50 active:scale-95 text-center"
             title="Save and synchronize all products & custom sections to Firestore database"
           >
             <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isSyncingDb ? 'animate-spin' : ''}`} />
@@ -214,7 +214,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           </div>
           <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{formatPrice(totalRevenueUSD)}</p>
           <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
-            <div className="flex items-center gap-1 text-emerald-600 font-bold truncate">
+            <div className="flex items-center gap-1 text-emerald-700 font-bold truncate">
               <TrendingUp className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">View Sales Analytics</span>
             </div>
@@ -235,7 +235,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           </div>
           <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{orders.length}</p>
           <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
-            <span className="text-amber-600 font-bold truncate">{activeOrdersCount} In Dispatch Queue</span>
+            <span className="text-amber-700 font-bold truncate">{activeOrdersCount} In Dispatch Queue</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-600 transition-colors shrink-0" />
           </div>
         </div>
@@ -253,7 +253,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           </div>
           <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">{products.length}</p>
           <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
-            <span className="text-emerald-600 font-bold truncate">{publishedProductsCount} Live in Storefront</span>
+            <span className="text-emerald-700 font-bold truncate">{publishedProductsCount} Live in Storefront</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-600 transition-colors shrink-0" />
           </div>
         </div>
@@ -355,7 +355,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
 
               <div className="p-3 bg-slate-50 rounded-2xl flex items-center justify-between border border-slate-100">
                 <span className="text-slate-600 font-medium">Beirut Same-Day Express</span>
-                <span className="font-bold text-emerald-600 flex items-center gap-1">
+                <span className="font-bold text-emerald-700 flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                   Active (3-6h)
                 </span>
@@ -391,7 +391,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
 
           <button
             onClick={handleExportMaster}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-slate-900 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm hover:shadow-md active:scale-95"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download Full Master CSV</span>
@@ -407,7 +407,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-slate-900 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition-transform">
                   <FileSpreadsheet className="w-5 h-5" />
                 </div>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase tracking-wide">
@@ -432,7 +432,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-slate-900 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition-transform">
                   <Store className="w-5 h-5" />
                 </div>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wide">
@@ -482,7 +482,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-sky-600 text-slate-900 flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-2xl bg-sky-700 text-white flex items-center justify-center font-bold shadow-xs group-hover:scale-105 transition-transform">
                   <Truck className="w-5 h-5" />
                 </div>
                 <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-black uppercase tracking-wide">
@@ -537,7 +537,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg border border-amber-100/80 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-lg border border-amber-100/80 group-hover:scale-105 transition-transform">
                   🏠
                 </div>
                 <span className="text-[11px] font-extrabold text-indigo-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
@@ -600,7 +600,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg border border-emerald-100/80 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-lg border border-emerald-100/80 group-hover:scale-105 transition-transform">
                   💳
                 </div>
                 <span className="text-[11px] font-extrabold text-indigo-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
@@ -663,7 +663,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg border border-teal-100/80 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-lg border border-teal-100/80 group-hover:scale-105 transition-transform">
                   🧭
                 </div>
                 <span className="text-[11px] font-extrabold text-indigo-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
@@ -705,7 +705,7 @@ export const EcommerceOverview: React.FC<EcommerceOverviewProps> = ({ onNavigate
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold text-lg border border-cyan-100/80 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-50 text-cyan-700 flex items-center justify-center font-bold text-lg border border-cyan-100/80 group-hover:scale-105 transition-transform">
                   🧱
                 </div>
                 <span className="text-[11px] font-extrabold text-indigo-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">

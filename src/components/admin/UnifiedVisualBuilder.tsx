@@ -30,7 +30,7 @@ export const UnifiedVisualBuilder: React.FC = () => {
             <button
               type="button"
               onClick={() => setMode('structure')}
-              className={`px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 ${mode === 'structure' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
+              className={`px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 ${mode === 'structure' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'}`}
             >
               <LayoutTemplate className="w-4 h-4" />
               Structure
@@ -38,7 +38,7 @@ export const UnifiedVisualBuilder: React.FC = () => {
             <button
               type="button"
               onClick={() => setMode('content')}
-              className={`px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 ${mode === 'content' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
+              className={`px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 ${mode === 'content' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600'}`}
             >
               <Sparkles className="w-4 h-4" />
               Content Blocks

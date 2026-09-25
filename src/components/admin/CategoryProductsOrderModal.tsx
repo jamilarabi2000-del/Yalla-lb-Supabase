@@ -171,29 +171,29 @@ export const CategoryProductsOrderModal: React.FC<CategoryProductsOrderModalProp
       >
         
         {/* Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-slate-900 flex items-center justify-between gap-4 shrink-0">
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 text-2xl flex items-center justify-center shadow-xs">
               {category.icon || '📦'}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 id="category-order-modal-title" className="text-base sm:text-lg font-bold text-slate-900">
+                <h3 id="category-order-modal-title" className="text-base sm:text-lg font-bold text-white">
                   Order Products: {category.nameEn}
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/30 text-indigo-100 border border-indigo-400/30">
                   {orderedItems.length} {orderedItems.length === 1 ? 'Product' : 'Products'}
                 </span>
               </div>
-              <p className="text-xs text-slate-600 font-serif truncate mt-0.5">
-                {category.nameAr} • Click <span className="text-indigo-600 font-bold font-sans">⚡ Make #1</span> or type any number into <span className="text-indigo-200 font-bold font-sans">Move to:</span> to instantly jump from order 1000 to 1 without step-by-step clicking.
+              <p className="text-xs text-slate-300 font-serif truncate mt-0.5">
+                {category.nameAr} • Click <span className="text-indigo-300 font-bold font-sans">⚡ Make #1</span> or type any number into <span className="text-indigo-200 font-bold font-sans">Move to:</span> to instantly jump from order 1000 to 1 without step-by-step clicking.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-900 flex items-center justify-center transition-all cursor-pointer shrink-0"
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -338,7 +338,7 @@ export const CategoryProductsOrderModal: React.FC<CategoryProductsOrderModalProp
                           {prod.name}
                         </h4>
                         {prod.arabicName && (
-                          <span className="text-xs text-[#c5a059] font-serif font-bold truncate">
+                          <span className="text-xs text-[#7d6230] font-serif font-bold truncate">
                             {prod.arabicName}
                           </span>
                         )}
@@ -349,7 +349,7 @@ export const CategoryProductsOrderModal: React.FC<CategoryProductsOrderModalProp
                         <span>•</span>
                         <span className="font-bold text-slate-900">{formatPrice(prod.priceUSD)}</span>
                         <span>•</span>
-                        <span className={`font-semibold ${prod.stock > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <span className={`font-semibold ${prod.stock > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                           {prod.stock > 0 ? `${prod.stock} in stock` : 'Out of stock'}
                         </span>
                         {prod.sellerItemCode && (
@@ -390,7 +390,7 @@ export const CategoryProductsOrderModal: React.FC<CategoryProductsOrderModalProp
                           const input = document.getElementById(`rank-input-${prod.id}`) as HTMLInputElement;
                           if (input) handleSetRank(actualIndex, input.value);
                         }}
-                        className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-slate-900 rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
+                        className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold cursor-pointer transition-colors"
                         title="Apply target position immediately"
                       >
                         Go
@@ -407,7 +407,7 @@ export const CategoryProductsOrderModal: React.FC<CategoryProductsOrderModalProp
                           : 'bg-slate-100 text-slate-500 hover:text-amber-600 hover:bg-amber-50'
                       }`}
                     >
-                      <Star className={`w-4 h-4 ${prod.isFeatured ? 'fill-amber-500 text-amber-500' : ''}`} />
+                      <Star className={`w-4 h-4 ${prod.isFeatured ? 'fill-amber-500 text-amber-700' : ''}`} />
                     </button>
 
                     {/* Visibility Toggle */}
@@ -455,7 +455,7 @@ export const CategoryProductsOrderModal: React.FC<CategoryProductsOrderModalProp
             <button
               onClick={handleSaveOrder}
               disabled={isSaving || orderedItems.length === 0}
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#4f46e5] to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-slate-900 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#4f46e5] to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
               <span>{isSaving ? 'Saving Order...' : 'Save Product Order'}</span>

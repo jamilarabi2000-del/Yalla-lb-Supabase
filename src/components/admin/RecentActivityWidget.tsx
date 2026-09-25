@@ -50,13 +50,13 @@ export const RecentActivityWidget: React.FC = () => {
       case 'product_add':
         return {
           icon: <PlusCircle className="w-4 h-4" />,
-          bg: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+          bg: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
         };
       case 'product_update':
       case 'product_bulk_update':
         return {
           icon: <Edit3 className="w-4 h-4" />,
-          bg: 'bg-amber-50 text-amber-600 border border-amber-100',
+          bg: 'bg-amber-50 text-amber-700 border border-amber-100',
         };
       case 'product_delete':
         return {
@@ -71,7 +71,7 @@ export const RecentActivityWidget: React.FC = () => {
       case 'meta_change':
         return {
           icon: <Globe className="w-4 h-4" />,
-          bg: 'bg-teal-50 text-teal-600 border border-teal-100',
+          bg: 'bg-teal-50 text-teal-700 border border-teal-100',
         };
       case 'cms_update':
       default:
@@ -278,7 +278,7 @@ export const RecentActivityWidget: React.FC = () => {
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
               <div>
                 {selectedActivityForDiff.isUndone && (
-                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                  <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>This change was previously undone and recovered.</span>
                   </span>

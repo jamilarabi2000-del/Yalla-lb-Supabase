@@ -353,7 +353,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
           {badgeText && (
             <div className="flex items-center gap-1.5 z-10">
               <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                isDarkBg ? 'bg-white/10 text-[#F3E5AB] border border-white/15' : 'bg-black/5 text-[#737373] border border-black/10'
+                isDarkBg ? 'bg-white/10 text-[#F3E5AB] border border-white/15' : 'bg-black/5 text-[#595959] border border-black/10'
               }`}>
                 {badgeText}
               </span>
@@ -410,7 +410,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
           <div className="flex items-center justify-between z-10">
             <div className="flex items-center gap-2 min-w-0">
               <div className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate ${
-                isDarkBg ? 'text-[#F3E5AB]' : 'text-[#737373]'
+                isDarkBg ? 'text-[#F3E5AB]' : 'text-[#595959]'
               }`}>
                 {badgeText || selectedProduct.category || (isAr ? 'منتج مميز' : 'Special Feature')}
               </div>
@@ -489,7 +489,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
         <div className="flex items-center justify-between z-10">
           {badgeText ? (
             <div className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate px-2.5 py-0.5 rounded-full ${
-              isDarkBg ? 'bg-white/10 text-[#F3E5AB] border border-white/15' : 'bg-black/5 text-[#737373] border border-black/10'
+              isDarkBg ? 'bg-white/10 text-[#F3E5AB] border border-white/15' : 'bg-black/5 text-[#595959] border border-black/10'
             }`}>
               {badgeText}
             </div>

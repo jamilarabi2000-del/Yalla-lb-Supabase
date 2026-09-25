@@ -218,7 +218,7 @@ export const ProductBundlesManager: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-xl">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-700 border border-amber-500/20">
               <PackageCheck className="w-5 h-5" />
             </span>
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">Combo & Bundle Deals Creator</h2>
@@ -246,7 +246,7 @@ export const ProductBundlesManager: React.FC = () => {
           </p>
           <button
             onClick={handleOpenCreate}
-            className="mt-4 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold hover:bg-amber-500/20 transition-all"
+            className="mt-4 px-4 py-2 bg-amber-500/10 text-amber-700 border border-amber-500/30 rounded-xl text-xs font-bold hover:bg-amber-500/20 transition-all"
           >
             Create Your First Bundle
           </button>
@@ -271,12 +271,12 @@ export const ProductBundlesManager: React.FC = () => {
                   <div className="flex justify-between items-start gap-3 mb-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       {bundle.badgeText && (
-                        <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-700 border border-amber-500/30">
                           {bundle.badgeText}
                         </span>
                       )}
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        bundle.isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'
+                        bundle.isActive ? 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'
                       }`}>
                         {bundle.isActive ? 'Active' : 'Draft'}
                       </span>
@@ -287,7 +287,7 @@ export const ProductBundlesManager: React.FC = () => {
                         onClick={() => handleToggleSlider(bundle)}
                         className={`p-1.5 rounded-lg text-xs font-medium border transition-colors ${
                           bundle.showInSlider !== false 
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20' 
+                            ? 'bg-amber-500/10 text-amber-700 border-amber-500/30 hover:bg-amber-500/20' 
                             : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-900'
                         }`}
                         title={bundle.showInSlider !== false ? 'Hide from hero slider' : 'Show in hero slider'}
@@ -298,7 +298,7 @@ export const ProductBundlesManager: React.FC = () => {
                         onClick={() => handleToggleActive(bundle)}
                         className={`p-1.5 rounded-lg text-xs font-medium border transition-colors ${
                           bundle.isActive 
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20' 
+                            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/20' 
                             : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-900'
                         }`}
                         title={bundle.isActive ? 'Deactivate' : 'Publish'}
@@ -307,14 +307,14 @@ export const ProductBundlesManager: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleOpenEdit(bundle)}
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-200 text-slate-600 border border-slate-700 transition-colors"
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
                         title="Edit Bundle"
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(bundle.id, bundle.name)}
-                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-colors"
+                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 border border-rose-500/30 transition-colors"
                         title="Delete Bundle"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -331,7 +331,7 @@ export const ProductBundlesManager: React.FC = () => {
                   <div className="flex items-center gap-2 flex-wrap mb-3">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                       bundle.showInSlider !== false 
-                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' 
+                        ? 'bg-amber-500/15 text-amber-700 border border-amber-500/30' 
                         : 'bg-slate-800/80 text-slate-500 border border-slate-750'
                     }`}>
                       {bundle.showInSlider !== false ? <Eye className="w-3 h-3 text-amber-400" /> : <EyeOff className="w-3 h-3 text-slate-500" />}
@@ -339,18 +339,18 @@ export const ProductBundlesManager: React.FC = () => {
                     </span>
 
                     {bundle.imageUrl ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/15 text-cyan-700 border border-cyan-500/30">
                         <ImageIcon className="w-3 h-3" />
                         <span>Custom Cover Image</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-500">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
                         <span>Auto 1st Product Photo</span>
                       </span>
                     )}
 
                     {bundle.showButtonInSlider === false && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/15 text-rose-700 border border-rose-500/30">
                         <span>Slide Button: Hidden</span>
                       </span>
                     )}
@@ -382,7 +382,7 @@ export const ProductBundlesManager: React.FC = () => {
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold block">Combo Price</span>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-extrabold text-amber-400 font-mono">${bundle.bundlePriceUSD.toFixed(2)}</span>
+                      <span className="text-xl font-extrabold text-amber-700 font-mono">${bundle.bundlePriceUSD.toFixed(2)}</span>
                       {originalSum > bundle.bundlePriceUSD && (
                         <span className="text-xs text-slate-500 line-through font-mono">${originalSum.toFixed(2)}</span>
                       )}
@@ -391,7 +391,7 @@ export const ProductBundlesManager: React.FC = () => {
 
                   {savedAmount > 0 && (
                     <div className="text-right">
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono">
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-700 border border-emerald-500/30 text-xs font-bold font-mono">
                         Customer Saves ${savedAmount.toFixed(2)} ({savedPercentage}%)
                       </span>
                     </div>
@@ -508,7 +508,7 @@ export const ProductBundlesManager: React.FC = () => {
               {/* Product Selector */}
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold uppercase text-amber-400">
+                  <label className="text-xs font-bold uppercase text-amber-700">
                     Select Products Included in this Combo ({form.productIds.length} Selected) *
                   </label>
                   <input
@@ -543,7 +543,7 @@ export const ProductBundlesManager: React.FC = () => {
                           </div>
                           <span className="text-xs font-medium truncate">{p.name}</span>
                         </div>
-                        <span className="text-xs font-mono text-amber-400 font-bold flex-shrink-0">${p.priceUSD.toFixed(2)}</span>
+                        <span className="text-xs font-mono text-amber-700 font-bold flex-shrink-0">${p.priceUSD.toFixed(2)}</span>
                       </div>
                     );
                   })}
@@ -559,7 +559,7 @@ export const ProductBundlesManager: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase text-amber-400 mb-1">
+                    <label className="block text-xs font-bold uppercase text-amber-700 mb-1">
                       Special Combo Price (USD) *
                     </label>
                     <div className="relative">
@@ -570,14 +570,14 @@ export const ProductBundlesManager: React.FC = () => {
                         required
                         value={form.bundlePriceUSD}
                         onChange={e => setForm({ ...form, bundlePriceUSD: parseFloat(e.target.value) || 0 })}
-                        className="w-full pl-9 pr-4 py-2 bg-white border border-amber-500/50 rounded-xl text-sm font-mono font-bold text-amber-400 focus:outline-none focus:border-indigo-500"
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-amber-500/50 rounded-xl text-sm font-mono font-bold text-amber-700 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-xs">
-                    <span className="text-emerald-400 font-bold">Total Customer Savings:</span>
-                    <span className="font-mono text-emerald-400 font-extrabold text-sm">
+                    <span className="text-emerald-700 font-bold">Total Customer Savings:</span>
+                    <span className="font-mono text-emerald-700 font-extrabold text-sm">
                       ${formSavedUSD.toFixed(2)} ({formSavedPercent}% OFF)
                     </span>
                   </div>
@@ -683,7 +683,7 @@ export const ProductBundlesManager: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-200 text-slate-600 text-xs font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
                 >
                   Cancel
                 </button>
@@ -730,7 +730,7 @@ export const ProductBundlesManager: React.FC = () => {
                 type="button"
                 onClick={() => setBundleToDelete(null)}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -738,7 +738,7 @@ export const ProductBundlesManager: React.FC = () => {
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-slate-900 text-xs font-bold transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-lg cursor-pointer disabled:opacity-50"
               >
                 {isDeleting ? (
                   <span>Deleting...</span>

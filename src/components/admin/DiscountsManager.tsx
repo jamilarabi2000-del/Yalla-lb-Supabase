@@ -266,7 +266,7 @@ export const DiscountsManager: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -z-1" />
             <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#b89753] mb-1">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#7d6230] mb-1">
                 <Tag className="w-4 h-4" />
                 <span>Promotions & Discount Engine</span>
               </div>
@@ -277,7 +277,7 @@ export const DiscountsManager: React.FC = () => {
             </div>
             <button
               onClick={handleOpenCreate}
-              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-slate-900 font-extrabold text-xs tracking-wider uppercase shadow-md shadow-amber-500/20 hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:-translate-y-0.5 active:translate-y-0"
+              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-black font-extrabold text-xs tracking-wider uppercase shadow-md shadow-amber-500/20 hover:brightness-105 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:-translate-y-0.5 active:translate-y-0"
             >
               <Plus className="w-4 h-4" />
               <span>Create New Discount</span>
@@ -381,7 +381,7 @@ export const DiscountsManager: React.FC = () => {
 
                   <div className="flex items-baseline justify-between gap-2 pt-1">
                     <h3 className="font-extrabold text-slate-900 text-base leading-snug">{rule.name}</h3>
-                    <span className="text-xl font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200/60 shrink-0">
+                    <span className="text-xl font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200/60 shrink-0">
                       {rule.type === 'bogo' 
                         ? `Buy ${rule.buyQty || 1} Get ${rule.getQty || 1} ${(rule.getDiscountPercent || 100) === 100 ? 'FREE' : `${rule.getDiscountPercent}% OFF`}`
                         : (isPercentage ? `${rule.value}% OFF` : `$${rule.value} OFF`)}
@@ -438,7 +438,7 @@ export const DiscountsManager: React.FC = () => {
                   <button
                     onClick={() => handleToggleActive(rule)}
                     className={`flex items-center gap-1.5 text-xs font-bold cursor-pointer transition-colors ${
-                      rule.isActive ? 'text-emerald-600 hover:text-emerald-700' : 'text-slate-500 hover:text-slate-600'
+                      rule.isActive ? 'text-emerald-700 hover:text-emerald-700' : 'text-slate-500 hover:text-slate-600'
                     }`}
                   >
                     {rule.isActive ? (
@@ -836,7 +836,7 @@ export const DiscountsManager: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-slate-900 font-bold text-xs shadow-md shadow-amber-500/20 hover:brightness-105 transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#b89753] to-[#96783d] text-black font-bold text-xs shadow-md shadow-amber-500/20 hover:brightness-105 transition-all cursor-pointer"
                 >
                   {editingId ? 'Save Changes' : 'Create Discount Rule'}
                 </button>
