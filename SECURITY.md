@@ -424,6 +424,14 @@ These reduce blast radius. None of them is an authorization control.
   `VITE_ADMIN_ENTRY_SHA256`), so the address cannot be read out of the
   bundle. Sellers sign in on the Account page. This keeps bots away from the
   sign-in form; the password, the second factor and RLS remain the controls.
+- **Per-text styles** (Style Text): each value is checked against a closed
+  list of properties and a pattern per property (`src/lib/textStyleRules.ts`)
+  when the editor saves it, when any browser loads it and again when it is
+  turned into CSS. The database checks the same list: trigger
+  `check_text_style_rules` refuses a `text_styles` row with an unknown
+  property, a value that could end a declaration or fetch a URL, a font the
+  site does not load, or a move beyond ±300px. `test/textStyleRules.test.ts`
+  keeps the two lists in step.
 - **CSV export**: `src/utils/csvSafe.ts` prefixes `= + - @ TAB CR LF |`.
 - **Diagnostics**: `src/utils/dbLogger.ts` redacts PII by pattern and exposes
   its buffer on `window` only in development builds.
@@ -446,6 +454,9 @@ These reduce blast radius. None of them is an authorization control.
 | Gap | Status |
 | :--- | :--- |
 | Leaked-password protection (HaveIBeenPwned) | **Not enabled** — requires a paid Supabase plan. |
+| Public source repository | The GitHub repository is **public**: the full source, migrations and these documents can be read by anyone. No secret is in it (history scanned 2026-09-25), and the design does not rely on the source being secret, but making it private removes the map an attacker would study. Vercel's free plan deploys private repositories from a personal account. |
+| Legacy Firebase browser key in git history | `firebase-applet-config.json` (added 2026-09-13, deleted 2026-09-14) held a Google/Firebase **browser** API key. Such keys identify a project rather than grant access, but it remains readable in the public history: restrict it to the site's referrer in Google Cloud → Credentials, or delete the unused Firebase project. |
+| CAPTCHA | **Off in production**: `VITE_TURNSTILE_SITE_KEY` is not set in Vercel (checked 2026-09-25). Turn it on as described in section 6. |
 | Sign-in hook | **Must be switched on** in Supabase -> Authentication -> Hooks. Until then Supabase itself does not insist on the password + code pair: a password alone, or a code alone, still signs in through the API; the site's own forms always ask for both. |
 | Forgot password | Needs only the mailbox, by the owner's choice (above). |
 | Seller provisioning | `admin-seller-provision` sets the temporary password the admin passes on; the seller signs in with it and an emailed code, and can change it with Forgot password. |

@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   MAX_NUDGE_PX,
   TEXT_FONTS,
+  TEXT_STYLE_PROPS,
   UNSAFE_CSS_VALUE,
   buildTextRulesCss,
   isEmptyStyle,
@@ -182,6 +183,22 @@ describe('storage and wiring', () => {
     expect(app).toMatch(/<TextStyleLayer page=\{activeTab\} enabled=\{!adminOpen\} \/>/);
     const bar = stripTs(read('src/components/AdminQuickEditor.tsx'));
     expect(bar).toMatch(/isStylingText && onStorefront &&/);
+  });
+
+  it('the database refuses what the editor would never save, and accepts everything it would', () => {
+    const file = fs.readdirSync(path.resolve(process.cwd(), 'supabase/migrations'))
+      .find(f => /^\d{14}_text_style_rules_server_check\.sql$/.test(f));
+    expect(file, 'server check migration').toBeTruthy();
+    const sql = read(`supabase/migrations/${file}`);
+    expect(sql).toMatch(/before insert or update on public\.cms_site_content\s+for each row when \(new\.id = 'text_styles'\)/);
+    // Every property the editor can save has its own pattern on the server; a
+    // property added to one list and not the other would make saves fail.
+    const serverProps = [...sql.matchAll(/when '([a-z-]+)' then/g)].map(m => m[1]).sort();
+    expect(serverProps).toEqual([...TEXT_STYLE_PROPS].sort());
+    for (const font of TEXT_FONTS) expect(sql, font.label).toContain(`'${font.value}'`);
+    expect(sql.match(/<= (\d+) else false end/g)?.every(m => m.includes(`<= ${MAX_NUDGE_PX} `))).toBe(true);
+    // The same guard against breaking out of a declaration, before any pattern.
+    expect(sql).toMatch(/\[;\{\}<>\\\\\]\|\/\\\*\|url\[\[:space:\]\]\*\\\(\|expression\[\[:space:\]\]\*\\\(\|@\|!important/);
   });
 
   it('the editor panel is not a dialog, which the "Cart drawer" design target would hide', () => {
