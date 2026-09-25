@@ -37,7 +37,7 @@ interface EmailPasswordSignInProps {
  * confirmed with a code; Forgot password emails a code that lets the shopper
  * choose a new password (NewPasswordPrompt asks for it once they are in).
  * Supabase enforces the password + code pair: see
- * 20260925090100_code_sign_in_needs_password.sql.
+ * 20260925013551_code_sign_in_needs_password.sql.
  *
  * Each step is its own small form, and none may sit inside another form.
  */

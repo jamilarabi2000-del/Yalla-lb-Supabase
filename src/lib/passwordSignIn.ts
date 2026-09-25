@@ -3,7 +3,7 @@ import { validatePassword } from './passwordPolicy';
 /**
  * What public.verify_login_password answers. 'ok' also leaves the database a
  * note that lets the code emailed next sign the account in (see
- * 20260925090000_password_check_for_sign_in.sql).
+ * 20260925013151_password_check_for_sign_in.sql).
  */
 export type LoginPasswordStatus = 'ok' | 'wrong' | 'no_account' | 'locked';
 
