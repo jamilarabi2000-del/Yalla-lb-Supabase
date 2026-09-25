@@ -10,6 +10,14 @@ const PAGE_NAMES: Record<string, string> = {
 };
 const fontName = (value?: string) => TEXT_FONTS.find(f => f.value === value)?.label;
 
+/** "moved right 10px, up 5px" for a nudged text, or '' when it is not moved. */
+function movedSummary(d: { left?: string; top?: string }): string {
+  const x = parseInt(d.left || '0', 10) || 0;
+  const y = parseInt(d.top || '0', 10) || 0;
+  const parts = [x && `${x > 0 ? 'right' : 'left'} ${Math.abs(x)}px`, y && `${y > 0 ? 'down' : 'up'} ${Math.abs(y)}px`].filter(Boolean);
+  return parts.length ? `moved ${parts.join(', ')}` : '';
+}
+
 /** Every text an administrator has styled on its own, across all pages. */
 export const CMSStyledTextsPanel: React.FC = () => {
   const shop = useShop() as any;
@@ -49,7 +57,8 @@ export const CMSStyledTextsPanel: React.FC = () => {
             const d = rule.style.desktop || {};
             const summary = [
               fontName(d['font-family']), d['font-size'], d['font-weight'] && `weight ${d['font-weight']}`,
-              d['text-align'] && `aligned ${d['text-align']}`, (rule.style.tablet || rule.style.mobile) && 'per-device sizes',
+              d['text-align'] && `aligned ${d['text-align']}`, movedSummary(d),
+              (rule.style.tablet || rule.style.mobile) && 'differs on tablet/mobile',
             ].filter(Boolean).join(' · ');
             return (
               <li key={rule.id} className="py-2.5 flex items-center gap-3">

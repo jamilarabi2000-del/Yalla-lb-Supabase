@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  AlignCenter, AlignJustify, AlignLeft, AlignRight, Italic, MousePointerClick, Trash2, Type, Underline, X,
+  AlignCenter, AlignJustify, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Italic,
+  MousePointerClick, RotateCcw, Trash2, Type, Underline, X,
 } from 'lucide-react';
 import { removeTextRule, saveTextRule, setEditingTextRule, useTextRules } from '../hooks/useTextRules';
 import { EDITOR_ATTR, findRuleMatches, isInlineElement, scopeSelectorFor, textTargetFrom } from '../lib/textStyleDom';
 import {
-  PREVIEW_SELECTOR, TEXT_FONTS, TEXT_RULE_ATTR, TEXT_RULE_PREVIEW_ATTR, isEmptyStyle, newRuleId,
+  MAX_NUDGE_PX, PREVIEW_SELECTOR, TEXT_FONTS, TEXT_RULE_ATTR, TEXT_RULE_PREVIEW_ATTR, isEmptyStyle, newRuleId,
   normalizeText, ruleAppliesOn, sanitizeStyle, styleCss,
   type CMSTextRule, type TextDevice, type TextStyleProp,
 } from '../lib/textStyleRules';
@@ -31,7 +32,7 @@ const num = (value?: string) => (value ? String(parseFloat(value)) : '');
 
 /**
  * Click any text on the storefront and give it its own font, size, colour,
- * alignment and spacing. Admin-only; every page click is intercepted while
+ * alignment, spacing and position. Admin-only; every page click is intercepted while
  * the mode is on, so links and buttons do not fire.
  */
 export const TextStyleEditor: React.FC<{
@@ -162,6 +163,18 @@ export const TextStyleEditor: React.FC<{
   });
   const toggle = (prop: TextStyleProp, on: string, off: string) =>
     setProp(prop, (current[prop] || inherited[prop]) === on ? (device === 'desktop' ? null : off) : on);
+  /**
+   * Position: whole pixels, kept within the nudge range. 0 clears it, except
+   * on tablet or mobile when desktop moves the text: there 0 is kept, so that
+   * device can say "do not move it here".
+   */
+  const setNudge = (prop: 'left' | 'top', px: number) => {
+    const clamped = Math.max(-MAX_NUDGE_PX, Math.min(MAX_NUDGE_PX, Math.round(px)));
+    const inheritedPx = parseFloat(inherited[prop] || '0') || 0;
+    setProp(prop, clamped === 0 && (device === 'desktop' || inheritedPx === 0) ? null : `${clamped}px`);
+  };
+  const nudgeBy = (prop: 'left' | 'top', delta: number) =>
+    setNudge(prop, (parseFloat(current[prop] || inherited[prop] || '0') || 0) + delta);
 
   const save = async () => {
     if (!selection) return;
@@ -233,7 +246,7 @@ export const TextStyleEditor: React.FC<{
           <div className="p-4 space-y-4">
             <p className="text-xs text-slate-600 flex gap-2">
               <MousePointerClick className="w-4 h-4 shrink-0 text-indigo-600" aria-hidden />
-              Click any text on the page to change its font, size, colour or alignment. Links and buttons do not work while this is open. Press Esc to leave.
+              Click any text on the page to change its font, size, colour, alignment or position. Links and buttons do not work while this is open. Press Esc to leave.
             </p>
             <div>
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Styled here ({onThisPage.length})</p>
@@ -325,7 +338,34 @@ export const TextStyleEditor: React.FC<{
                   </button>
                 ))}
               </div>
-              {selection.inline && <p className="mt-1 text-[10px] text-slate-400">This text sits inside a line; to align it, click the paragraph or heading around it.</p>}
+              {selection.inline && <p className="mt-1 text-[10px] text-slate-500">This text sits inside a line; to align it, click the paragraph or heading around it.</p>}
+            </div>
+
+            <div>
+              <span className={label}>Position</span>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <label className={label}>Move right (px)
+                  <input id="text-style-left" disabled={selection.inline} type="number" step={1} min={-MAX_NUDGE_PX} max={MAX_NUDGE_PX} value={num(current.left)} placeholder={num(inherited.left) || '0'}
+                    onChange={e => (e.target.value === '' ? setProp('left', null) : setNudge('left', Number(e.target.value)))} className={field} />
+                </label>
+                <label className={label}>Move down (px)
+                  <input id="text-style-top" disabled={selection.inline} type="number" step={1} min={-MAX_NUDGE_PX} max={MAX_NUDGE_PX} value={num(current.top)} placeholder={num(inherited.top) || '0'}
+                    onChange={e => (e.target.value === '' ? setProp('top', null) : setNudge('top', Number(e.target.value)))} className={field} />
+                </label>
+              </div>
+              <div className="mt-1 grid grid-cols-5 gap-1">
+                {([['left', -5, ArrowLeft, 'Move left 5px'], ['top', -5, ArrowUp, 'Move up 5px'], ['top', 5, ArrowDown, 'Move down 5px'], ['left', 5, ArrowRight, 'Move right 5px']] as const).map(([prop, delta, Icon, name]) => (
+                  <button key={name} type="button" disabled={selection.inline} aria-label={name} title={name} onClick={() => nudgeBy(prop, delta)} className="py-1.5 rounded-lg flex justify-center bg-slate-100 hover:bg-slate-200 disabled:opacity-40">
+                    <Icon className="w-4 h-4" aria-hidden />
+                  </button>
+                ))}
+                <button type="button" disabled={selection.inline} aria-label="Reset position" title="Reset position" onClick={() => { setProp('left', null); setProp('top', null); }} className="py-1.5 rounded-lg flex justify-center bg-slate-100 hover:bg-slate-200 disabled:opacity-40">
+                  <RotateCcw className="w-4 h-4" aria-hidden />
+                </button>
+              </div>
+              <p className="mt-1 text-[10px] text-slate-500">{selection.inline
+                ? 'This text sits inside a line; to move it, click the paragraph or heading around it.'
+                : `Negative numbers move it left or up (at most ${MAX_NUDGE_PX}px). The text keeps its place in the page; only where it is drawn moves.`}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

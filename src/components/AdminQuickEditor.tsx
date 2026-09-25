@@ -230,7 +230,7 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
               ? 'bg-indigo-600 text-white border-indigo-400'
               : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
           }`}
-          title="Click any text on the page to change its font, size, colour or alignment"
+          title="Click any text on the page to change its font, size, colour, alignment or position"
         >
           <Type className="w-3.5 h-3.5" />
           <span>{isStylingText ? 'Styling Text' : 'Style Text'}</span>

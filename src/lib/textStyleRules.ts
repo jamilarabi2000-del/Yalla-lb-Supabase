@@ -1,6 +1,7 @@
 /**
  * Per-text styling: an administrator clicks any text on the storefront and
- * gives that text its own font, size, colour, alignment and spacing.
+ * gives that text its own font, size, colour, alignment, spacing and
+ * position (a nudge right/left and down/up from where the page puts it).
  *
  * A rule identifies its text by what it says, the kind of element it is in,
  * the nearest stable section around it and the page -- never by its position
@@ -13,7 +14,8 @@ export type TextDevice = 'desktop' | 'tablet' | 'mobile';
 
 export type TextStyleProp =
   | 'font-family' | 'font-size' | 'font-weight' | 'font-style' | 'color' | 'background-color'
-  | 'text-align' | 'line-height' | 'letter-spacing' | 'text-transform' | 'text-decoration-line';
+  | 'text-align' | 'line-height' | 'letter-spacing' | 'text-transform' | 'text-decoration-line'
+  | 'left' | 'top';
 
 export type TextStyleDecl = Partial<Record<TextStyleProp, string>>;
 
@@ -37,7 +39,11 @@ export type TextRuleMap = Record<string, CMSTextRule>;
 export const TEXT_STYLE_PROPS: TextStyleProp[] = [
   'font-family', 'font-size', 'font-weight', 'font-style', 'color', 'background-color',
   'text-align', 'line-height', 'letter-spacing', 'text-transform', 'text-decoration-line',
+  'left', 'top',
 ];
+
+/** How far a text may be nudged from where the page puts it, each way. */
+export const MAX_NUDGE_PX = 300;
 
 /** The six families index.html loads; anything else would silently fall back. */
 export const TEXT_FONTS = [
@@ -102,6 +108,13 @@ export function sanitizeValue(prop: TextStyleProp, raw: unknown): string | null 
       return ok(/^(none|underline|line-through)$/);
     case 'font-family':
       return TEXT_FONTS.some(f => f.value === v) ? v : null;
+    case 'left':
+    case 'top': {
+      // Whole pixels within the nudge range; a text can be moved, not flung
+      // off the page.
+      const m = /^(-?\d{1,3})px$/.exec(v);
+      return m && Math.abs(Number(m[1])) <= MAX_NUDGE_PX ? v : null;
+    }
     default:
       return null;
   }
@@ -166,8 +179,16 @@ export const ruleAppliesOn = (rule: CMSTextRule, page: string) => rule.page === 
 export const ruleSelector = (id: string) => `#root#root [${TEXT_RULE_ATTR}~="${id}"]`;
 export const PREVIEW_SELECTOR = `#root#root [${TEXT_RULE_PREVIEW_ATTR}]`;
 
-const declCss = (decl: TextStyleDecl | undefined) =>
-  Object.entries(sanitizeDecl(decl)).map(([k, v]) => `${k}:${v} !important`).join(';');
+const declCss = (decl: TextStyleDecl | undefined) => {
+  const { left, top, ...rest } = sanitizeDecl(decl);
+  const parts = Object.entries(rest).map(([k, v]) => `${k}:${v} !important`);
+  // The position nudge is stored as left/top but drawn with \`translate\`: the
+  // text keeps its place in the layout and its own positioning (an absolutely
+  // placed badge stays absolute), and is only painted a little away from it.
+  // It is its own property, so it does not replace the element's transform.
+  if (left || top) parts.push(`translate:${left || '0px'} ${top || '0px'} !important`);
+  return parts.join(';');
+};
 
 /** Breakpoints match the theme's own tablet and mobile rules in App.tsx. */
 export function styleCss(selector: string, style: CMSTextRule['style']): string {

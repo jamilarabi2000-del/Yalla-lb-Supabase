@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  MAX_NUDGE_PX,
   TEXT_FONTS,
   UNSAFE_CSS_VALUE,
   buildTextRulesCss,
@@ -89,6 +90,41 @@ describe('loading rules', () => {
     });
     expect(Object.keys(loaded)).toEqual([good.id]);
     expect(parseTextRules(null)).toEqual({});
+  });
+});
+
+describe('moving a text (position)', () => {
+  it('takes whole pixels within the nudge range, either way', () => {
+    for (const v of ['12px', '-40px', '0px', `${MAX_NUDGE_PX}px`, `-${MAX_NUDGE_PX}px`]) {
+      expect(sanitizeValue('left', v), v).toBe(v);
+      expect(sanitizeValue('top', v), v).toBe(v);
+    }
+  });
+
+  it('refuses a move too far, in other units, or anything that could inject', () => {
+    for (const v of [`${MAX_NUDGE_PX + 1}px`, '-999px', '1.5px', '10', '10em', '10%', 'auto', 'calc(10px)',
+      '10px;color:red', '10px} body{display:none', 'url(x)', '10px !important', '']) {
+      expect(sanitizeValue('left', v), v).toBeNull();
+      expect(sanitizeValue('top', v), v).toBeNull();
+    }
+  });
+
+  it('is drawn with translate, so the text keeps its place and its own positioning', () => {
+    const one = (style: Record<string, string>) =>
+      buildTextRulesCss({ [rule().id]: rule({ style: { desktop: style } }) }, 'product_detail');
+    expect(one({ left: '12px' })).toBe('#root#root [data-yt~="tr_abcdef123456"]{translate:12px 0px !important}');
+    expect(one({ top: '-5px' })).toBe('#root#root [data-yt~="tr_abcdef123456"]{translate:0px -5px !important}');
+    expect(one({ color: '#c62828', left: '4px', top: '8px' }))
+      .toBe('#root#root [data-yt~="tr_abcdef123456"]{color:#c62828 !important;translate:4px 8px !important}');
+    // Never raw offsets or a changed positioning scheme.
+    const css = one({ left: '4px', top: '8px' });
+    expect(css).not.toMatch(/[{;]left:|[{;]top:|position:/);
+  });
+
+  it('can differ per device, like every other property', () => {
+    const css = buildTextRulesCss({ [rule().id]: rule({ style: { desktop: { left: '20px' }, mobile: { left: '0px' } } }) }, 'product_detail');
+    expect(css).toContain('{translate:20px 0px !important}');
+    expect(css).toContain('@media (max-width:767px){#root#root [data-yt~="tr_abcdef123456"]{translate:0px 0px !important}}');
   });
 });
 
