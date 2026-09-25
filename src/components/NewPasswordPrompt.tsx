@@ -41,7 +41,7 @@ export const NewPasswordPrompt: React.FC = () => {
     }
   };
 
-  const label = 'block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1';
+  const label = 'block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1';
   const input = 'w-full px-4 py-2.5 pe-11 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white';
 
   return (
@@ -56,14 +56,14 @@ export const NewPasswordPrompt: React.FC = () => {
         className="bg-white rounded-xl shadow-2xl border border-[#E5E5E5] max-w-md w-full max-h-[90vh] overflow-y-auto p-6"
       >
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#8F7137] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#7d6230] flex items-center justify-center shrink-0">
             <KeyRound className="w-5 h-5" aria-hidden="true" />
           </div>
           <div>
             <h2 id="new-password-prompt-title" className="font-serif font-bold text-[#171717] text-base">
               {ar ? 'اختر كلمة مرور جديدة' : 'Choose a new password'}
             </h2>
-            <p id="new-password-prompt-text" className="text-xs text-[#737373]">
+            <p id="new-password-prompt-text" className="text-xs text-[#666666]">
               {ar ? 'ستستخدمها مع الرمز الذي نرسله إلى بريدك في كل مرة تسجّل فيها الدخول.' : 'You will use it, with the code we email you, each time you sign in.'}
             </p>
           </div>
@@ -88,7 +88,7 @@ export const NewPasswordPrompt: React.FC = () => {
                 onClick={() => setShown(value => !value)}
                 aria-label={shown ? (ar ? 'إخفاء كلمة المرور' : 'Hide password') : (ar ? 'إظهار كلمة المرور' : 'Show password')}
                 aria-pressed={shown}
-                className="absolute end-3 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#171717] cursor-pointer"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-[#666666] hover:text-[#171717] cursor-pointer"
               >
                 {shown ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
               </button>
@@ -107,7 +107,7 @@ export const NewPasswordPrompt: React.FC = () => {
               required
             />
           </div>
-          <p className="text-[11px] text-[#737373]">
+          <p className="text-[11px] text-[#666666]">
             {isAdminUser || isSellerUser
               ? (ar ? '12 حرفاً على الأقل، مع أحرف كبيرة وصغيرة ورقم ورمز خاص.' : 'At least 12 characters, with upper- and lower-case letters, a number and a symbol.')
               : passwordRulesHint(language)}
@@ -124,7 +124,7 @@ export const NewPasswordPrompt: React.FC = () => {
             type="button"
             onClick={() => { void signOutUser(); }}
             disabled={saving}
-            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#737373] hover:text-[#171717] cursor-pointer disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#666666] hover:text-[#171717] cursor-pointer disabled:opacity-50"
           >
             <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{ar ? 'إلغاء وتسجيل الخروج' : 'Cancel and sign out'}</span>

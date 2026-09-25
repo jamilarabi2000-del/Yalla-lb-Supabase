@@ -204,13 +204,13 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
           }}
           className={`rounded-[20px] border-2 border-dashed border-[#B89753]/60 bg-[#B89753]/5 p-4 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-[#B89753]/10 transition-colors h-[200px] sm:h-[260px] md:h-[260px] lg:h-[400px] xl:h-[420px] ${className}`}
         >
-          <div className="w-10 h-10 rounded-full bg-[#B89753]/20 flex items-center justify-center text-[#8F7137] mb-2">
+          <div className="w-10 h-10 rounded-full bg-[#B89753]/20 flex items-center justify-center text-[#7d6230] mb-2">
             <Settings className="w-5 h-5 animate-spin-slow" />
           </div>
-          <p className="text-xs sm:text-sm font-bold text-[#8F7137]">
+          <p className="text-xs sm:text-sm font-bold text-[#7d6230]">
             {isAr ? 'السلايدر الترويجي معطّل أو لا توجد شرائح صالحة' : 'Promo Slider (0 Valid Slides / Disabled)'}
           </p>
-          <p className="text-[11px] text-[#737373] mt-1 max-w-[240px]">
+          <p className="text-[11px] text-[#666666] mt-1 max-w-[240px]">
             {isAr ? 'انقر لإضافة شرائح في لوحة التحكم' : 'Click to add & manage slides in Admin CMS'}
           </p>
         </div>
@@ -497,7 +497,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
           
           {slide.showCta !== false && slide.ctaUrl && (
             <div className={`text-xs opacity-70 group-hover:opacity-100 transition-opacity ${
-              isDarkBg ? 'text-white' : 'text-[#737373]'
+              isDarkBg ? 'text-white' : 'text-[#666666]'
             }`}>
               <ArrowRight className={`w-3.5 h-3.5 ${isAr ? 'rotate-180' : ''}`} />
             </div>
@@ -633,8 +633,10 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
 
       {/* Pagination Dots (Only rendered when 2+ slides exist & enabled in settings) */}
       {showPagination && (
-        <div className="absolute bottom-2.5 start-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/25 backdrop-blur-xs border border-white/10">
+        <div className="absolute bottom-2.5 start-1/2 -translate-x-1/2 z-30 flex items-center px-1 py-1 rounded-full bg-black/25 backdrop-blur-xs border border-white/10">
           {validSlides.map((s, idx) => (
+            // A 24px target around the small dot; the negative margin keeps the
+            // pill as tall as the dot.
             <button
               key={s.id || idx}
               type="button"
@@ -643,12 +645,14 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
                 setCurrentIndex(idx);
               }}
               aria-label={`Go to slide ${idx + 1}`}
-              className={`transition-all rounded-full cursor-pointer ${
+              className="group h-6 min-w-6 -my-[9px] flex items-center justify-center cursor-pointer"
+            >
+              <span aria-hidden className={`block transition-all rounded-full ${
                 idx === currentIndex
                   ? 'w-4 h-1.5 bg-[#F3E5AB]'
-                  : 'w-1.5 h-1.5 bg-white/40 hover:bg-white/70'
-              }`}
-            />
+                  : 'w-1.5 h-1.5 bg-white/40 group-hover:bg-white/70'
+              }`} />
+            </button>
           ))}
         </div>
       )}

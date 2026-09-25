@@ -59,11 +59,11 @@ export const ProductDetailView: React.FC = () => {
       <section className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
         {show('detailBreadcrumbs') && (
           <div className="flex items-center justify-between gap-3 mb-6">
-            <button type="button" onClick={() => shop.goBack?.()} className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white/80 backdrop-blur px-3.5 py-2 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#8F7137] hover:border-[#B89753]/50 shadow-sm transition-all cursor-pointer">
+            <button type="button" onClick={() => shop.goBack?.()} className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white/80 backdrop-blur px-3.5 py-2 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#7d6230] hover:border-[#B89753]/50 shadow-sm transition-all cursor-pointer">
               {isRTL ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
               {isRTL ? 'العودة' : 'Back'}
             </button>
-            <div className="hidden sm:flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-bold text-[#8F7137]"><Sparkles className="w-3.5 h-3.5" />{isRTL ? 'تفاصيل المنتج' : 'Product Details'}</div>
+            <div className="hidden sm:flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-bold text-[#7d6230]"><Sparkles className="w-3.5 h-3.5" />{isRTL ? 'تفاصيل المنتج' : 'Product Details'}</div>
           </div>
         )}
 
@@ -71,7 +71,7 @@ export const ProductDetailView: React.FC = () => {
           {show('detailGallery') && (
             <div className={`relative rounded-[28px] border border-white/80 bg-white/70 backdrop-blur-xl p-2 sm:p-3 shadow-[0_20px_60px_rgba(23,23,23,0.07)] ${!visibility.detailGallery && isVisualEditMode ? 'ring-2 ring-dashed ring-rose-500' : ''}`}>
               <div className="relative aspect-square rounded-[22px] overflow-hidden bg-[#F8F8F6] flex items-center justify-center">
-                {images[activeImage] ? <img src={images[activeImage]} alt={displayName} className="h-full w-full object-contain p-5 sm:p-8 transition-opacity duration-300" /> : <div className="text-sm text-[#737373]">{isRTL ? 'لا توجد صورة' : 'No image'}</div>}
+                {images[activeImage] ? <img src={images[activeImage]} alt={displayName} className="h-full w-full object-contain p-5 sm:p-8 transition-opacity duration-300" /> : <div className="text-sm text-[#666666]">{isRTL ? 'لا توجد صورة' : 'No image'}</div>}
                 <div className="absolute top-4 left-4 flex flex-col gap-1.5">
                   {discount > 0 && <span className="rounded-full bg-[#C62828] px-3 py-1 text-[10px] font-black text-white shadow-sm">-{discount}%</span>}
                   {p.isBestseller && !discount && inStock && <span className="rounded-full bg-[#171717] px-3 py-1 text-[10px] font-bold text-white shadow-sm">{isRTL ? 'الأكثر مبيعاً' : 'Bestseller'}</span>}
@@ -89,21 +89,21 @@ export const ProductDetailView: React.FC = () => {
           {show('detailPriceBox') && (
             <div className={`lg:sticky lg:top-24 ${!visibility.detailPriceBox && isVisualEditMode ? 'ring-2 ring-dashed ring-rose-500 rounded-[28px] p-4' : ''}`}>
               <div className="rounded-[28px] border border-[#E5E5E5] bg-white p-5 sm:p-7 shadow-[0_16px_45px_rgba(23,23,23,0.06)]">
-                {(p.brand || p.seller || p.artisan) && <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-[#8F7137] mb-2">{p.brand || p.seller || p.artisan}</p>}
+                {(p.brand || p.seller || p.artisan) && <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-[#7d6230] mb-2">{p.brand || p.seller || p.artisan}</p>}
                 <h1 className="text-2xl sm:text-3xl xl:text-4xl font-serif font-semibold tracking-tight text-[#171717] leading-tight">{displayName}</h1>
-                {!isRTL && p.arabicName && <p className="mt-1 text-sm text-[#737373]" dir="rtl">{p.arabicName}</p>}
+                {!isRTL && p.arabicName && <p className="mt-1 text-sm text-[#666666]" dir="rtl">{p.arabicName}</p>}
                 {p.description && <p className="text-sm leading-7 text-[#666666] mt-5">{p.description}</p>}
 
                 {show('detailCraftStory') && p.craftStory && (
                   <div className={`mt-5 rounded-2xl border border-[#E5E5E5] bg-[#F8F8F6] p-4 ${!visibility.detailCraftStory && isVisualEditMode ? 'ring-2 ring-dashed ring-rose-500' : ''}`}>
-                    <div className="flex items-center gap-2 mb-1.5"><span className="h-7 w-7 rounded-lg bg-amber-50 border border-amber-200/60 text-[#8F7137] flex items-center justify-center"><Sparkles className="w-3.5 h-3.5" /></span><b className="text-xs uppercase tracking-wider text-[#171717]">{isRTL ? 'القصة' : 'The Story'}</b></div>
+                    <div className="flex items-center gap-2 mb-1.5"><span className="h-7 w-7 rounded-lg bg-amber-50 border border-amber-200/60 text-[#7d6230] flex items-center justify-center"><Sparkles className="w-3.5 h-3.5" /></span><b className="text-xs uppercase tracking-wider text-[#171717]">{isRTL ? 'القصة' : 'The Story'}</b></div>
                     <p className="text-xs sm:text-sm leading-6 text-[#666666]">{p.craftStory}</p>
                   </div>
                 )}
 
                 <div className="flex flex-wrap items-end gap-3 mt-6">
                   <span className="text-3xl sm:text-4xl font-black tracking-tight text-[#171717]">{price}</span>
-                  {originalPrice && <span className="text-sm sm:text-base text-[#999999] line-through pb-1">{originalPrice}</span>}
+                  {originalPrice && <span className="text-sm sm:text-base text-[#666666] line-through pb-1">{originalPrice}</span>}
                   {discount > 0 && <span className="rounded-full bg-rose-50 border border-rose-100 px-2.5 py-1 text-[10px] font-black text-[#C62828]">{isRTL ? 'خصم ' + discount + '%' : discount + '% OFF'}</span>}
                 </div>
 
@@ -123,13 +123,13 @@ export const ProductDetailView: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-5 border-t border-[#E5E5E5]">
-                  <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><ShieldCheck className="w-4 h-4 text-[#8F7137] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'دفع آمن' : 'Secure checkout'}</p></div>
+                  <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><ShieldCheck className="w-4 h-4 text-[#7d6230] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'دفع آمن' : 'Secure checkout'}</p></div>
                   {shipsFreeInLebanon ? (
                     <div id="product-free-delivery-badge" className="rounded-xl bg-emerald-50 border border-emerald-200 p-3"><Truck className="w-4 h-4 text-emerald-700 mb-2" /><p className="text-[10px] font-bold text-emerald-800">{isRTL ? 'توصيل مجاني في كل لبنان' : 'Free delivery across Lebanon'}</p></div>
                   ) : (
-                    <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><Truck className="w-4 h-4 text-[#8F7137] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'توصيل موثوق' : 'Tracked delivery'}</p></div>
+                    <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><Truck className="w-4 h-4 text-[#7d6230] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'توصيل موثوق' : 'Tracked delivery'}</p></div>
                   )}
-                  <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><PackageCheck className="w-4 h-4 text-[#8F7137] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{p.sellerItemCode || p.id}</p></div>
+                  <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><PackageCheck className="w-4 h-4 text-[#7d6230] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{p.sellerItemCode || p.id}</p></div>
                 </div>
 
                 {show('detailWhatsAppInquiry') && (
@@ -142,7 +142,7 @@ export const ProductDetailView: React.FC = () => {
 
         {show('detailArtisanBio') && (p.artisan || p.artisanBio) && (
           <section className={`mt-8 rounded-[24px] border border-[#E5E5E5] bg-white p-5 sm:p-7 shadow-sm ${!visibility.detailArtisanBio && isVisualEditMode ? 'ring-2 ring-dashed ring-rose-500' : ''}`}>
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/60 text-[#8F7137] flex items-center justify-center"><Sparkles className="w-5 h-5" /></div><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8F7137]">{isRTL ? 'من الصانع' : 'From the Maker'}</p><h2 className="text-lg sm:text-xl font-serif font-semibold text-[#171717]">{p.artisan || p.seller}</h2></div></div>
+            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/60 text-[#7d6230] flex items-center justify-center"><Sparkles className="w-5 h-5" /></div><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7d6230]">{isRTL ? 'من الصانع' : 'From the Maker'}</p><h2 className="text-lg sm:text-xl font-serif font-semibold text-[#171717]">{p.artisan || p.seller}</h2></div></div>
             {p.artisanBio && <p className="text-sm leading-7 text-[#666666]">{p.artisanBio}</p>}
           </section>
         )}
@@ -160,8 +160,8 @@ export const ProductDetailView: React.FC = () => {
         {show('detailRelatedProducts') && related.length > 0 && (
           <section className={`mt-12 ${!visibility.detailRelatedProducts && isVisualEditMode ? 'ring-2 ring-dashed ring-rose-500 rounded-2xl p-4' : ''}`}>
             <div className="flex items-end justify-between gap-4 mb-5 sm:mb-7">
-              <div><p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-[#8F7137]">{isRTL ? 'قد يعجبك أيضاً' : 'You may also like'}</p><h2 className="text-2xl sm:text-3xl font-serif text-[#171717]">{isRTL ? 'منتجات ذات صلة' : 'Related Products'}</h2></div>
-              <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold text-[#737373]">{isRTL ? 'استكشف المزيد' : 'Explore more'}<ArrowLeft className="w-3.5 h-3.5" /></div>
+              <div><p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-[#7d6230]">{isRTL ? 'قد يعجبك أيضاً' : 'You may also like'}</p><h2 className="text-2xl sm:text-3xl font-serif text-[#171717]">{isRTL ? 'منتجات ذات صلة' : 'Related Products'}</h2></div>
+              <div className="hidden sm:flex items-center gap-2 text-[10px] font-bold text-[#666666]">{isRTL ? 'استكشف المزيد' : 'Explore more'}<ArrowLeft className="w-3.5 h-3.5" /></div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5">{related.map((item) => <ProductCard key={item.id} product={item} />)}</div>
           </section>

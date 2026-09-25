@@ -57,7 +57,7 @@ export class AdminErrorBoundary extends React.Component<Props, State> {
               <h2 className="text-xl font-bold text-white">
                 {isDynamicImportError ? 'Session Module Update Detected' : 'Admin Panel Temporarily Unavailable'}
               </h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 {isDynamicImportError
                   ? 'A newer version of the management portal is available, or the module connection timed out. Refreshing will load the latest assets.'
                   : 'An error occurred while loading this administrative view.'}

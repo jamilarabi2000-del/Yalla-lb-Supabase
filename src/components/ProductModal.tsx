@@ -102,13 +102,13 @@ export const ProductModal: React.FC = () => {
           <div className="md:col-span-7 p-6 flex flex-col justify-between space-y-4">
             <div className="space-y-2.5">
               <div className="pr-8">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8F7137] block mb-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#7d6230] block mb-0.5">
                   {product.category}
                 </span>
                 <h2 className="text-base sm:text-lg font-bold text-[#171717] leading-snug line-clamp-2">
                   {displayTitle}
                 </h2>
-                <p className="text-xs text-[#737373] mt-0.5">
+                <p className="text-xs text-[#666666] mt-0.5">
                   <span>{language === 'ar' ? 'البائع:' : 'Seller:'}</span>{' '}
                   <span className="font-semibold text-slate-800">
                     {product.artisan.startsWith('Seller:') ? product.artisan.replace('Seller:', '').trim() : product.artisan}
@@ -122,7 +122,7 @@ export const ProductModal: React.FC = () => {
                   {formatPrice(product.priceUSD * quantity)}
                 </span>
                 {product.originalPriceUSD && (
-                  <span className="text-xs text-slate-400 line-through font-medium">
+                  <span className="text-xs text-slate-600 line-through font-medium">
                     {formatPrice(product.originalPriceUSD * quantity)}
                   </span>
                 )}
@@ -138,7 +138,7 @@ export const ProductModal: React.FC = () => {
               </div>
 
               {/* Short Description */}
-              <p className="text-xs text-[#737373] leading-relaxed line-clamp-3">
+              <p className="text-xs text-[#666666] leading-relaxed line-clamp-3">
                 {product.description}
               </p>
 
@@ -146,7 +146,7 @@ export const ProductModal: React.FC = () => {
               <button
                 type="button"
                 onClick={handleViewFullPage}
-                className="inline-flex items-center gap-1 text-xs font-bold text-[#8F7137] hover:text-[#B89753] hover:underline cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-bold text-[#7d6230] hover:text-[#B89753] hover:underline cursor-pointer transition-colors"
               >
                 <span>{language === 'ar' ? 'عرض تفاصيل المنتج كاملة' : 'View full product details'}</span>
                 <ArrowRight className={`w-3.5 h-3.5 ${language === 'ar' ? 'rotate-180' : ''}`} />

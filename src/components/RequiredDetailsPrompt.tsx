@@ -154,7 +154,7 @@ export const RequiredDetailsPrompt: React.FC = () => {
     }
   };
 
-  const label = 'block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1';
+  const label = 'block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1';
   const input = 'w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white';
 
   return (
@@ -169,14 +169,14 @@ export const RequiredDetailsPrompt: React.FC = () => {
         className="bg-white rounded-xl shadow-2xl border border-[#E5E5E5] max-w-lg w-full max-h-[90vh] overflow-y-auto p-6"
       >
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#8F7137] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#7d6230] flex items-center justify-center shrink-0">
             <UserCheck className="w-5 h-5" aria-hidden="true" />
           </div>
           <div>
             <h2 id="required-details-prompt-title" className="font-serif font-bold text-[#171717] text-base">
               {ar ? 'أكمل بيانات حسابك' : 'Complete your account'}
             </h2>
-            <p id="required-details-prompt-text" className="text-xs text-[#737373]">
+            <p id="required-details-prompt-text" className="text-xs text-[#666666]">
               {ar ? 'نحتاج إليها لتوصيل طلباتك والتواصل معك. يمكنك تغييرها لاحقاً من حسابك.' : 'We need these to deliver your orders and reach you. You can change them later in your account.'}
             </p>
           </div>
@@ -259,7 +259,7 @@ export const RequiredDetailsPrompt: React.FC = () => {
             <button
               type="button"
               onClick={() => { void signOutUser(); }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-[#737373] hover:text-[#171717] cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-[#666666] hover:text-[#171717] cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{ar ? 'تسجيل الخروج' : 'Sign out'}</span>

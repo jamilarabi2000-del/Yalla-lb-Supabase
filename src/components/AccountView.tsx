@@ -339,7 +339,7 @@ export const AccountView: React.FC = () => {
                 <button
                   id="firebase-signout-btn"
                   onClick={signOutUser}
-                  className="px-4 py-2 bg-[#F8F8F6] hover:bg-rose-50 text-[#737373] hover:text-[#C62828] border border-[#E5E5E5] rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
+                  className="px-4 py-2 bg-[#F8F8F6] hover:bg-rose-50 text-[#666666] hover:text-[#C62828] border border-[#E5E5E5] rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
                 >
                   <span>{language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'} ({firebaseUser.displayName || firebaseUser.email})</span>
                 </button>
@@ -367,11 +367,11 @@ export const AccountView: React.FC = () => {
                       : (profileName || (language === 'ar' ? 'زائر جديد' : 'New Guest Patron'))}
                   </h1>
                 </div>
-                <p className="text-xs text-[#737373] mt-0.5">
+                <p className="text-xs text-[#666666] mt-0.5">
                   {profileEmail || (language === 'ar' ? 'يرجى تحديث بريدك الإلكتروني ورقم هاتفك أدناه' : 'Please fill out your profile details below to complete sign up')} 
                   {profilePhone ? ` • +961 ${profilePhone.replace('+961', '').trim()}` : ''}
                 </p>
-                <p className="text-[11px] text-[#737373] flex items-center gap-1 mt-1 font-medium">
+                <p className="text-[11px] text-[#666666] flex items-center gap-1 mt-1 font-medium">
                   <MapPin className="w-3 h-3 text-[#B89753]" />
                   <span>
                     {profileAddress ? `${profileAddress}, ` : ''}{profileCity || 'Lebanon'}
@@ -383,7 +383,7 @@ export const AccountView: React.FC = () => {
             {/* Quick stats pills */}
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] text-center min-w-[90px]">
-                <p className="text-[10px] uppercase font-bold text-[#737373]">{language === 'ar' ? 'إجمالي الطلبات' : 'Orders'}</p>
+                <p className="text-[10px] uppercase font-bold text-[#666666]">{language === 'ar' ? 'إجمالي الطلبات' : 'Orders'}</p>
                 <p className="text-xl font-bold text-[#171717]">{userOrders.length}</p>
               </div>
               <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-center min-w-[90px]">
@@ -404,7 +404,7 @@ export const AccountView: React.FC = () => {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
               activeAccountTab === 'orders'
                 ? 'bg-[#171717] text-white shadow-sm'
-                : 'bg-white text-[#737373] hover:text-[#171717] border border-[#E5E5E5]'
+                : 'bg-white text-[#666666] hover:text-[#171717] border border-[#E5E5E5]'
             }`}
           >
             <Package className="w-4 h-4" />
@@ -418,7 +418,7 @@ export const AccountView: React.FC = () => {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
               activeAccountTab === 'wishlist'
                 ? 'bg-[#171717] text-white shadow-sm'
-                : 'bg-white text-[#737373] hover:text-[#171717] border border-[#E5E5E5]'
+                : 'bg-white text-[#666666] hover:text-[#171717] border border-[#E5E5E5]'
             }`}
           >
             <Heart className="w-4 h-4" />
@@ -432,7 +432,7 @@ export const AccountView: React.FC = () => {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
               activeAccountTab === 'profile'
                 ? 'bg-[#171717] text-white shadow-sm'
-                : 'bg-white text-[#737373] hover:text-[#171717] border border-[#E5E5E5]'
+                : 'bg-white text-[#666666] hover:text-[#171717] border border-[#E5E5E5]'
             }`}
           >
             <User className="w-4 h-4" />
@@ -453,7 +453,7 @@ export const AccountView: React.FC = () => {
                   <h4 className="text-xs font-bold text-[#171717] uppercase tracking-wider">
                     {language === 'ar' ? 'تأكيد البريد الإلكتروني مطلوب' : 'Email Verification Required'}
                   </h4>
-                  <p className="text-xs text-[#737373] mt-0.5">
+                  <p className="text-xs text-[#666666] mt-0.5">
                     {language === 'ar' 
                       ? 'يرجى تأكيد بريدك الإلكتروني لتتمكن من إتمام طلباتك بنجاح.' 
                       : 'You must verify your email address to unlock checkout and complete orders.'}
@@ -509,7 +509,7 @@ export const AccountView: React.FC = () => {
                   <h3 className="text-base font-bold text-[#171717]">
                     {language === 'ar' ? 'لا توجد منتجات محفوظة بعد' : 'Your Favorites List is Empty'}
                   </h3>
-                  <p className="text-xs text-[#737373] leading-relaxed">
+                  <p className="text-xs text-[#666666] leading-relaxed">
                     {language === 'ar' 
                       ? 'استكشف المنتجات الحرفية اللبنانية وانقر على رمز القلب لحفظها هنا للرجوع إليها لاحقاً.'
                       : 'Explore Lebanese artisanal products and click the heart icon on any product to save it here.'}
@@ -553,7 +553,7 @@ export const AccountView: React.FC = () => {
                       type="button"
                       onClick={() => setAuthMode('signin')}
                       className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
-                        authMode === 'signin' ? 'bg-white text-[#171717] shadow-xs' : 'text-[#737373] hover:text-[#171717]'
+                        authMode === 'signin' ? 'bg-white text-[#171717] shadow-xs' : 'text-[#666666] hover:text-[#171717]'
                       }`}
                     >
                       Sign In
@@ -562,7 +562,7 @@ export const AccountView: React.FC = () => {
                       type="button"
                       onClick={() => setAuthMode('signup')}
                       className={`flex-1 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer ${
-                        authMode === 'signup' ? 'bg-white text-[#171717] shadow-xs' : 'text-[#737373] hover:text-[#171717]'
+                        authMode === 'signup' ? 'bg-white text-[#171717] shadow-xs' : 'text-[#666666] hover:text-[#171717]'
                       }`}
                     >
                       Sign Up
@@ -571,7 +571,7 @@ export const AccountView: React.FC = () => {
 
                   <div className="text-center mb-6">
                     <h2 className="text-xl font-serif font-bold text-[#171717]">{authMode === 'signin' ? 'Welcome Back' : 'Create Your Account'}</h2>
-                    <p className="text-xs text-[#737373] mt-1">
+                    <p className="text-xs text-[#666666] mt-1">
                       {authMode === 'signin' ? 'Sign in with your email and password. We then email you a code.' : 'Fill in your details and choose a password. We will email you a code to confirm your address.'}
                     </p>
                   </div>
@@ -614,7 +614,7 @@ export const AccountView: React.FC = () => {
 
                   <div className="relative flex py-2 items-center mb-6">
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
-                    <span className="flex-shrink mx-4 text-[11px] font-bold uppercase tracking-wider text-[#737373]">
+                    <span className="flex-shrink mx-4 text-[11px] font-bold uppercase tracking-wider text-[#666666]">
                       Or with email
                     </span>
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
@@ -633,7 +633,7 @@ export const AccountView: React.FC = () => {
                       {/* Sellers sign in with this same form; their workspace opens here. */}
                       {siteContent?.visibility?.sellerPortal !== false && (
                         <div id="account-seller-signin-hint" className="pt-3 border-t border-[#E5E5E5] text-center">
-                          <p className="inline-flex items-center gap-1.5 text-xs text-[#737373]">
+                          <p className="inline-flex items-center gap-1.5 text-xs text-[#666666]">
                             <Store className="w-3.5 h-3.5 text-[#B89753] shrink-0" aria-hidden="true" />
                             <span>{language === 'ar' ? 'البائعون والتجار: سجّلوا الدخول هنا بالبريد الإلكتروني وكلمة المرور اللذين أعطتكم إياهما يلا، ثم نرسل إليكم رمزاً.' : 'Sellers and merchants: sign in here with the email and password Yalla gave you. We will then email you a code.'}</span>
                           </p>
@@ -644,7 +644,7 @@ export const AccountView: React.FC = () => {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">First Name (Required)</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">First Name (Required)</label>
                           <input 
                             type="text" 
                             value={profileFirstName} 
@@ -655,7 +655,7 @@ export const AccountView: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Family Name (Required)</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Family Name (Required)</label>
                           <input 
                             type="text" 
                             value={profileLastName} 
@@ -668,7 +668,7 @@ export const AccountView: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Phone (WhatsApp) *</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Phone (WhatsApp) *</label>
                           <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white">
                             <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap">
                               <LebanonFlag className="w-5 h-3.5" />
@@ -690,7 +690,7 @@ export const AccountView: React.FC = () => {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">City / Region *</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">City / Region *</label>
                           <input 
                             type="text" 
                             value={profileCity} 
@@ -703,7 +703,7 @@ export const AccountView: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Street / Landmark *</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Street / Landmark *</label>
                           <input 
                             type="text" 
                             value={profileAddress} 
@@ -714,7 +714,7 @@ export const AccountView: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Building, Floor & Apt *</label>
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Building, Floor & Apt *</label>
                           <input 
                             type="text" 
                             value={profileBuilding} 
@@ -726,7 +726,7 @@ export const AccountView: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">Delivery Notes & Courier Instructions (Optional)</label>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Delivery Notes & Courier Instructions (Optional)</label>
                         <input 
                           type="text" 
                           value={profileNotes} 
@@ -749,19 +749,19 @@ export const AccountView: React.FC = () => {
               ) : (
                 <div className="max-w-2xl bg-white p-6 sm:p-8 rounded-xl border border-[#E5E5E5] shadow-sm relative overflow-hidden transition-all hover:border-[#B89753]/40">
                   <div className="flex items-center gap-3 pb-5 mb-6 border-b border-[#E5E5E5]">
-                    <div className="p-2.5 rounded-lg bg-[#B89753]/10 text-[#8F7137] shrink-0">
+                    <div className="p-2.5 rounded-lg bg-[#B89753]/10 text-[#7d6230] shrink-0">
                       <User className="w-5 h-5" />
                     </div>
                     <div>
                       <h2 className="text-base font-serif font-bold text-[#171717] tracking-tight">Personal Information</h2>
-                      <p className="text-xs text-[#737373] font-normal">Manage your personal profile and default delivery details</p>
+                      <p className="text-xs text-[#666666] font-normal">Manage your personal profile and default delivery details</p>
                     </div>
                   </div>
 
                   <form onSubmit={handleSaveProfile} className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">First Name (Required)</label>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">First Name (Required)</label>
                         <input 
                           type="text" 
                           value={profileFirstName} 
@@ -772,7 +772,7 @@ export const AccountView: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Last / Family Name (Required)</label>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Last / Family Name (Required)</label>
                         <input 
                           type="text" 
                           value={profileLastName} 
@@ -786,7 +786,7 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label htmlFor="profile-email-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Email Address *</label>
+                        <label htmlFor="profile-email-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Email Address *</label>
                         <input 
                           id="profile-email-input"
                           type="email" 
@@ -799,13 +799,13 @@ export const AccountView: React.FC = () => {
                           required 
                         />
                         {signInEmail && (
-                          <p id="profile-email-note" className="mt-1 text-[11px] text-[#737373]">
+                          <p id="profile-email-note" className="mt-1 text-[11px] text-[#666666]">
                             {language === 'ar' ? 'تسجّل الدخول بهذا البريد، لذا لا يمكن تغييره هنا.' : 'You sign in with this email, so it cannot be changed here.'}
                           </p>
                         )}
                       </div>
                       <div>
-                        <label htmlFor="profile-phone-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Phone (WhatsApp) *</label>
+                        <label htmlFor="profile-phone-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Phone (WhatsApp) *</label>
                         <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white transition-all">
                           <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap shrink-0">
                             <LebanonFlag className="w-5 h-3.5" />
@@ -832,7 +832,7 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">City / Region *</label>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">City / Region *</label>
                         <input 
                           type="text" 
                           value={profileCity} 
@@ -846,7 +846,7 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Street / Landmark *</label>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Street / Landmark *</label>
                         <input 
                           type="text" 
                           value={profileAddress} 
@@ -857,7 +857,7 @@ export const AccountView: React.FC = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Building, Floor & Apt *</label>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Building, Floor & Apt *</label>
                         <input 
                           type="text" 
                           value={profileBuilding} 
@@ -870,7 +870,7 @@ export const AccountView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">Delivery Notes & Courier Instructions (Optional)</label>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Delivery Notes & Courier Instructions (Optional)</label>
                       <input 
                         type="text" 
                         value={profileNotes} 

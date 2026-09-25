@@ -105,7 +105,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
           onClick={handleQuickView}
           aria-label={language === 'ar' ? "نظرة سريعة" : "Quick View"}
           title={language === 'ar' ? "نظرة سريعة" : "Quick View"}
-          className="absolute bottom-2.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 py-1.5 px-3 rounded-lg bg-white/95 backdrop-blur-xs text-[#171717] hover:text-[#8F7137] text-[11px] font-bold shadow-md border border-[#E5E5E5] flex items-center gap-1 cursor-pointer whitespace-nowrap"
+          className="absolute bottom-2.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 py-1.5 px-3 rounded-lg bg-white/95 backdrop-blur-xs text-[#171717] hover:text-[#7d6230] text-[11px] font-bold shadow-md border border-[#E5E5E5] flex items-center gap-1 cursor-pointer whitespace-nowrap"
         >
           <Eye className="w-3.5 h-3.5" />
           <span>{language === 'ar' ? 'نظرة سريعة' : 'Quick View'}</span>
@@ -145,12 +145,12 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
       <div className="flex flex-1 flex-col p-3.5 sm:p-4 justify-between space-y-2.5 bg-white">
         <div>
           {/* Subtle Category or Origin */}
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8F7137] line-clamp-1 block mb-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#7d6230] line-clamp-1 block mb-0.5">
             {product.category}
           </span>
           {/* Title - ONE LANGUAGE ONLY */}
           <h3 
-            className="text-xs sm:text-sm font-bold text-[#171717] group-hover:text-[#8F7137] transition-colors line-clamp-2 leading-snug"
+            className="text-xs sm:text-sm font-bold text-[#171717] group-hover:text-[#7d6230] transition-colors line-clamp-2 leading-snug"
           >
             {displayTitle}
           </h3>
@@ -165,7 +165,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
                 ${product.priceUSD.toFixed(2)}
               </span>
               {product.originalPriceUSD && product.originalPriceUSD > product.priceUSD && (
-                <span className="text-xs text-slate-400 line-through font-medium">
+                <span className="text-xs text-slate-600 line-through font-medium">
                   ${product.originalPriceUSD.toFixed(2)}
                 </span>
               )}

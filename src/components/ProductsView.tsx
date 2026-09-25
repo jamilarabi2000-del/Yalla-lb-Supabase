@@ -293,19 +293,19 @@ export const ProductsView: React.FC = () => {
             {/* Search bar inside header */}
             {(visibility.productsSearchFilter || isVisualEditMode) && (
               <div className="pt-3 relative max-w-2xl group">
-                <Search className={`absolute ${language === 'ar' ? 'right-4' : 'left-4'} top-[26px] w-4 h-4 text-[#737373] group-focus-within:text-[#B89753] transition-colors pointer-events-none`} />
+                <Search className={`absolute ${language === 'ar' ? 'right-4' : 'left-4'} top-[26px] w-4 h-4 text-[#666666] group-focus-within:text-[#B89753] transition-colors pointer-events-none`} />
                 <input
                   type="text"
                   id="products-search-input"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={siteContent?.productsPage?.searchPlaceholder ?? t('searchPlaceholder')}
-                  className={`w-full ${language === 'ar' ? 'pr-11 pl-20' : 'pl-11 pr-20'} py-3 bg-white text-xs text-[#171717] placeholder:text-[#737373] rounded-lg border border-[#E5E5E5] focus:border-[#B89753] focus:outline-none transition-all shadow-2xs font-medium`}
+                  className={`w-full ${language === 'ar' ? 'pr-11 pl-20' : 'pl-11 pr-20'} py-3 bg-white text-xs text-[#171717] placeholder:text-[#666666] rounded-lg border border-[#E5E5E5] focus:border-[#B89753] focus:outline-none transition-all shadow-2xs font-medium`}
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3.5 top-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#737373] hover:text-[#171717] bg-neutral-100 hover:bg-neutral-200 border border-[#E5E5E5] rounded-md transition-all cursor-pointer"
+                    className="absolute right-3.5 top-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#666666] hover:text-[#171717] bg-neutral-100 hover:bg-neutral-200 border border-[#E5E5E5] rounded-md transition-all cursor-pointer"
                   >
                     {t('clear')}
                   </button>
@@ -347,8 +347,8 @@ export const ProductsView: React.FC = () => {
         {(visibility.productsSort || isVisualEditMode) && (
           <div className="mt-3 p-3 sm:p-4 rounded-xl bg-white border border-[#E5E5E5] shadow-2xs flex flex-wrap items-center justify-between gap-4">
             
-            <div className="text-xs font-semibold text-[#737373] flex items-center gap-2">
-              <Grid className="w-4 h-4 text-[#8F7137]" />
+            <div className="text-xs font-semibold text-[#666666] flex items-center gap-2">
+              <Grid className="w-4 h-4 text-[#7d6230]" />
               <span>
                 {language === 'ar'
                   ? `عرض ${filteredProducts.length > 0 ? (safeCurrentPage - 1) * itemsPerPage + 1 : 0}–${Math.min(safeCurrentPage * itemsPerPage, filteredProducts.length)} من إجمالي ${filteredProducts.length} منتج`
@@ -361,8 +361,8 @@ export const ProductsView: React.FC = () => {
               
               {/* Sort selector */}
               <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-[#8F7137]" />
-                <span className="text-[#737373] uppercase tracking-wider text-[10px] font-bold">{language === 'ar' ? 'الترتيب:' : 'Sort:'}</span>
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#7d6230]" />
+                <span className="text-[#666666] uppercase tracking-wider text-[10px] font-bold">{language === 'ar' ? 'الترتيب:' : 'Sort:'}</span>
                 <SearchableSelect
                   id="sort-by-select"
                   value={sortBy}
@@ -378,7 +378,7 @@ export const ProductsView: React.FC = () => {
 
               {/* Items Per Page dropdown */}
               <div className="flex items-center gap-2 border-l border-[#E5E5E5] pl-3 dir-ltr:border-l dir-rtl:border-r dir-rtl:pr-3">
-                <span className="text-[#737373] uppercase tracking-wider text-[10px] font-bold">{language === 'ar' ? 'في الصفحة:' : 'Per Page:'}</span>
+                <span className="text-[#666666] uppercase tracking-wider text-[10px] font-bold">{language === 'ar' ? 'في الصفحة:' : 'Per Page:'}</span>
                 <SearchableSelect
                   id="items-per-page-select"
                   value={itemsPerPage}
@@ -395,13 +395,13 @@ export const ProductsView: React.FC = () => {
               </div>
 
               {/* In stock only toggle */}
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-[#171717] font-medium select-none border-l border-[#E5E5E5] pl-3">
+              <label className="flex items-center gap-2 min-h-6 cursor-pointer text-xs text-[#171717] font-medium select-none border-l border-[#E5E5E5] pl-3">
                 <input
                   type="checkbox"
                   id="in-stock-only-checkbox"
                   checked={onlyInStock}
                   onChange={(e) => setOnlyInStock(e.target.checked)}
-                  className="rounded border-[#E5E5E5] text-[#8F7137] focus:ring-[#B89753]"
+                  className="rounded border-[#E5E5E5] text-[#7d6230] focus:ring-[#B89753]"
                 />
                 <span className="text-xs">{language === 'ar' ? 'المتوفر فقط' : 'In Stock Only'}</span>
               </label>
@@ -411,7 +411,7 @@ export const ProductsView: React.FC = () => {
                 <button
                   id="reset-filters-btn"
                   onClick={resetFilters}
-                  className="flex items-center gap-1 text-xs text-[#8F7137] hover:text-[#171717] font-bold px-2 py-1 rounded-md bg-amber-50 border border-amber-200 cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-[#7d6230] hover:text-[#171717] font-bold px-2 py-1 rounded-md bg-amber-50 border border-amber-200 cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>{language === 'ar' ? 'إعادة ضبط' : 'Reset'}</span>
@@ -441,7 +441,7 @@ export const ProductsView: React.FC = () => {
                   <div className="pt-6 border-t border-[#E5E5E5] flex flex-col sm:flex-row items-center justify-between gap-4">
                     
                     {/* Page counter summary */}
-                    <div className="text-xs font-semibold text-[#737373]">
+                    <div className="text-xs font-semibold text-[#666666]">
                       {language === 'ar'
                         ? `الصفحة ${safeCurrentPage} من ${totalPages}`
                         : `Page ${safeCurrentPage} of ${totalPages}`}
@@ -475,7 +475,7 @@ export const ProductsView: React.FC = () => {
                         {getPageNumbers().map((pageNum, idx) => {
                           if (pageNum === '...') {
                             return (
-                              <span key={`dots-${idx}`} className="px-2 py-1 text-[#737373] text-xs font-bold">
+                              <span key={`dots-${idx}`} className="px-2 py-1 text-[#666666] text-xs font-bold">
                                 ...
                               </span>
                             );
@@ -521,7 +521,7 @@ export const ProductsView: React.FC = () => {
                     </div>
 
                     {/* Page Size Fast Select */}
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#737373]">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[#666666]">
                       <span>{language === 'ar' ? 'منتجات في الصفحة:' : 'Items per page:'}</span>
                       <SearchableSelect
                         value={itemsPerPage}
@@ -542,13 +542,13 @@ export const ProductsView: React.FC = () => {
               </div>
             ) : (
               <div className="py-20 text-center space-y-4 max-w-md mx-auto">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-[#8F7137]">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-[#7d6230]">
                   <Search className="w-8 h-8" />
                 </div>
                 <h3 className="text-lg font-bold text-[#171717]">
                   {language === 'ar' ? 'لم يتم العثور على نتائج مطابقة لجميع الفلاتر' : 'No Lebanese creations matched your search'}
                 </h3>
-                <p className="text-xs text-[#737373]">
+                <p className="text-xs text-[#666666]">
                   {language === 'ar' ? 'جرب البحث عن كلمة أخرى أو تصفح الأقسام المختلفة.' : 'Try clearing your search keyword or switching territory/category filters.'}
                 </p>
                 <button

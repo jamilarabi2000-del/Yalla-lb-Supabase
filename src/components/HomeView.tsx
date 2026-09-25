@@ -154,7 +154,7 @@ export const HomeView: React.FC = () => {
                       : (siteContent.home?.trustBadgesTitle || siteContent.home?.trustBadgesTitleArabic)}
                   </h3>
                   {(siteContent.home?.trustBadgesSubtitle || siteContent.home?.trustBadgesSubtitleArabic) && (
-                    <p className="text-xs text-[#737373] mt-1">
+                    <p className="text-xs text-[#666666] mt-1">
                       {language === 'ar' 
                         ? (siteContent.home?.trustBadgesSubtitleArabic || siteContent.home?.trustBadgesSubtitle) 
                         : (siteContent.home?.trustBadgesSubtitle || siteContent.home?.trustBadgesSubtitleArabic)}
@@ -164,14 +164,14 @@ export const HomeView: React.FC = () => {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="flex items-start gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/60 text-[#8F7137] flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/60 text-[#7d6230] flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-[#171717]">
                       {language === 'ar' ? 'أصالة لبنانية موثقة 100%' : '100% Verified Lebanese'}
                     </h4>
-                    <p className="text-[11px] text-[#737373] mt-0.5 leading-relaxed">
+                    <p className="text-[11px] text-[#666666] mt-0.5 leading-relaxed">
                       {language === 'ar' ? 'منتجات أصلية من ورش الحرفيين والتعاونيات القروية' : 'Authentic artisan creations from village cooperatives'}
                     </p>
                   </div>
@@ -185,7 +185,7 @@ export const HomeView: React.FC = () => {
                     <h4 className="text-xs sm:text-sm font-bold text-[#171717]">
                       {language === 'ar' ? 'توصيل محلي وشحن دولي' : 'Domestic & Global Courier'}
                     </h4>
-                    <p className="text-[11px] text-[#737373] mt-0.5 leading-relaxed">
+                    <p className="text-[11px] text-[#666666] mt-0.5 leading-relaxed">
                       {language === 'ar' ? 'شحن سريع لجميع الأراضي اللبنانية وأكثر من 40 دولة' : 'Express door-to-door delivery across Lebanon & diaspora'}
                     </p>
                   </div>
@@ -199,7 +199,7 @@ export const HomeView: React.FC = () => {
                     <h4 className="text-xs sm:text-sm font-bold text-[#171717]">
                       {language === 'ar' ? 'مونة طازجة وحرفية نقية' : 'Fresh Batches & Mouneh'}
                     </h4>
-                    <p className="text-[11px] text-[#737373] mt-0.5 leading-relaxed">
+                    <p className="text-[11px] text-[#666666] mt-0.5 leading-relaxed">
                       {language === 'ar' ? 'محضرة من موسم القطاف بأعلى معايير النظافة والجودة' : 'Small seasonal batches packed at the height of freshness'}
                     </p>
                   </div>
@@ -213,7 +213,7 @@ export const HomeView: React.FC = () => {
                     <h4 className="text-xs sm:text-sm font-bold text-[#171717]">
                       {language === 'ar' ? 'دعم الحرفيين المباشر' : 'Direct Artisan Support'}
                     </h4>
-                    <p className="text-[11px] text-[#737373] mt-0.5 leading-relaxed">
+                    <p className="text-[11px] text-[#666666] mt-0.5 leading-relaxed">
                       {language === 'ar' ? 'عوائد الشراء تدعم مباشرة استمرار الحرف اليدوية' : 'Empowering independent rural workshops & families'}
                     </p>
                   </div>
@@ -234,7 +234,7 @@ export const HomeView: React.FC = () => {
             )}
             <div className="flex flex-wrap items-end justify-between gap-4 mb-6 sm:mb-8">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8F7137] mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#7d6230] mb-1">
                   {language === 'ar' ? (
                     siteContent.home?.categoriesSubtitleArabic || 'تصفح الأقسام'
                   ) : (
@@ -246,17 +246,17 @@ export const HomeView: React.FC = () => {
                     siteContent.home?.categoriesTitleArabic ? (
                       <span>{siteContent.home.categoriesTitleArabic}</span>
                     ) : (
-                      <>تسوق حسب <span className="text-[#8F7137] italic">الفئات</span></>
+                      <>تسوق حسب <span className="text-[#7d6230] italic">الفئات</span></>
                     )
                   ) : (
                     siteContent.home?.categoriesTitle ? (
                       <span>{siteContent.home.categoriesTitle}</span>
                     ) : (
-                      <>Explore by <span className="text-[#8F7137] italic">Category</span></>
+                      <>Explore by <span className="text-[#7d6230] italic">Category</span></>
                     )
                   )}
                 </h2>
-                <p className="text-xs text-[#737373] mt-1">
+                <p className="text-xs text-[#666666] mt-1">
                   {language === 'ar' ? (
                     siteContent.home?.regionsSubtitleArabic || 'اكتشف الحرف اللبنانية، المؤونة، والأجهزة المنزلية بكل سهولة'
                   ) : (
@@ -284,7 +284,7 @@ export const HomeView: React.FC = () => {
                         loading="lazy"
                       />
                       <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10 pointer-events-none">
-                        <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#171717]/85 backdrop-blur-xs text-[#B89753] rounded-md shadow-2xs border border-[#8F7137]/30">
+                        <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#171717]/95 backdrop-blur-xs text-[#B89753] rounded-md shadow-2xs border border-[#8F7137]/30">
                           {productCount > 0 
                             ? `${productCount} ${language === 'ar' ? 'منتجات' : 'items'}` 
                             : (language === 'ar' ? 'قسم' : 'Category')}
@@ -294,16 +294,16 @@ export const HomeView: React.FC = () => {
 
                     <div className="flex flex-1 flex-col p-3 sm:p-4 justify-between space-y-2.5 sm:space-y-3 bg-white">
                       <div>
-                        <h3 className="text-xs sm:text-sm font-bold text-[#171717] group-hover:text-[#8F7137] transition-colors line-clamp-1 leading-snug">
+                        <h3 className="text-xs sm:text-sm font-bold text-[#171717] group-hover:text-[#7d6230] transition-colors line-clamp-1 leading-snug">
                           {cat.name}
                         </h3>
-                        <p className="text-[11px] text-[#737373] mt-1 line-clamp-1">
+                        <p className="text-[11px] text-[#666666] mt-1 line-clamp-1">
                           {cat.subtitle}
                         </p>
                       </div>
 
                       <div className="pt-2 sm:pt-2.5 border-t border-[#E5E5E5] flex items-center justify-between gap-1.5 sm:gap-2 mt-auto">
-                        <span className="text-[11px] sm:text-xs font-bold text-[#171717] group-hover:text-[#8F7137] transition-colors truncate">
+                        <span className="text-[11px] sm:text-xs font-bold text-[#171717] group-hover:text-[#7d6230] transition-colors truncate">
                           {language === 'ar' ? 'استكشف القسم' : 'Explore Category'}
                         </span>
                         <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#171717] group-hover:bg-[#8F7137] text-white flex items-center justify-center transition-colors cursor-pointer shadow-2xs flex-shrink-0">
@@ -327,7 +327,7 @@ export const HomeView: React.FC = () => {
           <section key="homeFeatured" className={`max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 relative ${!visibility.homeFeatured && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-4' : ''}`}>
             <div className="flex flex-wrap items-end justify-between gap-4 mb-6 sm:mb-8">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8F7137] mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#7d6230] mb-1">
                   {language === 'ar' ? (
                     siteContent.home?.featuredSubtitleArabic || t('topPicks')
                   ) : (
@@ -339,34 +339,34 @@ export const HomeView: React.FC = () => {
                     siteContent.home?.featuredTitleArabic ? (
                       <span>{siteContent.home.featuredTitleArabic}</span>
                     ) : (
-                      <>المنتجات <span className="text-[#8F7137] italic">المميزة</span></>
+                      <>المنتجات <span className="text-[#7d6230] italic">المميزة</span></>
                     )
                   ) : (
                     siteContent.home?.featuredTitle ? (
                       <span>{siteContent.home.featuredTitle}</span>
                     ) : (
-                      <>Featured <span className="text-[#8F7137] italic">Products</span></>
+                      <>Featured <span className="text-[#7d6230] italic">Products</span></>
                     )
                   )}
                 </h2>
                 {language === 'ar' ? (
                   siteContent.home?.featuredDescriptionArabic ? (
-                    <p className="text-xs text-[#737373] mt-1">{siteContent.home.featuredDescriptionArabic}</p>
+                    <p className="text-xs text-[#666666] mt-1">{siteContent.home.featuredDescriptionArabic}</p>
                   ) : (
-                    <p className="text-xs text-[#737373] mt-1">مختارات مميزة تحتفي بالحرفية الأصيلة والمونة اللبنانية العريقة</p>
+                    <p className="text-xs text-[#666666] mt-1">مختارات مميزة تحتفي بالحرفية الأصيلة والمونة اللبنانية العريقة</p>
                   )
                 ) : (
                   siteContent.home?.featuredDescription ? (
-                    <p className="text-xs text-[#737373] mt-1">{siteContent.home.featuredDescription}</p>
+                    <p className="text-xs text-[#666666] mt-1">{siteContent.home.featuredDescription}</p>
                   ) : (
-                    <p className="text-xs text-[#737373] mt-1">Handpicked items celebrating timeless craftsmanship and Levantine gastronomy.</p>
+                    <p className="text-xs text-[#666666] mt-1">Handpicked items celebrating timeless craftsmanship and Levantine gastronomy.</p>
                   )
                 )}
               </div>
               <div className="flex-none">
                 <button 
                   onClick={handleViewAllProducts}
-                  className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#8F7137] transition-colors bg-white px-3.5 py-2 rounded-lg border border-[#E5E5E5] shadow-2xs hover:shadow-xs cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#7d6230] transition-colors bg-white px-3.5 py-2 rounded-lg border border-[#E5E5E5] shadow-2xs hover:shadow-xs cursor-pointer"
                 >
                   {t('viewAllProducts')}
                   <ArrowRight className={`w-3.5 h-3.5 ${language === 'ar' ? 'rotate-180' : ''}`} />
@@ -398,17 +398,17 @@ export const HomeView: React.FC = () => {
                     siteContent.home?.dealsTitleArabic ? (
                       <span>{siteContent.home.dealsTitleArabic}</span>
                     ) : (
-                      <>عروض <span className="text-[#8F7137] italic">اليوم</span></>
+                      <>عروض <span className="text-[#7d6230] italic">اليوم</span></>
                     )
                   ) : (
                     siteContent.home?.dealsTitle ? (
                       <span>{siteContent.home.dealsTitle}</span>
                     ) : (
-                      <>Today's <span className="text-[#8F7137] italic">Deals</span></>
+                      <>Today's <span className="text-[#7d6230] italic">Deals</span></>
                     )
                   )}
                 </h2>
-                <p className="text-xs text-[#737373] mt-1">
+                <p className="text-xs text-[#666666] mt-1">
                   {language === 'ar' ? (
                     siteContent.home?.dealsDescriptionArabic || t('limitedTimeOffers')
                   ) : (
@@ -419,7 +419,7 @@ export const HomeView: React.FC = () => {
               <div className="flex-none">
                 <button 
                   onClick={handleViewAllProducts}
-                  className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#8F7137] transition-colors bg-white px-3.5 py-2 rounded-lg border border-[#E5E5E5] shadow-2xs hover:shadow-xs cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#7d6230] transition-colors bg-white px-3.5 py-2 rounded-lg border border-[#E5E5E5] shadow-2xs hover:shadow-xs cursor-pointer"
                 >
                   {t('viewAllProducts')}
                   <ArrowRight className={`w-3.5 h-3.5 ${language === 'ar' ? 'rotate-180' : ''}`} />
@@ -435,7 +435,7 @@ export const HomeView: React.FC = () => {
           <section key="homeBundles" className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-end justify-between gap-4 mb-6 sm:mb-8">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8F7137] mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#7d6230] mb-1">
                   {language === 'ar' 
                     ? (siteContent.home?.bundlesBadgeArabic || 'باقات توفير حصرية') 
                     : (siteContent.home?.bundlesBadge || 'Exclusive Curated Packs')}
@@ -445,17 +445,17 @@ export const HomeView: React.FC = () => {
                     siteContent.home?.bundlesTitleArabic ? (
                       <span>{siteContent.home.bundlesTitleArabic}</span>
                     ) : (
-                      <>مجموعات <span className="text-[#8F7137] italic">الهدايا والكومبو</span> المميزة</>
+                      <>مجموعات <span className="text-[#7d6230] italic">الهدايا والكومبو</span> المميزة</>
                     )
                   ) : (
                     siteContent.home?.bundlesTitle ? (
                       <span>{siteContent.home.bundlesTitle}</span>
                     ) : (
-                      <>Lebanese <span className="text-[#8F7137] italic">Combo & Gift Sets</span></>
+                      <>Lebanese <span className="text-[#7d6230] italic">Combo & Gift Sets</span></>
                     )
                   )}
                 </h2>
-                <p className="text-xs text-[#737373] mt-1">
+                <p className="text-xs text-[#666666] mt-1">
                   {language === 'ar' 
                     ? (siteContent.home?.bundlesSubtitleArabic || 'وفر أكثر مع هذه المجموعات المختارة بعناية من منتجاتنا التقليدية') 
                     : (siteContent.home?.bundlesSubtitle || 'Save more with our handpicked artisanal combinations and custom-packaged Lebanese treasures.')}
@@ -477,7 +477,7 @@ export const HomeView: React.FC = () => {
                       className="flex flex-col rounded-xl bg-white border border-[#E5E5E5] hover:border-[#B89753] shadow-2xs hover:shadow-md transition-all duration-300 overflow-hidden text-start p-5 sm:p-6"
                     >
                       <div className="flex items-center justify-between gap-2 mb-3">
-                        <span className="px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-50 text-[#8F7137] rounded-md border border-amber-200">
+                        <span className="px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-50 text-[#7d6230] rounded-md border border-amber-200">
                           {language === 'ar' ? (bundle.badgeTextAr || 'مجموعة توفير') : (bundle.badgeText || 'SPECIAL COMBO')}
                         </span>
                         {discountAmount > 0 && (
@@ -492,13 +492,13 @@ export const HomeView: React.FC = () => {
                       </h3>
 
                       {bundle.description && (
-                        <p className="text-xs text-[#737373] line-clamp-2 mb-4 leading-relaxed">
+                        <p className="text-xs text-[#666666] line-clamp-2 mb-4 leading-relaxed">
                           {language === 'ar' ? (bundle.descriptionAr || bundle.description) : bundle.description}
                         </p>
                       )}
 
                       <div className="space-y-2.5 mb-6 border-y border-[#E5E5E5] py-4 flex-1">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                           {language === 'ar' ? 'المنتجات المشمولة:' : 'Includes:'}
                         </p>
                         {bundleProds.map(prod => (
@@ -516,7 +516,7 @@ export const HomeView: React.FC = () => {
                                 {language === 'ar' ? (prod.arabicName || prod.name) : prod.name}
                               </p>
                             </div>
-                            <span className="text-xs text-[#737373] font-medium">
+                            <span className="text-xs text-[#666666] font-medium">
                               {formatPrice(prod.priceUSD)}
                             </span>
                           </div>
@@ -526,7 +526,7 @@ export const HomeView: React.FC = () => {
                       <div className="flex items-center justify-between gap-4 mt-auto">
                         <div className="flex flex-col">
                           {originalTotal > bundle.bundlePriceUSD && (
-                            <span className="text-xs text-[#737373] line-through">
+                            <span className="text-xs text-[#666666] line-through">
                               {formatPrice(originalTotal)}
                             </span>
                           )}
@@ -570,7 +570,7 @@ export const HomeView: React.FC = () => {
           <section key="homeNewArrivals" className={`max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 relative ${!visibility.homeNewArrivals && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-2xl p-4' : ''}`}>
             <div className="flex flex-wrap items-end justify-between gap-4 mb-6 sm:mb-8">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8F7137] mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#7d6230] mb-1">
                   {language === 'ar' ? (
                     siteContent.home?.newArrivalsSubtitleArabic || t('freshlyStocked')
                   ) : (
@@ -582,13 +582,13 @@ export const HomeView: React.FC = () => {
                     siteContent.home?.newArrivalsTitleArabic ? (
                       <span>{siteContent.home.newArrivalsTitleArabic}</span>
                     ) : (
-                      <>وصل حديثاً <span className="text-[#8F7137] italic">إلينا</span></>
+                      <>وصل حديثاً <span className="text-[#7d6230] italic">إلينا</span></>
                     )
                   ) : (
                     siteContent.home?.newArrivalsTitle ? (
                       <span>{siteContent.home.newArrivalsTitle}</span>
                     ) : (
-                      <>New <span className="text-[#8F7137] italic">Arrivals</span></>
+                      <>New <span className="text-[#7d6230] italic">Arrivals</span></>
                     )
                   )}
                 </h2>
@@ -596,7 +596,7 @@ export const HomeView: React.FC = () => {
               <div className="flex-none">
                 <button 
                   onClick={handleViewAllProducts}
-                  className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#8F7137] transition-colors bg-white px-3.5 py-2 rounded-lg border border-[#E5E5E5] shadow-2xs hover:shadow-xs cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#171717] hover:text-[#7d6230] transition-colors bg-white px-3.5 py-2 rounded-lg border border-[#E5E5E5] shadow-2xs hover:shadow-xs cursor-pointer"
                 >
                   {t('viewAllProducts')}
                   <ArrowRight className={`w-3.5 h-3.5 ${language === 'ar' ? 'rotate-180' : ''}`} />
@@ -614,7 +614,7 @@ export const HomeView: React.FC = () => {
               <h2 className="text-2xl sm:text-3xl font-serif text-[#171717] tracking-tight mb-4">
                 {language === 'ar' ? (siteContent.home?.heritageTitleArabic || siteContent.home?.heritageTitle || 'تراثنا') : (siteContent.home?.heritageTitle || 'Our Heritage')}
               </h2>
-              <p className="text-sm sm:text-base text-[#737373] leading-relaxed mx-auto max-w-2xl">
+              <p className="text-sm sm:text-base text-[#666666] leading-relaxed mx-auto max-w-2xl">
                 {language === 'ar' ? (siteContent.home?.heritageTextArabic || siteContent.home?.heritageText || '') : (siteContent.home?.heritageText || '')}
               </p>
             </div>
@@ -628,7 +628,7 @@ export const HomeView: React.FC = () => {
               <h2 className="text-2xl sm:text-3xl font-serif text-[#171717] tracking-tight">
                 {language === 'ar' ? (siteContent.home?.reviewsTitleArabic || siteContent.home?.reviewsTitle || 'آراء الزبائن') : (siteContent.home?.reviewsTitle || 'Customer Reviews')}
               </h2>
-              <p className="text-sm text-[#737373] mt-2 max-w-2xl mx-auto">
+              <p className="text-sm text-[#666666] mt-2 max-w-2xl mx-auto">
                 {language === 'ar' ? (siteContent.home?.reviewsSubtitleArabic || siteContent.home?.reviewsSubtitle || '') : (siteContent.home?.reviewsSubtitle || '')}
               </p>
             </div>
@@ -638,21 +638,21 @@ export const HomeView: React.FC = () => {
                   {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
                 <p className="text-sm text-[#171717] italic mb-4 leading-relaxed">"Absolutely authentic and beautiful craftsmanship. Reminds me of home."</p>
-                <div className="font-bold text-xs text-[#8F7137]">- Sarah K., Paris</div>
+                <div className="font-bold text-xs text-[#7d6230]">- Sarah K., Paris</div>
               </div>
               <div className="bg-white p-6 rounded-xl border border-[#E5E5E5] shadow-2xs">
                 <div className="flex gap-1 text-amber-400 mb-3">
                   {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
                 <p className="text-sm text-[#171717] italic mb-4 leading-relaxed">"The mouneh products are exactly how my grandmother used to make them!"</p>
-                <div className="font-bold text-xs text-[#8F7137]">- Elie M., Beirut</div>
+                <div className="font-bold text-xs text-[#7d6230]">- Elie M., Beirut</div>
               </div>
               <div className="bg-white p-6 rounded-xl border border-[#E5E5E5] shadow-2xs">
                 <div className="flex gap-1 text-amber-400 mb-3">
                   {[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-current" />)}
                 </div>
                 <p className="text-sm text-[#171717] italic mb-4 leading-relaxed">"Quick delivery to Dubai and the packaging was excellent. Highly recommended."</p>
-                <div className="font-bold text-xs text-[#8F7137]">- Noor A., Dubai</div>
+                <div className="font-bold text-xs text-[#7d6230]">- Noor A., Dubai</div>
               </div>
             </div>
           </section>
@@ -678,7 +678,7 @@ export const HomeView: React.FC = () => {
                   placeholder={language === 'ar' ? 'البريد الإلكتروني' : 'Email Address'} 
                   className="flex-1 px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-neutral-400 focus:outline-none focus:border-[#B89753] text-sm"
                 />
-                <button className="px-6 py-3 bg-[#B89753] hover:bg-[#8F7137] text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-colors whitespace-nowrap cursor-pointer shadow-2xs">
+                <button className="px-6 py-3 bg-[#8F7137] hover:bg-[#755B29] text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-colors whitespace-nowrap cursor-pointer shadow-2xs">
                   {language === 'ar' ? (siteContent.home?.newsletterButtonTextArabic || siteContent.home?.newsletterButtonText || 'اشترك') : (siteContent.home?.newsletterButtonText || 'Subscribe')}
                 </button>
               </div>

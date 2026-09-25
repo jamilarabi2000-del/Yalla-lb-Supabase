@@ -181,11 +181,11 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
     });
   };
 
-  const label = 'block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1';
+  const label = 'block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1';
   const input = 'w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white';
   const primary = 'w-full py-3 bg-[#171717] hover:bg-black text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-sm cursor-pointer disabled:bg-neutral-300 disabled:cursor-not-allowed flex items-center justify-center gap-2';
   const link = 'inline-flex items-center gap-1 text-[11px] font-bold cursor-pointer disabled:opacity-50';
-  const note = 'text-xs text-[#8F7137] bg-[#B89753]/10 border border-[#B89753]/30 rounded-lg px-3 py-2 leading-relaxed';
+  const note = 'text-xs text-[#7d6230] bg-[#B89753]/10 border border-[#B89753]/30 rounded-lg px-3 py-2 leading-relaxed';
 
   const emailField = (id: string) => (
     <div>
@@ -224,7 +224,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
             onClick={() => setShowPassword(shown => !shown)}
             aria-label={showPassword ? (ar ? 'إخفاء كلمة المرور' : 'Hide password') : (ar ? 'إظهار كلمة المرور' : 'Show password')}
             aria-pressed={showPassword}
-            className="absolute end-3 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#171717] cursor-pointer"
+            className="absolute end-3 top-1/2 -translate-y-1/2 text-[#666666] hover:text-[#171717] cursor-pointer"
           >
             {showPassword ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
           </button>
@@ -255,7 +255,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
         {purpose === 'signup' && (
           <>
             {passwordField(`${idPrefix}-password-confirm`, confirm, setConfirm, ar ? 'تأكيد كلمة المرور *' : 'Confirm Password *', false)}
-            <p id={`${idPrefix}-password-rules`} className="text-[11px] text-[#737373]">{passwordRulesHint(language)}</p>
+            <p id={`${idPrefix}-password-rules`} className="text-[11px] text-[#666666]">{passwordRulesHint(language)}</p>
           </>
         )}
         {purpose === 'signin' && (
@@ -265,7 +265,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
               id={`${idPrefix}-forgot-btn`}
               onClick={() => goTo('reset-email')}
               disabled={busy}
-              className={`${link} text-[#8F7137] hover:text-[#B89753]`}
+              className={`${link} text-[#7d6230] hover:text-[#B89753]`}
             >
               {ar ? 'نسيت كلمة المرور؟' : 'Forgot password?'}
             </button>
@@ -281,7 +281,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
                 : (ar ? 'متابعة' : 'Continue')}
           </span>
         </button>
-        <p className="text-[11px] text-[#737373] text-center">
+        <p className="text-[11px] text-[#666666] text-center">
           {purpose === 'signup'
             ? (ar ? 'بعدها نرسل إلى بريدك رمزاً لتأكيده.' : 'Next, we email you a code to confirm your email address.')
             : (ar ? 'بعدها نرسل إلى بريدك رمزاً من 6 أرقام لإكمال تسجيل الدخول.' : 'Next, we email you a 6-digit code to finish signing in.')}
@@ -303,7 +303,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
           <Mail className="w-4 h-4 text-[#B89753]" aria-hidden="true" />
           <span>{busy ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : (ar ? 'أرسل لي رمز إعادة التعيين' : 'Email me a reset code')}</span>
         </button>
-        <button type="button" id={`${idPrefix}-back-btn`} onClick={() => goTo('credentials')} disabled={busy} className={`${link} text-[#737373] hover:text-[#171717]`}>
+        <button type="button" id={`${idPrefix}-back-btn`} onClick={() => goTo('credentials')} disabled={busy} className={`${link} text-[#666666] hover:text-[#171717]`}>
           <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" aria-hidden="true" />
           <span>{ar ? 'العودة إلى تسجيل الدخول' : 'Back to sign in'}</span>
         </button>
@@ -367,7 +367,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
           id={`${idPrefix}-back-btn`}
           onClick={() => goTo(resetting ? 'reset-email' : 'credentials')}
           disabled={busy}
-          className={`${link} text-[#737373] hover:text-[#171717]`}
+          className={`${link} text-[#666666] hover:text-[#171717]`}
         >
           <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" aria-hidden="true" />
           <span>{ar ? 'بريد آخر' : 'Use a different email'}</span>
@@ -377,7 +377,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
           id={`${idPrefix}-resend-code-btn`}
           onClick={onResend}
           disabled={busy || cooldown > 0}
-          className={`${link} text-[#8F7137] hover:text-[#B89753] disabled:text-[#A3A3A3] disabled:cursor-not-allowed`}
+          className={`${link} text-[#7d6230] hover:text-[#B89753] disabled:text-[#A3A3A3] disabled:cursor-not-allowed`}
         >
           <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
           <span>{cooldown > 0 ? (ar ? `إعادة الإرسال بعد ${cooldown} ث` : `Resend in ${cooldown}s`) : (ar ? 'أعد إرسال الرمز' : 'Resend code')}</span>

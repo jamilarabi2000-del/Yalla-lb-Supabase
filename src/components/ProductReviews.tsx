@@ -75,20 +75,20 @@ export const ProductReviews: React.FC<{
     <section className={`mt-8 rounded-[24px] border border-[#E5E5E5] bg-white p-5 sm:p-7 shadow-sm ${outlined ? 'ring-2 ring-dashed ring-rose-500' : ''}`}>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8F7137]">{isRTL ? 'آراء العملاء' : 'Customer Reviews'}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7d6230]">{isRTL ? 'آراء العملاء' : 'Customer Reviews'}</p>
           <h2 className="text-lg sm:text-xl font-serif font-semibold text-[#171717]">{isRTL ? 'ماذا يقول المشترون' : 'What buyers say'}</h2>
         </div>
         {reviewsCount > 0 && (
           <div className="flex items-center gap-2 text-sm text-[#171717]">
             <Stars rating={rating} label={isRTL ? `${rating} من 5` : `${rating} out of 5`} />
             <b>{Number(rating).toFixed(1)}</b>
-            <span className="text-[#737373]">({reviewsCount})</span>
+            <span className="text-[#666666]">({reviewsCount})</span>
           </div>
         )}
       </div>
 
       {reviews.length === 0 ? (
-        <p className="text-sm text-[#737373]">{isRTL ? 'لا توجد تقييمات بعد.' : 'No reviews yet.'}</p>
+        <p className="text-sm text-[#666666]">{isRTL ? 'لا توجد تقييمات بعد.' : 'No reviews yet.'}</p>
       ) : (
         <ul className="space-y-4">
           {reviews.map(r => (
@@ -98,13 +98,13 @@ export const ProductReviews: React.FC<{
                 <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
                   <BadgeCheck className="w-3.5 h-3.5" aria-hidden />{isRTL ? 'شراء موثّق' : 'Verified Purchase'}
                 </span>
-                <span className="text-[#737373]">{date(r.createdAt)}</span>
+                <span className="text-[#666666]">{date(r.createdAt)}</span>
               </div>
               {r.title && <p className="mt-2 font-bold text-[#171717]">{r.title}</p>}
               {r.body && <p className="mt-1 text-sm leading-6 text-[#555555] whitespace-pre-line">{r.body}</p>}
               {r.adminReply && (
                 <div className="mt-3 rounded-xl border border-amber-200/70 bg-white p-3">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-[#8F7137] flex items-center gap-1.5">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-[#7d6230] flex items-center gap-1.5">
                     <MessageSquareReply className="w-3.5 h-3.5" aria-hidden />{isRTL ? 'رد المتجر' : 'Store Response'}
                   </p>
                   <p className="mt-1 text-sm leading-6 text-[#555555] whitespace-pre-line">{r.adminReply}</p>
@@ -116,7 +116,7 @@ export const ProductReviews: React.FC<{
       )}
 
       {mine ? (
-        <p className="mt-5 text-xs font-bold text-[#8F7137]">
+        <p className="mt-5 text-xs font-bold text-[#7d6230]">
           {mine.isPublished
             ? (isRTL ? 'شكراً على تقييمك لهذا المنتج.' : 'Thank you for reviewing this product.')
             : (isRTL ? 'تقييمك بانتظار مراجعة المتجر.' : 'Your review is waiting for the store to approve it.')}
@@ -143,7 +143,7 @@ export const ProductReviews: React.FC<{
             className="gold-btn h-11 px-5 rounded-xl text-sm font-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
             {sending ? (isRTL ? 'جارٍ الإرسال…' : 'Posting…') : (isRTL ? 'أرسل التقييم' : 'Post review')}
           </button>
-          <p className="text-[11px] text-[#737373]">{isRTL ? 'تظهر التقييمات بعد مراجعة المتجر.' : 'Reviews appear once the store has approved them.'}</p>
+          <p className="text-[11px] text-[#666666]">{isRTL ? 'تظهر التقييمات بعد مراجعة المتجر.' : 'Reviews appear once the store has approved them.'}</p>
         </form>
       )}
     </section>

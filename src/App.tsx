@@ -24,6 +24,7 @@ import { currentDesignSelector } from './lib/designSelectors';
 import { isAdminEntryPath, rememberAdminEntry, rememberedAdminEntry } from './lib/adminEntry';
 import { pendingDeepLinkProduct } from './lib/productDeepLink';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { darken, readableTextOn } from './lib/colorContrast';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>) {
   return lazy(async () => {
@@ -109,8 +110,15 @@ const MainAppContent: React.FC = () => {
     if (!siteContent?.theme) return;
     const root = document.documentElement;
     if (siteContent.theme.primaryColor) {
-      root.style.setProperty('--gold', siteContent.theme.primaryColor);
-      root.style.setProperty('--gold-dark', siteContent.theme.primaryColor + 'cc');
+      // The hover shade is an opaque darker colour (a see-through one showed
+      // the page through it), and the text on both follows the colour the
+      // administrator picked: white where it reads, near-black where it does not.
+      const primary = siteContent.theme.primaryColor;
+      const dark = darken(primary, 0.2);
+      root.style.setProperty('--gold', primary);
+      root.style.setProperty('--gold-dark', dark ?? primary);
+      root.style.setProperty('--on-gold', readableTextOn(primary));
+      root.style.setProperty('--on-gold-dark', readableTextOn(dark ?? primary));
     }
     if (siteContent.theme.accentColor) root.style.setProperty('--yalla-accent', siteContent.theme.accentColor);
 

@@ -641,7 +641,7 @@ export const HeroBanner: React.FC = () => {
                 </span>
                 <button
                   onClick={(e) => handleCopyCode(e, currentSlide.promoCode!)}
-                  className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-[#B89753] hover:bg-[#8F7137] text-white font-bold rounded-md text-[10px] sm:text-xs transition-colors cursor-pointer shadow-sm"
+                  className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-[#8F7137] hover:bg-[#755B29] text-white font-bold rounded-md text-[10px] sm:text-xs transition-colors cursor-pointer shadow-sm"
                 >
                   {copiedCode === currentSlide.promoCode ? (
                     <>
@@ -668,7 +668,7 @@ export const HeroBanner: React.FC = () => {
             {currentSlide.showButton !== false && activeBtnText && (
               <button
                 onClick={() => handleActionClick()}
-                className="w-full sm:w-auto px-6 sm:px-9 landscape:px-6 py-2.5 sm:py-3.5 landscape:py-2 md:landscape:py-3.5 bg-[#B89753] hover:bg-[#8F7137] text-white font-bold text-xs sm:text-sm uppercase tracking-wider rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer border border-[#B89753]"
+                className="w-full sm:w-auto px-6 sm:px-9 landscape:px-6 py-2.5 sm:py-3.5 landscape:py-2 md:landscape:py-3.5 bg-[#8F7137] hover:bg-[#755B29] text-white font-bold text-xs sm:text-sm uppercase tracking-wider rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer border border-[#B89753]"
               >
                 <ShoppingBag className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 <span>{activeBtnText}</span>
@@ -687,20 +687,25 @@ export const HeroBanner: React.FC = () => {
 
           {/* Carousel Indicators & Controls */}
           {slides.length > 1 && (
-            <div className="flex justify-center items-center gap-2 pt-2">
+            <div className="flex justify-center items-center pt-2">
               {slides.map((_, i) => (
+                // A 24px target around the small dot; the negative margin keeps
+                // the row as tall as the dot, so nothing below moves.
                 <button
                   key={i}
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setCurrentSlideIndex(i);
                     resetAutoplay();
                   }}
-                  className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer shadow-sm ${
-                    i === currentSlideIndex ? 'w-6 bg-[#B89753]' : 'w-2 bg-white/50 hover:bg-white'
-                  }`}
+                  className="group h-6 min-w-6 px-1 -my-[9px] flex items-center justify-center cursor-pointer"
                   aria-label={`Go to slide ${i + 1}`}
-                />
+                >
+                  <span aria-hidden className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                    i === currentSlideIndex ? 'w-6 bg-[#B89753]' : 'w-2 bg-white/50 group-hover:bg-white'
+                  }`} />
+                </button>
               ))}
             </div>
           )}
@@ -730,7 +735,7 @@ export const HeroBanner: React.FC = () => {
         <button
           onClick={handlePrev}
           aria-label={language === 'ar' ? 'الشريحة السابقة' : 'Previous Slide'}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white text-[#171717] shadow-md border border-[#E5E5E5] hidden md:flex items-center justify-center transition-all duration-200 hover:text-[#8F7137] hover:border-[#B89753] hover:scale-105 active:scale-95 cursor-pointer opacity-0 group-hover/hero:opacity-100"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white text-[#171717] shadow-md border border-[#E5E5E5] hidden md:flex items-center justify-center transition-all duration-200 hover:text-[#7d6230] hover:border-[#B89753] hover:scale-105 active:scale-95 cursor-pointer opacity-0 group-hover/hero:opacity-100"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -741,7 +746,7 @@ export const HeroBanner: React.FC = () => {
         <button
           onClick={handleNext}
           aria-label={language === 'ar' ? 'الشريحة التالية' : 'Next Slide'}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white text-[#171717] shadow-md border border-[#E5E5E5] hidden md:flex items-center justify-center transition-all duration-200 hover:text-[#8F7137] hover:border-[#B89753] hover:scale-105 active:scale-95 cursor-pointer opacity-0 group-hover/hero:opacity-100"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white text-[#171717] shadow-md border border-[#E5E5E5] hidden md:flex items-center justify-center transition-all duration-200 hover:text-[#7d6230] hover:border-[#B89753] hover:scale-105 active:scale-95 cursor-pointer opacity-0 group-hover/hero:opacity-100"
         >
           <ChevronRight className="w-5 h-5" />
         </button>

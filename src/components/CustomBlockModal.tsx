@@ -143,7 +143,7 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
               <h2 className="text-base sm:text-lg font-bold text-slate-100">
                 {blockToEdit?.id ? 'Edit Custom Div / Section' : 'Create New Custom Div / Section'}
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600">
                 Design custom banners, promotional divs, or custom announcements
               </p>
             </div>
@@ -260,7 +260,7 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center justify-between">
               <span>Body Content / Narrative (HTML or text)</span>
-              <span className="text-[10px] text-slate-400">Supports &lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;</span>
+              <span className="text-[10px] text-slate-600">Supports &lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;</span>
             </label>
             <textarea
               value={content}
@@ -380,7 +380,7 @@ export const CustomBlockModal: React.FC<CustomBlockModalProps> = ({
               )}
               <h4 className="text-base font-bold mb-1 text-slate-100">{title || 'Sample Title'}</h4>
               {subtitle && <p className="text-xs text-slate-300 mb-2">{subtitle}</p>}
-              {content && <p className="text-xs text-slate-400 mb-3">{content}</p>}
+              {content && <p className="text-xs text-slate-600 mb-3">{content}</p>}
               {buttonText && (
                 <span className="inline-block px-4 py-2 rounded-xl bg-[#b89753] text-white text-xs font-bold">
                   {buttonText}

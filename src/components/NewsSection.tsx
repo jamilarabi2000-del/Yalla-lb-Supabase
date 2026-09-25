@@ -393,14 +393,14 @@ export const NewsSection: React.FC = () => {
                 // so it is offered but not selectable.
                 disabled={count === 0}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`shrink-0 px-3.5 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed ${
+                className={`group shrink-0 px-3.5 py-1.5 rounded-lg border text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed ${
                   isActive
                     ? 'bg-[#B89753] text-[#171717] border-[#B89753] shadow-sm'
                     : 'bg-white/5 text-[#B89753] border-[#B89753]/30 hover:bg-[#B89753] hover:text-[#171717] hover:border-[#B89753]'
                 }`}
               >
                 {language === 'ar' ? cat.labelAr : cat.labelEn}
-                <span className={`ms-1.5 font-mono ${isActive ? 'text-[#171717]/60' : 'text-[#B89753]/60'}`}>
+                <span className={`ms-1.5 font-mono ${isActive ? 'text-[#171717]/80' : 'text-[#B89753] group-hover:text-[#171717]/80'}`}>
                   {count}
                 </span>
               </button>
@@ -443,7 +443,7 @@ export const NewsSection: React.FC = () => {
               {/* Card Body */}
               <div className="p-4 flex-1 flex flex-col justify-between bg-white text-[#171717]">
                 <div>
-                  <h3 className="text-xs sm:text-[13px] text-[#171717] font-semibold line-clamp-2 min-h-[36px] group-hover:text-[#8F7137] transition-colors leading-snug">
+                  <h3 className="text-xs sm:text-[13px] text-[#171717] font-semibold line-clamp-2 min-h-[36px] group-hover:text-[#7d6230] transition-colors leading-snug">
                     {language === 'ar' ? item.titleAr : item.titleEn}
                   </h3>
                 </div>
@@ -453,7 +453,7 @@ export const NewsSection: React.FC = () => {
                     <div className={`absolute top-0 w-8 h-[1.5px] bg-[#B89753] ${language === 'ar' ? 'right-0' : 'left-0'}`} />
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-[#8F7137] font-medium">
+                  <div className="flex items-center justify-between text-[11px] text-[#7d6230] font-medium">
                     <span>{language === 'ar' ? item.dateAr : item.date}</span>
                   </div>
                 </div>
@@ -518,7 +518,7 @@ export const NewsSection: React.FC = () => {
                 <X className="w-4 h-4" />
               </button>
               <div className="absolute bottom-4 left-6 right-6 z-30 text-white space-y-1.5">
-                <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#B89753] text-white">
+                <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#8F7137] text-white">
                   {selectedNews.category.toUpperCase()}
                 </span>
                 <h2 className="text-lg sm:text-xl font-serif font-bold leading-snug text-white">
@@ -547,7 +547,7 @@ export const NewsSection: React.FC = () => {
               <div className="pt-4 border-t border-white/10 flex items-center justify-end">
                 <button
                   onClick={() => setSelectedNews(null)}
-                  className="px-6 py-2.5 rounded-lg bg-[#B89753] hover:bg-[#8F7137] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg bg-[#8F7137] hover:bg-[#755B29] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   {language === 'ar' ? 'إغلاق' : 'Close'}
                 </button>

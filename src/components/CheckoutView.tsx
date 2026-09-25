@@ -539,14 +539,14 @@ export const CheckoutView: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#8F7137]">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7d6230]">
               {successBadge}
             </span>
             <h2 className="text-2xl sm:text-3xl font-serif font-bold text-[#171717] leading-tight">
-              {successTitle} <span className="italic text-[#8F7137]">{isArabic ? 'بنجاح' : 'Confirmed'}</span>
+              {successTitle} <span className="italic text-[#7d6230]">{isArabic ? 'بنجاح' : 'Confirmed'}</span>
             </h2>
-            <p className="text-xs text-[#737373]">
-              {isArabic ? 'رمز التتبع المرجعي:' : 'Reference code:'} <span className="font-mono font-bold text-[#8F7137] bg-[#B89753]/10 px-3 py-1 rounded-lg border border-[#B89753]/20 inline-block mt-1">{orderReference}</span>
+            <p className="text-xs text-[#666666]">
+              {isArabic ? 'رمز التتبع المرجعي:' : 'Reference code:'} <span className="font-mono font-bold text-[#7d6230] bg-[#B89753]/10 px-3 py-1 rounded-lg border border-[#B89753]/20 inline-block mt-1">{orderReference}</span>
             </p>
           </div>
 
@@ -555,16 +555,16 @@ export const CheckoutView: React.FC = () => {
               <Clock className="w-4 h-4" />
               <span>{nextStepsHeading}</span>
             </div>
-            <p className="flex items-start gap-2 text-[#737373]">
-              <span className="text-[#8F7137] font-bold">1.</span>
+            <p className="flex items-start gap-2 text-[#666666]">
+              <span className="text-[#7d6230] font-bold">1.</span>
               <span className="text-[#171717]">{step1}</span>
             </p>
-            <p className="flex items-start gap-2 text-[#737373]">
-              <span className="text-[#8F7137] font-bold">2.</span>
+            <p className="flex items-start gap-2 text-[#666666]">
+              <span className="text-[#7d6230] font-bold">2.</span>
               <span className="text-[#171717]">{step2}</span>
             </p>
-            <p className="flex items-start gap-2 text-[#737373]">
-              <span className="text-[#8F7137] font-bold">3.</span>
+            <p className="flex items-start gap-2 text-[#666666]">
+              <span className="text-[#7d6230] font-bold">3.</span>
               <span className="text-[#171717]">{step3Replaced}</span>
             </p>
           </div>
@@ -578,7 +578,7 @@ export const CheckoutView: React.FC = () => {
             </button>
             <button
               onClick={() => { setOrderComplete(null); setActiveTab('products'); }}
-              className="px-8 py-3 border border-[#B89753] text-[#8F7137] hover:bg-[#B89753]/10 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer rounded-lg"
+              className="px-8 py-3 border border-[#B89753] text-[#7d6230] hover:bg-[#B89753]/10 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer rounded-lg"
             >
               {btnContinue}
             </button>
@@ -609,12 +609,12 @@ export const CheckoutView: React.FC = () => {
             {siteContent?.checkoutPage?.title ? (
               <span>{siteContent.checkoutPage.title}</span>
             ) : isArabic ? (
-              <>التوصيل و <span className="italic text-[#8F7137]">إتمام التسوية والطلب</span></>
+              <>التوصيل و <span className="italic text-[#7d6230]">إتمام التسوية والطلب</span></>
             ) : (
-              <>Delivery & <span className="italic text-[#8F7137]">Payment Settlement</span></>
+              <>Delivery & <span className="italic text-[#7d6230]">Payment Settlement</span></>
             )}
           </h1>
-          <p className="text-xs text-[#737373] max-w-2xl leading-relaxed">
+          <p className="text-xs text-[#666666] max-w-2xl leading-relaxed">
             {siteContent?.checkoutPage?.subtitle ? (
               siteContent.checkoutPage.subtitle
             ) : isArabic ? (
@@ -630,11 +630,11 @@ export const CheckoutView: React.FC = () => {
         
         {cart.length === 0 ? (
           <div className="py-20 text-center space-y-4 max-w-md mx-auto">
-            <div className="w-16 h-16 rounded-full bg-[#B89753]/10 border border-[#B89753]/20 flex items-center justify-center mx-auto text-[#8F7137]">
+            <div className="w-16 h-16 rounded-full bg-[#B89753]/10 border border-[#B89753]/20 flex items-center justify-center mx-auto text-[#7d6230]">
               <Truck className="w-8 h-8" />
             </div>
             <h2 className="text-xl font-serif font-bold text-[#171717]">{t('emptyBasket')}</h2>
-            <p className="text-xs text-[#737373]">
+            <p className="text-xs text-[#666666]">
               {t('emptyBasketSub')}
             </p>
             <button
@@ -667,11 +667,11 @@ export const CheckoutView: React.FC = () => {
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
                         authUser 
                           ? 'bg-[#16803C] text-white' 
-                          : 'bg-[#B89753] text-white animate-pulse'
+                          : 'bg-[#8F7137] text-white animate-pulse'
                       }`}>
                         {authUser ? '✓' : '1'}
                       </div>
-                      <span className={`text-xs font-bold ${authUser ? 'text-[#737373]' : 'text-[#171717]'}`}>
+                      <span className={`text-xs font-bold ${authUser ? 'text-[#666666]' : 'text-[#171717]'}`}>
                         {isArabic ? 'حساب المستفيد' : 'Patron Account'}
                       </span>
                     </div>
@@ -681,12 +681,12 @@ export const CheckoutView: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center ${
                         authUser 
-                          ? 'bg-[#B89753] text-white animate-pulse' 
-                          : 'bg-neutral-100 text-[#737373]'
+                          ? 'bg-[#8F7137] text-white animate-pulse' 
+                          : 'bg-neutral-100 text-[#666666]'
                       }`}>
                         2
                       </div>
-                      <span className={`text-xs font-bold ${authUser ? 'text-[#171717]' : 'text-[#737373]'}`}>
+                      <span className={`text-xs font-bold ${authUser ? 'text-[#171717]' : 'text-[#666666]'}`}>
                         {isArabic ? 'بيانات الشحن' : 'Delivery Address'}
                       </span>
                     </div>
@@ -694,10 +694,10 @@ export const CheckoutView: React.FC = () => {
                     <div className="h-px bg-[#E5E5E5] flex-1 mx-4" />
 
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-neutral-100 text-[#737373] text-[11px] font-bold flex items-center justify-center">
+                      <div className="w-6 h-6 rounded-lg bg-neutral-100 text-[#666666] text-[11px] font-bold flex items-center justify-center">
                         3
                       </div>
-                      <span className="text-xs font-bold text-[#737373]">
+                      <span className="text-xs font-bold text-[#666666]">
                         {isArabic ? 'التسوية والطلب' : 'Settlement'}
                       </span>
                     </div>
@@ -712,12 +712,12 @@ export const CheckoutView: React.FC = () => {
                   
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E5E5]">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#8F7137] flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-[#B89753]/10 text-[#7d6230] flex items-center justify-center flex-shrink-0">
                         <Lock className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#B89753]/10 text-[#8F7137] text-[10px] font-bold uppercase tracking-wider mb-1">
-                          <AlertCircle className="w-3 h-3 text-[#8F7137]" />
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#B89753]/10 text-[#7d6230] text-[10px] font-bold uppercase tracking-wider mb-1">
+                          <AlertCircle className="w-3 h-3 text-[#7d6230]" />
                           <span>{isArabic ? 'تسجيل الدخول مطلوب' : 'Login Required to Proceed'}</span>
                         </div>
                         <h3 className="text-base font-serif font-bold text-[#171717]">
@@ -735,7 +735,7 @@ export const CheckoutView: React.FC = () => {
                         className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
                           authMode === 'signin' 
                             ? 'bg-white text-[#171717] shadow-xs' 
-                            : 'text-[#737373] hover:text-[#171717]'
+                            : 'text-[#666666] hover:text-[#171717]'
                         }`}
                       >
                         {isArabic ? 'تسجيل دخول' : 'Sign In'}
@@ -747,7 +747,7 @@ export const CheckoutView: React.FC = () => {
                         className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
                           authMode === 'signup' 
                             ? 'bg-white text-[#171717] shadow-xs' 
-                            : 'text-[#737373] hover:text-[#171717]'
+                            : 'text-[#666666] hover:text-[#171717]'
                         }`}
                       >
                         {isArabic ? 'إنشاء حساب' : 'Sign Up'}
@@ -755,7 +755,7 @@ export const CheckoutView: React.FC = () => {
                     </div>
                   </div>
 
-                  <p className="text-xs text-[#737373] leading-relaxed">
+                  <p className="text-xs text-[#666666] leading-relaxed">
                     {isArabic 
                       ? 'لضمان أمان طلبك وتوفير تتبع الطلبات عبر واتساب وحفظ عنوانك، يرجى تسجيل الدخول أو إنشاء حساب لبناني جديد.'
                       : 'To track courier dispatch, receive WhatsApp notifications, and auto-fill your delivery coordinates, please sign in or register below.'}
@@ -799,7 +799,7 @@ export const CheckoutView: React.FC = () => {
 
                   <div className="relative flex py-1 items-center">
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
-                    <span className="flex-shrink mx-4 text-[11px] font-bold uppercase tracking-wider text-[#737373]">
+                    <span className="flex-shrink mx-4 text-[11px] font-bold uppercase tracking-wider text-[#666666]">
                       {isArabic ? 'أو عبر البريد الإلكتروني' : 'Or with email'}
                     </span>
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
@@ -817,7 +817,7 @@ export const CheckoutView: React.FC = () => {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                             {isArabic ? 'الاسم الأول *' : 'First Name *'}
                           </label>
                           <input
@@ -830,7 +830,7 @@ export const CheckoutView: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                             {isArabic ? 'اسم العائلة *' : 'Last Name *'}
                           </label>
                           <input
@@ -845,11 +845,11 @@ export const CheckoutView: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                           {isArabic ? 'رقم الواتساب اللبناني *' : 'Lebanese WhatsApp Phone *'}
                         </label>
                         <div className="relative flex items-center">
-                          <div className="absolute left-3 flex items-center gap-1.5 pointer-events-none text-[#737373] font-bold text-xs select-none">
+                          <div className="absolute left-3 flex items-center gap-1.5 pointer-events-none text-[#666666] font-bold text-xs select-none">
                             <LebanonFlag className="w-4 h-3 rounded-xs" />
                             <span>+961</span>
                           </div>
@@ -892,7 +892,7 @@ export const CheckoutView: React.FC = () => {
                           {isArabic ? 'تم تسجيل الدخول' : 'Verified Account'}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#737373]">
+                      <p className="text-[11px] text-[#666666]">
                         {authUser.email || user.email}
                       </p>
                     </div>
@@ -904,7 +904,7 @@ export const CheckoutView: React.FC = () => {
                       await signOutUser();
                       showToast(isArabic ? 'تم تسجيل الخروج' : 'Signed out', 'info');
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#737373] hover:text-[#C62828] hover:bg-neutral-50 border border-[#E5E5E5] transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#666666] hover:text-[#C62828] hover:bg-neutral-50 border border-[#E5E5E5] transition-colors cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>{isArabic ? 'تبديل الحساب' : 'Switch Account'}</span>
@@ -923,7 +923,7 @@ export const CheckoutView: React.FC = () => {
                   )}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#E5E5E5]">
                     <h3 className="text-base font-serif font-bold text-[#171717] flex items-center gap-2">
-                      <MapPin className="w-5 h-5 text-[#8F7137]" />
+                      <MapPin className="w-5 h-5 text-[#7d6230]" />
                       <span>{siteContent?.checkoutPage?.shippingHeading || (isArabic ? 'بيانات المستلم والعنوان في لبنان' : 'Recipient & Delivery Address')}</span>
                     </h3>
                     <span className="text-[11px] text-[#16803C] font-semibold flex items-center gap-1 bg-[#16803C]/10 px-2.5 py-0.5 rounded-md border border-[#16803C]/20">
@@ -932,7 +932,7 @@ export const CheckoutView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="p-3 bg-[#F8F8F6] border border-[#E5E5E5] rounded-lg flex items-center justify-between text-xs text-[#737373]">
+                  <div className="p-3 bg-[#F8F8F6] border border-[#E5E5E5] rounded-lg flex items-center justify-between text-xs text-[#666666]">
                     <span className="font-medium pr-2">
                       {isArabic 
                         ? 'تُملأ بيانات التوصيل تلقائياً من حسابك وتعديلها يتم فقط من خلال ملفك الشخصي.' 
@@ -950,7 +950,7 @@ export const CheckoutView: React.FC = () => {
                   {/* 🌟 SEPARATE FIRST NAME AND LAST NAME */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'الاسم الأول *' : 'First Name *'}
                       </label>
                       <input
@@ -964,7 +964,7 @@ export const CheckoutView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'اسم العائلة *' : 'Last Name *'}
                       </label>
                       <input
@@ -980,11 +980,11 @@ export const CheckoutView: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'رقم الهاتف اللبناني / واتساب *' : 'Lebanese Mobile Phone / WhatsApp *'}
                       </label>
                       <div className="relative flex items-center">
-                        <div className="absolute left-3 flex items-center gap-1 pointer-events-none text-[#737373] font-bold text-xs select-none">
+                        <div className="absolute left-3 flex items-center gap-1 pointer-events-none text-[#666666] font-bold text-xs select-none">
                           <LebanonFlag className="w-4 h-3 rounded-xs" />
                         </div>
                         <input
@@ -999,7 +999,7 @@ export const CheckoutView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'البريد الإلكتروني للإشعار *' : 'Email for Dispatch & Invoice *'}
                       </label>
                       <input
@@ -1014,7 +1014,7 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                       {isArabic ? 'المحافظة *' : 'Governorate *'}
                     </label>
                     <SearchableSelect
@@ -1030,7 +1030,7 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                       {isArabic ? 'المدينة / المنطقة / المحافظة *' : 'City / Governorate *'}
                     </label>
                     <input
@@ -1045,7 +1045,7 @@ export const CheckoutView: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'الشارع / نقطة علام معروفة *' : 'Street / Landmark *'}
                       </label>
                       <input
@@ -1059,7 +1059,7 @@ export const CheckoutView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'المبنى' : 'Building'}
                       </label>
                       <input
@@ -1074,7 +1074,7 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                       {isArabic ? 'الطابق / رقم الشقة' : 'Floor / Apartment'}
                     </label>
                     <input
@@ -1088,7 +1088,7 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#737373] mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                       {isArabic ? 'ملاحظات إضافية للتوصيل (اختياري)' : 'Delivery Notes & Courier Instructions (Optional)'}
                     </label>
                     <input
@@ -1113,7 +1113,7 @@ export const CheckoutView: React.FC = () => {
                     </div>
                   )}
                   <h3 className="text-base font-serif font-bold text-[#171717] flex items-center gap-2 pb-3 border-b border-[#E5E5E5]">
-                    <Truck className="w-5 h-5 text-[#8F7137]" />
+                    <Truck className="w-5 h-5 text-[#7d6230]" />
                     <span>{isArabic ? 'سرعة التوصيل والشحن' : 'Delivery Speed & Schedule'}</span>
                   </h3>
 
@@ -1131,9 +1131,9 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'بيروت السريع' : 'Beirut Express'}
                         </span>
-                        <span className="text-[11px] font-bold text-[#8F7137]">{feeLabel(deliveryFeeFor('express_beirut'))}</span>
+                        <span className="text-[11px] font-bold text-[#7d6230]">{feeLabel(deliveryFeeFor('express_beirut'))}</span>
                       </div>
-                      <p className="text-[11px] text-[#737373]">
+                      <p className="text-[11px] text-[#666666]">
                         {isArabic ? 'خلال ساعتين في بيروت' : 'Within 2 Hours in Beirut'}
                       </p>
                     </button>
@@ -1151,9 +1151,9 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'كافة المناطق' : 'Standard All Lebanon'}
                         </span>
-                        <span className="text-[11px] font-bold text-[#8F7137]">{feeLabel(deliveryFeeFor('standard'))}</span>
+                        <span className="text-[11px] font-bold text-[#7d6230]">{feeLabel(deliveryFeeFor('standard'))}</span>
                       </div>
-                      <p className="text-[11px] text-[#737373]">
+                      <p className="text-[11px] text-[#666666]">
                         {isArabic ? '24 - 48 ساعة لكافة المناطق' : '24 - 48 Hours Nationwide'}
                       </p>
                     </button>
@@ -1171,9 +1171,9 @@ export const CheckoutView: React.FC = () => {
                         <span className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'شحن الاغتراب' : 'Diaspora Air Express'}
                         </span>
-                        <span className="text-[11px] font-bold text-[#8F7137]">{feeLabel(deliveryFeeFor('diaspora_air'))}</span>
+                        <span className="text-[11px] font-bold text-[#7d6230]">{feeLabel(deliveryFeeFor('diaspora_air'))}</span>
                       </div>
-                      <p className="text-[11px] text-[#737373]">
+                      <p className="text-[11px] text-[#666666]">
                         {isArabic ? '3 - 5 أيام عمل دولياً' : '3 - 5 Business Days DHL'}
                       </p>
                     </button>
@@ -1184,7 +1184,7 @@ export const CheckoutView: React.FC = () => {
                         {isArabic ? '🎉 التوصيل مجاني لهذا الطلب في كل لبنان' : '🎉 Free delivery across Lebanon applies to this order.'}
                       </p>
                     ) : freeDeliveryFromUSD !== null ? (
-                      <p id="checkout-free-delivery-note" className="text-[11px] text-[#737373]">
+                      <p id="checkout-free-delivery-note" className="text-[11px] text-[#666666]">
                         {isArabic
                           ? `أضف ${formatPrice(freeDeliveryFromUSD - itemsSubtotalUSD)} للحصول على توصيل مجاني في كل لبنان`
                           : `Add ${formatPrice(freeDeliveryFromUSD - itemsSubtotalUSD)} more for free delivery across Lebanon.`}
@@ -1204,7 +1204,7 @@ export const CheckoutView: React.FC = () => {
                     </div>
                   )}
                   <h3 className="text-base font-serif font-bold text-[#171717] flex items-center gap-2 pb-3 border-b border-[#E5E5E5]">
-                    <CreditCard className="w-5 h-5 text-[#8F7137]" />
+                    <CreditCard className="w-5 h-5 text-[#7d6230]" />
                     <span>{isArabic ? 'طريقة الدفع والتسوية' : 'Payment Method & Settlement'}</span>
                   </h3>
 
@@ -1218,14 +1218,14 @@ export const CheckoutView: React.FC = () => {
                           : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
                       }`}
                     >
-                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#8F7137] shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#7d6230] shrink-0">
                         <Banknote className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'الدفع نقداً بالدولار (COD)' : 'Cash on Delivery ($ USD)'}
                         </div>
-                        <div className="text-[11px] text-[#737373]">
+                        <div className="text-[11px] text-[#666666]">
                           {isArabic ? 'تسليم نقدي عند الاستلام' : 'Pay in cash upon arrival'}
                         </div>
                       </div>
@@ -1240,14 +1240,14 @@ export const CheckoutView: React.FC = () => {
                           : 'border-[#E5E5E5] bg-[#F8F8F6] hover:bg-white'
                       }`}
                     >
-                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#8F7137] shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-white border border-[#E5E5E5] flex items-center justify-center text-[#7d6230] shrink-0">
                         <Sparkles className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="text-xs font-bold text-[#171717]">
                           {isArabic ? 'Whish Money / OMT' : 'Whish Money / OMT'}
                         </div>
-                        <div className="text-[11px] text-[#737373]">
+                        <div className="text-[11px] text-[#666666]">
                           {isArabic ? 'تحويل إلكتروني فوري' : 'Instant local e-transfer'}
                         </div>
                       </div>
@@ -1285,7 +1285,7 @@ export const CheckoutView: React.FC = () => {
                   )}
                   <h3 className="text-base font-serif font-bold text-[#171717] pb-3 border-b border-[#E5E5E5] flex items-center justify-between">
                     <span>{siteContent?.checkoutPage?.summaryHeading || (isArabic ? 'ملخص الطلب' : 'Order Summary')}</span>
-                    <span className="text-xs text-[#8F7137] font-bold bg-[#B89753]/10 px-2.5 py-0.5 rounded-full border border-[#B89753]/20">{cart.length} {isArabic ? 'منتجات' : 'Items'}</span>
+                    <span className="text-xs text-[#7d6230] font-bold bg-[#B89753]/10 px-2.5 py-0.5 rounded-full border border-[#B89753]/20">{cart.length} {isArabic ? 'منتجات' : 'Items'}</span>
                   </h3>
 
                 {/* Items preview */}
@@ -1301,9 +1301,9 @@ export const CheckoutView: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-[#171717] truncate">{item.product.name}</h4>
-                        <p className="text-[11px] text-[#737373]">Qty: {item.quantity} × {formatPrice(item.product.priceUSD)}</p>
+                        <p className="text-[11px] text-[#666666]">Qty: {item.quantity} × {formatPrice(item.product.priceUSD)}</p>
                       </div>
-                      <span className="font-bold text-[#8F7137]">
+                      <span className="font-bold text-[#7d6230]">
                         {formatPrice(item.product.priceUSD * item.quantity)}
                       </span>
                     </div>
@@ -1314,7 +1314,7 @@ export const CheckoutView: React.FC = () => {
                 <div className="pt-3 border-t border-[#E5E5E5] space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-[#171717]">
                     <span className="flex items-center gap-1.5">
-                      <Tag className="w-3.5 h-3.5 text-[#8F7137]" />
+                      <Tag className="w-3.5 h-3.5 text-[#7d6230]" />
                       <span>{isArabic ? 'كوبون الخصم' : 'Discount Coupon'}</span>
                     </span>
                     {appliedCouponCode && (
@@ -1345,7 +1345,7 @@ export const CheckoutView: React.FC = () => {
                         value={checkoutCouponInput}
                         onChange={(e) => setCheckoutCouponInput(e.target.value.toUpperCase())}
                         placeholder={isArabic ? 'مثال: KOURA15' : 'e.g. KOURA15'}
-                        className="flex-1 px-3 py-2 text-xs rounded-lg bg-[#F8F8F6] border border-[#E5E5E5] text-[#171717] placeholder:text-[#737373] font-mono uppercase focus:bg-white focus:border-[#B89753] focus:outline-none"
+                        className="flex-1 px-3 py-2 text-xs rounded-lg bg-[#F8F8F6] border border-[#E5E5E5] text-[#171717] placeholder:text-[#666666] font-mono uppercase focus:bg-white focus:border-[#B89753] focus:outline-none"
                       />
                       <button
                         type="button"
@@ -1368,7 +1368,7 @@ export const CheckoutView: React.FC = () => {
 
                 {/* Totals Calculation */}
                 <div className="pt-3 border-t border-[#E5E5E5] space-y-2 text-xs">
-                  <div className="flex justify-between text-[#737373]">
+                  <div className="flex justify-between text-[#666666]">
                     <span>{isArabic ? 'مجموع المنتجات' : 'Products Subtotal'}</span>
                     <span className="font-bold text-[#171717]">{formatPrice(Math.round(cart.reduce((s, i) => s + i.product.priceUSD * i.quantity, 0) * 100) / 100)}</span>
                   </div>
@@ -1383,15 +1383,15 @@ export const CheckoutView: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="flex justify-between text-[#737373]">
+                  <div className="flex justify-between text-[#666666]">
                     <span>{isArabic ? 'أجور التوصيل والشحن' : 'Delivery Courier Fee'}</span>
-                    <span className="font-bold text-[#8F7137]">{deliveryFeeUSD === 0 ? feeLabel(0) : `+${formatPrice(deliveryFeeUSD)}`}</span>
+                    <span className="font-bold text-[#7d6230]">{deliveryFeeUSD === 0 ? feeLabel(0) : `+${formatPrice(deliveryFeeUSD)}`}</span>
                   </div>
 
                   <div className="pt-3 border-t border-[#E5E5E5] flex items-baseline justify-between">
                     <span className="text-sm font-bold text-[#171717]">{isArabic ? 'المبلغ الإجمالي المستحق' : 'Total Amount Due'}</span>
                     <div className="text-right">
-                      <span className="text-2xl font-bold text-[#8F7137]">
+                      <span className="text-2xl font-bold text-[#7d6230]">
                         {formatPrice(finalTotalUSD)}
                       </span>
                     </div>
@@ -1419,7 +1419,7 @@ export const CheckoutView: React.FC = () => {
                 </button>
 
                 {!authUser && (
-                  <p className="text-[11px] text-[#8F7137] bg-[#B89753]/10 p-2.5 rounded-lg border border-[#B89753]/20 text-center font-medium flex items-center justify-center gap-1.5">
+                  <p className="text-[11px] text-[#7d6230] bg-[#B89753]/10 p-2.5 rounded-lg border border-[#B89753]/20 text-center font-medium flex items-center justify-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 shrink-0" />
                     <span>{isArabic ? 'يرجى تسجيل الدخول أعلاه لإكمال الطلب' : 'Please sign in or register above to complete order'}</span>
                   </p>
@@ -1427,7 +1427,7 @@ export const CheckoutView: React.FC = () => {
 
                 {/* Guarantee Badges */}
                 {(visibility.checkoutGuarantees || isVisualEditMode) && (
-                  <div className={`pt-2 border-t border-[#E5E5E5] text-[11px] text-[#737373] space-y-1.5 relative ${!visibility.checkoutGuarantees && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 p-1.5 rounded-lg' : ''}`}>
+                  <div className={`pt-2 border-t border-[#E5E5E5] text-[11px] text-[#666666] space-y-1.5 relative ${!visibility.checkoutGuarantees && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 p-1.5 rounded-lg' : ''}`}>
                     {!visibility.checkoutGuarantees && isVisualEditMode && (
                       <div className="absolute top-0 right-0 bg-rose-600 text-white px-1.5 py-0.5 rounded text-[8px] font-bold">Hidden</div>
                     )}

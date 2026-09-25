@@ -36,7 +36,7 @@ export const AccountSupportCard: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#171717]">{language === 'ar' ? 'الدعم والمساعدة' : 'Support & Concierge'}</h2>
-              <p className="text-xs text-[#737373] mt-1">{language === 'ar' ? 'نحن هنا لمساعدتك في طلباتك واستفساراتك.' : 'We are here to help with your orders and questions.'}</p>
+              <p className="text-xs text-[#666666] mt-1">{language === 'ar' ? 'نحن هنا لمساعدتك في طلباتك واستفساراتك.' : 'We are here to help with your orders and questions.'}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

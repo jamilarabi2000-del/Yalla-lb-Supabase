@@ -41,7 +41,7 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({ products, idPr
     <div className="relative -mx-1 px-1">
       <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-10 rounded-[22px] bg-gradient-to-r from-[#F7F7F8]/75 via-transparent to-[#F7F7F8]/75 opacity-0 sm:opacity-100" />
       {showLeft && (
-        <button type="button" onClick={() => scroll('left')} aria-label="Previous products" className="absolute left-0 sm:-left-3 top-1/2 -translate-y-1/2 z-30 h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/70 bg-white/80 backdrop-blur-xl text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:border-[#B89753]/60 hover:text-[#8F7137] hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer">
+        <button type="button" onClick={() => scroll('left')} aria-label="Previous products" className="absolute left-0 sm:-left-3 top-1/2 -translate-y-1/2 z-30 h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/70 bg-white/80 backdrop-blur-xl text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:border-[#B89753]/60 hover:text-[#7d6230] hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer">
           <ChevronLeft className="h-5 w-5" />
         </button>
       )}
@@ -53,7 +53,7 @@ export const ProductCarousel: React.FC<ProductCarouselProps> = ({ products, idPr
         ))}
       </div>
       {showRight && (
-        <button type="button" onClick={() => scroll('right')} aria-label="Next products" className="absolute right-0 sm:-right-3 top-1/2 -translate-y-1/2 z-30 h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/70 bg-white/80 backdrop-blur-xl text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:border-[#B89753]/60 hover:text-[#8F7137] hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer">
+        <button type="button" onClick={() => scroll('right')} aria-label="Next products" className="absolute right-0 sm:-right-3 top-1/2 -translate-y-1/2 z-30 h-10 w-10 sm:h-11 sm:w-11 rounded-full border border-white/70 bg-white/80 backdrop-blur-xl text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,0.10)] hover:border-[#B89753]/60 hover:text-[#7d6230] hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center cursor-pointer">
           <ChevronRight className="h-5 w-5" />
         </button>
       )}

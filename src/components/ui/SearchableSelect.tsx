@@ -374,7 +374,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           );
         })}
       </ul>
-      {shown.length === 0 && <p className="px-3 py-3 text-slate-400">{words.none}</p>}
+      {shown.length === 0 && <p className="px-3 py-3 text-slate-600">{words.none}</p>}
       {matches.length > shown.length && (
         <p className="border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-500">{words.more(shown.length, matches.length)}</p>
       )}

@@ -470,7 +470,7 @@ export const HomeTopContainer: React.FC = () => {
               <div className="min-w-0 flex items-center gap-2 pe-2 sm:pr-4 flex-wrap">
                 <button
                   onClick={handleHeroPrimaryAction}
-                  className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#B89753] hover:bg-[#8F7137] border border-[#B89753] text-white text-[11px] min-[360px]:text-[12px] sm:text-[13px] font-bold uppercase tracking-wider transition-all cursor-pointer truncate max-w-full shadow-xs active:scale-[0.98] drop-shadow-sm"
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#8F7137] hover:bg-[#755B29] border border-[#B89753] text-white text-[11px] min-[360px]:text-[12px] sm:text-[13px] font-bold uppercase tracking-wider transition-all cursor-pointer truncate max-w-full shadow-xs active:scale-[0.98] drop-shadow-sm"
                 >
                   {isAr 
                     ? (currentSlide.buttonTextAr || currentSlide.buttonTextEn || 'استكشف التشكيلة') 

@@ -4,10 +4,13 @@
   --gold: #B89753;
   --gold-dark: #8F7137;
   --gold-light: #F3E5AB;
+  /* Text on --gold / --gold-dark; App.tsx recomputes both for the theme colour. */
+  --on-gold: #171717;
+  --on-gold-dark: #ffffff;
   --gold-amber: #D4B572;
   --text-main: #111111;
   --text-primary: #171717;
-  --text-muted: #737373;
+  --text-muted: #666666;
   --text-soft: #666666;
   --bg-primary: #F8F8F6;
   --bg-surface: #FFFFFF;
@@ -44,8 +47,8 @@
 @layer components {
   .premium-card { background: #fff; border: 1px solid var(--border-color); box-shadow: 0 2px 8px -2px rgba(0,0,0,.04); transition: all .25s cubic-bezier(.16,1,.3,1); }
   .premium-card:hover { border-color: rgba(184,151,83,.6); box-shadow: 0 12px 24px -6px rgba(184,151,83,.12),0 4px 8px -2px rgba(0,0,0,.04); transform: translateY(-2px); }
-  .gold-btn { background: var(--gold); color: #fff !important; font-weight: 700; transition: all .25s ease; }
-  .gold-btn:hover { background: var(--gold-dark); box-shadow: 0 6px 20px -4px rgba(184,151,83,.35); transform: translateY(-1px); }
+  .gold-btn { background: var(--gold); color: var(--on-gold) !important; font-weight: 700; transition: all .25s ease; }
+  .gold-btn:hover { background: var(--gold-dark); color: var(--on-gold-dark) !important; box-shadow: 0 6px 20px -4px rgba(184,151,83,.35); transform: translateY(-1px); }
   .gold-gradient { background: linear-gradient(135deg,#8F7137 0%,#B89753 50%,#755B29 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
   .gold-gradient-bg { background: linear-gradient(135deg,#B89753 0%,#D4B572 50%,#8F7137 100%); color:#fff !important; }
   .status-dot { width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block; box-shadow:0 0 8px rgba(22,128,60,.4); }
@@ -100,7 +103,7 @@
   .social-btn:hover, .social-btn:focus-visible { transform:none !important; }
 }
 
-.skip-link { position:absolute; top:-40px; left:0; background:var(--gold-dark); color:#fff; padding:8px 16px; z-index:100; border-radius:0 0 8px 8px; font-weight:600; }
+.skip-link { position:absolute; top:-40px; left:0; background:var(--gold-dark); color:var(--on-gold-dark); padding:8px 16px; z-index:100; border-radius:0 0 8px 8px; font-weight:600; }
 .skip-link:focus { top:0; }
 
 ::-webkit-scrollbar { width:6px; height:6px; }

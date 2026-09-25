@@ -51,7 +51,7 @@ export const FavoritesView: React.FC = () => {
           {/* Breadcrumb / Back Link */}
           <button
             onClick={() => setActiveTab('products')}
-            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#737373] hover:text-[#171717] transition-colors mb-6 cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#666666] hover:text-[#171717] transition-colors mb-6 cursor-pointer"
           >
             <BackIcon className="w-4 h-4" />
             <span>{isArabic ? 'العودة إلى كل المنتجات' : 'Continue Shopping'}</span>
@@ -67,7 +67,7 @@ export const FavoritesView: React.FC = () => {
                   <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#171717]">
                     {isArabic ? 'المفضلة والمحفوظات' : 'My Saved Favorites'}
                   </h1>
-                  <p className="text-xs sm:text-sm text-[#737373] mt-1 font-medium">
+                  <p className="text-xs sm:text-sm text-[#666666] mt-1 font-medium">
                     {isArabic 
                       ? 'القطع الحرفية اللبنانية المختارة التي حفظتها للرجوع إليها لاحقاً' 
                       : 'Handcrafted Lebanese treasures and artisan pieces you have saved'}
@@ -81,7 +81,7 @@ export const FavoritesView: React.FC = () => {
               <div className="flex items-center gap-3 flex-wrap">
                 <button
                   onClick={handleClearFavorites}
-                  className="px-4 py-2.5 rounded-lg border border-[#E5E5E5] bg-white hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-[#737373] text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+                  className="px-4 py-2.5 rounded-lg border border-[#E5E5E5] bg-white hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-[#666666] text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{isArabic ? 'إفراغ المفضلة' : 'Clear All'}</span>
@@ -113,7 +113,7 @@ export const FavoritesView: React.FC = () => {
               <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#171717]">
                 {isArabic ? 'قائمة المفضلة فارغة حالياً' : 'Your Favorites List is Empty'}
               </h2>
-              <p className="text-xs sm:text-sm text-[#737373] leading-relaxed max-w-md mx-auto">
+              <p className="text-xs sm:text-sm text-[#666666] leading-relaxed max-w-md mx-auto">
                 {isArabic 
                   ? 'لم تقم بحفظ أي منتج بعد. تصفح مجموعتنا الحرفية من الصابون، زيت الزيتون، النحاسيات، والمونة اللبنانية وانقر على رمز القلب لحفظها هنا.'
                   : 'You have not saved any artisan creations yet. Explore our handcrafted olive oils, brassware, soaps, and pantry items to save your favorites.'}
@@ -130,7 +130,7 @@ export const FavoritesView: React.FC = () => {
               </button>
             </div>
 
-            <div className="pt-4 border-t border-[#E5E5E5] flex items-center justify-center gap-6 text-[11px] text-[#737373]">
+            <div className="pt-4 border-t border-[#E5E5E5] flex items-center justify-center gap-6 text-[11px] text-[#666666]">
               <span className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#B89753]" />
                 <span>{isArabic ? '100% حرفي وأصيل' : '100% Authentic Lebanese'}</span>
