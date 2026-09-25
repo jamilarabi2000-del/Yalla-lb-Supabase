@@ -342,7 +342,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 Storefront CMS Studio
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold tracking-wide flex items-center gap-1.5">
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 text-[11px] font-bold tracking-wide flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Live Sync
               </span>
@@ -418,7 +418,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
             <History className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span>History</span>
             {snapshotCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold">
+              <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-700 text-[10px] font-mono font-bold">
                 {snapshotCount}
               </span>
             )}
@@ -429,7 +429,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
             <button
               type="button"
               onClick={() => setShowDiffModal(true)}
-              className="px-3 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
+              className="px-3 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
               title="Review differences against live site"
             >
               <FileCode2 className="w-3.5 h-3.5 shrink-0" />
@@ -442,7 +442,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               type="button"
               onClick={handleReset}
               disabled={isSaving}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-rose-950/40 border border-slate-200 hover:border-rose-500/30 text-slate-600 hover:text-rose-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
+              className="px-3 py-2 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 text-slate-600 hover:text-rose-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
               title="Discard unsaved changes"
             >
               <RotateCcw className="w-3.5 h-3.5 shrink-0" />
@@ -463,7 +463,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
           >
             <Save className={`w-4 h-4 shrink-0 ${isSaving ? 'animate-spin' : ''}`} />
             <span>{isSaving ? 'Publishing...' : isDirty ? 'Publish Changes' : 'Save & Publish Live'}</span>
-            <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-black/20 text-[10px] font-mono font-normal">
+            <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-white/40 text-slate-950 text-[10px] font-mono font-normal">
               ⌘S
             </span>
           </button>
@@ -564,7 +564,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-black text-slate-900">{currentTabObj.label}</h3>
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                 {currentTabObj.category}
               </span>
             </div>
@@ -579,7 +579,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               Unpublished edits pending
             </span>
           ) : (
-            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-medium flex items-center gap-1.5">
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-800 border border-emerald-500/30 text-[11px] font-medium flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               Storefront synced
             </span>
@@ -895,7 +895,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
             <button
               type="button"
               onClick={() => setShowDiffModal(true)}
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-purple-300 text-xs font-bold border border-purple-500/30 transition-all cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-purple-700 text-xs font-bold border border-purple-500/30 transition-all cursor-pointer"
             >
               Review Diff
             </button>

@@ -360,7 +360,7 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
               <SocialIconLinks items={previewItems} />
             </div>
           ) : (
-            <p className="text-xs text-neutral-400">No icon has a link yet.</p>
+            <p className="text-xs text-neutral-600">No icon has a link yet.</p>
           )}
         </div>
         <p className="text-[11px] text-slate-500 -mt-2">Preview of the store footer. Dimmed icons are hidden from visitors. The same switches and order apply to the support card on the Account page; the Arabic site mirrors left and right.</p>
@@ -374,10 +374,10 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
               <li key={channel} data-channel={channel} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-2xl border border-slate-200 p-3 ${shown ? 'bg-white' : 'bg-slate-50'}`}>
                 <div className="flex items-center gap-2 sm:w-64 shrink-0">
                   <div className="flex flex-col">
-                    <button type="button" aria-label={`Move ${label} up`} disabled={index === 0} onClick={() => moveChannel(index, -1)} className="p-0.5 rounded text-slate-400 hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                    <button type="button" aria-label={`Move ${label} up`} disabled={index === 0} onClick={() => moveChannel(index, -1)} className="p-0.5 rounded text-slate-500 hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                       <ChevronUp className="w-4 h-4" aria-hidden="true" />
                     </button>
-                    <button type="button" aria-label={`Move ${label} down`} disabled={index === order.length - 1} onClick={() => moveChannel(index, 1)} className="p-0.5 rounded text-slate-400 hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
+                    <button type="button" aria-label={`Move ${label} down`} disabled={index === order.length - 1} onClick={() => moveChannel(index, 1)} className="p-0.5 rounded text-slate-500 hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
                       <ChevronDown className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </div>
@@ -393,7 +393,7 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
                     placeholder={field.placeholder}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
                   />
-                  {field.hint && <p className="text-[11px] text-slate-400 mt-1">{field.hint}</p>}
+                  {field.hint && <p className="text-[11px] text-slate-500 mt-1">{field.hint}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button type="button" role="switch" aria-checked={shown} aria-label={`${label} icon visibility`} onClick={() => toggleChannel(channel)} className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${shown ? 'bg-emerald-500' : 'bg-slate-300'}`}>
@@ -418,7 +418,7 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
             <Layout className="w-5 h-5 text-indigo-600" />
             <span>Footer Copyright & Bottom Attribution Notice</span>
           </h3>
-          <span className="text-[11px] text-indigo-600/80 font-medium">Supports Multi-line / Press Enter for new lines</span>
+          <span className="text-[11px] text-indigo-700 font-medium">Supports Multi-line / Press Enter for new lines</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

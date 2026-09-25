@@ -236,8 +236,8 @@ export const CMSSectionReorder: React.FC<CMSSectionReorderProps> = ({
                     onClick={() => onVisibilityToggle(meta.visibilityKey!, !isVisible)}
                     className={`p-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                       isVisible
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30'
-                        : 'bg-rose-500/20 text-rose-300 border-rose-500/30 hover:bg-rose-500/30'
+                        ? 'bg-emerald-500/20 text-emerald-800 border-emerald-500/30 hover:bg-emerald-500/30'
+                        : 'bg-rose-500/20 text-rose-800 border-rose-500/30 hover:bg-rose-500/30'
                     }`}
                     title={isVisible ? 'Visible on storefront' : 'Hidden from storefront'}
                   >

@@ -239,7 +239,7 @@ return (
           <div className="min-w-0">
             <h2 className="text-base sm:text-lg font-bold text-slate-900 capitalize flex items-center gap-1.5 sm:gap-2 truncate">
               <span className="truncate">{tabs.find(t => t.id === tab)?.label || tab.replace('_',' ')}</span>
-              <span className="hidden md:inline text-slate-300 font-light">/</span>
+              <span className="hidden md:inline text-slate-500 font-light">/</span>
               <span className="hidden md:inline text-xs font-normal text-slate-500 truncate">Yalla.lb Admin</span>
             </h2>
           </div>

@@ -196,7 +196,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
       {/* Header with Title & Recommended Specs */}
       <div className="flex items-center justify-between gap-2">
         <div>
-          <label className="block text-xs font-bold text-slate-200 uppercase tracking-wide">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
             {label}
           </label>
           {subLabel && (
@@ -231,7 +231,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
             ) : value ? (
               <>
                 {imgError ? (
-                  <div className="w-full h-full bg-red-950/40 flex flex-col items-center justify-center text-red-400 p-1 text-center" title="Image failed to load. Please verify the URL or upload a new file.">
+                  <div className="w-full h-full bg-red-50 flex flex-col items-center justify-center text-red-700 p-1 text-center" title="Image failed to load. Please verify the URL or upload a new file.">
                     <AlertCircle className="w-4 h-4" />
                     <span className="text-[8px] mt-0.5 leading-tight">Broken</span>
                   </div>
@@ -251,7 +251,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                     setOptimizeStats(null);
                     setImgError(false);
                   }}
-                  className="absolute inset-0 bg-black/70 text-rose-400 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-xs"
+                  className="absolute inset-0 bg-black/70 text-rose-300 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-xs"
                   title="Remove image"
                 >
                   <X className="w-4 h-4" />
@@ -312,7 +312,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
 
         {/* Compression / Optimization Feedback */}
         {optimizeStats && (
-          <div className="flex items-center gap-2 text-[11px] text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 px-3 py-1 rounded-lg">
+          <div className="flex items-center gap-2 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
             <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />
             <span>
               Web-Optimized: <strong>{optimizeStats.optimized}</strong> ({optimizeStats.savings}% smaller than original {optimizeStats.original})
@@ -321,14 +321,14 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
         )}
 
         {isOptimizing && (
-          <div className="flex items-center gap-2 text-[11px] text-indigo-600 bg-amber-950/30 border border-amber-500/20 px-3 py-1 rounded-lg animate-pulse">
+          <div className="flex items-center gap-2 text-[11px] text-indigo-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-lg animate-pulse">
             <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
             <span>Optimizing image resolution & compressing for web...</span>
           </div>
         )}
 
         {imgError && value && (
-          <div className="flex items-center gap-2 text-[11px] text-rose-400 bg-rose-950/30 border border-rose-500/20 px-3 py-1 rounded-lg">
+          <div className="flex items-center gap-2 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1 rounded-lg">
             <AlertCircle className="w-3 h-3 flex-shrink-0" />
             <span>Image URL failed to load. A high-quality fallback is shown on the storefront.</span>
           </div>

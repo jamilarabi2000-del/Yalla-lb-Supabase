@@ -204,7 +204,7 @@ export const CMSThemeTab: React.FC<CMSThemeTabProps> = ({ themeData, onChange })
               return (
                 <details key={slot.id} className="rounded-2xl border border-slate-200 bg-white" open={slot.id === 'body'}>
                   <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between text-sm font-bold text-slate-900">
-                    <span>{slot.label}</span><span className="text-[10px] text-slate-400 uppercase tracking-wider">Responsive</span>
+                    <span>{slot.label}</span><span className="text-[10px] text-slate-500 uppercase tracking-wider">Responsive</span>
                   </summary>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 border-t border-slate-100">
                     <label className="text-xs text-slate-600">Font family<input value={s.fontFamily || ''} onChange={e=>updateTextStyle(slot.id,'fontFamily',e.target.value)} placeholder="inherit / Inter" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"/></label>

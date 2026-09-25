@@ -348,7 +348,7 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
                   </span>
                 </div>
                 <div className="absolute bottom-2.5 left-2.5 z-20">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-indigo-600 shadow-md">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-white shadow-md">
                     {article.tag}
                   </span>
                 </div>
@@ -391,7 +391,7 @@ export const CMSNewsTab: React.FC<CMSNewsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDeleteArticle(article.id)}
-                      className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 transition-colors"
+                      className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 transition-colors"
                       title="Delete article"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

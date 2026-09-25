@@ -310,7 +310,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
       <div className="bg-white rounded-2xl p-5 border border-neutral-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[#B89753]/10 text-[#8F7137]">
+            <span className="p-1.5 rounded-lg bg-[#B89753]/10 text-[#6B5428]">
               <Tv className="w-4 h-4" />
             </span>
             <h3 className="text-base font-bold text-neutral-900">
@@ -343,7 +343,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
               type="button"
               onClick={() => setActiveTab('slides')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'slides' ? 'bg-white text-neutral-900 shadow-xs font-bold' : 'text-neutral-500 hover:text-neutral-800'
+                activeTab === 'slides' ? 'bg-white text-neutral-900 shadow-xs font-bold' : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -353,7 +353,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
               type="button"
               onClick={() => setActiveTab('settings')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'settings' ? 'bg-white text-neutral-900 shadow-xs font-bold' : 'text-neutral-500 hover:text-neutral-800'
+                activeTab === 'settings' ? 'bg-white text-neutral-900 shadow-xs font-bold' : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
@@ -364,15 +364,15 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
       </div>
 
       {/* Real-time Visual Preview */}
-      <div className="bg-neutral-950 p-4 sm:p-6 rounded-2xl border border-neutral-800 text-slate-900 space-y-3 shadow-md">
+      <div className="bg-neutral-950 p-4 sm:p-6 rounded-2xl border border-neutral-800 text-slate-100 space-y-3 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-mono uppercase tracking-wider text-neutral-400">
+            <span className="text-xs font-mono uppercase tracking-wider text-neutral-300">
               Live Responsive Preview ({slides.length} {slides.length === 1 ? 'Slide' : 'Slides'})
             </span>
           </div>
-          <span className="text-[11px] text-neutral-400">
+          <span className="text-[11px] text-neutral-300">
             Rendered exactly as buyers see it
           </span>
         </div>
@@ -396,7 +396,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
               <button
                 type="button"
                 onClick={handleAddSlide}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111111] hover:bg-[#8F7137] text-slate-900 text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111111] hover:bg-[#8F7137] text-white text-xs font-semibold cursor-pointer shadow-xs transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Slide</span>
@@ -436,7 +436,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                           disabled={idx === 0}
                           onClick={(e) => handleMoveSlide(idx, 'up', e)}
                           title="Move Up"
-                          className="p-1 rounded text-neutral-400 hover:text-neutral-700 disabled:opacity-20 cursor-pointer"
+                          className="p-1 rounded text-neutral-600 hover:text-neutral-700 disabled:opacity-20 cursor-pointer"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
@@ -445,7 +445,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                           disabled={idx === slides.length - 1}
                           onClick={(e) => handleMoveSlide(idx, 'down', e)}
                           title="Move Down"
-                          className="p-1 rounded text-neutral-400 hover:text-neutral-700 disabled:opacity-20 cursor-pointer"
+                          className="p-1 rounded text-neutral-600 hover:text-neutral-700 disabled:opacity-20 cursor-pointer"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
                         </button>
@@ -489,7 +489,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                             {sched.label}
                           </span>
                         </div>
-                        <p className="truncate text-neutral-400 text-[10px]">
+                        <p className="truncate text-neutral-600 text-[10px]">
                           {slide.badge || slide.badgeArabic || 'No badge'}
                         </p>
                       </div>
@@ -500,7 +500,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleDuplicateSlide(slide.id, e)}
-                        className="text-neutral-500 hover:text-[#8F7137] flex items-center gap-1 cursor-pointer"
+                        className="text-neutral-500 hover:text-[#6B5428] flex items-center gap-1 cursor-pointer"
                       >
                         <Copy className="w-3 h-3" />
                         <span>Duplicate</span>
@@ -508,7 +508,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleDeleteSlide(slide.id, e)}
-                        className="text-rose-500 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                        className="text-rose-700 hover:text-rose-800 flex items-center gap-1 cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>Delete</span>
@@ -526,7 +526,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
             {/* Header of Active Slide Editor */}
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#B89753]/20 text-[#8F7137] font-mono text-xs font-bold flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-[#B89753]/20 text-[#6B5428] font-mono text-xs font-bold flex items-center justify-center">
                   {currentSlideIndex + 1}
                 </span>
                 <h4 className="text-base font-bold text-neutral-900">
@@ -540,7 +540,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     type="checkbox"
                     checked={activeSlide.isPublished !== false}
                     onChange={(e) => handleUpdateCurrentSlide({ isPublished: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#8F7137] focus:ring-[#8F7137]"
+                    className="w-4 h-4 rounded text-[#6B5428] focus:ring-[#8F7137]"
                   />
                   <span>Published & Active</span>
                 </label>
@@ -569,14 +569,14 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                       onClick={() => handleUpdateCurrentSlide({ type: item.id as any })}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
                         isSelected 
-                          ? 'border-[#B89753] bg-[#B89753]/10 text-[#8F7137] ring-1 ring-[#B89753]' 
+                          ? 'border-[#B89753] bg-[#B89753]/10 text-[#6B5428] ring-1 ring-[#B89753]' 
                           : 'border-neutral-200 hover:border-neutral-300 text-neutral-600 bg-neutral-50/50'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                       <div>
                         <div className="text-xs font-bold">{item.label}</div>
-                        <div className="text-[10px] text-neutral-400 line-clamp-1">{item.desc}</div>
+                        <div className="text-[10px] text-neutral-600 line-clamp-1">{item.desc}</div>
                       </div>
                     </button>
                   );
@@ -589,7 +589,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
               <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
-                    <ShoppingBag className="w-4 h-4 text-[#8F7137]" />
+                    <ShoppingBag className="w-4 h-4 text-[#6B5428]" />
                     <span>Associate Catalog Product</span>
                   </label>
                   {activeSlide.selectedProductId && (
@@ -641,9 +641,9 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                         />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs truncate">{p.name}</p>
-                          <p className="text-[10px] text-neutral-400 truncate">${p.priceUSD} • {p.category}</p>
+                          <p className="text-[10px] text-neutral-600 truncate">${p.priceUSD} • {p.category}</p>
                         </div>
-                        {isSelected && <Check className="w-4 h-4 text-[#8F7137] flex-shrink-0" />}
+                        {isSelected && <Check className="w-4 h-4 text-[#6B5428] flex-shrink-0" />}
                       </div>
                     );
                   })}
@@ -681,7 +681,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
               <div className="space-y-4 pt-4 border-t border-neutral-100">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 text-[#8F7137]" />
+                    <ImageIcon className="w-4 h-4 text-[#6B5428]" />
                     <span>Slide Image & Media</span>
                   </label>
                   {activeSlide.imageUrl && (
@@ -744,7 +744,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                           value={fit.id}
                           checked={(activeSlide.imageFit || 'contain') === fit.id}
                           onChange={() => handleUpdateCurrentSlide({ imageFit: fit.id as any })}
-                          className="text-[#8F7137] focus:ring-[#8F7137]"
+                          className="text-[#6B5428] focus:ring-[#8F7137]"
                         />
                         <span className="text-[11px] text-neutral-600">{fit.label}</span>
                       </label>
@@ -799,7 +799,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
             <div className="space-y-4 pt-4 border-t border-neutral-100">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <LinkIcon className="w-4 h-4 text-[#8F7137]" />
+                  <LinkIcon className="w-4 h-4 text-[#6B5428]" />
                   <span>CTA Button & Destination Link</span>
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-neutral-600 cursor-pointer">
@@ -807,7 +807,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     type="checkbox"
                     checked={activeSlide.showCta !== false}
                     onChange={(e) => handleUpdateCurrentSlide({ showCta: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#8F7137] focus:ring-[#8F7137]"
+                    className="w-4 h-4 rounded text-[#6B5428] focus:ring-[#8F7137]"
                   />
                   <span>Show CTA Button</span>
                 </label>
@@ -848,7 +848,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                           onClick={() => handleUpdateCurrentSlide({ ctaUrl: p.url })}
                           className={`text-[10px] px-2 py-1 rounded-md border transition-all cursor-pointer ${
                             activeSlide.ctaUrl === p.url
-                              ? 'border-[#B89753] bg-[#B89753]/15 text-[#8F7137] font-bold'
+                              ? 'border-[#B89753] bg-[#B89753]/15 text-[#6B5428] font-bold'
                               : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-600'
                           }`}
                         >
@@ -864,7 +864,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
             {/* Section 5: Background & Color Theme */}
             <div className="space-y-3 pt-4 border-t border-neutral-100">
               <label className="text-xs font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Palette className="w-4 h-4 text-[#8F7137]" />
+                <Palette className="w-4 h-4 text-[#6B5428]" />
                 <span>Background & Styling</span>
               </label>
 
@@ -885,12 +885,12 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                       onClick={() => handleUpdateCurrentSlide({ bgStyle: style.id as any })}
                       className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                         isSelected 
-                          ? 'border-[#B89753] bg-[#B89753]/10 text-[#8F7137] font-bold ring-1 ring-[#B89753]' 
+                          ? 'border-[#B89753] bg-[#B89753]/10 text-[#6B5428] font-bold ring-1 ring-[#B89753]' 
                           : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-700'
                       }`}
                     >
                       <div className="text-xs font-bold">{style.label}</div>
-                      <div className="text-[10px] text-neutral-400 font-normal">{style.desc}</div>
+                      <div className="text-[10px] text-neutral-600 font-normal">{style.desc}</div>
                     </button>
                   );
                 })}
@@ -941,7 +941,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
             <div className="space-y-3 pt-4 border-t border-neutral-100">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-[#8F7137]" />
+                  <Calendar className="w-4 h-4 text-[#6B5428]" />
                   <span>Time-based Scheduling</span>
                 </label>
                 <label className="flex items-center gap-1.5 text-xs text-neutral-600 cursor-pointer">
@@ -949,7 +949,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     type="checkbox"
                     checked={activeSlide.scheduleActive || false}
                     onChange={(e) => handleUpdateCurrentSlide({ scheduleActive: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#8F7137] focus:ring-[#8F7137]"
+                    className="w-4 h-4 rounded text-[#6B5428] focus:ring-[#8F7137]"
                   />
                   <span>Enable Schedule Dates</span>
                 </label>
@@ -1000,7 +1000,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
             <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/50 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Play className="w-4 h-4 text-[#8F7137]" />
+                  <Play className="w-4 h-4 text-[#6B5428]" />
                   <span className="text-xs font-bold text-neutral-900">Autoplay Slides</span>
                 </div>
                 <label className="flex items-center cursor-pointer">
@@ -1008,7 +1008,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     type="checkbox"
                     checked={config.autoplay !== false}
                     onChange={(e) => onChangePromoBanner({ autoplay: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#8F7137] focus:ring-[#8F7137]"
+                    className="w-4 h-4 rounded text-[#6B5428] focus:ring-[#8F7137]"
                   />
                 </label>
               </div>
@@ -1040,7 +1040,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
             <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/50 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Repeat className="w-4 h-4 text-[#8F7137]" />
+                  <Repeat className="w-4 h-4 text-[#6B5428]" />
                   <span className="text-xs font-bold text-neutral-900">Continuous Loop</span>
                 </div>
                 <label className="flex items-center cursor-pointer">
@@ -1048,7 +1048,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     type="checkbox"
                     checked={config.loop !== false}
                     onChange={(e) => onChangePromoBanner({ loop: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#8F7137] focus:ring-[#8F7137]"
+                    className="w-4 h-4 rounded text-[#6B5428] focus:ring-[#8F7137]"
                   />
                 </label>
               </div>
@@ -1068,7 +1068,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     type="checkbox"
                     checked={config.showArrows !== false}
                     onChange={(e) => onChangePromoBanner({ showArrows: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#8F7137] focus:ring-[#8F7137]"
+                    className="w-4 h-4 rounded text-[#6B5428] focus:ring-[#8F7137]"
                   />
                 </label>
 
@@ -1078,7 +1078,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     type="checkbox"
                     checked={config.showDots !== false}
                     onChange={(e) => onChangePromoBanner({ showDots: e.target.checked })}
-                    className="w-4 h-4 rounded text-[#8F7137] focus:ring-[#8F7137]"
+                    className="w-4 h-4 rounded text-[#6B5428] focus:ring-[#8F7137]"
                   />
                 </label>
               </div>
@@ -1101,7 +1101,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                       onClick={() => onChangePromoBanner({ transitionEffect: effect.id as any })}
                       className={`p-2.5 rounded-xl border text-center cursor-pointer transition-all ${
                         isSelected 
-                          ? 'border-[#B89753] bg-[#B89753]/15 text-[#8F7137] font-bold' 
+                          ? 'border-[#B89753] bg-[#B89753]/15 text-[#6B5428] font-bold' 
                           : 'border-neutral-200 bg-white hover:bg-neutral-100 text-neutral-700'
                       }`}
                     >

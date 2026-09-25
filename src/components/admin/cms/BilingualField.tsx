@@ -201,9 +201,9 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
       {/* Header with Title & Optional Presets Dropdown */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <span className="block text-xs font-bold text-slate-200 uppercase tracking-wide">
+          <span className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
             {displayLabel}
-            {labelAr && <span className="ml-2 text-indigo-600/80 font-normal normal-case font-arabic">({labelAr})</span>}
+            {labelAr && <span className="ml-2 text-indigo-700 font-normal normal-case font-arabic">({labelAr})</span>}
           </span>
           {subLabel && (
             <p id={hintId} className="text-[11px] text-slate-500 mt-0.5">{subLabel}</p>
@@ -254,7 +254,7 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
                     aria-activedescendant={activeIndex >= 0 && activeIndex < shownPresets.length ? `${presetsId}-opt-${activeIndex}` : undefined}
                     autoComplete="off"
                     spellCheck={false}
-                    className="min-w-0 flex-1 bg-transparent text-base text-slate-800 outline-none placeholder:text-slate-400 sm:text-xs"
+                    className="min-w-0 flex-1 bg-transparent text-base text-slate-800 outline-none placeholder:text-slate-500 sm:text-xs"
                   />
                 </div>
                 <div
@@ -286,7 +286,7 @@ export const BilingualField: React.FC<BilingualFieldProps> = ({
                             {item.category}
                           </span>
                         )}
-                        <p className={`text-xs font-medium line-clamp-1 ${isSelected ? 'text-amber-200 font-bold' : 'text-slate-900 group-hover:text-indigo-600'}`}>
+                        <p className={`text-xs font-medium line-clamp-1 ${isSelected ? 'text-amber-900 font-bold' : 'text-slate-900 group-hover:text-indigo-600'}`}>
                           {item.en}
                         </p>
                         <p className="text-[11px] text-slate-500 font-arabic text-right line-clamp-1 mt-0.5" dir="rtl">

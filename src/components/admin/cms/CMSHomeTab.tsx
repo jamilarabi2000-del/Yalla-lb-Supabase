@@ -58,7 +58,7 @@ export const getSlideScheduleStatus = (item: {
   if (!item.scheduleActive) {
     return {
       status: 'live' as const,
-      badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+      badgeColor: 'bg-emerald-500/20 text-emerald-800 border-emerald-500/30',
       label: 'Live on Website',
       labelAr: 'نشط على الموقع',
       isLive: true
@@ -94,7 +94,7 @@ export const getSlideScheduleStatus = (item: {
 
   return {
     status: 'live' as const,
-    badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    badgeColor: 'bg-emerald-500/20 text-emerald-800 border-emerald-500/30',
     label: item.endDate ? `Live (Until ${new Date(item.endDate).toLocaleDateString()})` : 'Live on Website',
     labelAr: item.endDate ? `نشط (حتى ${new Date(item.endDate).toLocaleDateString('ar')})` : 'نشط على الموقع',
     isLive: true
@@ -514,7 +514,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
             <Tag className="w-3 h-3 text-emerald-400" />
             <span>Offers Carousel</span>
             {slides.length > 0 && (
-              <span className="text-[10px] px-1.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">
+              <span className="text-[10px] px-1.5 rounded-full bg-emerald-500/20 text-emerald-800 font-mono">
                 {slides.length}
               </span>
             )}
@@ -740,8 +740,8 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
 
             {/* Global Screen Aspect Ratio & Smart Auto Height */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
-              <div className="p-4 rounded-2xl bg-sky-950/30 border border-sky-500/20 space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-sky-400 mb-1.5 flex items-center gap-1.5">
+              <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-sky-700 mb-1.5 flex items-center gap-1.5">
                   <Monitor className="w-4 h-4" />
                   <span>Desktop & Laptop Aspect Ratio / Height</span>
                 </label>
@@ -755,11 +755,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value="21:9">🎞️ 21:9 Ultrawide Cinematic Display</option>
                   <option value="4:3">📺 4:3 Classic Display</option>
                 </SearchableSelect>
-                <p className="text-[10px] text-slate-500">Smart Auto Height scales naturally without hard cropping on wide displays.</p>
+                <p className="text-[10px] text-slate-600">Smart Auto Height scales naturally without hard cropping on wide displays.</p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1.5 flex items-center gap-1.5">
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1.5 flex items-center gap-1.5">
                   <Smartphone className="w-4 h-4" />
                   <span>Mobile Phone Aspect Ratio / Height</span>
                 </label>
@@ -774,11 +774,11 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value="3:4">📱 3:4 Mobile Tall</option>
                   <option value="1:1">⏹️ 1:1 Square</option>
                 </SearchableSelect>
-                <p className="text-[10px] text-slate-500">Smart Auto Height prevents awkward cropping on tall smartphone screens.</p>
+                <p className="text-[10px] text-slate-600">Smart Auto Height prevents awkward cropping on tall smartphone screens.</p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-sky-950/30 border border-sky-500/20 space-y-2 md:col-span-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-sky-400 mb-1.5 flex items-center gap-1.5">
+              <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 space-y-2 md:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-sky-700 mb-1.5 flex items-center gap-1.5">
                   <Maximize2 className="w-4 h-4" />
                   <span>Default Slide Image Fit Behavior</span>
                 </label>
@@ -791,7 +791,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                   <option value="cover">Cover (Fill Frame & Crop Image Edges)</option>
                   <option value="fill">Stretch (Force Full Width & Height)</option>
                 </SearchableSelect>
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-slate-600">
                   Auto Full Fit automatically scales the image to fit 100% inside the slider without cutting off top/bottom or sides, filling any widescreen margins with an ambient blurred reflection.
                 </p>
               </div>
@@ -928,7 +928,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           onClick={() => handleUpdateMediaItem(idx, { isPublished: item.isPublished === false ? true : false })}
                           className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
                             item.isPublished !== false 
-                              ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' 
+                              ? 'bg-emerald-500/20 text-emerald-800 hover:bg-emerald-500/30' 
                               : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                           }`}
                           title={item.isPublished !== false ? "Hide media slide from website" : "Unhide / Show media slide on website"}
@@ -939,7 +939,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteMediaItem(idx)}
-                          className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors cursor-pointer"
                           title="Delete slide"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -952,7 +952,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       {/* Desktop Asset Card */}
                       <div className="p-3.5 rounded-xl bg-slate-50/80 border border-sky-500/30 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
+                          <span className="text-xs font-bold text-sky-700 flex items-center gap-1.5 uppercase tracking-wider">
                             <Monitor className="w-3.5 h-3.5" />
                             <span>Desktop Media (Widescreen 16:9 / 21:9)</span>
                           </span>
@@ -986,7 +986,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               }}
                               referrerPolicy="no-referrer"
                             />
-                            <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-slate-900 font-mono">
+                            <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono">
                               Desktop Preview
                             </div>
                           </div>
@@ -996,7 +996,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           <div>
                             <div className="flex justify-between items-center mb-0.5">
                               <label className="text-[10px] uppercase text-slate-500 font-bold">Desktop Zoom</label>
-                              <span className="text-[10px] font-mono text-sky-400">{item.imageZoom || 100}%</span>
+                              <span className="text-[10px] font-mono text-sky-700">{item.imageZoom || 100}%</span>
                             </div>
                             <input
                               type="range"
@@ -1056,7 +1056,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                       {/* Mobile Asset Card */}
                       <div className="p-3.5 rounded-xl bg-slate-50/80 border border-emerald-500/30 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                          <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5 uppercase tracking-wider">
                             <Smartphone className="w-3.5 h-3.5" />
                             <span>Mobile Media (Vertical 9:16 / 3:4)</span>
                           </span>
@@ -1149,12 +1149,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                               }}
                               referrerPolicy="no-referrer"
                             />
-                            <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-400 text-center font-mono z-20 flex items-center justify-center gap-1 border border-slate-200">
+                            <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-300 text-center font-mono z-20 flex items-center justify-center gap-1 border border-slate-200">
                               <span>{item.mobileAspectRatio === '16:9' ? '📺 Full 16:9 Landscape' : '📱 Mobile Screen'}</span>
                             </div>
                           </div>
                           {item.mobileAspectRatio === '16:9' && (
-                            <p className="text-[11px] text-sky-400 font-medium text-center flex items-center justify-center gap-1 mt-1.5">
+                            <p className="text-[11px] text-sky-700 font-medium text-center flex items-center justify-center gap-1 mt-1.5">
                               <span>✓</span> Horizontal 16:9 display on mobile — shows entire panoramic width.
                             </p>
                           )}
@@ -1164,7 +1164,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           <div>
                             <div className="flex justify-between items-center mb-0.5">
                               <label className="text-[10px] uppercase text-slate-500 font-bold">Mobile Zoom</label>
-                              <span className="text-[10px] font-mono text-emerald-400">{item.mobileImageZoom || item.imageZoom || 100}%</span>
+                              <span className="text-[10px] font-mono text-emerald-700">{item.mobileImageZoom || item.imageZoom || 100}%</span>
                             </div>
                             <input
                               type="range"
@@ -1380,7 +1380,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteStat(idx)}
-                          className="text-slate-500 hover:text-red-400 p-1"
+                          className="text-slate-500 hover:text-red-600 p-1"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -1472,7 +1472,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
               <span>Promotional Offers & Carousel Slides</span>
             </h3>
             {slides.length > 0 && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-800 font-bold">
                 {slides.length} {slides.length === 1 ? 'slide' : 'slides'}
               </span>
             )}
@@ -1601,7 +1601,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
             {(isCreatingSlide || editingSlide) && (
               <form onSubmit={handleSaveSlide} className="p-5 bg-slate-50 border border-emerald-500/40 rounded-2xl space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                  <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-emerald-700 flex items-center gap-2">
                     <Edit3 className="w-4 h-4" />
                     <span>{editingSlide ? 'Edit Promotional Slide' : 'Add New Promotional Slide'}</span>
                   </h4>
@@ -1730,7 +1730,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     {/* Desktop Asset Card */}
                     <div className="p-3.5 rounded-xl bg-slate-50/80 border border-sky-500/30 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
+                        <span className="text-xs font-bold text-sky-700 flex items-center gap-1.5 uppercase tracking-wider">
                           <Monitor className="w-3.5 h-3.5" />
                           <span>Desktop Media (Widescreen 16:9 / 21:9)</span>
                         </span>
@@ -1773,7 +1773,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             }}
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-slate-900 font-mono z-20">
+                          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono z-20">
                             Desktop Preview
                           </div>
                         </div>
@@ -1783,7 +1783,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <div>
                           <div className="flex justify-between items-center mb-0.5">
                             <label className="text-[10px] uppercase text-slate-500 font-bold">Desktop Zoom</label>
-                            <span className="text-[10px] font-mono text-sky-400">{slideForm.desktopImageZoom ?? slideForm.imageZoom ?? 100}%</span>
+                            <span className="text-[10px] font-mono text-sky-700">{slideForm.desktopImageZoom ?? slideForm.imageZoom ?? 100}%</span>
                           </div>
                           <input
                             type="range"
@@ -1843,7 +1843,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     {/* Mobile Asset Card */}
                     <div className="p-3.5 rounded-xl bg-slate-50/80 border border-emerald-500/30 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                        <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5 uppercase tracking-wider">
                           <Smartphone className="w-3.5 h-3.5" />
                           <span>Mobile Media (Vertical 9:16 / 3:4)</span>
                         </span>
@@ -1936,12 +1936,12 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                             }}
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-400 text-center font-mono z-20 flex items-center justify-center gap-1 border border-slate-200">
+                          <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-sky-300 text-center font-mono z-20 flex items-center justify-center gap-1 border border-slate-200">
                             <span>{slideForm.mobileAspectRatio === '16:9' ? '📺 Full 16:9 Landscape' : '📱 Mobile Screen'}</span>
                           </div>
                         </div>
                         {slideForm.mobileAspectRatio === '16:9' && (
-                          <p className="text-[11px] text-sky-400 font-medium text-center flex items-center justify-center gap-1 mt-1.5">
+                          <p className="text-[11px] text-sky-700 font-medium text-center flex items-center justify-center gap-1 mt-1.5">
                             <span>✓</span> Horizontal 16:9 display on mobile — shows entire panoramic width.
                           </p>
                         )}
@@ -1951,7 +1951,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <div>
                           <div className="flex justify-between items-center mb-0.5">
                             <label className="text-[10px] uppercase text-slate-500 font-bold">Mobile Zoom</label>
-                            <span className="text-[10px] font-mono text-emerald-400">{slideForm.mobileImageZoom ?? slideForm.imageZoom ?? 100}%</span>
+                            <span className="text-[10px] font-mono text-emerald-700">{slideForm.mobileImageZoom ?? slideForm.imageZoom ?? 100}%</span>
                           </div>
                           <input
                             type="range"
@@ -2141,7 +2141,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                     <p className="text-[11px] text-slate-500 line-clamp-2">{slide.subtitle}</p>
 
                     {slide.scheduleActive && (slide.startDate || slide.endDate) && (
-                      <div className="text-[10px] font-mono text-sky-400 flex items-center gap-1 bg-sky-500/10 px-2 py-1 rounded-md border border-sky-500/20">
+                      <div className="text-[10px] font-mono text-sky-700 flex items-center gap-1 bg-sky-500/10 px-2 py-1 rounded-md border border-sky-500/20">
                         <Calendar className="w-3 h-3 text-sky-400 flex-shrink-0" />
                         <span>
                           {slide.startDate ? new Date(slide.startDate).toLocaleDateString() : 'Now'} → {slide.endDate ? new Date(slide.endDate).toLocaleDateString() : 'Ongoing'}
@@ -2183,7 +2183,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                           onClick={() => handleTogglePublishSlide(slide.id)}
                           className={`p-1 rounded-lg transition-colors cursor-pointer ${
                             slide.isPublished !== false 
-                              ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' 
+                              ? 'bg-emerald-500/20 text-emerald-800 hover:bg-emerald-500/30' 
                               : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                           }`}
                           title={slide.isPublished !== false ? "Hide promotional slide from website" : "Unhide / Show promotional slide on website"}
@@ -2201,7 +2201,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteSlide(slide.id)}
-                          className="p-1 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 cursor-pointer"
+                          className="p-1 rounded-lg bg-rose-500/20 text-rose-600 hover:bg-rose-500/30 cursor-pointer"
                           title="Delete slide"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -2230,7 +2230,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Headlines for verified Lebanese terroir, direct cooperative support, and global express shipping"
         icon={<ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-bold border border-emerald-500/20">
             Trust & Quality
           </span>
         }
@@ -2268,7 +2268,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Department headers for olive oils, cedar honey, soaps, ceramics, and village pantry"
         icon={<Grid className="w-5 h-5 text-indigo-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-bold border border-indigo-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 font-bold border border-indigo-500/20">
             Department Discovery
           </span>
         }
@@ -2368,7 +2368,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Seasonal harvest specials, discount banners and limited-time offer headlines"
         icon={<Zap className="w-5 h-5 text-yellow-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-bold border border-yellow-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-800 font-bold border border-yellow-500/20">
             Special Pricing
           </span>
         }
@@ -2418,7 +2418,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Headlines for curated artisan gift sets, mouneh bundles, and combo packs"
         icon={<ShoppingBag className="w-5 h-5 text-rose-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-bold border border-rose-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-800 font-bold border border-rose-500/20">
             Combo Packs
           </span>
         }
@@ -2468,7 +2468,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Header for recently crafted batches and newly added artisan creations"
         icon={<Sparkles className="w-5 h-5 text-cyan-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 font-bold border border-cyan-500/20">
             Latest Batches
           </span>
         }
@@ -2506,7 +2506,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Narrative about rural producers, cooperatives, and ancestral craftsmanship"
         icon={<BookOpen className="w-5 h-5 text-orange-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 font-bold border border-orange-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-800 font-bold border border-orange-500/20">
             Brand Narrative
           </span>
         }
@@ -2546,7 +2546,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Headline and description for social proof and verified community feedback"
         icon={<MessageSquare className="w-5 h-5 text-pink-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-400 font-bold border border-pink-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-800 font-bold border border-pink-500/20">
             Social Proof
           </span>
         }
@@ -2584,7 +2584,7 @@ export const CMSHomeTab: React.FC<CMSHomeTabProps> = ({
         description="Email capture headlines, call to action, and subscribe button wording"
         icon={<Mail className="w-5 h-5 text-purple-400 shrink-0" aria-hidden="true" />}
         badge={
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-bold border border-purple-500/20">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 font-bold border border-purple-500/20">
             Email Capture
           </span>
         }

@@ -49,7 +49,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
     {
       title: 'Home Page Sections',
       icon: Home,
-      color: 'text-emerald-400',
+      color: 'text-emerald-700',
       items: [
         { key: 'homeHero' as const, label: 'Consolidated Hero & Promotional Slider', desc: 'Main landing showcase, promo coupon slides & artisan metrics' },
         { key: 'homeCategories' as const, label: 'Category Quick-Filter Icons', desc: 'Terroir & category icons bar' },
@@ -151,12 +151,12 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
 
         <div className="flex items-center gap-3">
           <div className="px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-600">
-            <span className="text-emerald-400">{activeCount}</span> of {allKeys.length} Visible
+            <span className="text-emerald-700">{activeCount}</span> of {allKeys.length} Visible
           </div>
           <button
             type="button"
             onClick={() => onSetAll(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-800 border border-emerald-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Show All</span>
@@ -164,7 +164,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
           <button
             type="button"
             onClick={() => onSetAll(false)}
-            className="px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-800 border border-rose-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
           >
             <EyeOff className="w-3.5 h-3.5" />
             <span>Hide All</span>
@@ -220,7 +220,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
                             {item.label}
                           </span>
                           <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
-                            isVisible ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-100 text-slate-500'
+                            isVisible ? 'bg-emerald-500/20 text-emerald-800' : 'bg-slate-100 text-slate-500'
                           }`}>
                             {isVisible ? 'On' : 'Off'}
                           </span>

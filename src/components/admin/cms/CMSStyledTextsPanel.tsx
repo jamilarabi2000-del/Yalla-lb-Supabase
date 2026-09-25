@@ -42,7 +42,7 @@ export const CMSStyledTextsPanel: React.FC = () => {
         </div>
       </div>
       {list.length === 0 ? (
-        <p className="text-xs text-slate-400">No text has its own style yet.</p>
+        <p className="text-xs text-slate-500">No text has its own style yet.</p>
       ) : (
         <ul className="divide-y divide-slate-100">
           {list.map(rule => {

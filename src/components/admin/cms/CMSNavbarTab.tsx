@@ -170,7 +170,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 <button
                   type="button"
                   onClick={() => onChangeField('logoUrl', '')}
-                  className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-rose-600 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>Reset</span>
@@ -226,7 +226,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 <button
                   type="button"
                   onClick={() => onChangeField('faviconUrl', '')}
-                  className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-rose-600 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>Reset</span>
@@ -434,7 +434,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                   onClick={() => handleUpdateTab(idx, { isPublished: tab.isPublished === false ? true : false })}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                     tab.isPublished !== false
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      ? 'bg-emerald-500/20 text-emerald-800 border border-emerald-500/30'
                       : 'bg-slate-100 text-slate-500 border border-slate-200'
                   }`}
                 >
@@ -444,7 +444,7 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDeleteTab(idx)}
-                  className="p-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 transition-colors cursor-pointer"
                   title="Delete tab"
                 >
                   <Trash2 className="w-4 h-4" />

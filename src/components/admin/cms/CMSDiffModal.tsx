@@ -75,7 +75,7 @@ export const CMSDiffModal: React.FC<CMSDiffModalProps> = ({
     }
     if (typeof val === 'boolean') {
       return (
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${val ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${val ? 'bg-emerald-500/20 text-emerald-800' : 'bg-rose-500/20 text-rose-800'}`}>
           {val ? 'Enabled' : 'Disabled'}
         </span>
       );
@@ -165,12 +165,12 @@ export const CMSDiffModal: React.FC<CMSDiffModalProps> = ({
                         className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-slate-200">
+                          <span className="text-xs font-bold text-slate-700">
                             {diff.label}
                           </span>
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                            diff.type === 'added' ? 'bg-emerald-500/20 text-emerald-300' :
-                            diff.type === 'removed' ? 'bg-rose-500/20 text-rose-300' :
+                            diff.type === 'added' ? 'bg-emerald-500/20 text-emerald-800' :
+                            diff.type === 'removed' ? 'bg-rose-500/20 text-rose-800' :
                             'bg-amber-500/20 text-indigo-600'
                           }`}>
                             {diff.type}
@@ -181,7 +181,7 @@ export const CMSDiffModal: React.FC<CMSDiffModalProps> = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                           {/* Before (Live) */}
                           <div className="p-2.5 rounded-xl bg-slate-50/80 border border-rose-500/20 space-y-1">
-                            <span className="text-[10px] font-bold uppercase text-rose-400 tracking-wider block">
+                            <span className="text-[10px] font-bold uppercase text-rose-600 tracking-wider block">
                               Before (Live):
                             </span>
                             <div className="text-slate-600">
@@ -191,7 +191,7 @@ export const CMSDiffModal: React.FC<CMSDiffModalProps> = ({
 
                           {/* After (Draft) */}
                           <div className="p-2.5 rounded-xl bg-slate-50/80 border border-emerald-500/20 space-y-1">
-                            <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-wider block">
+                            <span className="text-[10px] font-bold uppercase text-emerald-700 tracking-wider block">
                               After (Draft):
                             </span>
                             <div className="text-emerald-200">
@@ -213,7 +213,7 @@ export const CMSDiffModal: React.FC<CMSDiffModalProps> = ({
           <button
             type="button"
             onClick={onDiscard}
-            className="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Discard All Edits</span>

@@ -110,7 +110,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
               <Search className="w-4 h-4 text-blue-400" aria-hidden="true" />
               <span>Google SERP Search Preview</span>
             </h3>
-            <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-bold">
+            <span className="text-[11px] text-emerald-700 flex items-center gap-1 font-bold">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Live Sync</span>
             </span>
@@ -191,7 +191,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                 <button
                   type="button"
                   onClick={() => onChangeField('faviconUrl', '')}
-                  className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-xs text-rose-600 hover:text-rose-600 flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>Reset to default</span>
@@ -246,14 +246,14 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
           {/* Social Share / OpenGraph Banner */}
           <div className="p-5 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <label htmlFor="seo-og-image" className="block text-xs font-bold uppercase tracking-wider text-purple-400 cursor-pointer">
+              <label htmlFor="seo-og-image" className="block text-xs font-bold uppercase tracking-wider text-purple-700 cursor-pointer">
                 Social Share Preview Image (OG / Twitter)
               </label>
               {seoData.ogImageUrl && (
                 <button
                   type="button"
                   onClick={() => onChangeField('ogImageUrl', '')}
-                  className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-xs text-rose-600 hover:text-rose-600 flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>Remove</span>
@@ -291,7 +291,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   <button
                     type="button"
                     onClick={() => ogImageFileInputRef.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload Social Banner</span>
@@ -323,7 +323,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   Global Meta Title (English)
                 </label>
                 <span className={`text-[11px] font-mono ${
-                  enTitleLength >= 40 && enTitleLength <= 65 ? 'text-emerald-400' : 'text-indigo-600'
+                  enTitleLength >= 40 && enTitleLength <= 65 ? 'text-emerald-700' : 'text-indigo-600'
                 }`}>
                   {enTitleLength}/65 chars (Optimal: 50-60)
                 </span>
@@ -343,7 +343,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   Global Meta Description (English)
                 </label>
                 <span className={`text-[11px] font-mono ${
-                  enDescLength >= 120 && enDescLength <= 160 ? 'text-emerald-400' : 'text-indigo-600'
+                  enDescLength >= 120 && enDescLength <= 160 ? 'text-emerald-700' : 'text-indigo-600'
                 }`}>
                   {enDescLength}/160 chars (Optimal: 140-160)
                 </span>
@@ -363,7 +363,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className={`text-[11px] font-mono font-arabic ${
-                  arTitleLength >= 40 && arTitleLength <= 65 ? 'text-emerald-400' : 'text-indigo-600'
+                  arTitleLength >= 40 && arTitleLength <= 65 ? 'text-emerald-700' : 'text-indigo-600'
                 }`}>
                   {arTitleLength}/65 (الأمثل: 50-60)
                 </span>
@@ -384,7 +384,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className={`text-[11px] font-mono font-arabic ${
-                  arDescLength >= 120 && arDescLength <= 160 ? 'text-emerald-400' : 'text-indigo-600'
+                  arDescLength >= 120 && arDescLength <= 160 ? 'text-emerald-700' : 'text-indigo-600'
                 }`}>
                   {arDescLength}/160 (الأمثل: 140-160)
                 </span>
@@ -428,7 +428,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   <button
                     type="button"
                     onClick={() => handleRemoveKeywordEn(kw)}
-                    className="text-slate-500 hover:text-rose-400 cursor-pointer"
+                    className="text-slate-500 hover:text-rose-600 cursor-pointer"
                     aria-label={`Remove keyword ${kw}`}
                   >
                     <X className="w-3 h-3" />
@@ -472,7 +472,7 @@ export const CMSSeoTab: React.FC<CMSSeoTabProps> = ({
                   <button
                     type="button"
                     onClick={() => handleRemoveKeywordAr(kw)}
-                    className="text-slate-500 hover:text-rose-400 cursor-pointer mr-1"
+                    className="text-slate-500 hover:text-rose-600 cursor-pointer mr-1"
                     aria-label={`إزالة الكلمة المفتاحية ${kw}`}
                   >
                     <X className="w-3 h-3" />

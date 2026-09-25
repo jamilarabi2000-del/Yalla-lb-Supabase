@@ -34,7 +34,7 @@ export const CMSConfirmModal: React.FC<CMSConfirmModalProps> = ({
       >
         <div className="flex items-start gap-4">
           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-            isDanger ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-indigo-600 border border-amber-500/30'
+            isDanger ? 'bg-rose-500/20 text-rose-800 border border-rose-500/30' : 'bg-amber-500/20 text-indigo-600 border border-amber-500/30'
           }`}>
             <AlertTriangle className="w-6 h-6" />
           </div>

@@ -336,7 +336,7 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
                     </span>
                   </div>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    block.isPublished ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-100 text-slate-500'
+                    block.isPublished ? 'bg-emerald-500/20 text-emerald-800' : 'bg-slate-100 text-slate-500'
                   }`}>
                     {block.isPublished ? 'Active' : 'Disabled'}
                   </span>
@@ -380,7 +380,7 @@ export const CMSCustomBlocksTab: React.FC<CMSCustomBlocksTabProps> = ({
                   <button
                     type="button"
                     onClick={() => handleDeleteBlock(block.id)}
-                    className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 transition-colors cursor-pointer"
                     title="Delete block"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
