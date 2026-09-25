@@ -250,12 +250,12 @@ export const TextStyleEditor: React.FC<{
             </p>
             <div>
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Styled here ({onThisPage.length})</p>
-              {onThisPage.length === 0 && <p className="mt-2 text-xs text-slate-400">Nothing styled on this page yet.</p>}
+              {onThisPage.length === 0 && <p className="mt-2 text-xs text-slate-600">Nothing styled on this page yet.</p>}
               <ul className="mt-2 space-y-1.5">
                 {onThisPage.map(r => (
                   <li key={r.id} className="flex items-center gap-2 text-xs">
                     <span className="flex-1 truncate" title={r.text}>“{snippet(r.text, 36)}”</span>
-                    <span className="text-[10px] text-slate-400">{r.page === '*' ? 'all pages' : 'this page'}</span>
+                    <span className="text-[10px] text-slate-600">{r.page === '*' ? 'all pages' : 'this page'}</span>
                     <button disabled={busy} onClick={() => remove(r.id)} aria-label={`Remove style from “${snippet(r.text, 36)}”`} className="p-1 rounded hover:bg-rose-50 text-rose-600 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" aria-hidden /></button>
                   </li>
                 ))}
@@ -278,7 +278,7 @@ export const TextStyleEditor: React.FC<{
                 <button type="button" aria-pressed={everywhere} onClick={() => setEverywhere(true)}
                   className={`px-2 py-1.5 rounded-lg text-[11px] font-bold ${everywhere ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>Every page</button>
               </div>
-              <p className="mt-1 text-[10px] text-slate-400">Every place this exact text appears in the same section.</p>
+              <p className="mt-1 text-[10px] text-slate-600">Every place this exact text appears in the same section.</p>
             </fieldset>
 
             <div role="tablist" aria-label="Screen size" className="grid grid-cols-3 gap-1">
@@ -287,7 +287,7 @@ export const TextStyleEditor: React.FC<{
                   className={`px-2 py-1.5 rounded-lg text-[11px] font-bold ${device === id ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>{name}</button>
               ))}
             </div>
-            {device !== 'desktop' && <p className="-mt-2 text-[10px] text-slate-400">Only what you set here overrides “All screens” on a {device}.</p>}
+            {device !== 'desktop' && <p className="-mt-2 text-[10px] text-slate-600">Only what you set here overrides “All screens” on a {device}.</p>}
 
             <label className={label}>Font
               <SearchableSelect value={current['font-family'] || ''} onChange={e => setProp('font-family', e.target.value || null)} className={field}>
