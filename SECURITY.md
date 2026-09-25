@@ -225,6 +225,19 @@ The delegates make no authorization decisions — each private target already
 enforces its own — and they are `SECURITY INVOKER` so RLS and grants stay in
 force for the caller. All six are revoked from `public` and `anon`.
 
+**Product columns.** `products` keeps a copy of five merchant fields
+(`seller_item_code`, `low_stock_threshold`, `low_stock_notice`,
+`custom_stock_label`, `cost_price_usd`), mirrored from `product_private` for the
+per-seller item-code uniqueness index and the product functions. Neither
+`anon` nor `authenticated` may read those five columns: both hold a
+**column-level** SELECT grant of every other column (migration
+`20260925181310`), and Realtime change payloads follow the same grant. Admin
+and seller screens read the fields from `product_private` (embedded in
+`ADMIN_PRODUCT_COLUMNS`), where RLS allows an administrator with the second
+factor, or the seller for their own products. A column added to `products`
+later is unreadable until it is added to the grant; `test/catalogIntegrity.test.ts`
+fails if the admin projection requests a column the grant lacks.
+
 ---
 
 ## 5. Server-authoritative commerce
@@ -462,7 +475,6 @@ These reduce blast radius. None of them is an authorization control.
 | Public source repository | The GitHub repository is **public**: the full source, migrations and these documents can be read by anyone. No secret is in it (history scanned 2026-09-25), and the design does not rely on the source being secret, but making it private removes the map an attacker would study. Vercel's free plan deploys private repositories from a personal account. |
 | Legacy Firebase browser key in git history | `firebase-applet-config.json` (added 2026-09-13, deleted 2026-09-14) held a Google/Firebase **browser** API key. Such keys identify a project rather than grant access, but it remains readable in the public history: restrict it to the site's referrer in Google Cloud → Credentials, or delete the unused Firebase project. |
 | CAPTCHA | **Off in production**: `VITE_TURNSTILE_SITE_KEY` is not set in Vercel (checked 2026-09-25). Turn it on as described in section 6. |
-| Product operational fields | `products` keeps a copy of `seller_item_code`, `low_stock_threshold`, `low_stock_notice`, `custom_stock_label` and `cost_price_usd` (mirrored from `product_private`), and the `authenticated` role may read those columns, so any signed-in shopper can read sellers' item codes through the API, and cost prices once any are entered (none are, 2026-09-25). The storefront never requests them. Fix planned: read them from `product_private` only, stop mirroring them into `products`, and revoke the column access; the per-seller item-code uniqueness index and the product functions that use the copy move with it. |
 | Sign-in hook | **Must be switched on** in Supabase -> Authentication -> Hooks. Until then Supabase itself does not insist on the password + code pair: a password alone, or a code alone, still signs in through the API; the site's own forms always ask for both. |
 | Forgot password | Needs only the mailbox, by the owner's choice (above). |
 | Seller provisioning | `admin-seller-provision` sets the temporary password the admin passes on; the seller signs in with it and an emailed code, and can change it with Forgot password. |
