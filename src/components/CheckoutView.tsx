@@ -750,7 +750,7 @@ export const CheckoutView: React.FC = () => {
                             : 'text-[#737373] hover:text-[#171717]'
                         }`}
                       >
-                        {isArabic ? 'حساب جديد' : 'New Account'}
+                        {isArabic ? 'إنشاء حساب' : 'Sign Up'}
                       </button>
                     </div>
                   </div>

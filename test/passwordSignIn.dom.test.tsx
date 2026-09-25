@@ -600,6 +600,14 @@ describe('where shoppers sign in', () => {
     expect(checkout).not.toMatch(/city: 'Achrafieh, Beirut'|\|\| 'Achrafieh, Beirut'/);
   });
 
+  it('names the tabs Sign In and Sign Up in checkout, as on /account', () => {
+    const checkout = strip(read('src/components/CheckoutView.tsx'));
+    const tab = checkout.slice(checkout.indexOf('id="checkout-switch-signup-btn"'), checkout.indexOf('</button>', checkout.indexOf('id="checkout-switch-signup-btn"')));
+    expect(tab).toContain("'Sign Up'");
+    expect(checkout).not.toContain('New Account');
+    expect(strip(read('src/components/AccountView.tsx'))).toMatch(/>\s*Sign Up\s*</);
+  });
+
   it('follows the Account page settings in checkout too, and offers no phone-code sign-in', () => {
     const checkout = strip(read('src/components/CheckoutView.tsx'));
     expect(checkout).toContain('{showGoogleAuth && (');
