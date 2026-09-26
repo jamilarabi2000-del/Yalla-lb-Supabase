@@ -1,5 +1,6 @@
 import { safeExternalUrl } from '../lib/safeUrl';
 import React from 'react';
+import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import { CMSCustomBlock } from '../types';
 import { sanitizeRichText } from '../utils/sanitizeRichText';
@@ -51,7 +52,7 @@ export const CustomBlocksRenderer: React.FC<CustomBlocksRendererProps> = ({ page
         return (
           <div key={block.id} id={`custom-block-${block.id}`} className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden ${bgClass} ${isUnpublished ? 'opacity-70 border-dashed border-rose-500/80 ring-2 ring-rose-500/30' : ''}`} style={{ backgroundColor: block.customBgColor || undefined, color: block.customTextColor || undefined }}>
             {block.bgStyle === 'custom_image' && block.imageUrl && <>
-              <img src={block.imageUrl} alt={block.title} className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" referrerPolicy="no-referrer" />
+              <img src={block.imageUrl} {...responsiveImage(block.imageUrl, '100vw')} loading="lazy" decoding="async" alt={block.title} className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none" referrerPolicy="no-referrer" />
               <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-transparent pointer-events-none" />
             </>}
 

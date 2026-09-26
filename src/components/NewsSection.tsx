@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
 import { 
@@ -424,6 +425,9 @@ export const NewsSection: React.FC = () => {
               <div className="w-full h-36 sm:h-44 relative overflow-hidden bg-neutral-900 flex-shrink-0 flex items-center justify-center">
                 <img
                   src={item.image}
+                  {...responsiveImage(item.image, '290px')}
+                  loading="lazy"
+                  decoding="async"
                   alt=""
                   aria-hidden="true"
                   className="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-110 pointer-events-none"
@@ -432,6 +436,9 @@ export const NewsSection: React.FC = () => {
                 <div className="w-full h-full relative z-10 flex items-center justify-center p-2">
                   <img
                     src={item.image}
+                    {...responsiveImage(item.image, '290px')}
+                    loading="lazy"
+                    decoding="async"
                     alt={language === 'ar' ? item.titleAr : item.titleEn}
                     className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500 rounded-md"
                     referrerPolicy="no-referrer"
@@ -499,6 +506,7 @@ export const NewsSection: React.FC = () => {
             <div className="relative h-60 sm:h-72 w-full overflow-hidden bg-neutral-900 flex items-center justify-center">
               <img 
                 src={selectedNews.image} 
+                {...responsiveImage(selectedNews.image, '(min-width: 640px) 640px, 100vw')}
                 alt=""
                 aria-hidden="true"
                 className="absolute inset-0 w-full h-full object-cover blur-lg opacity-35 scale-110 pointer-events-none"
@@ -506,6 +514,7 @@ export const NewsSection: React.FC = () => {
               />
               <img 
                 src={selectedNews.image} 
+                {...responsiveImage(selectedNews.image, '(min-width: 640px) 640px, 100vw')}
                 alt={language === 'ar' ? selectedNews.titleAr : selectedNews.titleEn}
                 className="relative z-10 max-h-full max-w-full object-contain p-4 drop-shadow-md"
                 referrerPolicy="no-referrer"

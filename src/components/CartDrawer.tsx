@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
 import { cartSubtotalUSD, everyItemShipsFree, lebanonDeliveryIsFree } from '../lib/delivery';
@@ -177,6 +178,9 @@ export const CartDrawer: React.FC = () => {
                     <div className="w-16 h-16 rounded-lg bg-[#F8F8F6] border border-[#E5E5E5] flex-shrink-0 flex items-center justify-center p-1 overflow-hidden">
                       <img
                         src={item.product.image}
+                        {...responsiveImage(item.product.image, '64px')}
+                        loading="lazy"
+                        decoding="async"
                         alt={item.product.name}
                         className="w-full h-full object-contain"
                       />

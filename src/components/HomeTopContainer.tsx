@@ -9,6 +9,8 @@ import {
   Tag
 } from 'lucide-react';
 import { HomepagePromoSlider } from './HomepagePromoSlider';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { responsiveImage } from '../lib/responsiveImage';
 
 import lebaneseMountainTownImg from '../assets/images/rachaya_mountain_perfect_1786799009637.webp';
 import raoucheSunsetImg from '../assets/images/raouche_rocks_sunset_1786799732002.webp';
@@ -301,6 +303,10 @@ export const HomeTopContainer: React.FC = () => {
   };
 
   const showPromoBanner = hasValidPromoSlide() || isVisualEditMode;
+  // The hero is the page's first image: on wide screens it shares a 1100px
+  // row with the promo panel (2fr:1fr), otherwise it spans the screen.
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const heroSizes = showPromoBanner ? '(min-width: 1100px) 710px, (min-width: 1024px) 64vw, 100vw' : '(min-width: 1100px) 1100px, 100vw';
 
   useEffect(() => {
     resetAutoplay();
@@ -339,11 +345,14 @@ export const HomeTopContainer: React.FC = () => {
               />
             ) : (
               <>
-                {/* Mobile View Image (Portrait) */}
+                {/* Mobile View Image (Portrait). Only the version for this screen is
+                    rendered: a hidden <img> still downloads. */}
+                {!isDesktop && (
                 <div className="w-full h-full block md:hidden relative">
                   {(currentSlide.mobileImageFit === 'contain' || (heroData as any)?.defaultImageFit === 'contain') && (
                     <img
                       src={currentSlide.mobileUrl || currentSlide.url || raoucheSunsetImg}
+                      {...responsiveImage(currentSlide.mobileUrl || currentSlide.url, '100vw')}
                       alt=""
                       referrerPolicy="no-referrer"
                       className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none"
@@ -351,10 +360,13 @@ export const HomeTopContainer: React.FC = () => {
                   )}
                   <img
                     src={currentSlide.mobileUrl || currentSlide.url || raoucheSunsetImg}
+                    {...responsiveImage(currentSlide.mobileUrl || currentSlide.url, '100vw')}
+                    fetchPriority="high"
                     alt={activeTitle || ''}
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       if (e.currentTarget.src !== raoucheSunsetImg) {
+                        e.currentTarget.removeAttribute('srcset');
                         e.currentTarget.src = raoucheSunsetImg;
                       }
                     }}
@@ -370,12 +382,15 @@ export const HomeTopContainer: React.FC = () => {
                     }}
                   />
                 </div>
+                )}
 
                 {/* Desktop View Image (Landscape & Tablet+) */}
+                {isDesktop && (
                 <div className="w-full h-full hidden md:block relative">
                   {(currentSlide.desktopImageFit === 'contain' || (heroData as any)?.defaultImageFit === 'contain') && (
                     <img
                       src={currentSlide.url || raoucheSunsetImg}
+                      {...responsiveImage(currentSlide.url, heroSizes)}
                       alt=""
                       referrerPolicy="no-referrer"
                       className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-105 pointer-events-none"
@@ -383,10 +398,13 @@ export const HomeTopContainer: React.FC = () => {
                   )}
                   <img
                     src={currentSlide.url || raoucheSunsetImg}
+                    {...responsiveImage(currentSlide.url, heroSizes)}
+                    fetchPriority="high"
                     alt={activeTitle || ''}
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       if (e.currentTarget.src !== raoucheSunsetImg) {
+                        e.currentTarget.removeAttribute('srcset');
                         e.currentTarget.src = raoucheSunsetImg;
                       }
                     }}
@@ -402,6 +420,7 @@ export const HomeTopContainer: React.FC = () => {
                     }}
                   />
                 </div>
+                )}
               </>
             )}
 

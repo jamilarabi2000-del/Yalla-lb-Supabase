@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import type { Order, PaymentMethod } from '../types';
 import { LEBANON_REGIONS, GovernorateOption } from '../data/regions';
@@ -1295,6 +1296,9 @@ export const CheckoutView: React.FC = () => {
                       <div className="w-12 h-12 rounded-lg bg-[#F8F8F6] border border-[#E5E5E5] flex-shrink-0 flex items-center justify-center p-0.5 overflow-hidden">
                         <img
                           src={item.product.image}
+                          {...responsiveImage(item.product.image, '48px')}
+                          loading="lazy"
+                          decoding="async"
                           alt={item.product.name}
                           className="w-full h-full object-contain"
                         />

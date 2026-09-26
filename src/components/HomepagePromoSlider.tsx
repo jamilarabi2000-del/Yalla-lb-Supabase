@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import { 
   ArrowRight, 
@@ -322,6 +323,8 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
         >
           <img 
             src={slide.imageUrl} 
+            {...responsiveImage(slide.imageUrl, '(min-width: 1024px) 360px, 100vw')}
+            decoding="async"
             alt={titleText || 'Promotional Slide'}
             referrerPolicy="no-referrer"
             className={`w-full h-full object-${slide.imageFit || 'cover'} transition-transform duration-700 group-hover:scale-105`}
@@ -433,9 +436,12 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
           <div className="relative w-full h-[98px] min-[360px]:h-[104px] sm:h-[130px] lg:h-[200px] xl:h-[220px] my-auto py-1 sm:py-2 flex items-center justify-center overflow-hidden">
             <img
               src={slide.imageUrl || selectedProduct.image}
+              {...responsiveImage(slide.imageUrl || selectedProduct.image, '240px')}
+              decoding="async"
               alt={selectedProduct.name}
               referrerPolicy="no-referrer"
               onError={(e) => {
+                e.currentTarget.removeAttribute('srcset');
                 e.currentTarget.src = 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=800';
               }}
               className={`max-h-full max-w-full object-${slide.imageFit || 'contain'} object-center transition-all duration-500 group-hover:scale-105`}
@@ -509,9 +515,12 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
           <div className="relative w-full h-[90px] min-[360px]:h-[100px] sm:h-[125px] lg:h-[190px] xl:h-[210px] my-auto py-1 sm:py-2 flex items-center justify-center overflow-hidden">
             <img
               src={slide.imageUrl}
+              {...responsiveImage(slide.imageUrl, '240px')}
+              decoding="async"
               alt={titleText || 'Promotional Slide'}
               referrerPolicy="no-referrer"
               onError={(e) => {
+                e.currentTarget.removeAttribute('srcset');
                 e.currentTarget.src = 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800';
               }}
               className={`max-h-full max-w-full object-${slide.imageFit || 'contain'} object-center transition-all duration-500 group-hover:scale-105`}

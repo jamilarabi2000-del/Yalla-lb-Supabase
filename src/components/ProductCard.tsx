@@ -1,4 +1,5 @@
 import React from 'react';
+import { responsiveImage } from '../lib/responsiveImage';
 import { Product } from '../types';
 import { useShop } from '../context/ShopContext';
 import { Heart, ShoppingBag, Trash2, Eye } from 'lucide-react';
@@ -71,9 +72,11 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
       >
         <img
           src={product.image}
+          {...responsiveImage(product.image, '(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw')}
           alt={displayTitle}
           className="h-full w-full object-contain object-center group-hover:scale-105 transition-transform duration-300 ease-out"
           loading="lazy"
+          decoding="async"
         />
 
         {/* Top Left Badges */}

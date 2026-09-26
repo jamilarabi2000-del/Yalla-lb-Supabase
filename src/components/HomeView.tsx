@@ -1,4 +1,5 @@
 import React from 'react';
+import { responsiveImage } from '../lib/responsiveImage';
 import { isProductVisibleOnStorefront } from '../lib/storefrontVisibility';
 import { HomeTopContainer } from './HomeTopContainer';
 import { ProductCard } from './ProductCard';
@@ -506,6 +507,9 @@ export const HomeView: React.FC = () => {
                             <div className="w-8 h-8 rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
                               <img
                                 src={prod.image}
+                                {...responsiveImage(prod.image, '32px')}
+                                loading="lazy"
+                                decoding="async"
                                 alt={prod.name}
                                 className="w-full h-full object-contain"
                                 referrerPolicy="no-referrer"
