@@ -2,9 +2,26 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const PUBLISHABLE_KEY = publishableKey();
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !PUBLISHABLE_KEY) {
   throw new Error('Supabase function environment is not configured.');
+}
+
+// The key for a client that acts as the caller rather than the service role.
+// SUPABASE_PUBLISHABLE_KEYS is a JSON object of named keys; the legacy anon key
+// is the fallback while legacy keys stay enabled. Never the service-role key.
+function publishableKey(): string | undefined {
+  const raw = Deno.env.get('SUPABASE_PUBLISHABLE_KEYS');
+  if (raw) {
+    try {
+      const named = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof named.default === 'string' && named.default) return named.default;
+    } catch {
+      // Not JSON: use the legacy anon key below.
+    }
+  }
+  return Deno.env.get('SUPABASE_ANON_KEY') || undefined;
 }
 
 const ADMIN_ROLES = new Set(['admin']);
@@ -139,6 +156,26 @@ Deno.serve(async (req: Request) => {
     if (actorProfileError) throw actorProfileError;
     if (!actorProfile || !ADMIN_ROLES.has(actorProfile.role)) {
       return json(req, { error: 'Admin access required.' }, 403);
+    }
+
+    // The service role bypasses RLS, so the second-factor rule that guards
+    // every other administrator write never sees this function. Ask the
+    // database as the caller, before reading the request or changing anything:
+    // an administrator whose session carries its authenticator code (aal2) and
+    // a step-up from the last 30 minutes, the same private.is_admin_verified()
+    // that gates admin_delete_seller. A password alone is not enough.
+    const asCaller = createClient(SUPABASE_URL, PUBLISHABLE_KEY!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: verified, error: verifiedError } = await asCaller.rpc('is_admin_verified');
+    if (verifiedError) throw verifiedError;
+    if (verified !== true) {
+      console.warn('Seller provisioning refused: administrator session is not verified', { actorId });
+      return json(req, {
+        error: 'Enter your authenticator code again, then retry. Creating or resetting a seller login needs a verified administrator session.',
+        code: 'STEP_UP_REQUIRED',
+      }, 403);
     }
 
     const body = await req.json();

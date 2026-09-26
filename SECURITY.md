@@ -136,7 +136,8 @@ not distinguish a verified administrator from someone who only knows the
 password.
 
 - `private.session_has_second_factor()` reads `aal` / `amr` from the session JWT.
-- `private.is_admin_verified()` = `is_admin()` AND `session_has_second_factor()`.
+- `private.is_admin_verified()` = `is_admin()` AND `session_has_second_factor()`
+  AND a `totp` row in `private.admin_step_up` from the last 30 minutes.
 - `private.has_recent_step_up(interval)` = a second-factor session AND a row in
   `private.admin_step_up` inside the window.
 
@@ -145,7 +146,7 @@ keyed by `user_id`, so any rule of the form "verified OR a recent row exists"
 lets a password-only session inherit a row written by a different, properly
 verified session. The stored row may only ever *narrow* access, never grant it.
 
-Enforcement is applied at two independent layers, because one alone is
+Enforcement is applied at three independent layers, because one alone is
 insufficient:
 
 1. **RLS** — restrictive policies for INSERT/UPDATE/DELETE on every
@@ -171,6 +172,16 @@ insufficient:
    (both schemas), `admin_reorder_products`, `admin_set_product_promotion`,
    `next_yalla_item_code` and `record_inventory_change` each gate on
    `is_admin_verified()` directly.
+3. **Edge Functions that use the service role** — the service role bypasses
+   RLS, so neither layer above sees what such a function does.
+   `admin-seller-provision`, which creates and resets seller sign-ins, calls
+   `is_admin_verified()` with the caller's own token (the publishable key and
+   the administrator's JWT, never the service-role key) before it reads the
+   request or changes anything, and stops with 403 `STEP_UP_REQUIRED` unless
+   the answer is `true`. Until then it checked only `profiles.role`, so a
+   password alone could issue a seller login (migration
+   `20260925235844`). Any new function that acts for an administrator with
+   the service role must make the same call first.
 
 Destructive operations (`private.admin_delete_order`,
 `private.admin_delete_products`) additionally require a *fresh* step-up.
@@ -220,10 +231,13 @@ The implementations stay in `private`. `public` holds one thin
 | `record_inventory_change(...)` | `private.record_inventory_change(...)` |
 | `has_permission(text, uuid)` | `private.has_permission(text, uuid)` |
 | `create_product_atomic(...)` | `private.create_product_atomic(...)` |
+| `is_admin_verified()` | `private.is_admin_verified()` |
 
 The delegates make no authorization decisions — each private target already
 enforces its own — and they are `SECURITY INVOKER` so RLS and grants stay in
-force for the caller. All six are revoked from `public` and `anon`.
+force for the caller. All seven are revoked from `public` and `anon`.
+`is_admin_verified()` is the one the browser does not call: the
+`admin-seller-provision` Edge Function calls it with the administrator's token.
 
 **Product columns.** `products` keeps a copy of five merchant fields
 (`seller_item_code`, `low_stock_threshold`, `low_stock_notice`,

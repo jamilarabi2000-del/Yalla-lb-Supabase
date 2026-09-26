@@ -12,6 +12,7 @@ import { isSafeImageUrl } from '../../lib/safeUrl';
 import { useDialog } from '../../hooks/useDialog';
 import { sanitizeRowForCsv } from '../../utils/csvSafe';
 import { downloadSellerPerformanceReport } from '../../utils/exportMasterReport';
+import { assertHighRiskAuthorization } from '../../utils/adminMfa';
 import type { Seller } from '../../types';
 import {
   LEBANON_GOVERNORATES_DATA,
@@ -112,6 +113,11 @@ export const SellersView: React.FC = () => {
   const manageAccount = async (s: Seller) => {
     const email = s.accountEmail || s.contactEmail;
     if (!email) return toast('Add the seller\'s email before creating a portal account.', 'warning');
+    // Issuing a sign-in is high-risk: ask for the authenticator code first. The
+    // function makes the same check on the server (is_admin_verified).
+    if (!(await assertHighRiskAuthorization(shop.authUser?.uid))) {
+      return toast('Creating a seller login needs your authenticator code.', 'warning');
+    }
     const password = generateSecurePassword(16);
     try {
       const r = await supabase.functions.invoke('admin-seller-provision', { body: { sellerId: s.id, email, password } });
