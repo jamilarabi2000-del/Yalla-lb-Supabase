@@ -180,7 +180,7 @@ insufficient:
    request or changes anything, and stops with 403 `STEP_UP_REQUIRED` unless
    the answer is `true`. Until then it checked only `profiles.role`, so a
    password alone could issue a seller login (migration
-   `20260925235844`). Any new function that acts for an administrator with
+   `20260926004711`). Any new function that acts for an administrator with
    the service role must make the same call first.
 
 Destructive operations (`private.admin_delete_order`,
