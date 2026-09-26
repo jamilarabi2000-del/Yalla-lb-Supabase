@@ -22,6 +22,7 @@ import { isAdminEntryPath, rememberAdminEntry, rememberedAdminEntry } from './li
 import { pendingDeepLinkProduct } from './lib/productDeepLink';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { darken, readableTextOn } from './lib/colorContrast';
+import { refreshFailedChunk } from './lib/chunkRecovery';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>): React.LazyExoticComponent<T> {
   return lazy(async () => {
@@ -40,6 +41,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promis
           try {
             if (typeof window !== 'undefined' && window.sessionStorage && !sessionStorage.getItem('chunk_reload_attempted')) {
               sessionStorage.setItem('chunk_reload_attempted', '1');
+              await refreshFailedChunk(error);
               window.location.reload();
             }
           } catch {}
