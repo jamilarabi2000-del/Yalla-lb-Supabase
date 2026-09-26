@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useShop } from '../context/ShopContext';
 import { SectionVisibilityConfig, SiteContent } from '../types';
 import { 
@@ -25,7 +25,8 @@ import {
   CheckCircle2,
   Layers,
   Monitor,
-  Edit3
+  Edit3,
+  Image as ImageIcon
 } from 'lucide-react';
 
 import { CMSVisibilityTab } from './admin/cms/CMSVisibilityTab';
@@ -38,6 +39,7 @@ import { CMSCheckoutTab } from './admin/cms/CMSCheckoutTab';
 import { CMSAccountTab } from './admin/cms/CMSAccountTab';
 import { CMSNewsTab } from './admin/cms/CMSNewsTab';
 import { CMSCustomBlocksTab } from './admin/cms/CMSCustomBlocksTab';
+import { dataUrlToBlob, findPastedImages, replaceStrings, uploadImage } from '../lib/mediaUpload';
 import { CMSSeoTab } from './admin/cms/CMSSeoTab';
 import { CMSThemeTab } from './admin/cms/CMSThemeTab';
 import { CMSLivePreview } from './admin/cms/CMSLivePreview';
@@ -257,6 +259,28 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
     });
   };
 
+  // Photos pasted into the settings as text ride along with every page view,
+  // shown or not. Move them to Storage; the draft holds their new address
+  // until Publish, and Discard puts the old text back.
+  const pastedPhotos = useMemo(() => findPastedImages(cmsForm), [cmsForm]);
+  const [movingPhotos, setMovingPhotos] = useState(false);
+  const handleMovePastedPhotos = async () => {
+    setMovingPhotos(true);
+    const moved = new Map<string, string>();
+    try {
+      for (const dataUrl of pastedPhotos) {
+        const { url } = await uploadImage(dataUrlToBlob(dataUrl));
+        moved.set(dataUrl, url);
+      }
+      showToast(`Moved ${moved.size} photo(s) to storage. Click Publish Changes to make it live.`, 'success');
+    } catch (err: any) {
+      showToast(`Moved ${moved.size} of ${pastedPhotos.length} photo(s): ${err?.message || 'the upload failed.'}`, 'error');
+    } finally {
+      if (moved.size > 0) handleUpdate(prev => replaceStrings(prev, moved));
+      setMovingPhotos(false);
+    }
+  };
+
   const handleSave = async (sectionsToPublish?: string[]) => {
     setIsSaving(true);
     try {
@@ -407,6 +431,19 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
               <span>Preview</span>
             </button>
           </div>
+
+          {pastedPhotos.length > 0 && (
+            <button
+              type="button"
+              onClick={handleMovePastedPhotos}
+              disabled={movingPhotos || isSaving}
+              className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-50"
+              title="These photos are stored inside the site settings, so every visitor downloads them on every page. Move them to storage."
+            >
+              <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+              <span>{movingPhotos ? 'Moving photos...' : `Move ${pastedPhotos.length} pasted photo${pastedPhotos.length === 1 ? '' : 's'} to storage`}</span>
+            </button>
+          )}
 
           {/* Version History Button */}
           <button

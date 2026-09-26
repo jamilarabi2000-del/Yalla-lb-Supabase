@@ -12,7 +12,7 @@ import {
   Layers,
   Upload
 } from 'lucide-react';
-import { optimizeImageFile } from '../../../utils/imageOptimizer';
+import { uploadImage } from '../../../lib/mediaUpload';
 
 interface CMSNavbarTabProps {
   navbarData: {
@@ -62,24 +62,13 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
     }
 
     try {
+      // Saved to Storage; the CMS keeps only the address. The browser-tab
+      // icon is only ever shown at one size, so it keeps a plain address.
       const isFavicon = field === 'faviconUrl';
-      const result = await optimizeImageFile(file, {
-        maxWidth: isFavicon ? 256 : 800,
-        maxHeight: isFavicon ? 256 : 400,
-        quality: 0.85,
-        maxSizeBytes: isFavicon ? 50 * 1024 : 120 * 1024
-      });
-      onChangeField(field, result.dataUrl);
-    } catch (err) {
-      console.warn('Image optimization failed, falling back to direct reader:', err);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        if (result) {
-          onChangeField(field, result);
-        }
-      };
-      reader.readAsDataURL(file);
+      const result = await uploadImage(file, { maxWidth: isFavicon ? 256 : 800, quality: 0.85 });
+      onChangeField(field, isFavicon ? result.url.split('#')[0] : result.url);
+    } catch (err: any) {
+      alert(err?.message || 'The image could not be uploaded.');
     }
   };
 

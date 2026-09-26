@@ -1,7 +1,7 @@
 import { safeHref } from '../../../lib/safeUrl';
 import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, Upload, Check, Sparkles, X, ExternalLink, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
-import { optimizeImageFile, formatBytes } from '../../../utils/imageOptimizer';
+import { formatBytes, uploadImage } from '../../../lib/mediaUpload';
 
 export interface HeritageAssetPreset {
   id: string;
@@ -151,33 +151,20 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
       setOptimizeStats(null);
       setImgError(false);
 
+      // Saved to Storage in up to three widths; the CMS keeps only the address.
       const isBanner = recommendedRatio === '16:9' || recommendedRatio === '21:9';
-      const result = await optimizeImageFile(file, {
-        maxWidth: isBanner ? 1440 : 900,
-        maxHeight: isBanner ? 810 : 900,
-        quality: 0.78,
-        maxSizeBytes: isBanner ? 85 * 1024 : 60 * 1024
-      });
+      const result = await uploadImage(file, { maxWidth: isBanner ? 1600 : 1200 });
 
-      onChange(result.dataUrl);
-      setTempUrl(result.dataUrl);
+      onChange(result.url);
+      setTempUrl(result.url);
       setOptimizeStats({
-        original: formatBytes(result.originalSizeBytes),
-        optimized: formatBytes(result.optimizedSizeBytes),
-        savings: result.savingsPercent
+        original: formatBytes(file.size),
+        optimized: formatBytes(result.bytes),
+        savings: file.size > result.bytes ? Math.round(((file.size - result.bytes) / file.size) * 100) : 0
       });
       setIsOpen(false);
-    } catch (err) {
-      console.warn('Canvas optimization failed, falling back to direct reader:', err);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          const dataUrl = e.target.result as string;
-          onChange(dataUrl);
-          setTempUrl(dataUrl);
-        }
-      };
-      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert(err?.message || 'The image could not be uploaded.');
     } finally {
       setIsOptimizing(false);
     }
@@ -280,7 +267,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                 className={`p-1.5 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer transition-colors ${
                   isOptimizing ? 'bg-amber-500/30 text-indigo-600 animate-pulse' : 'bg-slate-100 hover:bg-slate-100'
                 }`} 
-                title="Upload & optimize local image file"
+                title="Upload an image: resized and saved to storage"
               >
                 {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                 <input
@@ -315,7 +302,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
           <div className="flex items-center gap-2 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
             <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />
             <span>
-              Web-Optimized: <strong>{optimizeStats.optimized}</strong> ({optimizeStats.savings}% smaller than original {optimizeStats.original})
+              Saved to storage: <strong>{optimizeStats.optimized}</strong> at full width ({optimizeStats.savings}% smaller than the original {optimizeStats.original}); phones get a smaller copy
             </span>
           </div>
         )}
@@ -323,7 +310,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
         {isOptimizing && (
           <div className="flex items-center gap-2 text-[11px] text-indigo-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-lg animate-pulse">
             <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
-            <span>Optimizing image resolution & compressing for web...</span>
+            <span>Resizing and saving to storage...</span>
           </div>
         )}
 
