@@ -101,8 +101,10 @@ describe('the glowing tiles', () => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/index.css'), 'utf8');
   const lift = 'transform:translateY(-5px) scale(1.05);';
 
-  it('sit in the dark panel, 10px apart', () => {
-    expect(css).toContain('.social-container { display:flex; gap:10px; align-items:center; background-color:#1a1a1a; padding:25px 35px; border-radius:20px; box-shadow:0 10px 30px rgba(0, 0, 0, 0.5);');
+  it('sit straight on the footer, 10px apart, with no panel fill or shadow', () => {
+    const rule = /\.social-container \{([^}]*)\}/.exec(css)![1];
+    expect(rule).toContain('display:flex; gap:10px; align-items:center;');
+    expect(rule).not.toMatch(/background|box-shadow/);
     render({}, <Footer />);
     const panel = host.querySelector('footer a.social-btn')!.parentElement!;
     expect(panel.classList.contains('social-container')).toBe(true);
