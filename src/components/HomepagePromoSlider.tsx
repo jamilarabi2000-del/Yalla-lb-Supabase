@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { responsiveImage } from '../lib/responsiveImage';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useShop } from '../context/ShopContext';
 import { 
   ArrowRight, 
@@ -118,6 +119,9 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
   const validSlides = resolveActiveSlides();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  // From 1024px the banner is a slider beside the hero; below that it is a row
+  // of cards under the hero (see the end of this component).
+  const isWide = useMediaQuery('(min-width: 1024px)');
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
 
@@ -130,9 +134,9 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
     }
   }, [slideCount, currentIndex]);
 
-  // Autoplay handler
+  // Autoplay handler (the slider only; the cards are swiped by hand)
   useEffect(() => {
-    if (slideCount <= 1 || isPaused || config?.autoplay === false) return;
+    if (!isWide || slideCount <= 1 || isPaused || config?.autoplay === false) return;
 
     const intervalTime = config?.autoplayInterval && config.autoplayInterval >= 1500 
       ? config.autoplayInterval 
@@ -148,7 +152,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [slideCount, isPaused, config?.autoplay, config?.autoplayInterval, config?.loop]);
+  }, [isWide, slideCount, isPaused, config?.autoplay, config?.autoplayInterval, config?.loop]);
 
   const handlePrev = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -568,6 +572,89 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
       </div>
     );
   };
+
+  // One card per slide, image first, with its badge and title over the foot of
+  // the photo. A card opens what the slide's button or link would open.
+  // Phones show one card and the edge of the next; tablets two, and the edge of
+  // a third when there is one, so the row reads as something to swipe.
+  const renderCard = (slide: CMSPromoSlide, idx: number, width: string) => {
+    const product = slide.type === 'product_promotion' && slide.selectedProductId
+      ? products.find(p => p.id === slide.selectedProductId) ?? null
+      : null;
+    const badge = isAr ? (slide.badgeArabic || slide.badge) : (slide.badge || slide.badgeArabic);
+    const title = (isAr ? (slide.titleArabic || slide.title) : (slide.title || slide.titleArabic))
+      || (product ? (isAr ? (product.arabicName || product.name) : product.name) : '');
+    const cta = isAr ? (slide.ctaTextArabic || slide.ctaText) : (slide.ctaText || slide.ctaTextArabic);
+    const image = slide.imageUrl || product?.image || '';
+    const dark = slide.bgStyle === 'dark' || slide.bgStyle === 'gold_gradient' || slide.bgStyle === 'emerald_gradient';
+    const textColor = slide.bgStyle === 'custom_color' ? '' : dark ? 'text-white' : 'text-[#111111]';
+    const opens = Boolean(product) || Boolean(slide.ctaUrl) || (slide.type !== 'image_only' && slide.showCta !== false && Boolean(cta));
+    const style: React.CSSProperties = slide.bgStyle === 'custom_color'
+      ? { backgroundColor: slide.customBgColor, color: slide.customTextColor }
+      : {};
+    const shape = `relative block w-full h-[150px] sm:h-[180px] rounded-2xl overflow-hidden text-start shadow-sm ${getSlideBgClasses(slide)}`;
+    const body = image ? (
+      <>
+        <img
+          src={image}
+          {...responsiveImage(image, width === 'w-full' ? '100vw' : '(min-width: 640px) 50vw, 72vw')}
+          loading="lazy"
+          decoding="async"
+          alt=""
+          referrerPolicy="no-referrer"
+          className={`absolute inset-0 w-full h-full object-${slide.imageFit || (product ? 'contain' : 'cover')}`}
+        />
+        {(badge || title || product) && (
+          <span className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-8 flex flex-col gap-0.5 bg-gradient-to-t from-black/85 via-black/45 to-transparent">
+            {badge && <span className="text-[10px] font-bold uppercase tracking-wider text-[#F3E5AB] truncate">{badge}</span>}
+            {title && <span className="text-[13px] sm:text-sm font-bold text-white leading-snug line-clamp-2">{title}</span>}
+            {product && <span className="text-xs font-bold font-mono text-[#F3E5AB]">{formatPrice(product.priceUSD)}</span>}
+          </span>
+        )}
+      </>
+    ) : (
+      <span className="absolute inset-0 p-4 flex flex-col justify-end gap-1">
+        {badge && <span className={`text-[10px] font-bold uppercase tracking-wider truncate ${dark ? 'text-[#F3E5AB]' : slide.bgStyle === 'custom_color' ? '' : 'text-[#595959]'}`}>{badge}</span>}
+        {title && <span className={`text-sm font-bold leading-snug line-clamp-3 ${textColor}`}>{title}</span>}
+      </span>
+    );
+    return (
+      <div key={slide.id || idx} role="listitem" className={`${width} shrink-0 snap-start`}>
+        {opens ? (
+          <button
+            type="button"
+            onClick={() => (product ? openProductDetail(product) : handleCtaClick(slide))}
+            aria-label={title || badge || cta || (isAr ? 'عرض' : 'Promotion')}
+            className={`${shape} cursor-pointer active:scale-[0.99] transition-transform`}
+            style={style}
+          >
+            {body}
+          </button>
+        ) : (
+          <div className={shape} style={style}>{body}</div>
+        )}
+      </div>
+    );
+  };
+
+  // Below 1024px the banner sits under the hero, which keeps its height: every
+  // slide becomes a card in a row the shopper swipes, instead of one slide at a
+  // time. Only this row is rendered, so no hidden slider downloads its photos.
+  if (!isWide) {
+    const width = slideCount === 1 ? 'w-full' : slideCount === 2 ? 'w-[72%] sm:w-[calc(50%-6px)]' : 'w-[72%] sm:w-[46%]';
+    return (
+      <div data-cms-element="promo-slider" id="homepage-content-slider" className={`min-w-0 ${className}`}>
+        <div
+          role="list"
+          aria-label={isAr ? 'العروض' : 'Promotions'}
+          className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {validSlides.map((slide, idx) => renderCard(slide, idx, width))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div data-cms-element="promo-slider"
