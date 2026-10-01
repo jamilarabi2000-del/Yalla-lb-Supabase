@@ -398,6 +398,21 @@ export interface CMSPromoSlide {
   selectedProductId?: string;
   selectedProductIds?: string[];
   contentAlignment?: 'left' | 'center' | 'right';
+  // Design of the slide's text and button (src/lib/promoSlideDesign.ts). All
+  // optional: a slide that sets none looks as it always did.
+  textAlign?: 'start' | 'center' | 'end';
+  textPosition?: 'top' | 'middle' | 'bottom';
+  badgeColor?: string;
+  titleColor?: string;
+  descriptionColor?: string;
+  buttonStyle?: 'solid' | 'outline' | 'soft' | 'link';
+  buttonColor?: string;
+  buttonTextColor?: string;
+  buttonShape?: 'pill' | 'rounded' | 'square';
+  buttonSize?: 'sm' | 'md' | 'lg';
+  buttonAlign?: 'start' | 'center' | 'end';
+  /** 0-70: how much the photo is darkened under the text. */
+  imageOverlay?: number;
   scheduleActive?: boolean;
   startDate?: string;
   endDate?: string;

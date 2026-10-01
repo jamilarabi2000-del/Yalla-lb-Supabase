@@ -464,6 +464,15 @@ These reduce blast radius. None of them is an authorization control.
   property, a value that could end a declaration or fetch a URL, a font the
   site does not load, or a move beyond ±300px. `test/textStyleRules.test.ts`
   keeps the two lists in step.
+- **Promo slide design** (the Design panel in the CMS): a slide's alignment,
+  position, colours, button style and photo darkening are stored as plain
+  settings, so they are checked whenever they are shown
+  (`src/lib/promoSlideDesign.ts`): choices must come from fixed lists,
+  colours must be `#rgb` or `#rrggbb`, the darkening is held to 0-70, and
+  nothing is passed on as raw CSS (a button's hover colour goes through a CSS
+  variable the code computes). A value that fails is ignored and the slide
+  looks as it did before. Unlike Style Text there is no database trigger for
+  this data; `test/promoSlideDesign.test.ts` covers the checks.
 - **CSV export**: `src/utils/csvSafe.ts` prefixes `= + - @ TAB CR LF |`.
 - **Diagnostics**: `src/utils/dbLogger.ts` redacts PII by pattern and exposes
   its buffer on `window` only in development builds.

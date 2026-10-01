@@ -1,5 +1,5 @@
 import { safeHref } from '../../../lib/safeUrl';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Image as ImageIcon, Upload, Check, Sparkles, X, ExternalLink, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { formatBytes, uploadImage } from '../../../lib/mediaUpload';
 
@@ -131,10 +131,19 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizeStats, setOptimizeStats] = useState<{ original: string; optimized: string; savings: number } | null>(null);
   const [imgError, setImgError] = useState(false);
+  // Changing the key mounts a fresh <img>, which asks the server again.
+  const [retryKey, setRetryKey] = useState(0);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setImgError(false);
   }, [value]);
+
+  // Where the address points, in words an administrator recognises.
+  const source = (() => {
+    try { return new URL(value).hostname; } catch { return ''; }
+  })();
+  const openableHref = value && safeHref(value) !== '#' ? safeHref(value) : '';
 
   const filteredPresets = selectedCategory === 'all'
     ? LEBANESE_HERITAGE_PRESETS
@@ -224,6 +233,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                   </div>
                 ) : (
                   <img
+                    key={retryKey}
                     src={value}
                     alt="Preview"
                     className="w-full h-full object-cover"
@@ -271,6 +281,7 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
               >
                 {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                 <input
+                  ref={fileInput}
                   type="file"
                   accept="image/*"
                   disabled={isOptimizing}
@@ -282,9 +293,9 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
                   }}
                 />
               </label>
-              {value && !imgError && (
+              {openableHref && (
                 <a
-                  href={safeHref(value)}
+                  href={openableHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-100 text-slate-600 hover:text-slate-900 cursor-pointer transition-colors"
@@ -315,9 +326,41 @@ export const MediaAssetPicker: React.FC<MediaAssetPickerProps> = ({
         )}
 
         {imgError && value && (
-          <div className="flex items-center gap-2 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1 rounded-lg">
-            <AlertCircle className="w-3 h-3 flex-shrink-0" />
-            <span>Image URL failed to load. A high-quality fallback is shown on the storefront.</span>
+          <div role="alert" className="space-y-2 text-[11px] text-rose-800 bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 mt-px flex-shrink-0" />
+              <p>
+                <strong>This image could not be loaded{source ? <> from <span className="font-mono">{source}</span></> : ''}.</strong>{' '}
+                Visitors may not see it either. A link to another website can expire or be blocked, so uploading the
+                picture itself is the reliable choice.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 ps-5">
+              {openableHref && (
+                <a
+                  href={openableHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-rose-200 font-bold hover:bg-rose-100"
+                >
+                  <ExternalLink className="w-3 h-3" /> Open link
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => { setImgError(false); setRetryKey(k => k + 1); }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-rose-200 font-bold hover:bg-rose-100 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" /> Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-rose-700 text-white font-bold hover:bg-rose-800 cursor-pointer"
+              >
+                <Upload className="w-3 h-3" /> Upload instead
+              </button>
+            </div>
           </div>
         )}
       </div>

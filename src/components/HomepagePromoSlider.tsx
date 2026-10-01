@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { responsiveImage } from '../lib/responsiveImage';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import {
+  alignClass, buttonRender, colorStyle, isDarkSlide, itemsClass, justifyColClass, justifyRowClass, marginClass,
+  onDarkBackground, overlayStyle, resolveDesign, safeColor, selfClass,
+} from '../lib/promoSlideDesign';
+// The photo the hero falls back to; the same file, so it costs nothing extra.
+import fallbackPhoto from '../assets/images/raouche_rocks_sunset_1786799732002.webp';
 import { useShop } from '../context/ShopContext';
 import { 
   ArrowRight, 
@@ -18,11 +24,20 @@ import { CMSPromoSliderConfig, CMSPromoSlide } from '../types';
 interface HomepagePromoSliderProps {
   bannerConfig?: CMSPromoSliderConfig;
   className?: string;
+  /** The element id; the CMS gives its second preview another one, as an id must be unique on a page. */
+  elementId?: string;
+  /**
+   * 'auto' follows the screen: a slider from 1024px, a row of cards below.
+   * The CMS preview forces one of them to show the other screen's layout.
+   */
+  layout?: 'auto' | 'slider' | 'cards';
 }
 
 export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({ 
   bannerConfig, 
-  className = '' 
+  className = '',
+  elementId = 'homepage-content-slider',
+  layout = 'auto'
 }) => {
   const { 
     siteContent, 
@@ -121,7 +136,8 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   // From 1024px the banner is a slider beside the hero; below that it is a row
   // of cards under the hero (see the end of this component).
-  const isWide = useMediaQuery('(min-width: 1024px)');
+  const wideScreen = useMediaQuery('(min-width: 1024px)');
+  const isWide = layout === 'slider' ? true : layout === 'cards' ? false : wideScreen;
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
 
@@ -302,47 +318,78 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const isDarkBg = currentSlide.bgStyle === 'dark' || currentSlide.bgStyle === 'gold_gradient' || currentSlide.bgStyle === 'emerald_gradient';
-  const badgeText = isAr ? (currentSlide.badgeArabic || currentSlide.badge) : (currentSlide.badge || currentSlide.badgeArabic);
-  const titleText = isAr ? (currentSlide.titleArabic || currentSlide.title) : (currentSlide.title || currentSlide.titleArabic);
-  const descriptionText = isAr ? (currentSlide.descriptionArabic || currentSlide.description) : (currentSlide.description || currentSlide.descriptionArabic);
-  const ctaText = isAr ? (currentSlide.ctaTextArabic || currentSlide.ctaText) : (currentSlide.ctaText || currentSlide.ctaTextArabic);
-
-  const selectedProduct = currentSlide.type === 'product_promotion' && currentSlide.selectedProductId
-    ? products.find(p => p.id === currentSlide.selectedProductId)
-    : null;
+  const pickText = (en?: string, ar?: string) => (isAr ? (ar || en) : (en || ar));
+  const productFor = (sl: CMSPromoSlide) => (sl.type === 'product_promotion' && sl.selectedProductId
+    ? products.find(p => p.id === sl.selectedProductId) ?? null
+    : null);
 
   const showNavigation = slideCount > 1 && config?.showArrows !== false;
   const showPagination = slideCount > 1 && config?.showDots !== false;
   const isTransitionFade = config?.transitionEffect === 'fade';
 
-  // Render Inner Slide Content based on archetype
+  // A photo the browser cannot load is swapped, once, for the bundled photo the
+  // hero falls back to. Every promo photo uses this, so what the CMS promises
+  // about a broken link is true for every slide type and both layouts.
+  const showFallbackPhoto = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (img.dataset.fallback === '1') return;
+    img.dataset.fallback = '1';
+    img.removeAttribute('srcset');
+    img.src = fallbackPhoto;
+  };
+
+  // Render Inner Slide Content based on archetype. Each slide has its own
+  // text and design, so nothing here reads the slide on show.
   const renderSlideContent = (slide: CMSPromoSlide) => {
+    const design = resolveDesign(slide);
+    const isDarkBg = isDarkSlide(slide);
+    const selectedProduct = productFor(slide);
+    const badgeText = pickText(slide.badge, slide.badgeArabic);
+    const titleText = pickText(slide.title, slide.titleArabic);
+    const descriptionText = pickText(slide.description, slide.descriptionArabic);
+    const ctaText = pickText(slide.ctaText, slide.ctaTextArabic);
+    // The designed button, or null when the administrator left it as it was.
+    const button = buttonRender(design, isDarkBg);
+    // The arrows sit at the top end and the dots at the bottom centre. Text a
+    // design puts there moves clear of them; a slide with no design is left as it was.
+    const clearArrows = showNavigation && design.align === 'end';
+
     // 1. IMAGE ONLY
     if (slide.type === 'image_only' && slide.imageUrl) {
+      const position = design.position ?? 'bottom';
+      const scrim = position === 'top' ? 'bg-gradient-to-b from-black/80 via-black/20 to-transparent'
+        : position === 'middle' ? 'bg-black/45'
+        : 'bg-gradient-to-t from-black/80 via-black/20 to-transparent';
       return (
         <div 
           onClick={slide.ctaUrl ? () => handleCtaClick(slide) : undefined}
           className={`w-full h-full relative group overflow-hidden ${slide.ctaUrl ? 'cursor-pointer' : ''}`}
         >
           <img 
+            key={slide.imageUrl}
             src={slide.imageUrl} 
             {...responsiveImage(slide.imageUrl, '(min-width: 1024px) 360px, 100vw')}
             decoding="async"
             alt={titleText || 'Promotional Slide'}
             referrerPolicy="no-referrer"
+            onError={showFallbackPhoto}
             className={`w-full h-full object-${slide.imageFit || 'cover'} transition-transform duration-700 group-hover:scale-105`}
           />
+          {design.overlay > 0 && (
+            <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={overlayStyle(design.overlay)} />
+          )}
           {titleText && (
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-4 sm:p-5 flex flex-col justify-end">
+            <div className={`absolute inset-0 ${scrim} p-4 sm:p-5 flex flex-col ${justifyColClass(position)} ${itemsClass(design.align)} ${alignClass(design.align)}`}>
+              {design.position === 'top' && showNavigation && <span aria-hidden="true" className="h-7 shrink-0" />}
               {badgeText && (
-                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#F3E5AB] mb-1">
+                <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#F3E5AB] mb-1" style={colorStyle(design.badgeColor)}>
                   {badgeText}
                 </span>
               )}
-              <h3 className="text-sm sm:text-base font-bold text-white line-clamp-2">
+              <h3 className="text-sm sm:text-base font-bold text-white line-clamp-2" style={colorStyle(design.titleColor)}>
                 {titleText}
               </h3>
+              {design.position === 'bottom' && showPagination && <span aria-hidden="true" className="h-3 shrink-0" />}
             </div>
           )}
         </div>
@@ -351,35 +398,36 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
 
     // 2. TEXT ONLY
     if (slide.type === 'text_only') {
+      const ctaAlign = design.button.align ?? design.align;
       return (
         <div 
           onClick={slide.ctaUrl ? () => handleCtaClick(slide) : undefined}
-          className={`w-full h-full p-4 sm:p-6 md:p-7 flex flex-col justify-between relative ${slide.ctaUrl ? 'cursor-pointer group' : ''}`}
+          className={`w-full h-full p-4 sm:p-6 md:p-7 flex flex-col justify-between relative ${itemsClass(design.align)} ${alignClass(design.align)} ${slide.ctaUrl ? 'cursor-pointer group' : ''}`}
         >
           {/* Top Badge */}
           {badgeText && (
-            <div className="flex items-center gap-1.5 z-10">
+            <div className={`flex items-center gap-1.5 z-10 ${clearArrows ? 'mt-7' : ''}`}>
               <span className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                 isDarkBg ? 'bg-white/10 text-[#F3E5AB] border border-white/15' : 'bg-black/5 text-[#595959] border border-black/10'
-              }`}>
+              }`} style={colorStyle(design.badgeColor)}>
                 {badgeText}
               </span>
             </div>
           )}
 
           {/* Middle Typography */}
-          <div className="my-auto py-2 z-10">
+          <div className={`${marginClass(design.position) || 'my-auto'} py-2 z-10`}>
             {titleText && (
               <h3 className={`text-base sm:text-lg md:text-xl font-bold tracking-tight line-clamp-3 leading-snug ${
                 isDarkBg ? 'text-white' : 'text-[#111111]'
-              }`}>
+              }`} style={colorStyle(design.titleColor)}>
                 {titleText}
               </h3>
             )}
             {descriptionText && (
               <p className={`text-xs sm:text-sm mt-2 line-clamp-4 leading-relaxed ${
                 isDarkBg ? 'text-white/70' : 'text-[#666666]'
-              }`}>
+              }`} style={colorStyle(design.descriptionColor)}>
                 {descriptionText}
               </p>
             )}
@@ -387,15 +435,18 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
 
           {/* Bottom CTA */}
           {slide.showCta !== false && (ctaText || slide.ctaUrl) && (
-            <div className="z-10 mt-auto pt-2 flex items-center justify-between">
+            <div className={`z-10 mt-auto pt-2 w-full flex items-center ${justifyRowClass(ctaAlign) || 'justify-between'}`}>
               <button
                 type="button"
                 onClick={(e) => handleCtaClick(slide, e)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${
-                  isDarkBg 
-                    ? 'bg-white text-black hover:bg-[#F3E5AB]' 
-                    : 'bg-[#111111] text-white hover:bg-[#8F7137]'
-                }`}
+                className={button
+                  ? button.className
+                  : `flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${
+                    isDarkBg 
+                      ? 'bg-white text-black hover:bg-[#F3E5AB]' 
+                      : 'bg-[#111111] text-white hover:bg-[#8F7137]'
+                  }`}
+                style={button?.style}
               >
                 <span>{ctaText || (isAr ? 'اكتشف المزيد' : 'Learn More')}</span>
                 <ArrowRight className={`w-3.5 h-3.5 ${isAr ? 'rotate-180' : ''}`} />
@@ -418,7 +469,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
             <div className="flex items-center gap-2 min-w-0">
               <div className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate ${
                 isDarkBg ? 'text-[#F3E5AB]' : 'text-[#595959]'
-              }`}>
+              }`} style={colorStyle(design.badgeColor)}>
                 {badgeText || selectedProduct.category || (isAr ? 'منتج مميز' : 'Special Feature')}
               </div>
               {Array.isArray((selectedProduct as any).colors) && (selectedProduct as any).colors.length > 0 && (
@@ -439,30 +490,28 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
           {/* Product Image */}
           <div className="relative w-full h-[98px] min-[360px]:h-[104px] sm:h-[130px] lg:h-[200px] xl:h-[220px] my-auto py-1 sm:py-2 flex items-center justify-center overflow-hidden">
             <img
+              key={slide.imageUrl || selectedProduct.image}
               src={slide.imageUrl || selectedProduct.image}
               {...responsiveImage(slide.imageUrl || selectedProduct.image, '240px')}
               decoding="async"
               alt={selectedProduct.name}
               referrerPolicy="no-referrer"
-              onError={(e) => {
-                e.currentTarget.removeAttribute('srcset');
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=800';
-              }}
+              onError={showFallbackPhoto}
               className={`max-h-full max-w-full object-${slide.imageFit || 'contain'} object-center transition-all duration-500 group-hover:scale-105`}
             />
           </div>
 
           {/* Product Info & Cart Action */}
           <div className="flex items-end justify-between gap-2 sm:gap-3 z-10 sm:pt-3 sm:mt-auto">
-            <div className="min-w-0 flex-1">
+            <div className={`min-w-0 flex-1 ${alignClass(design.align)}`}>
               <h3 className={`text-[12px] min-[360px]:text-[13px] sm:text-[15px] font-bold line-clamp-2 leading-[1.25] sm:leading-snug ${
                 isDarkBg ? 'text-white' : 'text-[#111111]'
-              }`}>
+              }`} style={colorStyle(design.titleColor)}>
                 {titleText || (isAr ? (selectedProduct.arabicName || selectedProduct.name) : selectedProduct.name)}
               </h3>
               <p className={`text-[10px] sm:text-[12px] truncate mt-0.5 ${
                 isDarkBg ? 'text-white/70' : 'text-[#666666]'
-              }`}>
+              }`} style={colorStyle(design.descriptionColor)}>
                 {descriptionText || selectedProduct.artisan || selectedProduct.seller || (isAr ? 'حرفي لبناني' : 'Lebanese Artisan')}
               </p>
             </div>
@@ -476,11 +525,14 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
                 showToast(isAr ? `تمت إضافة ${selectedProduct.arabicName || selectedProduct.name} إلى السلة` : `Added ${selectedProduct.name} to basket`, 'success');
               }}
               aria-label={isAr ? 'إضافة إلى السلة' : 'Add to cart'}
-              className="flex items-center gap-1 min-[360px]:gap-1.5 sm:gap-2 px-2.5 min-[360px]:px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-[#111111] hover:bg-[#8F7137] text-white text-[10px] min-[360px]:text-[11px] sm:text-[12px] font-medium tracking-wide shadow-xs transition-colors cursor-pointer flex-shrink-0 active:scale-95"
+              className={button
+                ? `${button.className} flex-shrink-0`
+                : 'flex items-center gap-1 min-[360px]:gap-1.5 sm:gap-2 px-2.5 min-[360px]:px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full bg-[#111111] hover:bg-[#8F7137] text-white text-[10px] min-[360px]:text-[11px] sm:text-[12px] font-medium tracking-wide shadow-xs transition-colors cursor-pointer flex-shrink-0 active:scale-95'}
+              style={button?.style}
             >
               <span className="whitespace-nowrap">{isAr ? 'إضافة' : 'Add'}</span>
               <span className="opacity-40">|</span>
-              <span className="font-bold text-[#F3E5AB] font-mono whitespace-nowrap">
+              <span className={`font-bold font-mono whitespace-nowrap ${button ? '' : 'text-[#F3E5AB]'}`}>
                 {formatPrice(selectedProduct.priceUSD)}
               </span>
             </button>
@@ -490,22 +542,27 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
     }
 
     // 4. DEFAULT / CUSTOM / IMAGE + TEXT
+    // With an alignment (or button alignment) chosen, the title and button stack
+    // and follow it; otherwise they sit side by side as they always have.
+    const stacked = Boolean(design.align || design.button.align);
+    const textAlign = design.align ?? 'start';
+    const ctaAlign = design.button.align ?? textAlign;
     return (
       <div 
         onClick={slide.ctaUrl ? () => handleCtaClick(slide) : undefined}
         className={`w-full h-full p-3.5 sm:p-5 md:p-6 flex flex-col justify-between relative ${slide.ctaUrl ? 'cursor-pointer group' : ''}`}
       >
         {/* Top Header / Badge */}
-        <div className="flex items-center justify-between z-10">
+        <div className={`flex items-center z-10 ${design.align ? justifyRowClass(design.align) : 'justify-between'} ${clearArrows ? 'mt-7' : ''}`}>
           {badgeText ? (
             <div className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate px-2.5 py-0.5 rounded-full ${
               isDarkBg ? 'bg-white/10 text-[#F3E5AB] border border-white/15' : 'bg-black/5 text-[#595959] border border-black/10'
-            }`}>
+            }`} style={colorStyle(design.badgeColor)}>
               {badgeText}
             </div>
           ) : <div />}
           
-          {slide.showCta !== false && slide.ctaUrl && (
+          {!design.align && slide.showCta !== false && slide.ctaUrl && (
             <div className={`text-xs opacity-70 group-hover:opacity-100 transition-opacity ${
               isDarkBg ? 'text-white' : 'text-[#666666]'
             }`}>
@@ -518,15 +575,13 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
         {slide.imageUrl ? (
           <div className="relative w-full h-[90px] min-[360px]:h-[100px] sm:h-[125px] lg:h-[190px] xl:h-[210px] my-auto py-1 sm:py-2 flex items-center justify-center overflow-hidden">
             <img
+              key={slide.imageUrl}
               src={slide.imageUrl}
               {...responsiveImage(slide.imageUrl, '240px')}
               decoding="async"
               alt={titleText || 'Promotional Slide'}
               referrerPolicy="no-referrer"
-              onError={(e) => {
-                e.currentTarget.removeAttribute('srcset');
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800';
-              }}
+              onError={showFallbackPhoto}
               className={`max-h-full max-w-full object-${slide.imageFit || 'contain'} object-center transition-all duration-500 group-hover:scale-105`}
             />
           </div>
@@ -535,19 +590,21 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
         )}
 
         {/* Bottom Content Info & CTA */}
-        <div className="flex items-end justify-between gap-2 sm:gap-3 z-10 sm:pt-2 sm:mt-auto">
-          <div className="min-w-0 flex-1">
+        <div className={stacked
+          ? `flex flex-col gap-2 z-10 sm:pt-2 sm:mt-auto ${itemsClass(textAlign)} ${alignClass(textAlign)}`
+          : 'flex items-end justify-between gap-2 sm:gap-3 z-10 sm:pt-2 sm:mt-auto'}>
+          <div className={stacked ? 'min-w-0 max-w-full' : 'min-w-0 flex-1'}>
             {titleText && (
               <h3 className={`text-[12px] min-[360px]:text-[13px] sm:text-[15px] font-bold line-clamp-2 leading-[1.25] sm:leading-snug ${
                 isDarkBg ? 'text-white' : 'text-[#111111]'
-              }`}>
+              }`} style={colorStyle(design.titleColor)}>
                 {titleText}
               </h3>
             )}
             {descriptionText && (
               <p className={`text-[10px] sm:text-[12px] truncate mt-0.5 ${
                 isDarkBg ? 'text-white/70' : 'text-[#666666]'
-              }`}>
+              }`} style={colorStyle(design.descriptionColor)}>
                 {descriptionText}
               </p>
             )}
@@ -558,11 +615,14 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
               type="button"
               onClick={(e) => handleCtaClick(slide, e)}
               aria-label={ctaText || (isAr ? 'استكشف' : 'Explore')}
-              className={`flex items-center gap-1 min-[360px]:gap-1.5 sm:gap-2 px-2.5 min-[360px]:px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-[10px] min-[360px]:text-[11px] sm:text-[12px] font-medium tracking-wide shadow-xs transition-colors cursor-pointer flex-shrink-0 active:scale-95 ${
-                isDarkBg 
-                  ? 'bg-white text-black hover:bg-[#F3E5AB]' 
-                  : 'bg-[#111111] hover:bg-[#8F7137] text-white'
-              }`}
+              className={`${button
+                ? `${button.className} flex-shrink-0`
+                : `flex items-center gap-1 min-[360px]:gap-1.5 sm:gap-2 px-2.5 min-[360px]:px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-[10px] min-[360px]:text-[11px] sm:text-[12px] font-medium tracking-wide shadow-xs transition-colors cursor-pointer flex-shrink-0 active:scale-95 ${
+                  isDarkBg 
+                    ? 'bg-white text-black hover:bg-[#F3E5AB]' 
+                    : 'bg-[#111111] hover:bg-[#8F7137] text-white'
+                }`} ${stacked ? selfClass(ctaAlign) : ''}`}
+              style={button?.style}
             >
               <span className="whitespace-nowrap">{ctaText || (isAr ? 'استكشف' : 'Explore')}</span>
               <ArrowRight className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
@@ -573,66 +633,100 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
     );
   };
 
-  // One card per slide, image first, with its badge and title over the foot of
-  // the photo. A card opens what the slide's button or link would open.
+  // One card per slide: the photo with its badge, title and button over it. The
+  // texts and the button are real elements (same tags as the desktop slider, so
+  // Style Text rules match on both layouts). The whole card opens what the
+  // slide's button or link would open, through the button's own stretched
+  // click area, or an invisible button when the slide has none.
   // Phones show one card and the edge of the next; tablets two, and the edge of
   // a third when there is one, so the row reads as something to swipe.
   const renderCard = (slide: CMSPromoSlide, idx: number, width: string) => {
-    const product = slide.type === 'product_promotion' && slide.selectedProductId
-      ? products.find(p => p.id === slide.selectedProductId) ?? null
-      : null;
-    const badge = isAr ? (slide.badgeArabic || slide.badge) : (slide.badge || slide.badgeArabic);
-    const title = (isAr ? (slide.titleArabic || slide.title) : (slide.title || slide.titleArabic))
+    const design = resolveDesign(slide);
+    const product = productFor(slide);
+    const badge = pickText(slide.badge, slide.badgeArabic) || '';
+    const title = pickText(slide.title, slide.titleArabic)
       || (product ? (isAr ? (product.arabicName || product.name) : product.name) : '');
-    const cta = isAr ? (slide.ctaTextArabic || slide.ctaText) : (slide.ctaText || slide.ctaTextArabic);
+    const cta = pickText(slide.ctaText, slide.ctaTextArabic) || '';
     const image = slide.imageUrl || product?.image || '';
-    const dark = slide.bgStyle === 'dark' || slide.bgStyle === 'gold_gradient' || slide.bgStyle === 'emerald_gradient';
-    const textColor = slide.bgStyle === 'custom_color' ? '' : dark ? 'text-white' : 'text-[#111111]';
-    const opens = Boolean(product) || Boolean(slide.ctaUrl) || (slide.type !== 'image_only' && slide.showCta !== false && Boolean(cta));
-    const style: React.CSSProperties = slide.bgStyle === 'custom_color'
-      ? { backgroundColor: slide.customBgColor, color: slide.customTextColor }
-      : {};
-    const shape = `relative block w-full h-[150px] sm:h-[180px] rounded-2xl overflow-hidden text-start shadow-sm ${getSlideBgClasses(slide)}`;
-    const body = image ? (
-      <>
-        <img
-          src={image}
-          {...responsiveImage(image, width === 'w-full' ? '100vw' : '(min-width: 640px) 50vw, 72vw')}
-          loading="lazy"
-          decoding="async"
-          alt=""
-          referrerPolicy="no-referrer"
-          className={`absolute inset-0 w-full h-full object-${slide.imageFit || (product ? 'contain' : 'cover')}`}
-        />
-        {(badge || title || product) && (
-          <span className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-8 flex flex-col gap-0.5 bg-gradient-to-t from-black/85 via-black/45 to-transparent">
-            {badge && <span className="text-[10px] font-bold uppercase tracking-wider text-[#F3E5AB] truncate">{badge}</span>}
-            {title && <span className="text-[13px] sm:text-sm font-bold text-white leading-snug line-clamp-2">{title}</span>}
-            {product && <span className="text-xs font-bold font-mono text-[#F3E5AB]">{formatPrice(product.priceUSD)}</span>}
-          </span>
-        )}
-      </>
-    ) : (
-      <span className="absolute inset-0 p-4 flex flex-col justify-end gap-1">
-        {badge && <span className={`text-[10px] font-bold uppercase tracking-wider truncate ${dark ? 'text-[#F3E5AB]' : slide.bgStyle === 'custom_color' ? '' : 'text-[#595959]'}`}>{badge}</span>}
-        {title && <span className={`text-sm font-bold leading-snug line-clamp-3 ${textColor}`}>{title}</span>}
-      </span>
-    );
+    const onDark = onDarkBackground(slide, 'cards', Boolean(image));
+    const custom = slide.bgStyle === 'custom_color';
+    const hasButton = !product && slide.type !== 'image_only' && slide.showCta !== false && Boolean(cta || slide.ctaUrl);
+    const opens = Boolean(product) || Boolean(slide.ctaUrl) || hasButton;
+    // Position applies to the slide types that have a free text block.
+    const position = slide.type === 'image_only' || slide.type === 'text_only' ? design.position : undefined;
+    const label = title || badge || cta || (isAr ? 'عرض' : 'Promotion');
+    const open = () => (product ? openProductDetail(product) : handleCtaClick(slide));
+    const BadgeTag = (slide.type === 'image_only' || slide.type === 'text_only' ? 'span' : 'div') as React.ElementType;
+    const style: React.CSSProperties | undefined = custom
+      ? { backgroundColor: safeColor(slide.customBgColor), color: safeColor(slide.customTextColor) }
+      : undefined;
+    const scrim = !image ? ''
+      : position === 'top' ? 'bg-gradient-to-b from-black/80 via-black/25 to-transparent'
+      : position === 'middle' ? 'bg-black/45'
+      : 'bg-gradient-to-t from-black/85 via-black/25 to-transparent';
+    const designed = buttonRender(design, onDark);
+    const ctaAlign = design.button.align ?? design.align;
+    // The stretched click area replaces the press-in effect: a button that
+    // shrinks under the finger would cancel the tap that started on the card.
+    const stretch = 'after:absolute after:inset-0';
+    const ctaClass = designed
+      ? `${designed.className.replace('active:scale-95', '')} ${stretch}`
+      : `inline-flex items-center gap-1.5 min-h-6 px-3 py-1.5 rounded-full text-[11px] font-bold shadow-xs transition-colors cursor-pointer ${stretch} ${
+        onDark ? 'bg-white text-black hover:bg-[#F3E5AB]' : 'bg-[#111111] text-white hover:bg-[#8F7137]'}`;
+    const titleClass = custom && !image ? '' : onDark ? 'text-white' : 'text-[#111111]';
+    const badgeClass = onDark ? 'text-[#F3E5AB]' : custom ? '' : 'text-[#595959]';
     return (
       <div key={slide.id || idx} role="listitem" className={`${width} shrink-0 snap-start`}>
-        {opens ? (
-          <button
-            type="button"
-            onClick={() => (product ? openProductDetail(product) : handleCtaClick(slide))}
-            aria-label={title || badge || cta || (isAr ? 'عرض' : 'Promotion')}
-            className={`${shape} cursor-pointer active:scale-[0.99] transition-transform`}
-            style={style}
-          >
-            {body}
-          </button>
-        ) : (
-          <div className={shape} style={style}>{body}</div>
-        )}
+        <article
+          className={`relative block w-full h-[150px] sm:h-[180px] rounded-2xl overflow-hidden text-start shadow-sm ${getSlideBgClasses(slide)}`}
+          style={style}
+        >
+          {image && (
+            <img
+              key={image}
+              src={image}
+              {...responsiveImage(image, width === 'w-full' ? '100vw' : '(min-width: 640px) 50vw, 72vw')}
+              loading="lazy"
+              decoding="async"
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={showFallbackPhoto}
+              className={`absolute inset-0 w-full h-full object-${slide.imageFit || (product ? 'contain' : 'cover')}`}
+            />
+          )}
+          {image && design.overlay > 0 && (
+            <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={overlayStyle(design.overlay)} />
+          )}
+          <div className={`absolute inset-0 flex flex-col gap-1 p-3 ${scrim} ${justifyColClass(position) || 'justify-end'} ${itemsClass(design.align)} ${alignClass(design.align)}`}>
+            {badge && (
+              <BadgeTag className={`text-[10px] font-bold uppercase tracking-wider truncate max-w-full ${badgeClass}`} style={colorStyle(design.badgeColor)}>
+                {badge}
+              </BadgeTag>
+            )}
+            {title && (
+              <h3 className={`text-[13px] sm:text-sm font-bold leading-snug ${image ? 'line-clamp-2' : 'line-clamp-3'} ${titleClass}`} style={colorStyle(design.titleColor)}>
+                {title}
+              </h3>
+            )}
+            {product && (
+              <span className="text-xs font-bold font-mono text-[#F3E5AB]">{formatPrice(product.priceUSD)}</span>
+            )}
+            {hasButton && (
+              <button
+                type="button"
+                onClick={open}
+                className={`${ctaClass} mt-1 ${selfClass(ctaAlign)}`}
+                style={designed?.style}
+              >
+                <span className="whitespace-nowrap">{cta || (isAr ? 'استكشف' : 'Explore')}</span>
+                <ArrowRight className={`w-3 h-3 ${isAr ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+          </div>
+          {opens && !hasButton && (
+            <button type="button" onClick={open} aria-label={label} className="absolute inset-0 z-10 cursor-pointer" />
+          )}
+        </article>
       </div>
     );
   };
@@ -643,7 +737,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
   if (!isWide) {
     const width = slideCount === 1 ? 'w-full' : slideCount === 2 ? 'w-[72%] sm:w-[calc(50%-6px)]' : 'w-[72%] sm:w-[46%]';
     return (
-      <div data-cms-element="promo-slider" id="homepage-content-slider" className={`min-w-0 ${className}`}>
+      <div data-cms-element="promo-slider" id={elementId} className={`min-w-0 ${className}`}>
         <div
           role="list"
           aria-label={isAr ? 'العروض' : 'Promotions'}
@@ -658,7 +752,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
 
   return (
     <div data-cms-element="promo-slider"
-      id="homepage-content-slider"
+      id={elementId}
       className={`relative rounded-[20px] overflow-hidden shadow-sm transition-all min-w-0 h-[200px] sm:h-[260px] md:h-[260px] lg:h-[400px] xl:h-[420px] ${getSlideBgClasses(currentSlide)} ${className}`}
       style={customStyle}
       onMouseEnter={() => setIsPaused(true)}

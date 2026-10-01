@@ -39,6 +39,9 @@ import { BilingualField } from './BilingualField';
 import { MediaAssetPicker } from './MediaAssetPicker';
 import { HomepagePromoSlider } from '../../HomepagePromoSlider';
 import { SearchableSelect } from '../../ui/SearchableSelect';
+import { PromoPreviewSwitch, PromoSlideDesignPanel } from './PromoSlideDesignPanel';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import type { PromoLayout } from '../../../lib/promoSlideDesign';
 
 // Lebanese Craft / Cultural Preset Images for Quick Selection
 const PROMO_IMAGE_PRESETS = [
@@ -78,6 +81,32 @@ const TARGET_URL_PRESETS = [
   { label: 'My Account (/account)', url: '/account' },
 ];
 
+/** A slide's picture in the list. A broken address shows as broken, not as an unrelated stock photo. */
+const SlideThumb: React.FC<{ url: string }> = ({ url }) => {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div
+        role="img"
+        aria-label="This image could not be loaded"
+        title="This image could not be loaded"
+        className="w-10 h-10 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center flex-shrink-0 font-mono text-[9px] font-bold"
+      >
+        Broken
+      </div>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt="thumb"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="w-10 h-10 rounded-lg object-cover border border-neutral-200 flex-shrink-0"
+    />
+  );
+};
+
 interface CMSPromoBannerEditorProps {
   promoBannerData?: CMSPromoSliderConfig;
   onChangePromoBanner: (updates: Partial<CMSPromoSliderConfig>) => void;
@@ -90,6 +119,9 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
   const { products = [], categories = [], language } = useShop();
   const [productSearch, setProductSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'slides' | 'settings'>('slides');
+  // Which layout the previews show. It starts as the one this screen gives visitors.
+  const wideScreen = useMediaQuery('(min-width: 1024px)');
+  const [previewLayout, setPreviewLayout] = useState<PromoLayout>(wideScreen ? 'slider' : 'cards');
 
   // Normalize initial slides
   const config: CMSPromoSliderConfig = promoBannerData || {
@@ -365,21 +397,24 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
 
       {/* Real-time Visual Preview */}
       <div className="bg-neutral-950 p-4 sm:p-6 rounded-2xl border border-neutral-800 text-slate-100 space-y-3 shadow-md">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-mono uppercase tracking-wider text-neutral-300">
               Live Responsive Preview ({slides.length} {slides.length === 1 ? 'Slide' : 'Slides'})
             </span>
           </div>
-          <span className="text-[11px] text-neutral-300">
-            Rendered exactly as buyers see it
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[11px] text-neutral-300">
+              Rendered exactly as buyers see it
+            </span>
+            <PromoPreviewSwitch tone="dark" value={previewLayout} onChange={setPreviewLayout} />
+          </div>
         </div>
 
         {/* Live Preview Container with exact aspect ratio */}
         <div className="max-w-[480px] mx-auto w-full">
-          <HomepagePromoSlider bannerConfig={config} />
+          <HomepagePromoSlider bannerConfig={config} layout={previewLayout} />
         </div>
       </div>
 
@@ -465,15 +500,7 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                     {/* Thumbnail + Details */}
                     <div className="flex items-center gap-2.5 text-[11px] text-neutral-500">
                       {slide.imageUrl ? (
-                        <img 
-                          src={slide.imageUrl} 
-                          alt="thumb" 
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            e.currentTarget.src = 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800';
-                          }}
-                          className="w-10 h-10 rounded-lg object-cover border border-neutral-200 flex-shrink-0"
-                        />
+                        <SlideThumb key={slide.imageUrl} url={slide.imageUrl} />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-400 border border-neutral-200 flex-shrink-0 font-mono text-[9px]">
                           TEXT
@@ -936,6 +963,33 @@ export const CMSPromoBannerEditor: React.FC<CMSPromoBannerEditorProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Section 5b: Text & Button Design (alignment, position, colours, button) */}
+            <PromoSlideDesignPanel
+              key={activeSlide.id}
+              slide={activeSlide}
+              layout={previewLayout}
+              onLayoutChange={setPreviewLayout}
+              hasPhoto={Boolean(
+                activeSlide.imageUrl
+                || (activeSlide.type === 'product_promotion' && products.find(p => p.id === activeSlide.selectedProductId)?.image)
+              )}
+              onChange={handleUpdateCurrentSlide}
+              preview={(
+                <HomepagePromoSlider
+                  elementId="promo-design-preview"
+                  layout={previewLayout}
+                  bannerConfig={{
+                    ...config,
+                    enabled: true,
+                    showArrows: false,
+                    showDots: false,
+                    // This slide on its own, whether or not it is published or scheduled yet.
+                    slides: [{ ...activeSlide, isPublished: true, scheduleActive: false }],
+                  }}
+                />
+              )}
+            />
 
             {/* Section 6: Scheduling Dates */}
             <div className="space-y-3 pt-4 border-t border-neutral-100">

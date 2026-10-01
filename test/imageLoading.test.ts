@@ -67,8 +67,17 @@ describe('the banner loads first', () => {
   it('a broken banner photo still falls back to the built-in one', () => {
     // With a srcset present, changing src alone would not change the picture.
     expect(hero.match(/e\.currentTarget\.removeAttribute\('srcset'\);\s+e\.currentTarget\.src = raoucheSunsetImg;/g)).toHaveLength(2);
+  });
+
+  it('every promo photo falls back to the same bundled photo, once', () => {
     const promo = read('src/components/HomepagePromoSlider.tsx');
-    expect(promo.match(/e\.currentTarget\.removeAttribute\('srcset'\);\s+e\.currentTarget\.src = 'https:\/\/images\.unsplash\.com/g)).toHaveLength(2);
+    const photos = promo.match(/<img\b[\s\S]*?\/>/g) ?? [];
+    // Image-only slide, product slide, custom slide and the phone/tablet card.
+    expect(photos).toHaveLength(4);
+    for (const tag of photos) expect(tag).toContain('onError={showFallbackPhoto}');
+    expect(promo).toMatch(/img\.dataset\.fallback = '1';\s+img\.removeAttribute\('srcset'\);\s+img\.src = fallbackPhoto;/);
+    expect(promo).toContain("import fallbackPhoto from '../assets/images/raouche_rocks_sunset_1786799732002.webp';");
+    expect(promo).not.toContain('images.unsplash.com');
   });
 });
 
