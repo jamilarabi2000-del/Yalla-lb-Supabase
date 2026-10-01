@@ -1,0 +1,26 @@
+/*
+ * Tailwind source for the Yalla theme.
+ *
+ * Tailwind v4 is used deliberately: the reference React application is on
+ * Tailwind v4 (@tailwindcss/vite), so every arbitrary value in the existing
+ * components -- bg-[#F7F7F8], text-[#8F7137], shadow-2xs, backdrop-blur-xs --
+ * ports to PHP templates with ZERO translation.
+ *
+ * This is the single biggest design-fidelity lever in the migration.
+ * Do not hand-rewrite these utilities into bespoke CSS.
+ *
+ * Build:  npm run build     (once)
+ *         npm run dev       (watch)
+ */
+
+@import "tailwindcss";
+
+/* Scan PHP templates and theme JS for utility classes. */
+@source "../../**/*.php";
+@source "../js/**/*.js";
+
+/*
+ * Safelist classes that are only ever produced dynamically (from CMS values or
+ * PHP conditionals), which Tailwind's static scanner cannot see.
+ */
+@source inline("{bg,text,border}-{rose,amber,emerald,sky,indigo,slate}-{50,100,200,600,700,800}");
