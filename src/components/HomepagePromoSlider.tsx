@@ -339,8 +339,11 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
   };
 
   // Render Inner Slide Content based on archetype. Each slide has its own
-  // text and design, so nothing here reads the slide on show.
-  const renderSlideContent = (slide: CMSPromoSlide) => {
+  // text and design, so nothing here reads the slide on show. A slide that is
+  // not on screen loads its picture at low priority, so the one that is (and the
+  // banner beside it) are not made to wait for it.
+  const renderSlideContent = (slide: CMSPromoSlide, active = true) => {
+    const picturePriority = active ? undefined : 'low';
     const design = resolveDesign(slide);
     const isDarkBg = isDarkSlide(slide);
     const selectedProduct = productFor(slide);
@@ -370,6 +373,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
             src={slide.imageUrl} 
             {...responsiveImage(slide.imageUrl, '(min-width: 1024px) 360px, 100vw')}
             decoding="async"
+            fetchPriority={picturePriority}
             alt={titleText || 'Promotional Slide'}
             referrerPolicy="no-referrer"
             onError={showFallbackPhoto}
@@ -494,6 +498,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
               src={slide.imageUrl || selectedProduct.image}
               {...responsiveImage(slide.imageUrl || selectedProduct.image, '240px')}
               decoding="async"
+              fetchPriority={picturePriority}
               alt={selectedProduct.name}
               referrerPolicy="no-referrer"
               onError={showFallbackPhoto}
@@ -579,6 +584,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
               src={slide.imageUrl}
               {...responsiveImage(slide.imageUrl, '240px')}
               decoding="async"
+              fetchPriority={picturePriority}
               alt={titleText || 'Promotional Slide'}
               referrerPolicy="no-referrer"
               onError={showFallbackPhoto}
@@ -775,7 +781,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
                   isActive ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'
                 }`}
               >
-                {renderSlideContent(slide)}
+                {renderSlideContent(slide, isActive)}
               </div>
             );
           }
@@ -793,7 +799,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
                 transform: `translateX(${offset * 100}%)`
               }}
             >
-              {renderSlideContent(slide)}
+              {renderSlideContent(slide, isActive)}
             </div>
           );
         })}

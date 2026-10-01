@@ -65,7 +65,8 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
       // Saved to Storage; the CMS keeps only the address. The browser-tab
       // icon is only ever shown at one size, so it keeps a plain address.
       const isFavicon = field === 'faviconUrl';
-      const result = await uploadImage(file, { maxWidth: isFavicon ? 256 : 800, quality: 0.85 });
+      // The logo is shown about 40 px wide, so 400 px covers a very sharp screen.
+      const result = await uploadImage(file, { maxWidth: isFavicon ? 256 : 400, quality: 0.85 });
       onChangeField(field, isFavicon ? result.url.split('#')[0] : result.url);
     } catch (err: any) {
       alert(err?.message || 'The image could not be uploaded.');

@@ -28,6 +28,7 @@ import {
 import { applyDiscounts } from '../lib/pricing';
 import { DEFAULT_FREE_DELIVERY_FROM_USD, type FreeDeliveryFrom } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
+import { readStoredSiteContent } from '../lib/storedSiteContent';
 import { LEBANON_REGIONS } from '../data/regions';
 
 import {
@@ -542,6 +543,13 @@ interface ShopContextType {
 
   // Site Content CMS (Admin Managed)
   siteContent: SiteContent;
+  /**
+   * False on a first visit until the server has answered with the shop's own
+   * settings: until then `siteContent` is only the built-in placeholder (stock
+   * photos), which the page should not download pictures for. True at once for a
+   * returning visitor, whose browser kept the real settings.
+   */
+  siteContentReady: boolean;
   updateSiteContent: (updates: Partial<SiteContent> | ((prev: SiteContent) => SiteContent)) => Promise<void>;
   toggleSectionVisibility: (sectionKey: keyof SectionVisibilityConfig) => Promise<void>;
   addCustomBlock: (block: Omit<CMSCustomBlock, 'id'>) => Promise<void>;
@@ -619,6 +627,9 @@ interface ShopContextType {
 }
 
 const ShopContext = createContext<ShopContextType | undefined>(undefined);
+
+/** How long a first-time visitor's banner waits for the server's settings before the built-in content is shown instead. */
+const SETTINGS_WAIT_MS = 10000;
 
 export const INITIAL_USER: UserProfile = {
   name: '',
@@ -1036,32 +1047,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  // Site Content CMS state
-  const [siteContent, setSiteContent] = useState<SiteContent>(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const isCmsPreview = new URLSearchParams(window.location.search).get('cmsPreview') === '1';
-        if (isCmsPreview) {
-          const sessionDraft = sessionStorage.getItem('yalla_cms_preview');
-          if (sessionDraft) {
-            const parsedDraft = JSON.parse(sessionDraft);
-            return parsedDraft;
-          }
-        }
-      }
-      const saved = localStorage.getItem('yallalb_site_content');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.customBlocks) {
-          parsed.customBlocks = parsed.customBlocks.filter((b: CMSCustomBlock) => b.id !== 'heritage-diaspora-banner');
-        }
-        return parsed;
-      }
-      return DEFAULT_SITE_CONTENT;
-    } catch {
-      return DEFAULT_SITE_CONTENT;
-    }
-  });
+  // Site Content CMS state. A returning visitor starts from the settings the
+  // browser kept; a first-time visitor from the built-in placeholder, and the
+  // page knows not to treat that as the shop's own (siteContentReady).
+  const [storedSiteContent] = useState<SiteContent | null>(readStoredSiteContent);
+  const [siteContent, setSiteContent] = useState<SiteContent>(() => storedSiteContent ?? DEFAULT_SITE_CONTENT);
+  const [siteContentReady, setSiteContentReady] = useState<boolean>(() => storedSiteContent !== null);
 
   const [isVisualEditMode, setIsVisualEditMode] = useState<boolean>(false);
   const [isCustomBlockModalOpen, setIsCustomBlockModalOpen] = useState<boolean>(false);
@@ -1420,16 +1411,27 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Supabase Initial Catalog, Categories, Sellers, and CMS Hydration
   useEffect(() => {
     let isMounted = true;
+    // A settings request that never answers must not leave the banner area empty
+    // for good: after a while the built-in content is shown instead.
+    const settingsTimer = setTimeout(() => {
+      if (isMounted) setSiteContentReady(true);
+    }, SETTINGS_WAIT_MS);
 
     const hydrateFromSupabase = async () => {
       // allSettled, not all: these are six independent reads, and a CMS failure
       // must not discard a catalog that loaded fine. Each rejection is reported
       // on its own instead of one `catch` hiding which read broke.
-      const [categoriesRes, regionsRes, sellersRes, productsRes, blocksRes, contentRes] = await Promise.allSettled([
+      //
+      // All six start at once, but they are applied in two groups, each as soon
+      // as its own reads are in: the page's content (settings and blocks) does
+      // not wait for the product list, which only gets slower as the shop grows.
+      const catalogueReads = Promise.allSettled([
         supabaseCatalogService.fetchCategories(),
         supabaseCatalogService.fetchRegions(),
         supabaseCatalogService.fetchSellers(),
         supabaseCatalogService.fetchProducts({ isAdmin: isAdminUser, isSeller: isSellerUser, sellerId }),
+      ]);
+      const cmsReads = Promise.allSettled([
         // Admins need drafts too, so they read the table (RLS: is_published OR
         // is_admin()). Everyone else goes through the public RPC, once per
         // target page — it matches target_page by exact equality, so the single
@@ -1438,10 +1440,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supabaseCmsService.fetchSiteContent(),
       ]);
 
-      if (!isMounted) return;
-
-      const failures: string[] = [];
-      const valueOf = <T,>(res: PromiseSettledResult<T>, label: string): T | undefined => {
+      const catalogueFailures: string[] = [];
+      const cmsFailures: string[] = [];
+      const valueOf = <T,>(res: PromiseSettledResult<T>, label: string, failures: string[]): T | undefined => {
         if (res.status === 'fulfilled') return res.value;
         // Logged as an error, never shrugged off as a "notice": with an empty
         // products table this is the difference between a visible outage and a
@@ -1451,82 +1452,101 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return undefined;
       };
 
-      const supabaseCategories = valueOf(categoriesRes, 'categories');
-      const supabaseRegions = valueOf(regionsRes, 'regions');
-      const supabaseSellers = valueOf(sellersRes, 'sellers');
-      const supabaseProds = valueOf(productsRes, 'products');
-      const supabaseBlocks = valueOf(blocksRes, 'cms_custom_blocks');
-      const supabaseContent = valueOf(contentRes, 'cms_site_content');
+      const applyCatalogue = async () => {
+        const [categoriesRes, regionsRes, sellersRes, productsRes] = await catalogueReads;
+        if (!isMounted) return;
 
-      // `undefined` means the read failed, so what is on screen is kept. An
-      // empty array means the table is genuinely empty, and that IS the answer:
-      // it is applied. The previous `length > 0` guards discarded empty
-      // results, so a cleared catalogue kept showing stale cached products —
-      // and, before the fallbacks were removed, the bundled demo catalogue.
-      if (supabaseCategories) {
-        setCategories(supabaseCategories);
-      }
-      if (supabaseRegions && supabaseRegions.length > 0) {
-        // Regions are delivery pricing reference data, not catalogue content;
-        // an empty read here would break checkout rather than show an empty
-        // shop, so the seeded defaults stand until the table answers.
-        setRegions(supabaseRegions);
-      }
-      if (supabaseSellers) {
-        setSellers(supabaseSellers);
-      }
-      if (supabaseProds) {
-        setProducts(supabaseProds.map(ensureSellerItemCode));
-      }
+        const supabaseCategories = valueOf(categoriesRes, 'categories', catalogueFailures);
+        const supabaseRegions = valueOf(regionsRes, 'regions', catalogueFailures);
+        const supabaseSellers = valueOf(sellersRes, 'sellers', catalogueFailures);
+        const supabaseProds = valueOf(productsRes, 'products', catalogueFailures);
 
-      // Catalogue status drives the storefront's empty state: 'ready' with zero
-      // products means an honestly empty shop, 'error' means the read broke and
-      // the shop must say so rather than implying it has no stock.
-      if (productsRes.status === 'rejected') {
-        setCatalogStatus('error');
-        setCatalogError(
-          productsRes.reason instanceof Error ? productsRes.reason.message : String(productsRes.reason)
-        );
-      } else {
-        setCatalogStatus('ready');
-        setCatalogError(null);
-      }
+        // `undefined` means the read failed, so what is on screen is kept. An
+        // empty array means the table is genuinely empty, and that IS the answer:
+        // it is applied. The previous `length > 0` guards discarded empty
+        // results, so a cleared catalogue kept showing stale cached products —
+        // and, before the fallbacks were removed, the bundled demo catalogue.
+        if (supabaseCategories) {
+          setCategories(supabaseCategories);
+        }
+        if (supabaseRegions && supabaseRegions.length > 0) {
+          // Regions are delivery pricing reference data, not catalogue content;
+          // an empty read here would break checkout rather than show an empty
+          // shop, so the seeded defaults stand until the table answers.
+          setRegions(supabaseRegions);
+        }
+        if (supabaseSellers) {
+          setSellers(supabaseSellers);
+        }
+        if (supabaseProds) {
+          setProducts(supabaseProds.map(ensureSellerItemCode));
+        }
 
-      // CMS: cms_site_content holds the section copy, cms_custom_blocks holds
-      // the blocks. Both are applied in one state update so a render cannot
-      // show new sections beside stale blocks.
-      //
-      // `supabaseContent` was previously fetched and then thrown away — every
-      // CMS edit an admin published was invisible to the storefront. It is
-      // merged over what is on screen so a partially populated row cannot blank
-      // out a section that has never been saved.
-      if (supabaseContent) {
-        cmsSupabaseAuthoritativeRef.current = true;
-      }
-      if (supabaseBlocks && supabaseBlocks.length > 0) {
-        cmsBlocksFromSupabaseRef.current = true;
-      }
+        // Catalogue status drives the storefront's empty state: 'ready' with zero
+        // products means an honestly empty shop, 'error' means the read broke and
+        // the shop must say so rather than implying it has no stock.
+        if (productsRes.status === 'rejected') {
+          setCatalogStatus('error');
+          setCatalogError(
+            productsRes.reason instanceof Error ? productsRes.reason.message : String(productsRes.reason)
+          );
+        } else {
+          setCatalogStatus('ready');
+          setCatalogError(null);
+        }
+      };
 
-      if (supabaseContent || supabaseBlocks) {
-        setSiteContent(prev => {
-          const next: SiteContent = supabaseContent
-            ? {
-                ...prev,
-                ...supabaseContent,
-                visibility: {
-                  ...DEFAULT_SITE_CONTENT.visibility,
-                  ...(prev.visibility || {}),
-                  ...(supabaseContent.visibility || {}),
-                },
-              }
-            : prev;
+      const applyCms = async () => {
+        const [blocksRes, contentRes] = await cmsReads;
+        if (!isMounted) return;
 
-          // An empty array is a real answer ("nothing published"), so it is
-          // applied; `undefined` means the read failed, so blocks are left be.
-          return supabaseBlocks ? { ...next, customBlocks: supabaseBlocks } : next;
-        });
-      }
+        const supabaseBlocks = valueOf(blocksRes, 'cms_custom_blocks', cmsFailures);
+        const supabaseContent = valueOf(contentRes, 'cms_site_content', cmsFailures);
 
+        // CMS: cms_site_content holds the section copy, cms_custom_blocks holds
+        // the blocks. Both are applied in one state update so a render cannot
+        // show new sections beside stale blocks.
+        //
+        // `supabaseContent` was previously fetched and then thrown away — every
+        // CMS edit an admin published was invisible to the storefront. It is
+        // merged over what is on screen so a partially populated row cannot blank
+        // out a section that has never been saved.
+        if (supabaseContent) {
+          cmsSupabaseAuthoritativeRef.current = true;
+        }
+        if (supabaseBlocks && supabaseBlocks.length > 0) {
+          cmsBlocksFromSupabaseRef.current = true;
+        }
+
+        if (supabaseContent || supabaseBlocks) {
+          setSiteContent(prev => {
+            const next: SiteContent = supabaseContent
+              ? {
+                  ...prev,
+                  ...supabaseContent,
+                  visibility: {
+                    ...DEFAULT_SITE_CONTENT.visibility,
+                    ...(prev.visibility || {}),
+                    ...(supabaseContent.visibility || {}),
+                  },
+                }
+              : prev;
+
+            // An empty array is a real answer ("nothing published"), so it is
+            // applied; `undefined` means the read failed, so blocks are left be.
+            return supabaseBlocks ? { ...next, customBlocks: supabaseBlocks } : next;
+          });
+        }
+
+        // Answered or not, the settings are settled now: the page shows the
+        // shop's own, or the built-in content as the fallback.
+        setSiteContentReady(true);
+      };
+
+      await Promise.all([applyCatalogue(), applyCms()]);
+      if (!isMounted) return;
+
+      const failures = [...catalogueFailures, ...cmsFailures];
       if (failures.length > 0) {
         showToast(
           language === 'ar'
@@ -1541,6 +1561,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      clearTimeout(settingsTimer);
     };
   }, [isAdminUser, isSellerUser, sellerId]);
 
@@ -2133,12 +2154,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Local storage persistence for CMS
   useEffect(() => {
+    // The built-in placeholder is not kept: a reload before the server answered
+    // would take it for the shop's own settings and show its stock photos.
+    if (!siteContentReady) return;
     try {
       const isCmsPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cmsPreview') === '1';
       if (isCmsPreview) return; // Draft never leaks into the storefront localStorage cache
       localStorage.setItem('yallalb_site_content', JSON.stringify(siteContent));
     } catch {}
-  }, [siteContent]);
+  }, [siteContent, siteContentReady]);
 
   // Live postMessage edits reach the preview in real time
   useEffect(() => {
@@ -5346,6 +5370,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast,
     showToast,
     siteContent,
+    siteContentReady,
     updateSiteContent,
     toggleSectionVisibility,
     toggleProductPublish,
@@ -5431,6 +5456,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     selectedCategory,
     toast,
     siteContent,
+    siteContentReady,
     isVisualEditMode,
     isCustomBlockModalOpen,
     customBlockToEdit,

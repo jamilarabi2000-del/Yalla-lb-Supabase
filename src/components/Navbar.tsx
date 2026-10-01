@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
 import { requestAccountSignIn } from '../lib/accountSignIn';
+import { responsiveImage } from '../lib/responsiveImage';
 import systemLogo from '../assets/images/system_logo_1786837577985.webp';
 import { 
   ShoppingBag, 
@@ -77,7 +78,7 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center justify-between h-14 sm:h-16 lg:h-18 gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group py-1 flex-shrink-0 select-none" onClick={() => { setActiveTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
             <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#F8F8F6] overflow-hidden border border-[#E5E5E5] shadow-2xs group-hover:border-[#B89753] transition-all flex-shrink-0">
-              <img src={siteContent?.navbar?.logoUrl || systemLogo} alt={siteContent?.navbar?.brandName || 'Logo'} className="w-full h-full object-cover group-hover:scale-105 transition-transform" referrerPolicy="no-referrer" />
+              <img src={siteContent?.navbar?.logoUrl || systemLogo} {...responsiveImage(siteContent?.navbar?.logoUrl, '(min-width: 640px) 40px, 36px')} decoding="async" alt={siteContent?.navbar?.brandName || 'Logo'} className="w-full h-full object-cover group-hover:scale-105 transition-transform" referrerPolicy="no-referrer" />
               <span className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 flex h-2.5 w-2.5 sm:h-3 sm:w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-500"></span></span>
             </div>
             <div className="flex items-center"><span className="text-base sm:text-lg lg:text-xl font-bold tracking-tight text-[#171717] uppercase font-sans whitespace-nowrap leading-none">{siteContent.navbar?.brandName || 'Yalla'}</span></div>

@@ -211,7 +211,11 @@ const newsData: NewsItem[] = [
 ];
 
 export const NewsSection: React.FC = () => {
-  const { language, showToast, siteContent } = useShop();
+  const { language, showToast, siteContent, siteContentReady } = useShop();
+  // On a first visit these cards show the built-in placeholder articles until the
+  // server's settings arrive; their pictures wait too, so they do not compete with
+  // the settings and the banner for a slow connection.
+  const picturesReady = siteContentReady !== false;
   const [activeCategory, setActiveCategory] = useState<NewsCategory>('all');
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
 
@@ -423,6 +427,7 @@ export const NewsSection: React.FC = () => {
             >
               {/* Card Image / Banner Header */}
               <div className="w-full h-36 sm:h-44 relative overflow-hidden bg-neutral-900 flex-shrink-0 flex items-center justify-center">
+                {picturesReady && (
                 <img
                   src={item.image}
                   {...responsiveImage(item.image, '290px')}
@@ -433,7 +438,9 @@ export const NewsSection: React.FC = () => {
                   className="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-110 pointer-events-none"
                   referrerPolicy="no-referrer"
                 />
+                )}
                 <div className="w-full h-full relative z-10 flex items-center justify-center p-2">
+                  {picturesReady && (
                   <img
                     src={item.image}
                     {...responsiveImage(item.image, '290px')}
@@ -443,6 +450,7 @@ export const NewsSection: React.FC = () => {
                     className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500 rounded-md"
                     referrerPolicy="no-referrer"
                   />
+                  )}
                 </div>
                 <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
               </div>

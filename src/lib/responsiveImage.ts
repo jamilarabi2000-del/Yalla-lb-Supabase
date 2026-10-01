@@ -35,6 +35,10 @@ export function imageSrcSet(url: string | null | undefined): string | undefined 
     const sized = new URL(parsed.href);
     sized.searchParams.set('w', String(w));
     if (!sized.searchParams.has('auto')) sized.searchParams.set('auto', 'format');
+    // One spelling for each picture and width: `q=80&w=960` and `w=960&q=80` are
+    // the same file, but to the browser they are two addresses, so a photo pasted
+    // both ways on one page was downloaded twice.
+    sized.searchParams.sort();
     return `${sized.href} ${w}w`;
   }).join(', ');
 }

@@ -93,7 +93,7 @@ describe('every CMS upload goes to Storage', () => {
 
   it('the image picker, the logo and the SEO tab all upload', () => {
     expect(read('src/components/admin/cms/MediaAssetPicker.tsx')).toMatch(/await uploadImage\(file, \{ maxWidth: isBanner \? 1600 : 1200 \}\)/);
-    expect(read('src/components/admin/cms/CMSNavbarTab.tsx')).toMatch(/await uploadImage\(file, \{ maxWidth: isFavicon \? 256 : 800, quality: 0\.85 \}\)/);
+    expect(read('src/components/admin/cms/CMSNavbarTab.tsx')).toMatch(/await uploadImage\(file, \{ maxWidth: isFavicon \? 256 : 400, quality: 0\.85 \}\)/);
     expect(read('src/components/admin/cms/CMSSeoTab.tsx')).toMatch(/await uploadImage\(file, \{ maxWidth: isFavicon \? 256 : 1200, quality: 0\.85 \}\)/);
   });
 

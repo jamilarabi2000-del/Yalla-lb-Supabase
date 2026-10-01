@@ -56,6 +56,7 @@ export const HomeTopContainer: React.FC = () => {
     showToast, 
     language, 
     siteContent,
+    siteContentReady,
     productBundles = [],
     isVisualEditMode,
     addBundleToCart
@@ -315,9 +316,50 @@ export const HomeTopContainer: React.FC = () => {
     };
   }, [resetAutoplay]);
 
+  // The next slide's picture is fetched, at low priority, once this one has
+  // loaded, so it is ready when the slide changes. Before, its download only
+  // started at that moment: the text changed and the picture arrived later.
+  const [loadedSlideId, setLoadedSlideId] = useState<string | null>(null);
+  const preloadedUrls = useRef(new Set<string>());
+  const currentSlideId = currentSlide?.id;
+  const nextSlide = slides.length > 1 ? slides[(currentSlideIndex + 1) % slides.length] : null;
+  const nextUrl = nextSlide && nextSlide.type !== 'video'
+    ? (isDesktop ? nextSlide.url : (nextSlide.mobileUrl || nextSlide.url))
+    : undefined;
+  useEffect(() => {
+    if (!nextUrl || loadedSlideId !== currentSlideId || preloadedUrls.current.has(nextUrl)) return;
+    preloadedUrls.current.add(nextUrl);
+    const preload = new Image();
+    // The same candidates and sizes the visible picture will offer, so the browser
+    // fetches the same file and the swap finds it ready.
+    const { srcSet, sizes } = responsiveImage(nextUrl, isDesktop ? heroSizes : '100vw');
+    (preload as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'low';
+    preload.decoding = 'async';
+    if (srcSet && sizes) {
+      preload.sizes = sizes;
+      preload.srcset = srcSet;
+    }
+    preload.src = nextUrl;
+  }, [nextUrl, loadedSlideId, currentSlideId, isDesktop, heroSizes]);
+
   const activeBadge = isAr ? (currentSlide.badgeAr || currentSlide.badgeEn) : currentSlide.badgeEn;
   const activeTitle = isAr ? (currentSlide.titleAr || currentSlide.titleEn) : currentSlide.titleEn;
   const activeSubtitle = isAr ? (currentSlide.subtitleAr || currentSlide.subtitleEn) : currentSlide.subtitleEn;
+
+  // A first-time visitor's page has only the built-in placeholder content until
+  // the server's settings arrive. Its stock photos are not the shop's, so they
+  // are not downloaded: a box of the banner's size stands in, and the real
+  // banner takes its place. (Absent counts as ready, for callers without the flag.)
+  if (siteContentReady === false) {
+    return (
+      <div className="w-full max-w-[1100px] mx-auto px-4 sm:px-6 mb-3 sm:mb-4" role="status" aria-busy="true" aria-label={isAr ? 'جارٍ التحميل' : 'Loading'}>
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 sm:gap-[20px] items-stretch">
+          <div className="rounded-[20px] bg-[#111111] shadow-sm min-w-0 h-[200px] sm:h-[260px] md:h-[260px] lg:h-[400px] xl:h-[420px] animate-pulse motion-reduce:animate-none" />
+          <div className="rounded-2xl lg:rounded-[20px] bg-[#ededed] border border-[#E5E5E5] shadow-sm min-w-0 h-[150px] sm:h-[180px] lg:h-[400px] xl:h-[420px] animate-pulse motion-reduce:animate-none" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[1100px] mx-auto px-4 sm:px-6 mb-3 sm:mb-4">
@@ -364,6 +406,7 @@ export const HomeTopContainer: React.FC = () => {
                     fetchPriority="high"
                     alt={activeTitle || ''}
                     referrerPolicy="no-referrer"
+                    onLoad={() => setLoadedSlideId(currentSlide.id)}
                     onError={(e) => {
                       if (e.currentTarget.src !== raoucheSunsetImg) {
                         e.currentTarget.removeAttribute('srcset');
@@ -402,6 +445,7 @@ export const HomeTopContainer: React.FC = () => {
                     fetchPriority="high"
                     alt={activeTitle || ''}
                     referrerPolicy="no-referrer"
+                    onLoad={() => setLoadedSlideId(currentSlide.id)}
                     onError={(e) => {
                       if (e.currentTarget.src !== raoucheSunsetImg) {
                         e.currentTarget.removeAttribute('srcset');

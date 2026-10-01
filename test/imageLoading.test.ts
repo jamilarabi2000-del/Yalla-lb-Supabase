@@ -28,7 +28,18 @@ describe('which widths the browser is offered', () => {
       'https://images.unsplash.com/photo-1?auto=format&fit=crop&q=80&w=960 960w',
       'https://images.unsplash.com/photo-1?auto=format&fit=crop&q=80&w=1600 1600w',
     ]);
-    expect(imageSrcSet('https://images.unsplash.com/photo-2')).toContain('photo-2?w=480&auto=format 480w');
+    expect(imageSrcSet('https://images.unsplash.com/photo-2')).toContain('photo-2?auto=format&w=480 480w');
+  });
+
+  it('Unsplash: the same photo pasted with its settings in another order is the same address', () => {
+    // The built-in content spells one photo `q=80&w=2000` in one place and
+    // `w=1200&q=80` in another; each pair was fetched twice.
+    const a = imageSrcSet('https://images.unsplash.com/photo-9?auto=format&fit=crop&q=80&w=2000');
+    const b = imageSrcSet('https://images.unsplash.com/photo-9?auto=format&fit=crop&w=1200&q=80');
+    const c = imageSrcSet('https://images.unsplash.com/photo-9?q=80&fit=crop&w=800&auto=format');
+    expect(a).toBe(b);
+    expect(a).toBe(c);
+    expect(a!.split(', ')[1]).toBe('https://images.unsplash.com/photo-9?auto=format&fit=crop&q=80&w=960 960w');
   });
 
   it('one-size images get none', () => {
