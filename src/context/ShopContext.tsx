@@ -32,6 +32,10 @@ import { readStoredSiteContent } from '../lib/storedSiteContent';
 import { readPreviewMessage } from '../lib/cmsPreviewMessage';
 import { addressWithLanguage, languageFromSearch } from '../lib/urlLanguage';
 import { orderStatusBlock } from '../lib/orderStatus';
+import {
+  accountCreatedMessage, addedToCartMessage, detailsNotSavedMessage, providerSignInFailedMessage, redirectingToProviderMessage,
+  removedFromCartMessage, signedInMessage, signedOutHereMessage, signedOutMessage, verificationEmailFailedMessage,
+} from '../lib/shopperMessages';
 import { LEBANON_REGIONS } from '../data/regions';
 
 import {
@@ -492,6 +496,12 @@ interface ShopContextType {
    * are what actually decide access.
    */
   firebaseUser: AuthUser | null;
+  /**
+   * True once the first look for a saved sign-in has finished. Until then a
+   * signed-in visitor looks signed out, so a page that treats "signed out"
+   * differently (the Account page opens on sign-in) waits for this.
+   */
+  authReady: boolean;
   isAdminUser: boolean;
   isSellerUser: boolean;
   sellerId: string | null;
@@ -542,6 +552,8 @@ interface ShopContextType {
 
   // Feedback Toast
   toast: Toast | null;
+  /** Close the notification now (its close button). */
+  dismissToast: () => void;
   showToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 
   // Site Content CMS (Admin Managed)
@@ -796,6 +808,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeTab, setActiveTabState] = useState<NavTab>(getInitialNavTab);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(getInitialProductDetail);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isSellerUser, setIsSellerUser] = useState(false);
   const [sellerId, setSellerId] = useState<string | null>(null);
@@ -1551,10 +1564,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const failures = [...catalogueFailures, ...cmsFailures];
       if (failures.length > 0) {
+        // The names of what failed are for the console; a visitor is not told
+        // which database tables did not answer.
+        console.warn('[ShopContext] Could not load:', failures.join(', '));
         showToast(
           language === 'ar'
-            ? `تعذر تحميل بعض البيانات من الخادم (${failures.join('، ')}).`
-            : `Could not load some data from the server (${failures.join(', ')}).`,
+            ? 'تعذر تحميل جزء من الصفحة. يرجى تحديث الصفحة والمحاولة مرة أخرى.'
+            : 'Part of the page could not be loaded. Please refresh and try again.',
           'error'
         );
       }
@@ -2963,9 +2979,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn("[ShopContext] Error restoring Supabase session:", error);
       }
       handleAuthUser(session?.user ?? null);
+      setAuthReady(true);
     }).catch((err: unknown) => {
       console.warn("[ShopContext] Supabase getSession catch:", err);
       handleAuthUser(null);
+      setAuthReady(true);
     });
 
     // An emailed link that did not sign in -- expired, already used, or
@@ -3247,10 +3265,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       if (error) throw error;
-      showToast('Redirecting to Google sign in...', 'info');
+      showToast(redirectingToProviderMessage('Google', language), 'info');
     } catch (error: any) {
       console.warn('[ShopContext] Supabase Google sign-in failed:', error);
-      showToast('Failed to sign in with Google: ' + (error.message || 'Unknown error'), 'warning');
+      showToast(providerSignInFailedMessage('Google', error.message, language), 'warning');
     }
   };
 
@@ -3263,10 +3281,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       if (error) throw error;
-      showToast('Redirecting to Apple sign in...', 'info');
+      showToast(redirectingToProviderMessage('Apple', language), 'info');
     } catch (error: any) {
       console.warn('[ShopContext] Supabase Apple sign-in failed:', error);
-      showToast('Failed to sign in with Apple: ' + (error.message || 'Unknown error'), 'warning');
+      showToast(providerSignInFailedMessage('Apple', error.message, language), 'warning');
     }
   };
   
@@ -3609,7 +3627,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     } catch (err: any) {
       console.error("[ShopContext] resendEmailVerification error:", err);
-      showToast(err.message || 'Failed to resend verification email.', 'warning');
+      showToast(err.message || verificationEmailFailedMessage(language), 'warning');
       throw err;
     }
   };
@@ -3731,7 +3749,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'success'
         );
       } else {
-        showToast('Account created successfully!', 'success');
+        showToast(accountCreatedMessage(language), 'success');
       }
     } catch (err: any) {
       console.error("Sign up error:", err);
@@ -3891,7 +3909,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw error;
       }
 
-      showToast('Successfully signed in!', 'success');
+      showToast(signedInMessage(language), 'success');
     } catch (error: any) {
       console.error("Auth error:", error);
       let msg = 'Authentication failed: ' + (error.message || 'Unknown error');
@@ -3947,10 +3965,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // draft behind, carrying name, phone and address.
         localStorage.removeItem('yallalb_signup_profile_temp');
       } catch {}
-      showToast('Signed out successfully', 'info');
+      showToast(signedOutMessage(language), 'info');
     } catch (error: any) {
       console.error("[ShopContext] signOut error:", error);
-      showToast('Signed out', 'info');
+      showToast(signedOutHereMessage(language), 'info');
     }
   };
 
@@ -4106,12 +4124,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  const dismissToast = () => setToast(null);
+
+  // Success and info are gone in 3.5 s; a warning or an error is something to
+  // act on and stays longer (everything used to vanish in 3.5 s, with no way to
+  // keep or close it).
+  const TOAST_MS = { success: 3500, info: 3500, warning: 6000, error: 8000 } as const;
   const showToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'success') => {
     const id = Date.now().toString();
     setToast({ id, message, type });
     setTimeout(() => {
       setToast(prev => (prev?.id === id ? null : prev));
-    }, 3500);
+    }, TOAST_MS[type]);
   };
 
   /**
@@ -4185,7 +4209,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return [...prev, { product: currentProduct, quantity: initialQty, selectedOption: option }];
     });
-    showToast(`Added ${quantity}x "${product.name.split('(')[0].trim()}" to cart!`);
+    showToast(addedToCartMessage(product, quantity, language));
   };
 
   const addMultipleToCart = (itemsToAdd: { product: Product; quantity?: number; option?: string }[]) => {
@@ -4218,7 +4242,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const removeFromCart = (productId: string) => {
     setCart(prev => prev.filter(item => item.product.id !== productId));
-    showToast('Item removed from cart', 'info');
+    showToast(removedFromCartMessage(language), 'info');
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -5270,7 +5294,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(updatedUser);
     } catch (err) {
       console.error('[ShopContext] Failed to save the user profile:', err);
-      showToast('Could not save your details. Please try again.', 'error');
+      showToast(detailsNotSavedMessage(language), 'error');
       throw err;
     }
   };
@@ -5341,6 +5365,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authUser,
     // Compatibility alias; never an authorization source (see the type).
     firebaseUser: authUser,
+    authReady,
     isAdminUser,
     isSellerUser,
     sellerId,
@@ -5378,6 +5403,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     selectedCategory,
     setSelectedCategory,
     toast,
+    dismissToast,
     showToast,
     siteContent,
     siteContentReady,
@@ -5456,6 +5482,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     checkPhoneUniqueness,
     authUser,
+    authReady,
     isEmailVerified,
     isAdminUser,
     isSellerUser,
@@ -5465,6 +5492,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logSearchQuery,
     selectedCategory,
     toast,
+    dismissToast,
     siteContent,
     siteContentReady,
     isVisualEditMode,

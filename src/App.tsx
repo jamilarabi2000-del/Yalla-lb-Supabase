@@ -20,7 +20,8 @@ import { syncDomHead } from './utils/domHeadSync';
 import { currentDesignSelector } from './lib/designSelectors';
 import { isAdminEntryPath, rememberAdminEntry, rememberedAdminEntry } from './lib/adminEntry';
 import { pendingDeepLinkProduct } from './lib/productDeepLink';
-import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { ToastHost } from './components/ToastHost';
 import { darken, readableTextOn } from './lib/colorContrast';
 import { refreshFailedChunk } from './lib/chunkRecovery';
 import { languageFromSearch } from './lib/urlLanguage';
@@ -72,6 +73,7 @@ const MainAppContent: React.FC = () => {
     setSelectedProductDetail,
     products,
     toast,
+    dismissToast,
     siteContent,
     selectedCategory,
     setSelectedCategory,
@@ -392,7 +394,7 @@ const MainAppContent: React.FC = () => {
       <TextStyleLayer page={activeTab} enabled={!adminOpen} />
       {isAdminUser && <Suspense fallback={null}><AdminQuickEditor onOpenCustomBlockModal={(block: any) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} /></Suspense>}
       <CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} />
-      {toast && <div className="fixed bottom-6 right-6 z-50 animate-fadeIn"><div className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold ${toast.type === 'success' ? 'bg-white border-[#16803C]/30 text-[#16803C]' : toast.type === 'warning' ? 'bg-white border-[#B89753]/40 text-[#8F7137]' : 'bg-white border-[#E5E5E5] text-[#111111]'}`}>{toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-[#16803C] flex-shrink-0" /> : toast.type === 'warning' ? <AlertCircle className="w-4 h-4 text-[#B89753] flex-shrink-0" /> : <Info className="w-4 h-4 text-[#666666] flex-shrink-0" />}<span>{toast.message}</span></div></div>}
+      <ToastHost toast={toast} onDismiss={dismissToast} language={language} />
       {!adminOpen && <><FooterQuickLinks /><Footer /></>}
     </div>
   );

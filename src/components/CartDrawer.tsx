@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
@@ -41,9 +41,14 @@ export const CartDrawer: React.FC = () => {
   const [couponInput, setCouponInput] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
+  // Opening the drawer puts the reader at its heading. The dialog hook's
+  // default is the first text box, which here is the coupon field: on a phone
+  // that raised the keyboard over the checkout button.
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const { containerRef } = useDialog({
     isOpen: isCartOpen,
-    onClose: () => setIsCartOpen(false)
+    onClose: () => setIsCartOpen(false),
+    initialFocusRef: headingRef
   });
 
   if (!isCartOpen) return null;
@@ -82,8 +87,8 @@ export const CartDrawer: React.FC = () => {
         onClick={() => setIsCartOpen(false)}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex">
-        <div className="w-screen max-w-md bg-white border-l border-[#E5E5E5] shadow-2xl flex flex-col justify-between animate-slideInRight h-full">
+      <div className="fixed inset-y-0 end-0 max-w-full flex">
+        <div className="w-screen max-w-md bg-white border-s border-[#E5E5E5] shadow-2xl flex flex-col justify-between animate-slideInRight h-full">
           
           {/* Drawer Header */}
           <div className="p-4 sm:p-6 border-b border-[#E5E5E5] bg-[#F8F8F6]">
@@ -93,7 +98,7 @@ export const CartDrawer: React.FC = () => {
                   <ShoppingBag className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 id="cart-drawer-heading" className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#171717]">
+                  <h2 id="cart-drawer-heading" ref={headingRef} tabIndex={-1} className="text-sm sm:text-base font-bold uppercase tracking-wider text-[#171717] outline-none">
                     {t('yourBasket')} ({cart.reduce((s, i) => s + i.quantity, 0)})
                   </h2>
                   <p className="text-[10px] text-[#666666] font-medium">
@@ -117,7 +122,7 @@ export const CartDrawer: React.FC = () => {
                   id="close-cart-btn"
                   onClick={() => setIsCartOpen(false)}
                   className="p-2 rounded-lg text-[#666666] hover:text-[#171717] hover:bg-neutral-200/60 transition-colors cursor-pointer"
-                  aria-label="Close cart"
+                  aria-label={language === 'ar' ? 'إغلاق السلة' : 'Close cart'}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -129,7 +134,7 @@ export const CartDrawer: React.FC = () => {
             {(shipsFree || freeFrom !== null) && cart.length > 0 && (
             <div id="cart-free-delivery-progress" className="mt-4 pt-3 border-t border-[#E5E5E5] space-y-1.5">
               <div className="flex justify-between items-center text-[11px] font-medium text-[#171717]">
-                <span className="truncate pr-2">
+                <span className="truncate pe-2">
                   {shipsFree
                     ? (language === 'ar' ? '🎉 حصلت على توصيل مجاني في كل لبنان!' : '🎉 Free delivery across Lebanon unlocked!')
                     : (language === 'ar' 
@@ -186,7 +191,7 @@ export const CartDrawer: React.FC = () => {
                       />
                     </div>
 
-                    <div className="flex-1 min-w-0 pr-1">
+                    <div className="flex-1 min-w-0 pe-1">
                       <h4 className="text-xs font-bold text-[#171717] leading-snug line-clamp-2">
                         {language === 'ar' ? (item.product.arabicName || item.product.name) : item.product.name}
                       </h4>
@@ -208,8 +213,8 @@ export const CartDrawer: React.FC = () => {
                       <button
                         onClick={() => removeFromCart(item.product.id)}
                         className="text-[#666666] hover:text-[#C62828] p-1 cursor-pointer transition-colors"
-                        title="Remove item"
-                        aria-label="Remove item"
+                        title={language === 'ar' ? 'إزالة المنتج' : 'Remove item'}
+                        aria-label={language === 'ar' ? 'إزالة المنتج' : 'Remove item'}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -218,7 +223,7 @@ export const CartDrawer: React.FC = () => {
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                           className="w-6 h-6 flex items-center justify-center text-[#666666] hover:text-[#171717] hover:bg-white rounded-md cursor-pointer transition-all"
-                          aria-label="Decrease quantity"
+                          aria-label={language === 'ar' ? 'تقليل الكمية' : 'Decrease quantity'}
                         >
                           <Minus className="w-3 h-3" />
                         </button>
@@ -226,7 +231,7 @@ export const CartDrawer: React.FC = () => {
                         <button
                           onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                           className="w-6 h-6 flex items-center justify-center text-[#666666] hover:text-[#171717] hover:bg-white rounded-md cursor-pointer transition-all"
-                          aria-label="Increase quantity"
+                          aria-label={language === 'ar' ? 'زيادة الكمية' : 'Increase quantity'}
                         >
                           <Plus className="w-3 h-3" />
                         </button>

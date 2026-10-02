@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 interface UseDialogOptions {
   isOpen: boolean;
   onClose: () => void;
@@ -50,11 +52,31 @@ export function useDialog({ isOpen, onClose, initialFocusRef }: UseDialogOptions
       }
     }, 50);
 
-    // Handle Escape key
+    // Escape closes. Tab goes round inside the dialog: from the last control
+    // to the first, and back with Shift+Tab, instead of leaving for the page
+    // behind it (the cart drawer let Tab reach the footer links). It acts only
+    // when focus is already inside, so it never takes focus from something
+    // stacked above this dialog (a confirmation) or from a list drawn outside it.
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || !containerRef.current) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (!active || !containerRef.current.contains(active)) return;
+      const controls = [...containerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)]
+        .filter(el => el.getClientRects().length > 0);
+      if (controls.length === 0) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (e.shiftKey && (active === first || active === containerRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
 
