@@ -100,6 +100,38 @@ export function replaceStrings<T>(content: T, replacements: Map<string, string>)
   return walk(content) as T;
 }
 
+export interface MovedPhotos {
+  /** Each pasted photo that was saved: its old text -> its address in storage. */
+  moved: Map<string, string>;
+  /** How many distinct pasted photos the content held. */
+  total: number;
+  /** Why the first failure failed; the photos after it were not tried. */
+  error?: string;
+}
+
+/**
+ * Saves every pasted photo in `content` to storage, one after another. It stops
+ * at the first one that fails: a refused authenticator code or a lost connection
+ * would fail the rest the same way. What was moved before that is returned, so
+ * nothing already uploaded is thrown away.
+ */
+export async function movePastedImages(
+  content: unknown,
+  save: (file: Blob) => Promise<{ url: string }> = file => uploadImage(file),
+): Promise<MovedPhotos> {
+  const pasted = findPastedImages(content);
+  const moved = new Map<string, string>();
+  try {
+    for (const dataUrl of pasted) {
+      const { url } = await save(dataUrlToBlob(dataUrl));
+      moved.set(dataUrl, url);
+    }
+    return { moved, total: pasted.length };
+  } catch (err) {
+    return { moved, total: pasted.length, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 const needsStepUp = (error: { message?: string; statusCode?: string | number; status?: number }) =>
   String(error.statusCode ?? error.status ?? '') === '403' || /row-level security|unauthori[sz]ed/i.test(error.message ?? '');
 

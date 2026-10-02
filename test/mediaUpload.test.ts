@@ -4,7 +4,7 @@ import path from 'node:path';
 
 vi.mock('../src/lib/supabase', () => ({ supabase: {} }));
 import {
-  dataUrlToBlob, findPastedImages, formatBytes, mediaPath, replaceStrings, targetWidths, withWidths,
+  dataUrlToBlob, findPastedImages, formatBytes, mediaPath, movePastedImages, replaceStrings, targetWidths, withWidths,
 } from '../src/lib/mediaUpload';
 import { isSafeImageUrl } from '../src/lib/safeUrl';
 
@@ -78,6 +78,53 @@ describe('moving pasted photos out of the settings', () => {
     expect(String.fromCharCode(...bytes.slice(8, 12))).toBe('WEBP');
     expect(() => dataUrlToBlob('data:text/html;base64,PGgxPg==')).toThrow('Not a pasted image.');
     expect(() => dataUrlToBlob('https://x/y.png')).toThrow('Not a pasted image.');
+  });
+});
+
+describe('moving every pasted photo in one go', () => {
+  const a = 'data:image/png;base64,iVBORw0KGgo=';
+  const b = 'data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==';
+  const content = { hero: { slides: [{ image: a }, { image: b }, { image: a }] }, navbar: { logoUrl: 'https://x/logo.png' } };
+
+  it('saves each distinct photo once, in order, and returns its old text with its new address', async () => {
+    const saved: Blob[] = [];
+    const result = await movePastedImages(content, async file => { saved.push(file); return { url: `https://cdn/${saved.length}.webp` }; });
+    expect(saved.map(f => f.type)).toEqual(['image/png', 'image/webp']);
+    expect(result.error).toBeUndefined();
+    expect(result.total).toBe(2);
+    expect([...result.moved]).toEqual([[a, 'https://cdn/1.webp'], [b, 'https://cdn/2.webp']]);
+  });
+
+  it('has nothing to do for content with no pasted photo', async () => {
+    const save = vi.fn();
+    const result = await movePastedImages({ a: 'https://x/y.webp', b: ['data: not an image'] }, save);
+    expect(save).not.toHaveBeenCalled();
+    expect(result).toEqual({ moved: new Map(), total: 0 });
+  });
+
+  it('stops at the first photo that fails, keeps what was already moved, and says why', async () => {
+    const save = vi.fn()
+      .mockResolvedValueOnce({ url: 'https://cdn/1.webp' })
+      .mockRejectedValueOnce(new Error('Uploading images needs your authenticator code.'));
+    const result = await movePastedImages({ images: [a, b, 'data:image/gif;base64,R0lGODlhAQABAAAAACw='] }, save);
+    expect(save).toHaveBeenCalledTimes(2);          // the third is not tried
+    expect([...result.moved]).toEqual([[a, 'https://cdn/1.webp']]);
+    expect(result.total).toBe(3);
+    expect(result.error).toBe('Uploading images needs your authenticator code.');
+  });
+
+  it('a pasted value that is not a readable image is a failure, never skipped', async () => {
+    const save = vi.fn();
+    const result = await movePastedImages({ image: 'data:image/png;base64,@@@@' }, save);
+    expect(save).not.toHaveBeenCalled();
+    expect(result.moved.size).toBe(0);
+    expect(result.total).toBe(1);
+    expect(result.error).toBe('Not a pasted image.');
+  });
+
+  it('a failure that is not an Error still gives a reason', async () => {
+    const result = await movePastedImages({ image: a }, async () => { throw 'offline'; });
+    expect(result.error).toBe('offline');
   });
 });
 

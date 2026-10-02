@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useShop } from '../context/ShopContext';
 import { SectionVisibilityConfig, SiteContent } from '../types';
 import { 
@@ -39,7 +39,7 @@ import { CMSCheckoutTab } from './admin/cms/CMSCheckoutTab';
 import { CMSAccountTab } from './admin/cms/CMSAccountTab';
 import { CMSNewsTab } from './admin/cms/CMSNewsTab';
 import { CMSCustomBlocksTab } from './admin/cms/CMSCustomBlocksTab';
-import { dataUrlToBlob, findPastedImages, replaceStrings, uploadImage } from '../lib/mediaUpload';
+import { findPastedImages, movePastedImages, replaceStrings } from '../lib/mediaUpload';
 import { CMSSeoTab } from './admin/cms/CMSSeoTab';
 import { CMSThemeTab } from './admin/cms/CMSThemeTab';
 import { CMSLivePreview } from './admin/cms/CMSLivePreview';
@@ -255,20 +255,29 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
   const [movingPhotos, setMovingPhotos] = useState(false);
   const handleMovePastedPhotos = async () => {
     setMovingPhotos(true);
-    const moved = new Map<string, string>();
-    try {
-      for (const dataUrl of pastedPhotos) {
-        const { url } = await uploadImage(dataUrlToBlob(dataUrl));
-        moved.set(dataUrl, url);
-      }
-      showToast(`Moved ${moved.size} photo(s) to storage. Click Publish Changes to make it live.`, 'success');
-    } catch (err: any) {
-      showToast(`Moved ${moved.size} of ${pastedPhotos.length} photo(s): ${err?.message || 'the upload failed.'}`, 'error');
-    } finally {
-      if (moved.size > 0) handleUpdate(prev => replaceStrings(prev, moved));
-      setMovingPhotos(false);
-    }
+    const { moved, total, error } = await movePastedImages(cmsForm);
+    if (error) showToast(`Moved ${moved.size} of ${total} photo(s): ${error || 'the upload failed.'}`, 'error');
+    else showToast(`Moved ${moved.size} photo(s) to storage. Click Publish Changes to make it live.`, 'success');
+    if (moved.size > 0) handleUpdate(prev => replaceStrings(prev, moved));
+    setMovingPhotos(false);
   };
+
+  // The question asked when a publish would put pasted photos on the live page
+  // because they could not be moved. The answer resolves the publish in progress.
+  const [unmovedPhotos, setUnmovedPhotos] = useState<{ count: number; total: number; reason: string } | null>(null);
+  const unmovedAnswer = useRef<((publish: boolean) => void) | null>(null);
+  const askToPublishWithPastedPhotos = (count: number, total: number, reason: string) =>
+    new Promise<boolean>(resolve => {
+      unmovedAnswer.current = resolve;
+      setUnmovedPhotos({ count, total, reason });
+    });
+  const answerUnmovedPhotos = (publish: boolean) => {
+    unmovedAnswer.current?.(publish);
+    unmovedAnswer.current = null;
+    setUnmovedPhotos(null);
+  };
+  // Leaving the studio with the question open means no.
+  useEffect(() => () => unmovedAnswer.current?.(false), []);
 
   const handleSave = async (sectionsToPublish?: string[]) => {
     setIsSaving(true);
@@ -282,6 +291,31 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
           }
         }
         contentToSave = merged;
+      }
+
+      // A photo pasted into the settings as text is downloaded by every visitor on
+      // every page view, shown or not. It is saved to storage on the way out, so a
+      // publish cannot put one on the live page (or leave one there). If one cannot
+      // be moved, the administrator is asked before a heavy page goes live.
+      setMovingPhotos(true);
+      const { moved, total, error: moveError } = await movePastedImages(contentToSave);
+      setMovingPhotos(false);
+      if (moved.size > 0) {
+        contentToSave = replaceStrings(contentToSave, moved);
+        setCmsForm(prev => replaceStrings(prev, moved));
+      }
+      if (moveError) {
+        const publishAnyway = await askToPublishWithPastedPhotos(total - moved.size, total, moveError);
+        if (!publishAnyway) {
+          if (moved.size > 0) setIsDirty(true);
+          showToast(
+            moved.size > 0
+              ? `Not published. ${moved.size} photo(s) were moved to storage and are in your draft.`
+              : 'Not published. Nothing was changed on the live page.',
+            'info',
+          );
+          return;
+        }
       }
 
       saveCmsSnapshot(contentToSave, `Published updates (${new Date().toLocaleTimeString()})`);
@@ -488,7 +522,7 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
             title="Save and publish CMS changes live to visitors (Shortcut: Cmd+S / Ctrl+S)"
           >
             <Save className={`w-4 h-4 shrink-0 ${isSaving ? 'animate-spin' : ''}`} />
-            <span>{isSaving ? 'Publishing...' : isDirty ? 'Publish Changes' : 'Save & Publish Live'}</span>
+            <span>{isSaving ? (movingPhotos ? 'Moving photos...' : 'Publishing...') : isDirty ? 'Publish Changes' : 'Save & Publish Live'}</span>
             <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-white/40 text-slate-950 text-[10px] font-mono font-normal">
               ⌘S
             </span>
@@ -959,6 +993,19 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
         <CMSVersionHistoryModal
           onClose={() => setShowHistoryModal(false)}
           onRollback={handleRollback}
+        />
+      )}
+
+      {unmovedPhotos && (
+        <CMSConfirmModal
+          isOpen
+          title="Some photos could not be moved to storage"
+          message={`${unmovedPhotos.count} of ${unmovedPhotos.total} photo(s) pasted into the page could not be saved to storage (${unmovedPhotos.reason.replace(/[.\s]+$/, '')}). If you publish now, every visitor downloads them with every page, which slows the store down. Cancel to fix the problem and publish again, or publish anyway.`}
+          confirmLabel="Publish anyway"
+          cancelLabel="Cancel"
+          isDanger={true}
+          onConfirm={() => answerUnmovedPhotos(true)}
+          onCancel={() => answerUnmovedPhotos(false)}
         />
       )}
 
