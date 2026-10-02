@@ -7,6 +7,7 @@ import { normalizeLebanesePhone } from '../utils/phoneUtils';
 import { LebanonFlag } from './LebanonFlag';
 import { CITY_REGION_MAX_LENGTH, cityRegionProblem, emailProblem, phoneProblem } from '../lib/signupDetails';
 import type { UserProfile } from '../types';
+import { Ltr } from './ui/Ltr';
 
 export type RequiredDetail = 'name' | 'phone' | 'email' | 'city' | 'address' | 'building';
 
@@ -200,7 +201,7 @@ export const RequiredDetailsPrompt: React.FC = () => {
               <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white">
                 <span className="flex items-center gap-1.5 px-3 text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap shrink-0">
                   <LebanonFlag className="w-5 h-3.5" />
-                  <span>+961</span>
+                  <Ltr>+961</Ltr>
                 </span>
                 <input
                   id="required-details-phone"

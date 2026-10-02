@@ -31,6 +31,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { Ltr } from './ui/Ltr';
 
 export const CheckoutView: React.FC = () => {
   const { 
@@ -852,7 +853,7 @@ export const CheckoutView: React.FC = () => {
                         <div className="relative flex items-center">
                           <div className="absolute left-3 flex items-center gap-1.5 pointer-events-none text-[#666666] font-bold text-xs select-none">
                             <LebanonFlag className="w-4 h-3 rounded-xs" />
-                            <span>+961</span>
+                            <Ltr>+961</Ltr>
                           </div>
                           <input
                             type="tel"
@@ -894,7 +895,7 @@ export const CheckoutView: React.FC = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-[#666666]">
-                        {authUser.email || user.email}
+                        <Ltr>{authUser.email || user.email}</Ltr>
                       </p>
                     </div>
                   </div>

@@ -3,6 +3,7 @@ import { responsiveImage } from '../lib/responsiveImage';
 import { Product } from '../types';
 import { useShop } from '../context/ShopContext';
 import { Heart, ShoppingBag, Trash2, Eye } from 'lucide-react';
+import { Ltr } from './ui/Ltr';
 
 interface ProductCardProps {
   product: Product;
@@ -92,7 +93,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({ product, showRemoveB
           ) : null}
           {product.discountPercentage && (
             <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-[#C62828] text-white rounded-md shadow-xs">
-              -{product.discountPercentage}%
+              <Ltr>-{product.discountPercentage}%</Ltr>
             </span>
           )}
           {product.isBestseller && !product.discountPercentage && product.stock > 0 && (

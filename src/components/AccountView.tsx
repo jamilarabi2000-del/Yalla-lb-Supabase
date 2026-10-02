@@ -6,6 +6,7 @@ import { CustomBlocksRenderer } from './CustomBlocksRenderer';
 import { LebanonFlag } from './LebanonFlag';
 import { ACCOUNT_SIGNIN_EVENT, takeAccountSignInRequest } from '../lib/accountSignIn';
 import { EmailPasswordSignIn } from './EmailPasswordSignIn';
+import { Ltr } from './ui/Ltr';
 import { cityRegionProblem, emailProblem, phoneProblem, type SignupDetails } from '../lib/signupDetails';
 import { 
   User, 
@@ -305,7 +306,7 @@ export const AccountView: React.FC = () => {
                   onClick={signOutUser}
                   className="px-4 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
                 >
-                  <span>{language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'} ({firebaseUser.email})</span>
+                  <span>{language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'} (<Ltr>{firebaseUser.email}</Ltr>)</span>
                 </button>
               )}
             </div>
@@ -345,7 +346,7 @@ export const AccountView: React.FC = () => {
                   onClick={signOutUser}
                   className="px-4 py-2 bg-[#F8F8F6] hover:bg-rose-50 text-[#666666] hover:text-[#C62828] border border-[#E5E5E5] rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
                 >
-                  <span>{language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'} ({firebaseUser.displayName || firebaseUser.email})</span>
+                  <span>{language === 'ar' ? 'تسجيل الخروج' : 'Sign Out'} (<bdi>{firebaseUser.displayName || firebaseUser.email}</bdi>)</span>
                 </button>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-[#16803C]">
@@ -373,7 +374,7 @@ export const AccountView: React.FC = () => {
                 </div>
                 <p className="text-xs text-[#666666] mt-0.5">
                   {profileEmail || (language === 'ar' ? 'يرجى تحديث بريدك الإلكتروني ورقم هاتفك أدناه' : 'Please fill out your profile details below to complete sign up')} 
-                  {profilePhone ? ` • +961 ${profilePhone.replace('+961', '').trim()}` : ''}
+                  {profilePhone ? <> • <Ltr>{`+961 ${profilePhone.replace('+961', '').trim()}`}</Ltr></> : ''}
                 </p>
                 <p className="text-[11px] text-[#666666] flex items-center gap-1 mt-1 font-medium">
                   <MapPin className="w-3 h-3 text-[#B89753]" />
@@ -676,7 +677,7 @@ export const AccountView: React.FC = () => {
                           <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white">
                             <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap">
                               <LebanonFlag className="w-5 h-3.5" />
-                              <span>+961</span>
+                              <Ltr>+961</Ltr>
                             </span>
                             <input 
                               type="text" 
@@ -813,7 +814,7 @@ export const AccountView: React.FC = () => {
                         <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white transition-all">
                           <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap shrink-0">
                             <LebanonFlag className="w-5 h-3.5" />
-                            <span>+961</span>
+                            <Ltr>+961</Ltr>
                           </span>
                           <input 
                             id="profile-phone-input"

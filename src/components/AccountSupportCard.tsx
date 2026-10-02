@@ -1,6 +1,7 @@
 import React from 'react';
 import { Headphones, Mail, Phone, EyeOff } from 'lucide-react';
 import { BrandIcon } from './ui/BrandIcon';
+import { Ltr } from './ui/Ltr';
 import { useShop } from '../context/ShopContext';
 import { shownChannels } from '../lib/socialChannels';
 
@@ -42,8 +43,8 @@ export const AccountSupportCard: React.FC = () => {
           <div className="flex flex-wrap gap-2">
             {contacts.map(({ channel, href, hidden }) => {
               const dim = hidden ? { 'data-hidden': 'true', title: 'Hidden from visitors', style: { opacity: 0.4 } } : {};
-              if (channel === 'phone') return <a key={channel} href={href} {...dim} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#171717] text-white text-xs font-bold"><Phone className="w-3.5 h-3.5" />{phone}</a>;
-              if (channel === 'email') return <a key={channel} href={href} {...dim} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[#E5E5E5] text-[#171717] text-xs font-bold"><Mail className="w-3.5 h-3.5" />{email}</a>;
+              if (channel === 'phone') return <a key={channel} href={href} {...dim} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#171717] text-white text-xs font-bold"><Phone className="w-3.5 h-3.5" /><Ltr>{phone}</Ltr></a>;
+              if (channel === 'email') return <a key={channel} href={href} {...dim} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[#E5E5E5] text-[#171717] text-xs font-bold"><Mail className="w-3.5 h-3.5" /><Ltr>{email}</Ltr></a>;
               return <a key={channel} href={href} {...dim} target="_blank" rel="noopener noreferrer" data-brand="whatsapp" className="social-pill inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#16803C] text-white text-xs font-bold"><BrandIcon brand="whatsapp" className="w-3.5 h-3.5" />WhatsApp</a>;
             })}
           </div>
