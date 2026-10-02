@@ -193,6 +193,7 @@ export const EmailPasswordSignIn: React.FC<EmailPasswordSignInProps> = ({
       <input
         id={id}
         type="email"
+        dir="ltr"
         autoComplete="email"
         placeholder="name@example.com"
         value={email}

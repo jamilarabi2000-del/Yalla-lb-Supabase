@@ -8,6 +8,7 @@ import { LebanonFlag } from './LebanonFlag';
 import { CITY_REGION_MAX_LENGTH, cityRegionProblem, emailProblem, phoneProblem } from '../lib/signupDetails';
 import type { UserProfile } from '../types';
 import { Ltr } from './ui/Ltr';
+import { lebaneseLocalDigits } from '../lib/lebanesePhone';
 
 export type RequiredDetail = 'name' | 'phone' | 'email' | 'city' | 'address' | 'building';
 
@@ -208,10 +209,9 @@ export const RequiredDetailsPrompt: React.FC = () => {
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel-national"
-                  maxLength={8}
                   placeholder="70123456"
                   value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  onChange={e => setPhone(lebaneseLocalDigits(e.target.value))}
                   required
                   className="w-full px-3 py-2.5 bg-transparent text-[#171717] text-sm focus:outline-none"
                 />
@@ -221,7 +221,7 @@ export const RequiredDetailsPrompt: React.FC = () => {
           {asks('email') && (
             <div>
               <label htmlFor="required-details-email" className={label}>{ar ? 'البريد الإلكتروني *' : 'Email Address *'}</label>
-              <input id="required-details-email" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" placeholder="name@example.com" required className={input} />
+              <input id="required-details-email" type="email" dir="ltr" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" placeholder="name@example.com" required className={input} />
             </div>
           )}
           {asks('city') && (
@@ -232,7 +232,7 @@ export const RequiredDetailsPrompt: React.FC = () => {
                 type="text"
                 value={city}
                 onChange={e => setCity(e.target.value)}
-                placeholder="e.g. Achrafieh, Beirut"
+                placeholder={ar ? 'مثال: الأشرفية، بيروت' : 'e.g. Achrafieh, Beirut'}
                 maxLength={CITY_REGION_MAX_LENGTH}
                 autoComplete="address-level2"
                 required
@@ -245,13 +245,13 @@ export const RequiredDetailsPrompt: React.FC = () => {
               {asks('address') && (
                 <div>
                   <label htmlFor="required-details-address" className={label}>{ar ? 'الشارع / معلم قريب *' : 'Street / Landmark *'}</label>
-                  <input id="required-details-address" type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Gouraud Street, next to Paul Bakery" autoComplete="address-line1" maxLength={200} required className={input} />
+                  <input id="required-details-address" type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder={ar ? 'مثال: شارع غورو، بجانب مخبز بول' : 'Gouraud Street, next to Paul Bakery'} autoComplete="address-line1" maxLength={200} required className={input} />
                 </div>
               )}
               {asks('building') && (
                 <div>
                   <label htmlFor="required-details-building" className={label}>{ar ? 'المبنى والطابق والشقة *' : 'Building, Floor & Apt *'}</label>
-                  <input id="required-details-building" type="text" value={building} onChange={e => setBuilding(e.target.value)} placeholder="Al-Nour Bldg, 4th Floor, Apt B" autoComplete="address-line2" maxLength={200} required className={input} />
+                  <input id="required-details-building" type="text" value={building} onChange={e => setBuilding(e.target.value)} placeholder={ar ? 'مثال: بناية النور، الطابق 4، شقة ب' : 'Al-Nour Bldg, 4th Floor, Apt B'} autoComplete="address-line2" maxLength={200} required className={input} />
                 </div>
               )}
             </div>

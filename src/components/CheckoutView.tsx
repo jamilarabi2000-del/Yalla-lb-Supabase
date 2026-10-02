@@ -32,6 +32,9 @@ import {
 } from 'lucide-react';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { Ltr } from './ui/Ltr';
+import { FieldError, invalidProps } from './ui/FieldError';
+import { lebaneseLocalDigits } from '../lib/lebanesePhone';
+import { itemsLabel } from '../lib/plural';
 
 export const CheckoutView: React.FC = () => {
   const { 
@@ -81,6 +84,12 @@ export const CheckoutView: React.FC = () => {
   const showAnyPaymentMethod = showCODPayment || showWishPayment;
 
   const isArabic = language === 'ar';
+  // The administrator's text for the shopper's language, else the built-in text
+  // for it. The Arabic checkout used to show the English CMS text whenever one
+  // was set (always), and never read the *Arabic fields that exist.
+  const cmsText = (english: string | undefined, arabic: string | undefined, builtInEnglish: string, builtInArabic: string) =>
+    isArabic ? (arabic || builtInArabic) : (english || builtInEnglish);
+  const checkoutCms = siteContent?.checkoutPage;
   const [checkoutCouponInput, setCheckoutCouponInput] = useState('');
   const [isApplyingCheckoutCoupon, setIsApplyingCheckoutCoupon] = useState(false);
 
@@ -143,6 +152,21 @@ export const CheckoutView: React.FC = () => {
   const [signupLastName, setSignupLastName] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // What is wrong with each field after a failed attempt to sign up or to place
+  // the order. Shown beside the field (a toast alone is gone in 3.5 s), and the
+  // first of them takes focus.
+  type DeliveryField = 'firstName' | 'phone' | 'email' | 'city' | 'street';
+  type SignupField = 'firstName' | 'lastName' | 'phone';
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<DeliveryField, string>>>({});
+  const [signupErrors, setSignupErrors] = useState<Partial<Record<SignupField, string>>>({});
+  const clearFieldError = (key: DeliveryField) => setFieldErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  const clearSignupError = (key: SignupField) => setSignupErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  const focusField = (id: string) => {
+    const el = document.getElementById(id);
+    el?.focus();
+    el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+  };
 
   // The order the server confirmed. Its own total is what the shopper pays:
   // the basket is emptied the moment the order succeeds.
@@ -304,19 +328,30 @@ export const CheckoutView: React.FC = () => {
    */
   const collectCheckoutSignup = async (): Promise<SignupDetails | null> => {
     if (!signupFirstName.trim() || !signupLastName.trim()) {
+      setSignupErrors({
+        firstName: signupFirstName.trim() ? undefined : (isArabic ? 'أدخل الاسم الأول' : 'Enter your first name'),
+        lastName: signupLastName.trim() ? undefined : (isArabic ? 'أدخل اسم العائلة' : 'Enter your family name'),
+      });
       showToast(isArabic ? 'الاسم الأول واسم العائلة مطلوبان' : 'First name and last name are required', 'warning');
+      focusField(signupFirstName.trim() ? 'checkout-signup-lastname-input' : 'checkout-signup-firstname-input');
       return null;
     }
-    const cleanPhone = signupPhone.replace(/\D/g, '');
+    const cleanPhone = lebaneseLocalDigits(signupPhone);
     if (cleanPhone.length !== 8) {
+      setSignupErrors({ phone: isArabic ? 'أدخل رقم هاتفك اللبناني المؤلف من 8 أرقام' : 'Enter your 8-digit Lebanese number' });
       showToast(isArabic ? 'يجب أن يتألف رقم الهاتف اللبناني من 8 أرقام' : 'Lebanese phone number must be strictly 8 digits', 'warning');
+      focusField('checkout-signup-phone-input');
       return null;
     }
     const phoneAvailability = await checkPhoneUniqueness(cleanPhone);
     if (!phoneAvailability.available) {
-      showToast(phoneAvailability.reason || (isArabic ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.'), 'warning');
+      const reason = phoneAvailability.reason || (isArabic ? 'رقم الهاتف هذا مسجل مسبقاً بحساب آخر.' : 'This phone number is already registered to another account.');
+      setSignupErrors({ phone: reason });
+      showToast(reason, 'warning');
+      focusField('checkout-signup-phone-input');
       return null;
     }
+    setSignupErrors({});
     return {
       firstName: signupFirstName,
       lastName: signupLastName,
@@ -406,14 +441,28 @@ export const CheckoutView: React.FC = () => {
     if (!finalEmail) missingDetails.push(isArabic ? 'البريد الإلكتروني' : 'email address');
 
     if (missingDetails.length > 0) {
+      const problems: Partial<Record<DeliveryField, string>> = {};
+      if (!fName) problems.firstName = isArabic ? 'أدخل الاسم الأول' : 'Enter your first name';
+      if (!finalPhone) problems.phone = isArabic ? 'أدخل رقم هاتفك' : 'Enter your phone number';
+      if (!finalEmail) problems.email = isArabic ? 'أدخل بريدك الإلكتروني' : 'Enter your email address';
+      if (!finalCity) problems.city = isArabic ? 'أدخل مدينتك أو منطقتك' : 'Enter your city or area';
+      if (!finalStreet) problems.street = isArabic ? 'أدخل الشارع أو نقطة دلالة قريبة' : 'Enter your street or a nearby landmark';
+      setFieldErrors(problems);
       showToast(
         isArabic
           ? `يرجى إكمال بيانات التوصيل: ${missingDetails.join('، ')}`
           : `Please complete your delivery details: ${missingDetails.join(', ')}.`,
         'warning'
       );
+      const IDS: Record<DeliveryField, string> = {
+        firstName: 'checkout-first-name-input', phone: 'checkout-phone-input', email: 'checkout-email-input',
+        city: 'checkout-city-input', street: 'checkout-street-input',
+      };
+      const first = (['firstName', 'phone', 'email', 'city', 'street'] as DeliveryField[]).find(k => problems[k]);
+      if (first) focusField(IDS[first]);
       return;
     }
+    setFieldErrors({});
 
     const fullName = `${fName} ${lName}`.trim();
     const idempotencyKey = checkoutIdempotencyKey || generateIdempotencyKey();
@@ -489,7 +538,7 @@ export const CheckoutView: React.FC = () => {
 
       setOrderComplete(newOrder);
     } catch {
-      showToast('An error occurred while placing your order. Please try again.', 'warning');
+      showToast(isArabic ? 'حدث خطأ أثناء إرسال طلبك. يرجى المحاولة مرة أخرى.' : 'An error occurred while placing your order. Please try again.', 'warning');
     } finally {
       setIsSubmitting(false);
     }
@@ -608,21 +657,19 @@ export const CheckoutView: React.FC = () => {
             <span>{t('back')}</span>
           </button>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#171717] tracking-tight">
-            {siteContent?.checkoutPage?.title ? (
-              <span>{siteContent.checkoutPage.title}</span>
+            {(isArabic ? checkoutCms?.titleArabic : checkoutCms?.title) ? (
+              <span>{isArabic ? checkoutCms?.titleArabic : checkoutCms?.title}</span>
             ) : isArabic ? (
-              <>التوصيل و <span className="italic text-[#7d6230]">إتمام التسوية والطلب</span></>
+              <>التوصيل و <span className="text-[#7d6230]">إتمام التسوية والطلب</span></>
             ) : (
               <>Delivery & <span className="italic text-[#7d6230]">Payment Settlement</span></>
             )}
           </h1>
           <p className="text-xs text-[#666666] max-w-2xl leading-relaxed">
-            {siteContent?.checkoutPage?.subtitle ? (
-              siteContent.checkoutPage.subtitle
-            ) : isArabic ? (
-              'اختر سرعة التوصيل وطريقة التسوية لشحن وتجهيز طلبك اللبناني بأمان.'
-            ) : (
-              'Select delivery speed and payment method for fast dispatch across Lebanon or internationally.'
+            {cmsText(
+              checkoutCms?.subtitle, checkoutCms?.subtitleArabic,
+              'Select delivery speed and payment method for fast dispatch across Lebanon or internationally.',
+              'اختر سرعة التوصيل وطريقة التسوية لشحن وتجهيز طلبك اللبناني بأمان.',
             )}
           </p>
         </div>
@@ -819,35 +866,43 @@ export const CheckoutView: React.FC = () => {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                          <label htmlFor="checkout-signup-firstname-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                             {isArabic ? 'الاسم الأول *' : 'First Name *'}
                           </label>
                           <input
                             type="text"
                             id="checkout-signup-firstname-input"
-                            placeholder="e.g. Walid"
+                            autoComplete="given-name"
+                            aria-required="true"
+                            {...invalidProps('checkout-signup-firstname-input', signupErrors.firstName)}
+                            placeholder={isArabic ? 'مثال: وليد' : 'e.g. Walid'}
                             value={signupFirstName}
-                            onChange={(e) => setSignupFirstName(e.target.value)}
+                            onChange={(e) => { setSignupFirstName(e.target.value); clearSignupError('firstName'); }}
                             className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
                           />
+                          <FieldError id="checkout-signup-firstname-input" message={signupErrors.firstName} />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                          <label htmlFor="checkout-signup-lastname-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                             {isArabic ? 'اسم العائلة *' : 'Last Name *'}
                           </label>
                           <input
                             type="text"
                             id="checkout-signup-lastname-input"
-                            placeholder="e.g. Ghattas"
+                            autoComplete="family-name"
+                            aria-required="true"
+                            {...invalidProps('checkout-signup-lastname-input', signupErrors.lastName)}
+                            placeholder={isArabic ? 'مثال: غطاس' : 'e.g. Ghattas'}
                             value={signupLastName}
-                            onChange={(e) => setSignupLastName(e.target.value)}
+                            onChange={(e) => { setSignupLastName(e.target.value); clearSignupError('lastName'); }}
                             className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none transition-all"
                           />
+                          <FieldError id="checkout-signup-lastname-input" message={signupErrors.lastName} />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                        <label htmlFor="checkout-signup-phone-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                           {isArabic ? 'رقم الواتساب اللبناني *' : 'Lebanese WhatsApp Phone *'}
                         </label>
                         <div className="relative flex items-center">
@@ -858,13 +913,18 @@ export const CheckoutView: React.FC = () => {
                           <input
                             type="tel"
                             id="checkout-signup-phone-input"
+                            dir="ltr"
+                            inputMode="numeric"
+                            autoComplete="tel-national"
+                            aria-required="true"
+                            {...invalidProps('checkout-signup-phone-input', signupErrors.phone)}
                             placeholder="70 123456"
-                            maxLength={8}
                             value={signupPhone}
-                            onChange={(e) => setSignupPhone(e.target.value.replace(/\D/g, ''))}
+                            onChange={(e) => { setSignupPhone(lebaneseLocalDigits(e.target.value)); clearSignupError('phone'); }}
                             className="w-full pl-20 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-mono transition-all"
                           />
                         </div>
+                        <FieldError id="checkout-signup-phone-input" message={signupErrors.phone} />
                       </div>
 
                       <EmailPasswordSignIn
@@ -926,7 +986,7 @@ export const CheckoutView: React.FC = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#E5E5E5]">
                     <h3 className="text-base font-serif font-bold text-[#171717] flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-[#7d6230]" />
-                      <span>{siteContent?.checkoutPage?.shippingHeading || (isArabic ? 'بيانات المستلم والعنوان في لبنان' : 'Recipient & Delivery Address')}</span>
+                      <span>{cmsText(checkoutCms?.shippingHeading, checkoutCms?.shippingHeadingArabic, 'Recipient & Delivery Address', 'بيانات المستلم والعنوان في لبنان')}</span>
                     </h3>
                     <span className="text-[11px] text-[#16803C] font-semibold flex items-center gap-1 bg-[#16803C]/10 px-2.5 py-0.5 rounded-md border border-[#16803C]/20">
                       <Check className="w-3.5 h-3.5" />
@@ -952,27 +1012,32 @@ export const CheckoutView: React.FC = () => {
                   {/* 🌟 SEPARATE FIRST NAME AND LAST NAME */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                      <label htmlFor="checkout-first-name-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'الاسم الأول *' : 'First Name *'}
                       </label>
                       <input
                         type="text"
                         id="checkout-first-name-input"
-                        placeholder="e.g. Walid"
+                        autoComplete="given-name"
+                        aria-required="true"
+                        {...invalidProps('checkout-first-name-input', fieldErrors.firstName)}
+                        placeholder={isArabic ? 'مثال: وليد' : 'e.g. Walid'}
                         value={formData.firstName}
-                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, firstName: e.target.value }); clearFieldError('firstName'); }}
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-medium"
                       />
+                      <FieldError id="checkout-first-name-input" message={fieldErrors.firstName} />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                      <label htmlFor="checkout-last-name-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'اسم العائلة *' : 'Last Name *'}
                       </label>
                       <input
                         type="text"
                         id="checkout-last-name-input"
-                        placeholder="e.g. Ghattas"
+                        autoComplete="family-name"
+                        placeholder={isArabic ? 'مثال: غطاس' : 'e.g. Ghattas'}
                         value={formData.lastName}
                         onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-medium"
@@ -982,7 +1047,7 @@ export const CheckoutView: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                      <label htmlFor="checkout-phone-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'رقم الهاتف اللبناني / واتساب *' : 'Lebanese Mobile Phone / WhatsApp *'}
                       </label>
                       <div className="relative flex items-center">
@@ -992,31 +1057,43 @@ export const CheckoutView: React.FC = () => {
                         <input
                           type="tel"
                           id="checkout-phone-input"
+                          dir="ltr"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          aria-required="true"
+                          {...invalidProps('checkout-phone-input', fieldErrors.phone)}
                           placeholder="+961 70 123 456"
                           value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); clearFieldError('phone'); }}
                           className="w-full pl-10 pr-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none font-mono"
                         />
                       </div>
+                      <FieldError id="checkout-phone-input" message={fieldErrors.phone} />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                      <label htmlFor="checkout-email-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'البريد الإلكتروني للإشعار *' : 'Email for Dispatch & Invoice *'}
                       </label>
                       <input
                         type="email"
                         id="checkout-email-input"
+                        dir="ltr"
+                        inputMode="email"
+                        autoComplete="email"
+                        aria-required="true"
+                        {...invalidProps('checkout-email-input', fieldErrors.email)}
                         placeholder="name@example.com"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, email: e.target.value }); clearFieldError('email'); }}
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
                       />
+                      <FieldError id="checkout-email-input" message={fieldErrors.email} />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                    <label htmlFor="checkout-governorate-select" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                       {isArabic ? 'المحافظة *' : 'Governorate *'}
                     </label>
                     <SearchableSelect
@@ -1032,42 +1109,51 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
-                      {isArabic ? 'المدينة / المنطقة / المحافظة *' : 'City / Governorate *'}
+                    <label htmlFor="checkout-city-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                      {isArabic ? 'المدينة / المنطقة *' : 'City / Area *'}
                     </label>
                     <input
                       type="text"
                       id="checkout-city-input"
+                      autoComplete="address-level2"
+                      aria-required="true"
+                      {...invalidProps('checkout-city-input', fieldErrors.city)}
                       value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      placeholder="e.g. Achrafieh, Beirut"
+                      onChange={(e) => { setFormData({ ...formData, city: e.target.value }); clearFieldError('city'); }}
+                      placeholder={isArabic ? 'مثال: الأشرفية، بيروت' : 'e.g. Achrafieh, Beirut'}
                       className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
                     />
+                    <FieldError id="checkout-city-input" message={fieldErrors.city} />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                      <label htmlFor="checkout-street-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'الشارع / نقطة علام معروفة *' : 'Street / Landmark *'}
                       </label>
                       <input
                         type="text"
                         id="checkout-street-input"
-                        placeholder="e.g. Gouraud Street, next to Paul Bakery"
+                        autoComplete="address-line1"
+                        aria-required="true"
+                        {...invalidProps('checkout-street-input', fieldErrors.street)}
+                        placeholder={isArabic ? 'مثال: شارع غورو، بجانب مخبز بول' : 'e.g. Gouraud Street, next to Paul Bakery'}
                         value={formData.street}
-                        onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, street: e.target.value }); clearFieldError('street'); }}
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
                       />
+                      <FieldError id="checkout-street-input" message={fieldErrors.street} />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                      <label htmlFor="checkout-building-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                         {isArabic ? 'المبنى' : 'Building'}
                       </label>
                       <input
                         type="text"
                         id="checkout-building-input"
-                        placeholder="e.g. Al-Nour Bldg, 4th Floor, Apt B"
+                        autoComplete="address-line2"
+                        placeholder={isArabic ? 'مثال: بناية النور، الطابق 4، شقة ب' : 'e.g. Al-Nour Bldg, 4th Floor, Apt B'}
                         value={formData.building}
                         onChange={(e) => setFormData({ ...formData, building: e.target.value })}
                         className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
@@ -1076,13 +1162,14 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                    <label htmlFor="checkout-floor-apartment-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                       {isArabic ? 'الطابق / رقم الشقة' : 'Floor / Apartment'}
                     </label>
                     <input
                       type="text"
                       id="checkout-floor-apartment-input"
-                      placeholder="e.g. 4th Floor, Apt B"
+                      autoComplete="address-line3"
+                      placeholder={isArabic ? 'مثال: الطابق 4، شقة ب' : 'e.g. 4th Floor, Apt B'}
                       value={formData.floorApartment}
                       onChange={(e) => setFormData({ ...formData, floorApartment: e.target.value })}
                       className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
@@ -1090,13 +1177,14 @@ export const CheckoutView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
+                    <label htmlFor="checkout-notes-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">
                       {isArabic ? 'ملاحظات إضافية للتوصيل (اختياري)' : 'Delivery Notes & Courier Instructions (Optional)'}
                     </label>
                     <input
                       type="text"
                       id="checkout-notes-input"
-                      placeholder="e.g. Call upon arrival, leave with building concierge if not present"
+                      autoComplete="off"
+                      placeholder={isArabic ? 'مثال: اتصل عند الوصول، أو سلّم الطلب لحارس البناية' : 'e.g. Call upon arrival, leave with building concierge if not present'}
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       className="w-full px-3.5 py-2.5 bg-[#F8F8F6] text-xs text-[#171717] rounded-lg border border-[#E5E5E5] focus:bg-white focus:border-[#B89753] focus:outline-none"
@@ -1286,8 +1374,8 @@ export const CheckoutView: React.FC = () => {
                     </div>
                   )}
                   <h3 className="text-base font-serif font-bold text-[#171717] pb-3 border-b border-[#E5E5E5] flex items-center justify-between">
-                    <span>{siteContent?.checkoutPage?.summaryHeading || (isArabic ? 'ملخص الطلب' : 'Order Summary')}</span>
-                    <span className="text-xs text-[#7d6230] font-bold bg-[#B89753]/10 px-2.5 py-0.5 rounded-full border border-[#B89753]/20">{cart.length} {isArabic ? 'منتجات' : 'Items'}</span>
+                    <span>{cmsText(checkoutCms?.summaryHeading, checkoutCms?.summaryHeadingArabic, 'Order Summary', 'ملخص الطلب')}</span>
+                    <span className="text-xs text-[#7d6230] font-bold bg-[#B89753]/10 px-2.5 py-0.5 rounded-full border border-[#B89753]/20">{itemsLabel(cart.length, language)}</span>
                   </h3>
 
                 {/* Items preview */}
@@ -1415,11 +1503,7 @@ export const CheckoutView: React.FC = () => {
                   <span>
                     {isSubmitting 
                       ? (isArabic ? 'جاري المعالجة...' : 'Processing Order...') 
-                      : siteContent?.checkoutPage?.orderButtonText
-                        ? `${siteContent.checkoutPage.orderButtonText} ($${finalTotalUSD.toFixed(2)})`
-                        : (isArabic 
-                          ? `تأكيد الطلب اللبناني ($${finalTotalUSD.toFixed(2)})` 
-                          : `Confirm Lebanese Order ($${finalTotalUSD.toFixed(2)})`)}
+                      : `${cmsText(checkoutCms?.orderButtonText, checkoutCms?.orderButtonTextArabic, 'Confirm Lebanese Order', 'تأكيد الطلب اللبناني')} ($${finalTotalUSD.toFixed(2)})`}
                   </span>
                 </button>
 
@@ -1438,11 +1522,11 @@ export const CheckoutView: React.FC = () => {
                     )}
                     <div className="flex items-center gap-2">
                       <LebanonFlag className="w-3.5 h-2.5 rounded-xs" />
-                      <span>{siteContent?.checkoutPage?.guaranteeBadgeText || '100% Authentic Lebanese Artisan Guilds'}</span>
+                      <span>{cmsText(checkoutCms?.guaranteeBadgeText, checkoutCms?.guaranteeBadgeTextArabic, '100% Authentic Lebanese Artisan Guilds', '100% من نقابات الحرفيين اللبنانيين الأصيلة')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <PhoneCall className="w-3.5 h-3.5 text-[#16803C]" />
-                      <span>Dedicated courier WhatsApp confirmation before drop-off</span>
+                      <span>{isArabic ? 'تأكيد عبر واتساب من مندوب التوصيل قبل التسليم' : 'Dedicated courier WhatsApp confirmation before drop-off'}</span>
                     </div>
                   </div>
                 )}
