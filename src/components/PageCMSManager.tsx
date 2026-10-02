@@ -167,10 +167,15 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
   const { siteContent, updateSiteContent, showToast } = useShop();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [selectedCategory, setSelectedCategory] = useState<TabCategory>('all');
-  const [cmsForm, setCmsForm] = useState(siteContent);
+  // An unsaved draft is read once, before the first render, so the form starts
+  // from it. Restoring it from an effect let the "follow the live settings"
+  // effect below overwrite it (it still saw the form as clean), and the
+  // autosave then wrote the live settings over the stored draft.
+  const [restoredDraft] = useState(loadCmsDraft);
+  const [cmsForm, setCmsForm] = useState<SiteContent>(() => restoredDraft?.content ?? siteContent);
   const [isSaving, setIsSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(() => restoredDraft !== null);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(() => restoredDraft?.savedAt ?? null);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
 
   // View modes: 'editor' (spacious full-width), 'split' (side-by-side preview), 'preview' (full preview)
@@ -178,22 +183,6 @@ export const PageCMSManager: React.FC<PageCMSManagerProps> = ({ initialTab = 'ho
   const [showDiffModal, setShowDiffModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [snapshotCount, setSnapshotCount] = useState(0);
-
-  // Restore unsaved draft from persistence on mount, if available
-  useEffect(() => {
-    const existingDraft = loadCmsDraft();
-    if (existingDraft && existingDraft.content) {
-      setCmsForm(existingDraft.content);
-      setIsDirty(true);
-      setDraftSavedAt(existingDraft.savedAt);
-      if (existingDraft.activeTab && CMS_TABS.some(t => t.id === existingDraft.activeTab)) {
-        setActiveTab(existingDraft.activeTab);
-      }
-    } else {
-      setCmsForm(siteContent);
-      setIsDirty(false);
-    }
-  }, []);
 
   // Update form if siteContent changed externally AND form is not dirty
   useEffect(() => {
