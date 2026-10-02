@@ -578,8 +578,11 @@ describe('where shoppers sign in', () => {
 
   it('marks email and phone required on the profile and checks both before saving', () => {
     const account = strip(read('src/components/AccountView.tsx'));
-    expect(account).toContain('>Email Address *</label>');
-    expect((account.match(/>Phone \(WhatsApp\) \*<\/label>/g) ?? []).length).toBe(2);
+    // each label is written in both languages: the English one is unchanged, the Arabic one carries the same star
+    expect(account).toContain("'Email Address *'}</label>");
+    expect(account).toContain("'البريد الإلكتروني *'");
+    expect((account.match(/'Phone \(WhatsApp\) \*'\}<\/label>/g) ?? []).length).toBe(2);
+    expect((account.match(/'الهاتف \(واتساب\) \*'/g) ?? []).length).toBe(2);
     const save = account.slice(account.indexOf('const handleSaveProfile'), account.indexOf('if (isSellerUser)'));
     expect(save).toContain('emailProblem(email, language)');
     expect(save).toContain('phoneProblem(cleanPhone, language)');
@@ -605,7 +608,7 @@ describe('where shoppers sign in', () => {
     const tab = checkout.slice(checkout.indexOf('id="checkout-switch-signup-btn"'), checkout.indexOf('</button>', checkout.indexOf('id="checkout-switch-signup-btn"')));
     expect(tab).toContain("'Sign Up'");
     expect(checkout).not.toContain('New Account');
-    expect(strip(read('src/components/AccountView.tsx'))).toMatch(/>\s*Sign Up\s*</);
+    expect(strip(read('src/components/AccountView.tsx'))).toMatch(/'إنشاء حساب' : 'Sign Up'/);
   });
 
   it('follows the Account page settings in checkout too, and offers no phone-code sign-in', () => {

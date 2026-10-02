@@ -7,6 +7,7 @@ import { LebanonFlag } from './LebanonFlag';
 import { ACCOUNT_SIGNIN_EVENT, takeAccountSignInRequest } from '../lib/accountSignIn';
 import { EmailPasswordSignIn } from './EmailPasswordSignIn';
 import { Ltr } from './ui/Ltr';
+import { lebaneseLocalDigits } from '../lib/lebanesePhone';
 import { cityRegionProblem, emailProblem, phoneProblem, type SignupDetails } from '../lib/signupDetails';
 import { 
   User, 
@@ -26,7 +27,11 @@ import {
 // Only sellers see the dashboard, so shoppers never download it.
 const SellerDashboard = lazy(() => import('./SellerDashboard').then(m => ({ default: m.SellerDashboard })));
 
-export const AccountView: React.FC = () => {
+export type AccountTabId = 'orders' | 'wishlist' | 'profile';
+/** What the CMS decides about each tab: its words, and whether it is shown at all. */
+export type AccountTabSettings = Partial<Record<AccountTabId, { label?: string; visible?: boolean }>>;
+
+export const AccountView: React.FC<{ tabs?: AccountTabSettings }> = ({ tabs }) => {
   const { 
     user, 
     orders, 
@@ -43,6 +48,7 @@ export const AccountView: React.FC = () => {
     showToast,
     removeFromWishlist,
     firebaseUser,
+    authReady,
     isSellerUser,
     signInWithGoogle,
     signInWithApple,
@@ -50,8 +56,23 @@ export const AccountView: React.FC = () => {
     resendEmailVerification
   } = useShop();
 
-  const [activeAccountTab, setActiveAccountTab] = useState<'orders' | 'wishlist' | 'profile'>(
-    () => (takeAccountSignInRequest() ? 'profile' : 'orders'));
+  // The tab the visitor chose, if they have. Until they do, a signed-out visitor
+  // starts on the sign-in form (it lives on the profile tab, a third tab that
+  // sits off-screen on a 390 px phone, so guests used to land on an empty order
+  // list with no way to sign in in sight) and a signed-in one on their orders.
+  // Nothing is shown until the first look for a saved sign-in has finished, so
+  // a signed-in visitor is not greeted with the sign-in form for a moment.
+  const [chosenTab, setActiveAccountTab] = useState<'orders' | 'wishlist' | 'profile' | null>(
+    () => (takeAccountSignInRequest() ? 'profile' : null));
+  const tabShown = (id: AccountTabId) => tabs?.[id]?.visible !== false;
+  const tabLabel = (id: AccountTabId, fallback: string) => tabs?.[id]?.label || fallback;
+  const wantedTab = chosenTab ?? (authReady ? (firebaseUser ? 'orders' : 'profile') : null);
+  // A tab the CMS has switched off is not shown, and the first one that is takes its place.
+  const activeAccountTab = wantedTab && !tabShown(wantedTab) ? (['orders', 'wishlist', 'profile'] as AccountTabId[]).find(tabShown) ?? wantedTab : wantedTab;
+  // Keep the active tab in view in the tab row, which scrolls sideways on a phone.
+  useEffect(() => {
+    if (activeAccountTab) document.getElementById(`tab-${activeAccountTab}`)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [activeAccountTab]);
   // The Seller Portal links open the sign-in form, which is on the profile tab.
   useEffect(() => {
     const openSignIn = () => { takeAccountSignInRequest(); setActiveAccountTab('profile'); };
@@ -231,7 +252,7 @@ export const AccountView: React.FC = () => {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileFirstName.trim() || !profileLastName.trim()) {
-      showToast('First name and last name are required', 'warning');
+      showToast(language === 'ar' ? 'الاسم الأول واسم العائلة مطلوبان' : 'First name and last name are required', 'warning');
       return;
     }
     const fullName = `${profileFirstName.trim()} ${profileLastName.trim()}`;
@@ -281,7 +302,7 @@ export const AccountView: React.FC = () => {
       });
       showToast(language === 'ar' ? 'تم حفظ بيانات الملف الشخصي بنجاح!' : 'Profile details saved successfully!', 'success');
     } catch (err: any) {
-      showToast(err.message || 'Error saving profile changes', 'warning');
+      showToast(err.message || (language === 'ar' ? 'تعذر حفظ التغييرات على الملف الشخصي' : 'Error saving profile changes'), 'warning');
     } finally {
       setIsSaving(false);
     }
@@ -312,7 +333,7 @@ export const AccountView: React.FC = () => {
             </div>
           </div>
         </div>
-        <Suspense fallback={<div className="py-16 flex justify-center"><Loader2 className="w-7 h-7 animate-spin text-[#7d6230]" aria-label="Loading" /></div>}>
+        <Suspense fallback={<div className="py-16 flex justify-center"><Loader2 className="w-7 h-7 animate-spin text-[#7d6230]" aria-label={language === 'ar' ? 'جارٍ التحميل' : 'Loading'} /></div>}>
           <SellerDashboard />
         </Suspense>
       </div>
@@ -403,7 +424,7 @@ export const AccountView: React.FC = () => {
       {/* Main Tabs Container */}
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         <div className="flex items-center gap-2 border-b border-[#E5E5E5] pb-4 overflow-x-auto">
-          <button
+          {tabShown('orders') && <button
             id="tab-orders"
             onClick={() => setActiveAccountTab('orders')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
@@ -413,11 +434,11 @@ export const AccountView: React.FC = () => {
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>{language === 'ar' ? 'سجل الطلبات' : 'My Orders'}</span>
-            <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-md text-[10px]">{userOrders.length}</span>
-          </button>
+            <span>{tabLabel('orders', language === 'ar' ? 'سجل الطلبات' : 'My Orders')}</span>
+            <span className="ms-1 px-1.5 py-0.5 bg-white/20 rounded-md text-[10px]">{userOrders.length}</span>
+          </button>}
 
-          <button
+          {tabShown('wishlist') && <button
             id="tab-wishlist"
             onClick={() => setActiveAccountTab('wishlist')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
@@ -427,11 +448,11 @@ export const AccountView: React.FC = () => {
             }`}
           >
             <Heart className="w-4 h-4" />
-            <span>{language === 'ar' ? 'المفضلة والمحفوظات' : 'Saved Favorites'}</span>
-            <span className="ml-1 px-1.5 py-0.5 bg-rose-100 text-[#C62828] rounded-md text-[10px] font-bold">{wishlist.length}</span>
-          </button>
+            <span>{tabLabel('wishlist', language === 'ar' ? 'المفضلة والمحفوظات' : 'Saved Favorites')}</span>
+            <span className="ms-1 px-1.5 py-0.5 bg-rose-100 text-[#C62828] rounded-md text-[10px] font-bold">{wishlist.length}</span>
+          </button>}
 
-          <button
+          {tabShown('profile') && <button
             id="tab-profile"
             onClick={() => setActiveAccountTab('profile')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
@@ -441,8 +462,9 @@ export const AccountView: React.FC = () => {
             }`}
           >
             <User className="w-4 h-4" />
-            <span>{language === 'ar' ? 'تفاصيل الحساب' : 'Profile'}</span>
-          </button>
+            {/* The CMS names the signed-in profile tab; for a guest it holds the sign-in form. */}
+            <span>{firebaseUser ? tabLabel('profile', language === 'ar' ? 'تفاصيل الحساب' : 'Profile') : (language === 'ar' ? 'تسجيل الدخول' : 'Sign In')}</span>
+          </button>}
         </div>
 
         {/* Tab Content Areas */}
@@ -495,12 +517,28 @@ export const AccountView: React.FC = () => {
           )}
           {/* Tab 1: Orders History */}
           {activeAccountTab === 'orders' && (
-            <OrderHistory 
-              orders={userOrders} 
-              formatPrice={formatPrice} 
-              onNavigateProducts={() => setActiveTab('products')} 
-              language={language}
-            />
+            firebaseUser ? (
+              <OrderHistory 
+                orders={userOrders} 
+                formatPrice={formatPrice} 
+                onNavigateProducts={() => setActiveTab('products')} 
+                language={language}
+              />
+            ) : (
+              <div id="account-orders-signin-hint" className="max-w-lg mx-auto bg-white p-8 rounded-xl border border-[#E5E5E5] text-center space-y-3">
+                <h3 className="text-base font-bold text-[#171717]">{language === 'ar' ? 'سجّل الدخول لرؤية طلباتك' : 'Sign in to see your orders'}</h3>
+                <p className="text-xs text-[#666666] leading-relaxed">
+                  {language === 'ar' ? 'تظهر طلباتك السابقة ورقم تتبّع شحنتها هنا بعد تسجيل الدخول.' : 'Your past orders and their tracking numbers appear here once you sign in.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveAccountTab('profile')}
+                  className="inline-block px-6 py-3 bg-[#171717] hover:bg-black text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-colors cursor-pointer shadow-xs"
+                >
+                  {language === 'ar' ? 'تسجيل الدخول أو إنشاء حساب' : 'Sign in or create an account'}
+                </button>
+              </div>
+            )
           )}
 
           {/* Tab 2: Saved Favorites / Wishlist */}
@@ -561,7 +599,7 @@ export const AccountView: React.FC = () => {
                         authMode === 'signin' ? 'bg-white text-[#171717] shadow-xs' : 'text-[#666666] hover:text-[#171717]'
                       }`}
                     >
-                      Sign In
+                      {language === 'ar' ? 'تسجيل الدخول' : 'Sign In'}
                     </button>
                     <button
                       type="button"
@@ -570,14 +608,16 @@ export const AccountView: React.FC = () => {
                         authMode === 'signup' ? 'bg-white text-[#171717] shadow-xs' : 'text-[#666666] hover:text-[#171717]'
                       }`}
                     >
-                      Sign Up
+                      {language === 'ar' ? 'إنشاء حساب' : 'Sign Up'}
                     </button>
                   </div>
 
                   <div className="text-center mb-6">
-                    <h2 className="text-xl font-serif font-bold text-[#171717]">{authMode === 'signin' ? 'Welcome Back' : 'Create Your Account'}</h2>
+                    <h2 className="text-xl font-serif font-bold text-[#171717]">{authMode === 'signin' ? (language === 'ar' ? 'أهلاً بعودتك' : 'Welcome Back') : (language === 'ar' ? 'أنشئ حسابك' : 'Create Your Account')}</h2>
                     <p className="text-xs text-[#666666] mt-1">
-                      {authMode === 'signin' ? 'Sign in with your email and password. We then email you a code.' : 'Fill in your details and choose a password. We will email you a code to confirm your address.'}
+                      {authMode === 'signin'
+                        ? (language === 'ar' ? 'سجّل الدخول ببريدك الإلكتروني وكلمة المرور، ثم نرسل إليك رمزاً.' : 'Sign in with your email and password. We then email you a code.')
+                        : (language === 'ar' ? 'أدخل بياناتك واختر كلمة مرور، وسنرسل إليك رمزاً لتأكيد بريدك الإلكتروني.' : 'Fill in your details and choose a password. We will email you a code to confirm your address.')}
                     </p>
                   </div>
 
@@ -620,7 +660,7 @@ export const AccountView: React.FC = () => {
                   <div className="relative flex py-2 items-center mb-6">
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
                     <span className="flex-shrink mx-4 text-[11px] font-bold uppercase tracking-wider text-[#666666]">
-                      Or with email
+                      {language === 'ar' ? 'أو عبر البريد الإلكتروني' : 'Or with email'}
                     </span>
                     <div className="flex-grow border-t border-[#E5E5E5]"></div>
                   </div>
@@ -649,23 +689,23 @@ export const AccountView: React.FC = () => {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">First Name (Required)</label>
-                          <input 
+                          <label htmlFor="account-signup-first-name" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">{language === 'ar' ? 'الاسم الأول (مطلوب)' : 'First Name (Required)'}</label>
+                          <input id="account-signup-first-name" autoComplete="given-name" 
                             type="text" 
                             value={profileFirstName} 
                             onChange={(e) => setProfileFirstName(e.target.value)} 
-                            placeholder="John"
+                            placeholder={language === 'ar' ? 'مثال: وليد' : 'John'}
                             className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                             required 
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Family Name (Required)</label>
-                          <input 
+                          <label htmlFor="account-signup-last-name" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">{language === 'ar' ? 'اسم العائلة (مطلوب)' : 'Family Name (Required)'}</label>
+                          <input id="account-signup-last-name" autoComplete="family-name" 
                             type="text" 
                             value={profileLastName} 
                             onChange={(e) => setProfileLastName(e.target.value)} 
-                            placeholder="Doe"
+                            placeholder={language === 'ar' ? 'مثال: غطاس' : 'Doe'}
                             className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                             required 
                           />
@@ -673,20 +713,19 @@ export const AccountView: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Phone (WhatsApp) *</label>
+                          <label htmlFor="account-signup-phone" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">{language === 'ar' ? 'الهاتف (واتساب) *' : 'Phone (WhatsApp) *'}</label>
                           <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white">
                             <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap">
                               <LebanonFlag className="w-5 h-3.5" />
                               <Ltr>+961</Ltr>
                             </span>
-                            <input 
+                            <input id="account-signup-phone" dir="ltr" autoComplete="tel-national" 
                               type="text" 
                               inputMode="numeric"
-                              maxLength={8}
                               placeholder="70123456"
                               value={profilePhone} 
                               onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                                const val = lebaneseLocalDigits(e.target.value);
                                 setProfilePhone(val);
                               }} 
                               className="w-full px-3 py-2.5 bg-transparent text-[#171717] text-sm focus:outline-none" 
@@ -695,12 +734,12 @@ export const AccountView: React.FC = () => {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">City / Region *</label>
-                          <input 
+                          <label htmlFor="account-signup-city" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">{language === 'ar' ? 'المدينة / المنطقة *' : 'City / Region *'}</label>
+                          <input id="account-signup-city" autoComplete="address-level2" 
                             type="text" 
                             value={profileCity} 
                             onChange={(e) => setProfileCity(e.target.value)} 
-                            placeholder="e.g. Achrafieh, Beirut"
+                            placeholder={language === 'ar' ? 'مثال: الأشرفية، بيروت' : 'e.g. Achrafieh, Beirut'}
                             className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                             required 
                           />
@@ -708,35 +747,35 @@ export const AccountView: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Street / Landmark *</label>
-                          <input 
+                          <label htmlFor="account-signup-street" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">{language === 'ar' ? 'الشارع / نقطة علام معروفة *' : 'Street / Landmark *'}</label>
+                          <input id="account-signup-street" autoComplete="address-line1" 
                             type="text" 
                             value={profileAddress} 
                             onChange={(e) => setProfileAddress(e.target.value)} 
-                            placeholder="Gouraud Street, next to Paul Bakery"
+                            placeholder={language === 'ar' ? 'مثال: شارع غورو، بجانب مخبز بول' : 'Gouraud Street, next to Paul Bakery'}
                             className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                             required 
                           />
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Building, Floor & Apt *</label>
-                          <input 
+                          <label htmlFor="account-signup-building" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">{language === 'ar' ? 'المبنى والطابق والشقة *' : 'Building, Floor & Apt *'}</label>
+                          <input id="account-signup-building" autoComplete="address-line2" 
                             type="text" 
                             value={profileBuilding} 
                             onChange={(e) => setProfileBuilding(e.target.value)} 
-                            placeholder="Al-Nour Bldg, 4th Floor, Apt B"
+                            placeholder={language === 'ar' ? 'مثال: بناية النور، الطابق 4، شقة ب' : 'Al-Nour Bldg, 4th Floor, Apt B'}
                             className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                             required 
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">Delivery Notes & Courier Instructions (Optional)</label>
-                        <input 
+                        <label htmlFor="account-signup-notes" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1">{language === 'ar' ? 'ملاحظات إضافية للتوصيل (اختياري)' : 'Delivery Notes & Courier Instructions (Optional)'}</label>
+                        <input id="account-signup-notes" autoComplete="off" 
                           type="text" 
                           value={profileNotes} 
                           onChange={(e) => setProfileNotes(e.target.value)} 
-                          placeholder="Call upon arrival, leave with building concierge if not present"
+                          placeholder={language === 'ar' ? 'مثال: اتصل عند الوصول، أو سلّم الطلب لحارس البناية' : 'Call upon arrival, leave with building concierge if not present'}
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white" 
                         />
                       </div>
@@ -758,31 +797,31 @@ export const AccountView: React.FC = () => {
                       <User className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="text-base font-serif font-bold text-[#171717] tracking-tight">Personal Information</h2>
-                      <p className="text-xs text-[#666666] font-normal">Manage your personal profile and default delivery details</p>
+                      <h2 className="text-base font-serif font-bold text-[#171717] tracking-tight">{language === 'ar' ? 'المعلومات الشخصية' : 'Personal Information'}</h2>
+                      <p className="text-xs text-[#666666] font-normal">{language === 'ar' ? 'أدِر ملفك الشخصي وبيانات التوصيل الافتراضية' : 'Manage your personal profile and default delivery details'}</p>
                     </div>
                   </div>
 
                   <form onSubmit={handleSaveProfile} className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">First Name (Required)</label>
-                        <input 
+                        <label htmlFor="profile-first-name-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'الاسم الأول (مطلوب)' : 'First Name (Required)'}</label>
+                        <input id="profile-first-name-input" autoComplete="given-name" 
                           type="text" 
                           value={profileFirstName} 
                           onChange={(e) => setProfileFirstName(e.target.value)} 
-                          placeholder="John"
+                          placeholder={language === 'ar' ? 'مثال: وليد' : 'John'}
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white transition-all" 
                           required 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Last / Family Name (Required)</label>
-                        <input 
+                        <label htmlFor="profile-last-name-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'اسم العائلة (مطلوب)' : 'Last / Family Name (Required)'}</label>
+                        <input id="profile-last-name-input" autoComplete="family-name" 
                           type="text" 
                           value={profileLastName} 
                           onChange={(e) => setProfileLastName(e.target.value)} 
-                          placeholder="Doe"
+                          placeholder={language === 'ar' ? 'مثال: غطاس' : 'Doe'}
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white transition-all" 
                           required 
                         />
@@ -791,9 +830,10 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label htmlFor="profile-email-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Email Address *</label>
+                        <label htmlFor="profile-email-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'البريد الإلكتروني *' : 'Email Address *'}</label>
                         <input 
                           id="profile-email-input"
+                          dir="ltr"
                           type="email" 
                           autoComplete="email"
                           value={signInEmail || profileEmail} 
@@ -810,7 +850,7 @@ export const AccountView: React.FC = () => {
                         )}
                       </div>
                       <div>
-                        <label htmlFor="profile-phone-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Phone (WhatsApp) *</label>
+                        <label htmlFor="profile-phone-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'الهاتف (واتساب) *' : 'Phone (WhatsApp) *'}</label>
                         <div className="flex rounded-lg border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden focus-within:border-[#B89753] focus-within:bg-white transition-all">
                           <span className="flex items-center gap-1.5 px-3 bg-[#F8F8F6] text-[#171717] text-xs font-bold border-r border-[#E5E5E5] select-none whitespace-nowrap shrink-0">
                             <LebanonFlag className="w-5 h-3.5" />
@@ -821,11 +861,10 @@ export const AccountView: React.FC = () => {
                             type="tel" 
                             inputMode="numeric"
                             autoComplete="tel-national"
-                            maxLength={8}
                             placeholder="70123456"
                             value={profilePhone} 
                             onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '').slice(0, 8);
+                              const val = lebaneseLocalDigits(e.target.value);
                               setProfilePhone(val);
                             }} 
                             className="w-full px-3.5 py-2.5 bg-transparent text-[#171717] text-sm font-medium focus:outline-none" 
@@ -837,12 +876,12 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">City / Region *</label>
-                        <input 
+                        <label htmlFor="profile-city-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'المدينة / المنطقة *' : 'City / Region *'}</label>
+                        <input id="profile-city-input" autoComplete="address-level2" 
                           type="text" 
                           value={profileCity} 
                           onChange={(e) => setProfileCity(e.target.value)} 
-                          placeholder="e.g. Achrafieh, Beirut"
+                          placeholder={language === 'ar' ? 'مثال: الأشرفية، بيروت' : 'e.g. Achrafieh, Beirut'}
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white transition-all" 
                           required 
                         />
@@ -851,23 +890,23 @@ export const AccountView: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Street / Landmark *</label>
-                        <input 
+                        <label htmlFor="profile-street-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'الشارع / نقطة علام معروفة *' : 'Street / Landmark *'}</label>
+                        <input id="profile-street-input" autoComplete="address-line1" 
                           type="text" 
                           value={profileAddress} 
                           onChange={(e) => setProfileAddress(e.target.value)} 
-                          placeholder="Gouraud Street, next to Paul Bakery"
+                          placeholder={language === 'ar' ? 'مثال: شارع غورو، بجانب مخبز بول' : 'Gouraud Street, next to Paul Bakery'}
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white transition-all" 
                           required 
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Building, Floor & Apt *</label>
-                        <input 
+                        <label htmlFor="profile-building-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'المبنى والطابق والشقة *' : 'Building, Floor & Apt *'}</label>
+                        <input id="profile-building-input" autoComplete="address-line2" 
                           type="text" 
                           value={profileBuilding} 
                           onChange={(e) => setProfileBuilding(e.target.value)} 
-                          placeholder="Al-Nour Bldg, 4th Floor, Apt B"
+                          placeholder={language === 'ar' ? 'مثال: بناية النور، الطابق 4، شقة ب' : 'Al-Nour Bldg, 4th Floor, Apt B'}
                           className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white transition-all" 
                           required 
                         />
@@ -875,12 +914,12 @@ export const AccountView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">Delivery Notes & Courier Instructions (Optional)</label>
-                      <input 
+                      <label htmlFor="profile-notes-input" className="block text-[11px] font-bold uppercase tracking-wider text-[#666666] mb-1.5">{language === 'ar' ? 'ملاحظات إضافية للتوصيل (اختياري)' : 'Delivery Notes & Courier Instructions (Optional)'}</label>
+                      <input id="profile-notes-input" autoComplete="off" 
                         type="text" 
                         value={profileNotes} 
                         onChange={(e) => setProfileNotes(e.target.value)} 
-                        placeholder="Call upon arrival, leave with building concierge if not present"
+                        placeholder={language === 'ar' ? 'مثال: اتصل عند الوصول، أو سلّم الطلب لحارس البناية' : 'Call upon arrival, leave with building concierge if not present'}
                         className="w-full px-4 py-2.5 bg-[#F8F8F6] text-[#171717] text-sm font-medium rounded-lg border border-[#E5E5E5] focus:outline-none focus:border-[#B89753] focus:bg-white transition-all" 
                       />
                     </div>
@@ -894,12 +933,12 @@ export const AccountView: React.FC = () => {
                         {isSaving ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin text-[#B89753]" />
-                            <span>Saving...</span>
+                            <span>{language === 'ar' ? 'جارٍ الحفظ...' : 'Saving...'}</span>
                           </>
                         ) : (
                           <>
                             <Save className="w-4 h-4 text-[#B89753]" />
-                            <span>Save Profile Details</span>
+                            <span>{language === 'ar' ? 'حفظ بيانات الملف الشخصي' : 'Save Profile Details'}</span>
                           </>
                         )}
                       </button>

@@ -1,11 +1,17 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useShop } from '../context/ShopContext';
-import { AccountView } from './AccountView';
+import { AccountView, type AccountTabSettings } from './AccountView';
 import { AccountSupportCard } from './AccountSupportCard';
 
 /**
- * Keeps the existing AccountView/authentication implementation intact while
- * applying CMS-owned account controls at the storefront boundary.
+ * Applies the CMS-owned account controls at the storefront boundary: the words
+ * on the three tabs and which of them are shown. The words used to be written
+ * into the page after it was drawn, which replaced React's own text (so a
+ * guest's "Sign In" label was overwritten and the tab was wider than the
+ * scrolling it had been given); AccountView now draws them itself.
+ *
+ * In Arabic the Arabic text is used, else the built-in Arabic: never the
+ * English text of the same label.
  */
 export const AccountViewController: React.FC = () => {
   const { siteContent, language } = useShop();
@@ -16,70 +22,27 @@ export const AccountViewController: React.FC = () => {
     accountProfile: true,
     accountSupportCard: true,
   };
-
   const accountPage = siteContent?.accountPage;
+  const ar = language === 'ar';
 
-  useEffect(() => {
-    const tabConfig = [
-      {
-        id: 'orders',
-        visible: visibility.accountOrders !== false,
-        label: language === 'ar'
-          ? accountPage?.ordersTabLabelArabic || accountPage?.ordersTabLabel || 'سجل الطلبات'
-          : accountPage?.ordersTabLabel || 'My Orders',
-      },
-      {
-        id: 'wishlist',
-        visible: visibility.accountWishlist !== false,
-        label: language === 'ar'
-          ? accountPage?.wishlistTabLabelArabic || accountPage?.wishlistTabLabel || 'المفضلة والمحفوظات'
-          : accountPage?.wishlistTabLabel || 'Saved Favorites',
-      },
-      {
-        id: 'profile',
-        visible: visibility.accountProfile !== false,
-        label: language === 'ar'
-          ? accountPage?.profileTabLabelArabic || accountPage?.profileTabLabel || 'تفاصيل الحساب'
-          : accountPage?.profileTabLabel || 'Profile',
-      },
-    ];
-
-    const buttons = tabConfig.map(config => ({
-      ...config,
-      element: document.getElementById(`tab-${config.id}`) as HTMLButtonElement | null,
-    }));
-
-    buttons.forEach(({ element, visible, label }) => {
-      if (!element) return;
-      element.dataset.cmsVisibilityManaged = 'true';
-      element.style.display = visible ? '' : 'none';
-      const labelSpan = element.querySelector('span:first-of-type');
-      if (labelSpan) labelSpan.textContent = label;
-      element.setAttribute('aria-hidden', visible ? 'false' : 'true');
-      element.tabIndex = visible ? 0 : -1;
-    });
-
-    const visibleButtons = buttons.filter(item => item.element && item.visible);
-    const activeButton = buttons.find(item => item.element?.className.includes('bg-[#171717]'));
-
-    if (activeButton && !activeButton.visible && visibleButtons[0]?.element) {
-      visibleButtons[0].element.click();
-    }
-
-    return () => {
-      buttons.forEach(({ element }) => {
-        if (!element) return;
-        element.style.display = '';
-        element.removeAttribute('aria-hidden');
-        element.removeAttribute('data-cms-visibility-managed');
-        element.tabIndex = 0;
-      });
-    };
-  }, [visibility.accountOrders, visibility.accountWishlist, visibility.accountProfile, accountPage, language]);
+  const tabs: AccountTabSettings = {
+    orders: {
+      visible: visibility.accountOrders !== false,
+      label: ar ? accountPage?.ordersTabLabelArabic || 'سجل الطلبات' : accountPage?.ordersTabLabel || 'My Orders',
+    },
+    wishlist: {
+      visible: visibility.accountWishlist !== false,
+      label: ar ? accountPage?.wishlistTabLabelArabic || 'المفضلة والمحفوظات' : accountPage?.wishlistTabLabel || 'Saved Favorites',
+    },
+    profile: {
+      visible: visibility.accountProfile !== false,
+      label: ar ? accountPage?.profileTabLabelArabic || 'تفاصيل الحساب' : accountPage?.profileTabLabel || 'Profile',
+    },
+  };
 
   return (
     <>
-      <AccountView />
+      <AccountView tabs={tabs} />
       <AccountSupportCard />
     </>
   );
