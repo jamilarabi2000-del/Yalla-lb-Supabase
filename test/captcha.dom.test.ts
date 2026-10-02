@@ -143,6 +143,6 @@ describe('every Supabase Auth call that accepts a token sends one', () => {
   it('the security headers let the Turnstile widget load', () => {
     const csp = fs.readFileSync(path.resolve(process.cwd(), 'vercel.json'), 'utf8');
     expect(csp).toMatch(/script-src 'self' https:\/\/challenges\.cloudflare\.com;/);
-    expect(csp).toMatch(/frame-src https:\/\/challenges\.cloudflare\.com;/);
+    expect(csp).toMatch(/frame-src 'self' https:\/\/challenges\.cloudflare\.com;/);
   });
 });
