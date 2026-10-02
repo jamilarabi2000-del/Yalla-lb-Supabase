@@ -1,10 +1,11 @@
 import { safeExternalUrl } from '../lib/safeUrl';
-import React from 'react';
+import React, { useState } from 'react';
 import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import { CMSCustomBlock } from '../types';
 import { sanitizeRichText } from '../utils/sanitizeRichText';
 import { Sparkles, ArrowRight, EyeOff, Edit3, Trash2 } from 'lucide-react';
+import { CMSConfirmModal } from './admin/cms/CMSConfirmModal';
 
 interface CustomBlocksRendererProps {
   page: 'home' | 'products' | 'checkout' | 'account' | 'product_detail';
@@ -14,6 +15,9 @@ interface CustomBlocksRendererProps {
 
 export const CustomBlocksRenderer: React.FC<CustomBlocksRendererProps> = ({ page, position, onEditBlock }) => {
   const { siteContent, siteContentReady, setActiveTab, setSelectedCategory, isAdminUnlocked, isVisualEditMode, deleteCustomBlock, setCustomBlockToEdit, setIsCustomBlockModalOpen, language } = useShop();
+
+  // Deleting a live block asks first; the delete button sits right beside edit.
+  const [blockToDelete, setBlockToDelete] = useState<CMSCustomBlock | null>(null);
 
   const blocks = (siteContent.customBlocks || [])
     .filter(block => (block.targetPage === 'all' || block.targetPage === page) && block.position === position)
@@ -60,7 +64,7 @@ export const CustomBlocksRenderer: React.FC<CustomBlocksRendererProps> = ({ page
             {isAdminUnlocked && <div className="absolute top-3 right-3 z-20 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-xs">
               {isUnpublished && <span className="flex items-center gap-1 text-rose-400 font-bold text-[10px] uppercase tracking-wider"><EyeOff className="w-3 h-3" />Hidden (Draft)</span>}
               {(Boolean(onEditBlock) || Boolean(setCustomBlockToEdit)) && <button onClick={() => onEditBlock ? onEditBlock(block) : (setCustomBlockToEdit(block), setIsCustomBlockModalOpen(true))} className="text-amber-400 hover:text-amber-300 p-1 hover:bg-white/10 rounded cursor-pointer" title="Edit Div / Block Content"><Edit3 className="w-3.5 h-3.5" /></button>}
-              <button onClick={() => deleteCustomBlock(block.id)} className="text-rose-400 hover:text-rose-300 p-1 hover:bg-white/10 rounded cursor-pointer" title="Delete Custom Block"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button onClick={() => setBlockToDelete(block)} className="text-rose-400 hover:text-rose-300 p-1 hover:bg-white/10 rounded cursor-pointer" title="Delete Custom Block"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>}
 
             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -75,6 +79,23 @@ export const CustomBlocksRenderer: React.FC<CustomBlocksRendererProps> = ({ page
           </div>
         );
       })}
+      {blockToDelete && (
+        <CMSConfirmModal
+          isOpen
+          title="Delete this block?"
+          message={`"${blockToDelete.title || 'Untitled block'}" will be removed from the live storefront. This cannot be undone.`}
+          confirmLabel="Delete block"
+          cancelLabel="Keep block"
+          isDanger
+          onConfirm={() => {
+            const block = blockToDelete;
+            setBlockToDelete(null);
+            // deleteCustomBlock has already told the administrator why when it fails
+            deleteCustomBlock(block.id).catch(() => {});
+          }}
+          onCancel={() => setBlockToDelete(null)}
+        />
+      )}
     </div>
   );
 };

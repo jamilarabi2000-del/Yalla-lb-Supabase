@@ -431,7 +431,28 @@ These reduce blast radius. None of them is an authorization control.
 - **Transport headers** (`vercel.json`, `netlify.toml`): CSP with
   `frame-ancestors 'none'`, `object-src 'none'` and `base-uri 'self'`; HSTS;
   `X-Content-Type-Options`; `X-Frame-Options`; `Referrer-Policy`;
-  `Permissions-Policy`; COOP/CORP.
+  `Permissions-Policy`; COOP/CORP. `script-src` has no `'unsafe-inline'`, so
+  an inline script or a click handler written into markup is refused; do not
+  add one. The one exception to "nothing may be framed" is the CMS preview:
+  a request with `?cmsPreview=1` is sent with `frame-ancestors 'self'` and
+  `X-Frame-Options: SAMEORIGIN` (a second rule in `vercel.json`, matched by a
+  query condition; the rule for every other request has the opposite
+  `missing` condition, so exactly one applies), and every page may frame
+  itself and the Turnstile widget (`frame-src 'self' https://challenges.cloudflare.com`).
+  `test/cmsPreviewFraming.test.ts` keeps the two rules identical apart from
+  those two framing values.
+- **CMS preview messages**: the storefront preview that CMS Studio frames
+  takes its draft from `postMessage`, and preview mode is switched on by a
+  public address, so `src/lib/cmsPreviewMessage.ts` accepts a message only
+  from the window that framed it, from the same origin, in one of two known
+  shapes (a draft object, or `ar`/`en`). A preview opened on its own listens
+  to nothing. Studio posts to its own origin, never `'*'`.
+- **Errors are not hidden**: no handler swallows an error because of the words
+  in its message (an earlier filter hid anything containing "closing",
+  "hidden" or "abort", and stopped every other listener from seeing it).
+  The crash screen's Refresh button is attached with `addEventListener`
+  (`src/lib/crashScreen.ts`), not an inline attribute.
+  `test/errorHandling.dom.test.ts` guards all three.
 - **Rich text**: `src/utils/sanitizeRichText.ts` delegates to DOMPurify with a
   small document-subset allowlist. Hand-rolled parse→strip→re-serialize
   sanitizers are vulnerable to mutation XSS via foreign-content namespace

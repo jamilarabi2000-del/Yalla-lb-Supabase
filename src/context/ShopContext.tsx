@@ -29,6 +29,9 @@ import { applyDiscounts } from '../lib/pricing';
 import { DEFAULT_FREE_DELIVERY_FROM_USD, type FreeDeliveryFrom } from '../lib/delivery';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
 import { readStoredSiteContent } from '../lib/storedSiteContent';
+import { readPreviewMessage } from '../lib/cmsPreviewMessage';
+import { addressWithLanguage, languageFromSearch } from '../lib/urlLanguage';
+import { orderStatusBlock } from '../lib/orderStatus';
 import { LEBANON_REGIONS } from '../data/regions';
 
 import {
@@ -2168,14 +2171,15 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const isCmsPreview = new URLSearchParams(window.location.search).get('cmsPreview') === '1';
-    if (!isCmsPreview) return;
+    // Only a page that CMS Studio framed listens: a preview opened on its own
+    // has no Studio to take drafts from.
+    if (!isCmsPreview || window.parent === window) return;
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'CMS_DRAFT_UPDATE' && event.data.payload) {
-        setSiteContent(event.data.payload);
-      } else if (event.data && event.data.type === 'CMS_LANG_UPDATE' && event.data.payload) {
-        setLanguage(event.data.payload);
-      }
+      const message = readPreviewMessage(event, window.location.origin, window.parent);
+      if (!message) return;
+      if (message.type === 'CMS_DRAFT_UPDATE') setSiteContent(message.payload);
+      else setLanguage(message.payload);
     };
 
     window.addEventListener('message', handleMessage);
@@ -4010,10 +4014,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [language, setLanguageState] = useState<Language>(() => {
     try {
       if (typeof window !== 'undefined') {
-        const urlLang = new URLSearchParams(window.location.search).get('lang');
-        if (urlLang === 'ar' || urlLang === 'en') {
-          return urlLang;
-        }
+        const fromAddress = languageFromSearch(window.location.search);
+        if (fromAddress) return fromAddress;
       }
       const saved = localStorage.getItem('yallalb_language');
       return (saved === 'ar' || saved === 'en') ? saved : 'en';
@@ -4022,17 +4024,24 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  const setLanguage = (lang: Language) => {
+  // Stable on purpose: the page applies a link's ?lang= once, and an effect
+  // that listed a new function after every language change used to apply it
+  // again, undoing the visitor's switch.
+  const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     try {
       const isCmsPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cmsPreview') === '1';
       if (!isCmsPreview) {
         localStorage.setItem('yallalb_language', lang);
+        // Keep a ?lang= in the address in step with the choice, so a reload or
+        // a copied link agrees with the screen.
+        const next = addressWithLanguage(window.location.href, lang);
+        if (next) window.history.replaceState(window.history.state, '', next);
       }
     } catch {}
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
-  };
+  }, []);
 
   useEffect(() => {
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
@@ -4555,9 +4564,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Update order status - persists to public.orders
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     const targetOrder = orders.find(o => o.id === orderId);
-    if (targetOrder && targetOrder.status === 'delivered' && status === 'cancelled') {
-      showToast('Cannot cancel an order that has already been delivered.', 'warning');
-      throw new Error('Cannot cancel a delivered order.');
+    const refusal = targetOrder ? orderStatusBlock(targetOrder.status, status) : null;
+    if (refusal) {
+      showToast(refusal, 'warning');
+      throw new Error(refusal);
     }
 
     dbLogger.logFormInput({

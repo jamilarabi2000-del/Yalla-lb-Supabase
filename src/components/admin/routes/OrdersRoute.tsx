@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { BrandIcon } from '../../ui/BrandIcon';
 import { SearchableSelect } from '../../ui/SearchableSelect';
+import { CMSConfirmModal } from '../cms/CMSConfirmModal';
+import { orderStatusBlock, orderStatusConfirmation } from '../../../lib/orderStatus';
 
 export const OrdersRoute: React.FC = () => {
   const { 
@@ -39,6 +41,27 @@ export const OrdersRoute: React.FC = () => {
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<Order | null>(null);
+
+  // A status change that could be a mis-tap (cancel, deliver, reopen) asks
+  // first; the routine steps go straight through. updateOrderStatus tells the
+  // administrator why when it fails, and the order then keeps its status.
+  const [pendingChange, setPendingChange] = useState<{ order: Order; to: OrderStatus; applied?: () => void } | null>(null);
+  const applyStatus = async (order: Order, to: OrderStatus, applied?: () => void) => {
+    try {
+      await updateOrderStatus(order.id, to);
+      applied?.();
+    } catch {
+      // already reported by updateOrderStatus
+    }
+  };
+  const requestStatus = (order: Order, to: OrderStatus, applied?: () => void) => {
+    if (to === order.status) return;
+    const refusal = orderStatusBlock(order.status, to);
+    if (refusal) { showToast(refusal, 'warning'); return; }
+    if (orderStatusConfirmation(order.id, order.status, to)) setPendingChange({ order, to, applied });
+    else void applyStatus(order, to, applied);
+  };
+  const pendingText = pendingChange ? orderStatusConfirmation(pendingChange.order.id, pendingChange.order.status, pendingChange.to) : null;
 
   const { containerRef: invoiceModalRef } = useDialog({
     isOpen: !!selectedInvoiceOrder,
@@ -204,11 +227,7 @@ export const OrdersRoute: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <SearchableSelect
                           value={order.status}
-                          onChange={async (e) => {
-                            const newStatus = e.target.value as OrderStatus;
-                            await updateOrderStatus(order.id, newStatus);
-                            showToast(`Order #${order.id} updated to ${newStatus}`, 'success');
-                          }}
+                          onChange={(e) => requestStatus(order, e.target.value as OrderStatus)}
                           className={`text-xs font-bold rounded-xl px-2.5 py-1 border cursor-pointer focus:outline-none ${
                             order.status === 'delivered'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -298,10 +317,9 @@ export const OrdersRoute: React.FC = () => {
               <span className="font-bold text-indigo-950">Update Fulfillment Status:</span>
               <SearchableSelect
                 value={selectedInvoiceOrder.status}
-                onChange={async (e) => {
+                onChange={(e) => {
                   const newStatus = e.target.value as OrderStatus;
-                  await updateOrderStatus(selectedInvoiceOrder.id, newStatus);
-                  setSelectedInvoiceOrder({ ...selectedInvoiceOrder, status: newStatus });
+                  requestStatus(selectedInvoiceOrder, newStatus, () => setSelectedInvoiceOrder({ ...selectedInvoiceOrder, status: newStatus }));
                 }}
                 className="bg-white text-xs font-bold text-slate-800 border border-indigo-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
               >
@@ -436,6 +454,23 @@ export const OrdersRoute: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {pendingChange && pendingText && (
+        <CMSConfirmModal
+          isOpen
+          title={pendingText.title}
+          message={pendingText.message}
+          confirmLabel={pendingText.confirmLabel}
+          cancelLabel={pendingText.cancelLabel}
+          isDanger={pendingText.danger}
+          onConfirm={() => {
+            const change = pendingChange;
+            setPendingChange(null);
+            void applyStatus(change.order, change.to, change.applied);
+          }}
+          onCancel={() => setPendingChange(null)}
+        />
       )}
     </div>
   );

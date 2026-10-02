@@ -23,6 +23,7 @@ import { pendingDeepLinkProduct } from './lib/productDeepLink';
 import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { darken, readableTextOn } from './lib/colorContrast';
 import { refreshFailedChunk } from './lib/chunkRecovery';
+import { languageFromSearch } from './lib/urlLanguage';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>): React.LazyExoticComponent<T> {
   return lazy(async () => {
@@ -217,13 +218,19 @@ const MainAppContent: React.FC = () => {
     } catch {}
     try {
       const searchParams = new URLSearchParams(window.location.search);
-      const urlLang = searchParams.get('lang');
-      if (urlLang === 'ar' || urlLang === 'en') setLanguage(urlLang);
       if (searchParams.has('apiKey') && (searchParams.has('oobCode') || searchParams.has('emailSignIn'))) {
         completeEmailLinkSignIn().catch(err => console.warn('[App] Automatic email link sign-in check notice:', err));
       }
     } catch {}
-  }, [setLanguage, completeEmailLinkSignIn]);
+  }, [completeEmailLinkSignIn]);
+
+  // A link's ?lang= chooses the language once, when the page opens. It used to
+  // be applied again whenever the effect above re-ran (the context functions it
+  // listed are new after each language change), which undid every switch.
+  useEffect(() => {
+    const fromAddress = languageFromSearch(window.location.search);
+    if (fromAddress) setLanguage(fromAddress);
+  }, []);
 
   const productsRef = useRef(products);
   productsRef.current = products;

@@ -66,7 +66,7 @@ export const CMSLivePreview: React.FC<CMSLivePreviewProps> = ({
       try {
         iframeRef.current.contentWindow.postMessage(
           { type: 'CMS_DRAFT_UPDATE', payload: formContent },
-          '*'
+          window.location.origin
         );
       } catch (err) {
         console.warn('[CMSLivePreview] postMessage error:', err);
@@ -80,7 +80,7 @@ export const CMSLivePreview: React.FC<CMSLivePreviewProps> = ({
       try {
         iframeRef.current.contentWindow.postMessage(
           { type: 'CMS_LANG_UPDATE', payload: previewLang },
-          '*'
+          window.location.origin
         );
       } catch (err) {
         console.warn('[CMSLivePreview] postMessage error:', err);
@@ -93,11 +93,11 @@ export const CMSLivePreview: React.FC<CMSLivePreviewProps> = ({
       try {
         iframeRef.current.contentWindow.postMessage(
           { type: 'CMS_DRAFT_UPDATE', payload: formContent },
-          '*'
+          window.location.origin
         );
         iframeRef.current.contentWindow.postMessage(
           { type: 'CMS_LANG_UPDATE', payload: previewLang },
-          '*'
+          window.location.origin
         );
       } catch (err) {
         console.warn('[CMSLivePreview] onLoad postMessage error:', err);
