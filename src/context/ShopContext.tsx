@@ -857,15 +857,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasSeededProductsRef = useRef<boolean>(false);
   const hasSeededOrdersRef = useRef<boolean>(false);
 
-  // Verify the database is reachable on boot.
-  useEffect(() => {
-    supabaseAdminService.ping().then((ok) => {
-      if (!ok) {
-        console.error('[ShopContext] Supabase is not reachable. Check the project URL, key and network.');
-      }
-    });
-  }, []);
-
   // UI state
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   const [currency, setCurrency] = useState<Currency>('USD');
@@ -1233,6 +1224,14 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
      * server-side, so these rules are display only, and showing a shopper a
      * discount the server will not honour is worse than showing none.
      */
+    if (!isAdminUser) {
+      // Nothing to ask: a visitor's request could only come back empty, and it
+      // was one of a dozen sent with every page view. An administrator who signs
+      // out is left with none, as before.
+      setDiscountRules(prev => (prev.length === 0 ? prev : []));
+      return;
+    }
+
     let isMounted = true;
 
     supabaseCommerceService
@@ -1584,59 +1583,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isAdminUser, isSellerUser, sellerId]);
 
-  // Real-time product sync. Product creation/update/delete must be reflected in
-  // the admin catalog and storefront without requiring a page reload.
-  useEffect(() => {
-    let isMounted = true;
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const refreshProducts = async () => {
-      try {
-        const fresh = await supabaseCatalogService.fetchProducts({
-          isAdmin: isAdminUser,
-          isSeller: isSellerUser,
-          sellerId,
-        });
-        if (!isMounted) return;
-        const normalized = fresh.map(ensureSellerItemCode);
-        setProducts(normalized);
-        setCatalogStatus('ready');
-        setCatalogError(null);
-        try {
-          writeCatalogCache(CATALOG_CACHE_KEYS.products, (normalized));
-        } catch {}
-      } catch (err) {
-        if (!isMounted) return;
-        console.error('[ShopContext] Product refresh failed:', err);
-        setCatalogStatus('error');
-        setCatalogError(err instanceof Error ? err.message : String(err));
-      }
-    };
-
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(refreshProducts, 250);
-    };
-
-    const channel = supabase
-      .channel('yalla-products')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
-      .subscribe((status: string) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`[ShopContext] Supabase realtime channel for products: ${status}`);
-        }
-      });
-
-    window.addEventListener('yalla-products-changed', scheduleRefresh);
-
-    return () => {
-      isMounted = false;
-      if (refreshTimer) clearTimeout(refreshTimer);
-      window.removeEventListener('yalla-products-changed', scheduleRefresh);
-      supabase.removeChannel(channel);
-    };
-  }, [isAdminUser, isSellerUser, sellerId]);
-
   /**
    * Live category sync from Supabase Realtime.
    *
@@ -1687,33 +1633,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted = false;
       if (refreshTimer) clearTimeout(refreshTimer);
       supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // Real-time regions sync from Supabase
-  useEffect(() => {
-    /**
-     * Delivery regions, from public.regions.
-     *
-     * Replaces an onSnapshot listener over Firestore `site_settings/regions`.
-     * The initial hydration already reads this table; this keeps the separate
-     * refresh so a region edit is picked up without a reload. An empty read is
-     * ignored rather than applied: regions are delivery pricing reference data,
-     * and emptying them would break checkout rather than show an empty shop.
-     */
-    let isMounted = true;
-
-    supabaseCatalogService
-      .fetchRegions()
-      .then((rows) => {
-        if (isMounted && rows.length > 0) setRegions(rows);
-      })
-      .catch((err: unknown) => {
-        console.error('[ShopContext] Failed to load delivery regions:', err);
-      });
-
-    return () => {
-      isMounted = false;
     };
   }, []);
 
@@ -2541,10 +2460,14 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshTimer = setTimeout(refreshCatalog, 400);
     };
 
+    // One channel, one re-read. A second channel on the same table used to run
+    // its own re-read of the whole catalogue for every change, so each order
+    // (which lowers stock) made every open page download the catalogue twice.
+    // Gallery rows (product_images) are not in the realtime publication, so
+    // listening for them never delivered anything.
     const channel = supabase
       .channel('yalla-products-catalog')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_images' }, scheduleRefresh)
       .subscribe((status: string) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           // Not fatal: the catalogue still loads on mount and after each admin
@@ -2554,11 +2477,14 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
+    window.addEventListener('yalla-products-changed', scheduleRefresh);
+
     setIsDbSyncing(false);
 
     return () => {
       isMounted = false;
       if (refreshTimer) clearTimeout(refreshTimer);
+      window.removeEventListener('yalla-products-changed', scheduleRefresh);
       supabase.removeChannel(channel);
     };
   }, [isAdminUser, isSellerUser, sellerId]);
