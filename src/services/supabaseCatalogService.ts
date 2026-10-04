@@ -6,6 +6,7 @@ import {
   Seller,
   TerroirRegion,
 } from '../types';
+import { CATEGORY_COLUMNS, REGION_COLUMNS, SELLER_COLUMNS } from '../lib/earlyRequests';
 
 /**
  * Convert an unknown value to a string array.
@@ -1168,21 +1169,7 @@ export const supabaseCatalogService = {
       error,
     } = await supabase
       .from('categories')
-      .select(`
-        id,
-        name_en,
-        name_ar,
-        icon,
-        description,
-        description_ar,
-        subcategories,
-        banner_url,
-        arabic_keywords,
-        english_keywords,
-        is_published,
-        display_order,
-        free_delivery_lebanon
-      `)
+      .select(CATEGORY_COLUMNS)
       .eq(
         'is_published',
         true,
@@ -1224,26 +1211,7 @@ export const supabaseCatalogService = {
       error,
     } = await supabase
       .from('sellers')
-      .select(`
-        id,
-        seller_code,
-        name_en,
-        name_ar,
-        logo_url,
-        banner_image,
-        bio_en,
-        bio_ar,
-        governorate,
-        district,
-        village,
-        region,
-        contact_phone,
-        craft_category,
-        is_active,
-        has_account,
-        created_at,
-        updated_at
-      `)
+      .select(SELLER_COLUMNS)
       .eq(
         'is_active',
         true,
@@ -1282,16 +1250,7 @@ export const supabaseCatalogService = {
       error,
     } = await supabase
       .from('regions')
-      .select(`
-        id,
-        name_en,
-        name_ar,
-        major_cities,
-        express_available,
-        base_delivery_usd,
-        estimated_time_en,
-        estimated_time_ar
-      `)
+      .select(REGION_COLUMNS)
       .order(
         'name_en',
         {

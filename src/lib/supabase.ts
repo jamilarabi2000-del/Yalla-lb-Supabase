@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { fetchWithEarlyAnswers } from './earlyFetch';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabasePublishableKey =
@@ -19,10 +20,15 @@ if (!supabaseUrl || !supabasePublishableKey) {
   );
 }
 
+const clientKey = supabasePublishableKey || 'development-publishable-key';
+
 const supabaseClient = createClient(
   supabaseUrl || 'http://127.0.0.1:54321',
-  supabasePublishableKey || 'development-publishable-key',
+  clientKey,
   {
+    // A signed-out visitor's first reads were started from the page's <head> (src/early.ts);
+    // this hands the app those answers instead of asking the server again.
+    global: { fetch: fetchWithEarlyAnswers((input, init) => fetch(input, init), clientKey) },
     auth: {
       persistSession: true,
       autoRefreshToken: true,

@@ -164,11 +164,15 @@ describe('storage and wiring', () => {
   const svc = stripTs(read('src/services/supabaseCmsService.ts'));
 
   it('keeps text styles in their own row, which the CMS form never saves over', () => {
-    expect(svc).toMatch(/const TEXT_RULES_ROW = 'text_styles';/);
+    // The two row names live in one small shared file (the page's first reads are started from it too).
+    const rows = stripTs(read('src/lib/earlyRequests.ts'));
+    expect(rows).toMatch(/export const TEXT_RULES_ROW = 'text_styles';/);
+    expect(rows).toMatch(/export const SITE_CONTENT_ROW = 'main';/);
+    expect(svc).toMatch(/import \{ SITE_CONTENT_ROW, TEXT_RULES_ROW \} from '\.\.\/lib\/earlyRequests';/);
     const fetch = svc.slice(svc.indexOf('async fetchTextRules'), svc.indexOf('async updateTextRules'));
     expect(fetch).toMatch(/\.eq\('id', TEXT_RULES_ROW\)\s*\.eq\('published', true\)/);
     // Every read of the main document names its row, so a second row cannot be mistaken for it.
-    expect(svc.match(/from\('cms_site_content'\)[^;]*?\.eq\('id', 'main'\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(svc.match(/from\('cms_site_content'\)[^;]*?\.eq\('id', (?:'main'|SITE_CONTENT_ROW)\)/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it('re-reads before writing and fails loudly when RLS filters the save', () => {

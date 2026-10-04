@@ -182,7 +182,7 @@ describe('the preload of the font every page draws at once', () => {
   });
 
   it('is part of the build, and leaves the page alone when there is nothing to add', () => {
-    expect(read('vite.config.ts')).toMatch(/plugins: \[react\(\), tailwindcss\(\), fontPreload\(\)\]/);
+    expect(read('vite.config.ts')).toMatch(/plugins: \[[^\]]*\bfontPreload\(\)[^\]]*\]/);
     const plugin = fontPreload() as any;
     expect(plugin.apply).toBe('build');
     expect(plugin.transformIndexHtml.order).toBe('post');

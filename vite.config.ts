@@ -3,9 +3,10 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
 import { fontPreload } from './scripts/fontPreload.mjs';
+import { earlyScript } from './scripts/earlyScript.mjs';
 
 export default defineConfig(() => ({
-  plugins: [react(), tailwindcss(), fontPreload()],
+  plugins: [react(), tailwindcss(), fontPreload(), earlyScript()],
   resolve: { alias: { '@': path.resolve(__dirname, '.') } },
   server: {
     port: 3000,

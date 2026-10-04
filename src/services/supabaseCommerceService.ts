@@ -7,7 +7,8 @@ import {
 } from '../lib/delivery';
 
 /** The app_settings row private.lebanon_free_delivery_applies() reads. */
-export const FREE_DELIVERY_SETTING_KEY = 'lebanon_free_delivery_from_usd';
+import { FREE_DELIVERY_SETTING_KEY } from '../lib/earlyRequests';
+export { FREE_DELIVERY_SETTING_KEY };
 
 /**
  * Storage shape for a discount rule.

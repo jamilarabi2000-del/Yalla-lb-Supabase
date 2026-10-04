@@ -3,7 +3,7 @@ import { CMSCustomBlock, SiteContent } from '../types';
 import { DEFAULT_SITE_CONTENT } from '../data/cmsContent';
 import { parseTextRules, type TextRuleMap } from '../lib/textStyleRules';
 
-const TEXT_RULES_ROW = 'text_styles';
+import { SITE_CONTENT_ROW, TEXT_RULES_ROW } from '../lib/earlyRequests';
 
 type CmsBlockRecord = CMSCustomBlock & {
   contentType?: 'text' | 'image' | 'product' | 'mixed' | 'empty';
@@ -65,7 +65,7 @@ export const supabaseCmsService = {
   },
 
   async fetchSiteContent(): Promise<SiteContent> {
-    const { data, error } = await supabase.from('cms_site_content').select(PUBLIC_SITE_CONTENT_SELECT).eq('id', 'main').eq('published', true).maybeSingle();
+    const { data, error } = await supabase.from('cms_site_content').select(PUBLIC_SITE_CONTENT_SELECT).eq('id', SITE_CONTENT_ROW).eq('published', true).maybeSingle();
     if (error) throw error;
     if (!data?.content) throw new Error('Published CMS content is not available.');
     return { ...DEFAULT_SITE_CONTENT, ...data.content, customBlocks: Array.isArray(data.content.customBlocks) ? data.content.customBlocks : [] };

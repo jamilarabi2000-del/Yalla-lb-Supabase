@@ -543,3 +543,24 @@ The Content-Security-Policy in `vercel.json` (both header rules) no longer allow
 `style-src` or `fonts.gstatic.com` in `font-src`: a font or stylesheet from there would now be refused. The fonts
 are under the SIL Open Font License; the licence texts are kept in `src/assets/fonts/licenses`.
 `test/selfHostedFonts.test.ts` fails if a Google font host comes back into the page, the policy or the source.
+
+## The first reads start from the page's head (Bundle 4e)
+
+A small script, `src/early.ts` (a file of its own in the build, added to the page ahead of the app's code by
+`scripts/earlyScript.mjs`), starts the nine reads a signed-out visitor's page makes as it starts (settings, products,
+categories, regions and so on) while the app is still downloading. The Supabase client then hands those answers to the
+app (`src/lib/earlyFetch.ts`) instead of asking again. What this does and does not change:
+
+- **No new access.** Each read is a GET to the same Supabase REST address, with the same public (publishable) key, that
+  the app already makes; row-level security answers it exactly as before. No token, secret or personal data is involved.
+- **Signed-out visitors only, and only for the same request.** Nothing is started when the browser holds a session. An
+  early answer is used only for a request with the very same address, a GET, the public key as its only credential and no
+  header that could change the answer; only once; and only within 15 seconds. Any other request, and any early read that
+  failed or was refused, goes to the server as it always did and reports whatever the server says.
+- **The Content-Security-Policy is unchanged.** The script is a file of this site (`script-src 'self'`, no inline script),
+  `connect-src` already allows the Supabase project, and `img-src` already allows https pictures. On phones the script
+  also adds a `<link rel="preload" as="image">` for the banner's first picture, taken from the page's settings and only
+  if it is an `https` address; desktop screens, videos and any other kind of address get none.
+- **Tests.** `test/earlyRequests.test.ts` runs the real services and fails if a read they make differs from the list
+  the script starts; `test/earlyHero.dom.test.tsx` renders the real banner and fails if the preload names a different
+  picture than the banner asks for; `test/entryChunk.test.ts` builds the app and keeps the script small.
