@@ -533,3 +533,13 @@ These reduce blast radius. None of them is an authorization control.
 
 Report suspected vulnerabilities privately to the repository owner. Please do
 not open a public issue.
+
+## Fonts are served from this site (Bundle 4c)
+
+The six font families (Plus Jakarta Sans, Playfair Display, Inter, Tajawal, Cairo, Amiri) used to load from
+Google's font servers. They are now files in `src/assets/fonts` declared in `src/fonts.css`, under their original
+family names, so the page makes no request to a third-party font host and no visitor address is sent to one.
+The Content-Security-Policy in `vercel.json` (both header rules) no longer allows `fonts.googleapis.com` in
+`style-src` or `fonts.gstatic.com` in `font-src`: a font or stylesheet from there would now be refused. The fonts
+are under the SIL Open Font License; the licence texts are kept in `src/assets/fonts/licenses`.
+`test/selfHostedFonts.test.ts` fails if a Google font host comes back into the page, the policy or the source.

@@ -45,7 +45,7 @@ export const TEXT_STYLE_PROPS: TextStyleProp[] = [
 /** How far a text may be nudged from where the page puts it, each way. */
 export const MAX_NUDGE_PX = 300;
 
-/** The six families index.html loads; anything else would silently fall back. */
+/** The six families src/fonts.css serves; anything else would silently fall back. */
 export const TEXT_FONTS = [
   { label: 'Plus Jakarta Sans', value: '"Plus Jakarta Sans", sans-serif' },
   { label: 'Playfair Display', value: '"Playfair Display", serif' },
