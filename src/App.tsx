@@ -2,20 +2,12 @@ import React, { useEffect, useRef, useState, Suspense, lazy } from 'react';
 import { ShopProvider, useShop } from './context/ShopContext';
 import { Navbar } from './components/Navbar';
 import { HomeView } from './components/HomeView';
-import { ProductsView } from './components/ProductsView';
-import { FavoritesView } from './components/FavoritesView';
 import { AdminErrorBoundary } from './components/AdminErrorBoundary';
 import { StorefrontErrorBoundary } from './components/StorefrontErrorBoundary';
 import { AdminSessionGate } from './components/AdminSessionGate';
-import { ProductDetailView } from './components/ProductDetailView';
-import { ProductModal } from './components/ProductModal';
-import { CartDrawer } from './components/CartDrawer';
-import { RequiredDetailsPrompt } from './components/RequiredDetailsPrompt';
-import { NewPasswordPrompt } from './components/NewPasswordPrompt';
 import { Footer } from './components/Footer';
 import { FooterQuickLinks } from './components/FooterQuickLinks';
 import { TextStyleLayer } from './components/TextStyleLayer';
-import { CustomBlockModal } from './components/CustomBlockModal';
 import { syncDomHead } from './utils/domHeadSync';
 import { currentDesignSelector } from './lib/designSelectors';
 import { isAdminEntryPath, rememberAdminEntry, rememberedAdminEntry } from './lib/adminEntry';
@@ -25,6 +17,7 @@ import { ToastHost } from './components/ToastHost';
 import { darken, readableTextOn } from './lib/colorContrast';
 import { refreshFailedChunk } from './lib/chunkRecovery';
 import { languageFromSearch } from './lib/urlLanguage';
+import { pageForPath, warmChunksWhenIdle } from './lib/warmChunks';
 
 function lazyWithRetry<T extends React.ComponentType<any>>(factory: () => Promise<any>): React.LazyExoticComponent<T> {
   return lazy(async () => {
@@ -64,6 +57,41 @@ const AdminGuard = lazyWithRetry(() => import('./components/AdminGuard').then(m 
 const AdminQuickEditor = lazyWithRetry(() => import('./components/AdminQuickEditor').then(m => ({ default: m.AdminQuickEditor })));
 const AdminView = lazyWithRetry(() => import('./components/AdminView'));
 
+// The catalogue, a product's page and the favourites are opened from the home page
+// or by a shared link; the cart, the quick view and the two prompts are drawn only
+// when something opens them. None of them is needed to draw the first page, so none
+// is in the first download. The loaders are named so the same file can be fetched
+// ahead of time (see warmChunksWhenIdle below) and by a shared link (pageForPath).
+const loadProductsView = () => import('./components/ProductsView').then(m => ({ default: m.ProductsView }));
+const loadProductDetailView = () => import('./components/ProductDetailView').then(m => ({ default: m.ProductDetailView }));
+const loadFavoritesView = () => import('./components/FavoritesView').then(m => ({ default: m.FavoritesView }));
+const loadProductModal = () => import('./components/ProductModal').then(m => ({ default: m.ProductModal }));
+const loadCartDrawer = () => import('./components/CartDrawer').then(m => ({ default: m.CartDrawer }));
+const loadRequiredDetailsPrompt = () => import('./components/RequiredDetailsPrompt').then(m => ({ default: m.RequiredDetailsPrompt }));
+const loadNewPasswordPrompt = () => import('./components/NewPasswordPrompt').then(m => ({ default: m.NewPasswordPrompt }));
+const loadCustomBlockModal = () => import('./components/CustomBlockModal').then(m => ({ default: m.CustomBlockModal }));
+const ProductsView = lazyWithRetry(loadProductsView);
+const ProductDetailView = lazyWithRetry(loadProductDetailView);
+const FavoritesView = lazyWithRetry(loadFavoritesView);
+const ProductModal = lazyWithRetry(loadProductModal);
+const CartDrawer = lazyWithRetry(loadCartDrawer);
+const RequiredDetailsPrompt = lazyWithRetry(loadRequiredDetailsPrompt);
+const NewPasswordPrompt = lazyWithRetry(loadNewPasswordPrompt);
+const CustomBlockModal = lazyWithRetry(loadCustomBlockModal);
+
+// A shared link opens straight on its page: fetch that page's code now, alongside the
+// app starting, instead of after the first render finds out it needs it.
+if (typeof window !== 'undefined') {
+  const page = pageForPath(window.location.pathname);
+  if (page === 'product') void loadProductDetailView().catch(() => {});
+  else if (page === 'products') void loadProductsView().catch(() => {});
+  else if (page === 'favorites') void loadFavoritesView().catch(() => {});
+}
+
+const PageLoading: React.FC = () => (
+  <div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>
+);
+
 const MainAppContent: React.FC = () => {
   const {
     activeTab,
@@ -88,7 +116,11 @@ const MainAppContent: React.FC = () => {
     setLanguage,
     searchQuery,
     setSearchQuery,
-    completeEmailLinkSignIn
+    completeEmailLinkSignIn,
+    selectedProductForModal,
+    isCartOpen,
+    authUser,
+    passwordRecoveryPending
   } = useShop();
   const isPopStateRef = useRef(false);
   // Set once this visit arrives at the private console address. The console
@@ -112,6 +144,13 @@ const MainAppContent: React.FC = () => {
   useEffect(() => {
     syncDomHead(siteContent, language);
   }, [siteContent, siteContent?.seo, siteContent?.navbar, language]);
+
+  // Once the page has finished loading, fetch the code for the cart, the quick view and
+  // the pages a visitor is likely to open next, so the first click does not wait for it.
+  useEffect(
+    () => warmChunksWhenIdle([loadCartDrawer, loadProductModal, loadProductDetailView, loadProductsView, loadFavoritesView]),
+    [],
+  );
 
   useEffect(() => {
     if (!siteContent?.theme) return;
@@ -378,22 +417,22 @@ const MainAppContent: React.FC = () => {
         ) : (
           <>
             {activeTab === 'home' && <HomeView />}
-            {activeTab === 'products' && <ProductsView />}
-            {activeTab === 'product_detail' && <ProductDetailView />}
+            {activeTab === 'products' && <Suspense fallback={<PageLoading />}><ProductsView /></Suspense>}
+            {activeTab === 'product_detail' && <Suspense fallback={<PageLoading />}><ProductDetailView /></Suspense>}
             {activeTab === 'checkout' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><CheckoutView /></Suspense>}
             {activeTab === 'account' && <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center bg-[#F7F7F8]"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AccountViewController /></Suspense>}
-            {activeTab === 'favorites' && <FavoritesView />}
+            {activeTab === 'favorites' && <Suspense fallback={<PageLoading />}><FavoritesView /></Suspense>}
             {adminOpen && <AdminErrorBoundary><AdminSessionGate><Suspense fallback={<div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#B89753]" /></div>}><AdminGuard><AdminView /></AdminGuard></Suspense></AdminSessionGate></AdminErrorBoundary>}
           </>
         )}
       </main>
-      <ProductModal />
-      <CartDrawer />
-      {!adminOpen && <RequiredDetailsPrompt />}
-      <NewPasswordPrompt />
+      {selectedProductForModal && <Suspense fallback={null}><ProductModal /></Suspense>}
+      {isCartOpen && <Suspense fallback={null}><CartDrawer /></Suspense>}
+      {!adminOpen && authUser?.uid && <Suspense fallback={null}><RequiredDetailsPrompt /></Suspense>}
+      {authUser?.uid && passwordRecoveryPending && <Suspense fallback={null}><NewPasswordPrompt /></Suspense>}
       <TextStyleLayer page={activeTab} enabled={!adminOpen} />
       {isAdminUser && <Suspense fallback={null}><AdminQuickEditor onOpenCustomBlockModal={(block: any) => { setCustomBlockToEdit(block || null); setIsCustomBlockModalOpen(true); }} /></Suspense>}
-      <CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} />
+      {isCustomBlockModalOpen && <Suspense fallback={null}><CustomBlockModal isOpen={isCustomBlockModalOpen} onClose={() => setIsCustomBlockModalOpen(false)} blockToEdit={customBlockToEdit} /></Suspense>}
       <ToastHost toast={toast} onDismiss={dismissToast} language={language} />
       {!adminOpen && <><FooterQuickLinks /><Footer /></>}
     </div>

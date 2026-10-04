@@ -66,8 +66,8 @@ const { ShopProvider, useShop } = await import('../src/context/ShopContext');
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const seen: { rules: unknown[] } = { rules: [] };
-const Probe: React.FC = () => { seen.rules = useShop().discountRules; return null; };
+const seen: { rules: unknown[]; bulkImport: ((check: any) => Promise<{ created: number; updated: number; errors: string[] }>) | null } = { rules: [], bulkImport: null };
+const Probe: React.FC = () => { const shop = useShop(); seen.rules = shop.discountRules; seen.bulkImport = shop.bulkImportProducts; return null; };
 
 let host: HTMLDivElement;
 let root: Root;
@@ -80,7 +80,7 @@ const readsOf = (table: string) => rec.reads.filter(r => r.table === table);
 const channelsOn = (table: string) => rec.channels.filter(c => c.tables.includes(table));
 
 beforeEach(() => {
-  rec.reads.length = 0; rec.rpcs.length = 0; rec.channels.length = 0; rec.removed = 0; rec.session = null; rec.rows = {}; rec.authCallbacks.length = 0; rec.listeners.length = 0; seen.rules = [];
+  rec.reads.length = 0; rec.rpcs.length = 0; rec.channels.length = 0; rec.removed = 0; rec.session = null; rec.rows = {}; rec.authCallbacks.length = 0; rec.listeners.length = 0; seen.rules = []; seen.bulkImport = null;
   try { localStorage.clear(); sessionStorage.clear(); } catch {}
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -191,5 +191,21 @@ describe('an administrator', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
     expect(seen.rules).toHaveLength(0);
     expect(readsOf('discount_rules')).toHaveLength(readsWhileAdmin);
+  });
+});
+
+describe('the bulk product importer', () => {
+  // It and its CSV reader are only for the administrator's bulk upload, so they are
+  // fetched when one is run instead of being in every page's first download.
+  const check = (ready: boolean) => ({ ready, rows: [], fileErrors: ready ? [] : ['The file has problems'], counts: { create: 0, update: 0, unchanged: 0, invalid: 0 } });
+
+  it('is fetched when an import is run, and refuses a file that has problems', async () => {
+    await mount();
+    await expect(seen.bulkImport!(check(false))).rejects.toThrow('The file has problems; nothing was imported.');
+  });
+
+  it('imports a file that is ready, which with nothing to write is nothing created or updated', async () => {
+    await mount();
+    await expect(seen.bulkImport!(check(true))).resolves.toEqual({ created: 0, updated: 0, errors: [] });
   });
 });

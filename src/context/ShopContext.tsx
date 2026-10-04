@@ -96,7 +96,7 @@ import {
 } from '../lib/searchLogQueue';
 import { supabaseProductPatchService } from '../services/supabaseProductPatchService';
 import { supabaseProductService } from '../services/supabaseProductService';
-import { importTemplateRows, type TemplateCheck } from '../lib/productTemplate';
+import type { TemplateCheck } from '../lib/productTemplate';
 import { supabaseCommerceService } from '../services/supabaseCommerceService';
 
 import {
@@ -2070,6 +2070,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     check: TemplateCheck,
     onProgress?: (done: number, total: number) => void
   ): Promise<{ created: number; updated: number; errors: string[] }> => {
+    // The importer and its CSV reader are only for the administrator's bulk upload, so
+    // they are fetched when one is run, not with every page.
+    const { importTemplateRows } = await import('../lib/productTemplate');
     const result = await importTemplateRows(check, {
       create: input => supabaseProductService.createProduct(input),
       update: (productId, update) => supabaseProductPatchService.patchProduct(productId, update),

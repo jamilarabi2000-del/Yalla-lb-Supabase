@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { responsiveImage } from '../lib/responsiveImage';
 import { useShop } from '../context/ShopContext';
 import { CMSCustomBlock } from '../types';
-import { sanitizeRichText } from '../utils/sanitizeRichText';
+import { RichText } from '../lib/richText';
 import { Sparkles, ArrowRight, EyeOff, Edit3, Trash2 } from 'lucide-react';
 import { CMSConfirmModal } from './admin/cms/CMSConfirmModal';
 
@@ -72,7 +72,7 @@ export const CustomBlocksRenderer: React.FC<CustomBlocksRendererProps> = ({ page
                 {block.badge && <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#b89753]/20 text-[#d4af37] border border-[#b89753]/30"><Sparkles className="w-3 h-3" />{block.badge}</span>}
                 <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-sans">{block.title}</h3>
                 {block.subtitle && <p className="text-sm font-medium text-slate-300">{block.subtitle}</p>}
-                {block.content && <div className="text-xs sm:text-sm text-slate-600 leading-relaxed font-light prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichText(block.content) }} />}
+                {block.content && <RichText source={block.content} className="text-xs sm:text-sm text-slate-600 leading-relaxed font-light prose prose-invert max-w-none" />}
               </div>
               {(block.buttonText || block.buttonTextArabic) && <div className="flex-shrink-0"><button onClick={() => handleAction(block.buttonUrl)} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#b89753] to-[#8c6d2d] hover:from-[#c5a059] hover:to-[#9e7b34] text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"><span>{language === 'ar' ? (block.buttonTextArabic || block.buttonText) : (block.buttonText || block.buttonTextArabic)}</span><ArrowRight className={`w-4 h-4 ${language === 'ar' ? 'rotate-180' : ''}`} /></button></div>}
             </div>
