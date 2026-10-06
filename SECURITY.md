@@ -564,3 +564,34 @@ app (`src/lib/earlyFetch.ts`) instead of asking again. What this does and does n
 - **Tests.** `test/earlyRequests.test.ts` runs the real services and fails if a read they make differs from the list
   the script starts; `test/earlyHero.dom.test.tsx` renders the real banner and fails if the preload names a different
   picture than the banner asks for; `test/entryChunk.test.ts` builds the app and keeps the script small.
+
+## Database hardening and pinned CI (Build 3)
+
+Four migrations, written and tested on the branch and **not applied to the project until the owner approves
+them separately** (procedure, preflight, dry run and rollbacks: `supabase/rollbacks/README.md`). They wait in
+`supabase/pending/`, not `supabase/migrations/`, so that a merge to `main` cannot apply them through the Supabase
+GitHub integration:
+
+- **Admin deletes work again, and only for verified administrators.** `private.admin_delete_category` and
+  `private.admin_delete_seller` get EXECUTE for `authenticated`; the decision stays in the functions, which call
+  `private.is_admin_verified()` first. The migration proves, before keeping the grant, that each function refuses
+  a signed-in non-administrator, and stops otherwise.
+- **`phone_registry` is written only by its trigger.** Browser roles lose INSERT/UPDATE/DELETE and every
+  write-capable policy; a signed-in user can still read their own row. The SECURITY DEFINER sync trigger keeps
+  the one-account-per-number rule as before.
+- **Fewer leftover grants.** MAINTAIN (PostgreSQL 17) for anon/authenticated; SELECT for anon on `coupons`,
+  `discount_rules`, `search_logs`, `seller_applications`; UPDATE/DELETE for browsers on `admin_activities`.
+  Before revoking anon's SELECT the migration checks that no insert trigger reads the table as the caller,
+  and repeats an anonymous insert to prove it still works.
+- **Size caps on anonymous writes:** a logged search at most 200 characters (the storefront cuts to that before
+  logging), a seller application at most 16 kB; `NOT VALID`, so existing rows are untouched.
+- **Still open:** the anonymous-insert rate limiter trusts the first `x-forwarded-for` address and skips signed-in
+  callers. It exists only in the live project and is to be rewritten from its live source (see the README).
+
+`test/db/hardening.db.test.ts` runs every migration, its refusals and its rollback in a scratch PostgreSQL
+(`scripts/db/scratchPostgres.mjs`); CI installs the server programs if needed and fails rather than skip.
+
+**CI:** every GitHub Action is pinned to a full commit SHA with its version in a comment, and the Supabase CLI to a
+named release instead of `latest`; Dependabot proposes updates weekly. `test/ciHygiene.test.ts` fails if an
+unpinned action or `version: latest` comes back. `npm audit`: DOMPurify 3.4.16 and source-map-js 1.2.2
+(the DOMPurify advisories concern its IN_PLACE mode, which this app does not use).

@@ -16,10 +16,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -30,7 +30,21 @@ jobs:
       - name: Type check
         run: npm run lint
 
+      # The database migration tests run the migrations for real in a throw-away PostgreSQL
+      # (test/db/hardening.db.test.ts). The runner image normally has the server programs; install them if not,
+      # and tell the tests they are required so a missing server fails the job instead of skipping the tests.
+      - name: PostgreSQL programs for the migration tests
+        run: |
+          set -euo pipefail
+          if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends postgresql
+          fi
+          ls /usr/lib/postgresql/*/bin/initdb
+
       - name: Unit and security tests
+        env:
+          REQUIRE_SCRATCH_POSTGRES: '1'
         run: npm test
 
       - name: Production build
