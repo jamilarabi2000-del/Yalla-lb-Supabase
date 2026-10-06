@@ -33,9 +33,10 @@ import { readPreviewMessage } from '../lib/cmsPreviewMessage';
 import { addressWithLanguage, languageFromSearch } from '../lib/urlLanguage';
 import { orderStatusBlock } from '../lib/orderStatus';
 import {
-  accountCreatedMessage, addedToCartMessage, detailsNotSavedMessage, providerSignInFailedMessage, redirectingToProviderMessage,
-  removedFromCartMessage, signedInMessage, signedOutHereMessage, signedOutMessage, verificationEmailFailedMessage,
+  accountCreatedMessage, addedLimitedMessage, addedToCartMessage, allInBasketMessage, detailsNotSavedMessage, providerSignInFailedMessage,
+  redirectingToProviderMessage, removedFromCartMessage, signedInMessage, signedOutHereMessage, signedOutMessage, verificationEmailFailedMessage,
 } from '../lib/shopperMessages';
+import { planAdd, quantityInBasket, stockOf, type AddPlan } from '../lib/cartQuantity';
 import { LEBANON_REGIONS } from '../data/regions';
 
 import {
@@ -437,11 +438,12 @@ interface ShopContextType {
 
   // Cart
   cart: CartItem[];
+  /** Adds up to the stock that is left, tells the shopper what happened (once), and returns that outcome. */
   addToCart: (
     product: Product,
     quantity?: number,
     option?: string
-  ) => void;
+  ) => AddPlan;
   addMultipleToCart: (
     items: {
       product: Product;
@@ -4086,59 +4088,44 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const formatPrice = (amountUSD: number) => `$${amountUSD.toFixed(2)}`;
 
-  const addToCart = (product: Product, quantity = 1, option?: string) => {
-    // Determine the product from our master products list to get the most up-to-date stock
+  /**
+   * Puts a product in the basket, never more than is in stock, and tells the shopper what actually
+   * happened, once. It used to show the stock warning from inside the state update and then a second
+   * message that claimed the whole requested quantity, which replaced it: asking for 3 of a product with
+   * 1 in stock said "Added 3x" and put 1 in the basket.
+   *
+   * What the message says is worked out from the basket as it is now. The state change then checks again
+   * against the basket it is applied to, so the stored line is right whatever else was added meanwhile,
+   * and it has no side effects of its own (React may run it twice). The outcome is returned so a caller
+   * can act on it, for example Quick View closing only when something went in.
+   */
+  const addToCart = (product: Product, quantity = 1, option?: string): AddPlan => {
+    // The product list holds the latest stock; the object the caller passed may be older.
     const currentProduct = products.find(p => p.id === product.id) || product;
-    const availableStock = Number.isFinite(Number(currentProduct.stock)) ? Math.max(0, Math.floor(Number(currentProduct.stock))) : 0;
-    
-    if (availableStock <= 0) {
-      showToast(
-        language === 'ar'
-          ? 'عذراً، هذا المنتج غير متوفر حالياً'
-          : 'Sorry, this product is currently out of stock!',
-        'warning'
-      );
-      return;
+    const stock = stockOf(currentProduct);
+    const plan = planAdd(stock, quantityInBasket(cart, product.id, option), quantity);
+
+    if (plan.status !== 'out-of-stock') {
+      setCart(prev => {
+        const index = prev.findIndex(item => item.product.id === product.id && item.selectedOption === option);
+        const have = index > -1 ? prev[index].quantity : 0;
+        const { total } = planAdd(stock, have, quantity);
+        if (index === -1) return [...prev, { product: currentProduct, quantity: total, selectedOption: option }];
+        if (total === have) return prev;
+        return prev.map((item, i) => (i === index ? { ...item, quantity: total } : item));
+      });
     }
 
-    setCart(prev => {
-      const existingIndex = prev.findIndex(item => item.product.id === product.id && item.selectedOption === option);
-      if (existingIndex > -1) {
-        const existingQty = prev[existingIndex].quantity;
-        const targetQty = existingQty + quantity;
-        if (targetQty > availableStock) {
-          const clampedQty = availableStock;
-          showToast(
-            language === 'ar'
-              ? `تم تحديد الكمية بـ ${clampedQty} (الحد الأقصى للمخزون)`
-              : `Quantity limited to ${clampedQty} (maximum stock available)`,
-            'warning'
-          );
-          return prev.map((item, idx) =>
-            idx === existingIndex
-              ? { ...item, quantity: clampedQty }
-              : item
-          );
-        }
-        return prev.map((item, idx) =>
-          idx === existingIndex
-            ? { ...item, quantity: targetQty }
-            : item
-        );
-      }
-      
-      const initialQty = quantity > availableStock ? availableStock : quantity;
-      if (initialQty < quantity) {
-        showToast(
-          language === 'ar'
-            ? `تمت إضافة ${initialQty} قطع فقط (الحد الأقصى للمخزون)`
-            : `Added only ${initialQty} items due to stock limit`,
-          'warning'
-        );
-      }
-      return [...prev, { product: currentProduct, quantity: initialQty, selectedOption: option }];
-    });
-    showToast(addedToCartMessage(product, quantity, language));
+    if (plan.status === 'out-of-stock') {
+      showToast(language === 'ar' ? 'عذراً، هذا المنتج غير متوفر حالياً' : 'Sorry, this product is currently out of stock!', 'warning');
+    } else if (plan.status === 'at-limit') {
+      showToast(allInBasketMessage(currentProduct, plan.stock, language), 'warning');
+    } else if (plan.status === 'limited') {
+      showToast(addedLimitedMessage(currentProduct, plan.added, plan.stock, plan.total, language), 'warning');
+    } else {
+      showToast(addedToCartMessage(currentProduct, plan.added, language));
+    }
+    return plan;
   };
 
   const addMultipleToCart = (itemsToAdd: { product: Product; quantity?: number; option?: string }[]) => {

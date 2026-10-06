@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight, ShoppingBag, Heart, Truck, Minus, Plus, ShieldCh
 import { BrandIcon } from './ui/BrandIcon';
 import { Ltr } from './ui/Ltr';
 import { useShop } from '../context/ShopContext';
+import { quantityInBasket, remainingStock, stockOf } from '../lib/cartQuantity';
+import { stockNoteMessage } from '../lib/shopperMessages';
 import { ProductCard } from './ProductCard';
 import { ProductReviews } from './ProductReviews';
 
@@ -39,17 +41,30 @@ export const ProductDetailView: React.FC = () => {
   const displayName = isRTL ? p.arabicName || p.name : p.name;
   const price = shop.formatPrice?.(p.priceUSD) || '$' + p.priceUSD;
   const originalPrice = p.originalPriceUSD ? (shop.formatPrice?.(p.originalPriceUSD) || '$' + p.originalPriceUSD) : null;
-  const inStock = Number(p.stock || 0) > 0;
+  // This page is opened with a snapshot of the product; the list holds the latest stock, which is what the basket checks.
+  const stock = stockOf(((shop.products || []) as any[]).find(x => x.id === p.id) || p);
+  const inStock = stock > 0;
+  const inBasket = quantityInBasket((shop.cart || []) as any[], p.id);
+  const remaining = remainingStock(stock, inBasket);
   // Its category ships free across Lebanon (Categories & Details).
   const shipsFreeInLebanon = ((shop.categories || []) as any[]).some(c => c.id === p.category && c.freeDeliveryLebanon === true);
-  const maxQty = Math.max(1, Number(p.stock || 1));
+  // Never more than can still be added, so the number the shopper picks is the number the basket gets.
+  const maxQty = Math.max(1, remaining);
+  const chosenQty = Math.min(Math.max(1, qty), maxQty);
+  // The stock line above already says how many there are; this only speaks once some are in the basket.
+  const basketNote = inBasket > 0 ? stockNoteMessage(stock, inBasket, language) : null;
   const discount = p.discountPercentage || (p.originalPriceUSD && p.priceUSD < p.originalPriceUSD ? Math.round((1 - p.priceUSD / p.originalPriceUSD) * 100) : 0);
 
   const add = () => {
-    if (!inStock) return;
-    if (typeof shop.addToCart === 'function') shop.addToCart(p, qty);
-    else if (typeof shop.addToCartItem === 'function') shop.addToCartItem({ product: p, quantity: qty });
-    shop.showToast?.(isRTL ? 'تمت الإضافة إلى السلة' : 'Added to cart', 'success');
+    if (remaining <= 0) return;
+    if (typeof shop.addToCart === 'function') {
+      // addToCart tells the shopper what went in, and why not more if that is the case.
+      if (shop.addToCart(p, chosenQty)?.added > 0) setQty(1);
+    } else if (typeof shop.addToCartItem === 'function') {
+      shop.addToCartItem({ product: p, quantity: chosenQty });
+      shop.showToast?.(isRTL ? 'تمت الإضافة إلى السلة' : 'Added to cart', 'success');
+      setQty(1);
+    }
   };
 
   const toggleWishlist = () => {
@@ -111,18 +126,19 @@ export const ProductDetailView: React.FC = () => {
 
                 <div className="flex items-center gap-2 mt-3 mb-6">
                   <span className={`status-dot ${!inStock ? 'opacity-40' : ''}`} />
-                  <span className="text-xs font-bold text-[#171717]">{inStock ? (isRTL ? 'متوفر • ' + p.stock + ' قطعة' : 'In stock • ' + p.stock + ' available') : (isRTL ? 'غير متوفر حالياً' : 'Currently unavailable')}</span>
+                  <span className="text-xs font-bold text-[#171717]">{inStock ? (isRTL ? 'متوفر • ' + stock + ' قطعة' : 'In stock • ' + stock + ' available') : (isRTL ? 'غير متوفر حالياً' : 'Currently unavailable')}</span>
                 </div>
 
-                <div className="flex gap-2.5 mb-5">
+                <div className={`flex gap-2.5 ${basketNote ? 'mb-2' : 'mb-5'}`}>
                   <div className="h-12 flex items-center rounded-xl border border-[#E5E5E5] bg-[#F8F8F6] overflow-hidden shrink-0">
-                    <button type="button" onClick={() => setQty(v => Math.max(1, v - 1))} className="w-11 h-full flex items-center justify-center hover:bg-white cursor-pointer"><Minus className="w-4 h-4" /></button>
-                    <span className="w-9 text-center text-sm font-black">{qty}</span>
-                    <button type="button" onClick={() => setQty(v => Math.min(maxQty, v + 1))} className="w-11 h-full flex items-center justify-center hover:bg-white cursor-pointer"><Plus className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => setQty(Math.max(1, chosenQty - 1))} disabled={chosenQty <= 1} aria-label={isRTL ? 'تقليل الكمية' : 'Decrease quantity'} className="w-11 h-full flex items-center justify-center hover:bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"><Minus className="w-4 h-4" /></button>
+                    <span className="w-9 text-center text-sm font-black">{chosenQty}</span>
+                    <button type="button" onClick={() => setQty(Math.min(maxQty, chosenQty + 1))} disabled={chosenQty >= maxQty} aria-label={isRTL ? 'زيادة الكمية' : 'Increase quantity'} aria-describedby={basketNote ? 'detail-stock-note' : undefined} className="w-11 h-full flex items-center justify-center hover:bg-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"><Plus className="w-4 h-4" /></button>
                   </div>
-                  <button type="button" disabled={!inStock} onClick={add} className="gold-btn flex-1 min-w-0 h-12 rounded-xl flex items-center justify-center gap-2 px-4 text-sm font-black shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><ShoppingBag className="w-5 h-5" />{isRTL ? 'أضف إلى السلة' : 'Add to Cart'}</button>
+                  <button type="button" disabled={remaining <= 0} onClick={add} className="gold-btn flex-1 min-w-0 h-12 rounded-xl flex items-center justify-center gap-2 px-4 text-sm font-black shadow-sm disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"><ShoppingBag className="w-5 h-5" />{isRTL ? 'أضف إلى السلة' : 'Add to Cart'}</button>
                   <button type="button" onClick={toggleWishlist} aria-label={isRTL ? 'المفضلة' : 'Wishlist'} className="h-12 w-12 shrink-0 rounded-xl border border-[#E5E5E5] bg-white flex items-center justify-center text-slate-600 hover:text-rose-600 hover:border-rose-200 transition-all cursor-pointer"><Heart className="w-5 h-5" /></button>
                 </div>
+                {basketNote && <p id="detail-stock-note" className="mb-5 text-xs font-semibold text-[#7d6230]">{basketNote}</p>}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-5 border-t border-[#E5E5E5]">
                   <div className="rounded-xl bg-[#F8F8F6] border border-[#E5E5E5] p-3"><ShieldCheck className="w-4 h-4 text-[#7d6230] mb-2" /><p className="text-[10px] font-bold text-[#171717]">{isRTL ? 'دفع آمن' : 'Secure checkout'}</p></div>
