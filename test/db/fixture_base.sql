@@ -69,8 +69,16 @@ create policy profiles_select_own on public.profiles for select to authenticated
 create policy profiles_update_own on public.profiles for update to authenticated
   using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
--- [audit] SEC-3: "phone_registry is writable by any signed-in user": one ALL policy on the owner column
--- (the app's own comment names it phone_registry_own).
+-- [model] the live private.is_admin(): the signed-in user's profile says admin (no second-factor check).
+create function private.is_admin() returns boolean
+language sql stable security definer set search_path = ''
+as $$ select exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') $$;
+revoke all on function private.is_admin() from public;
+grant execute on function private.is_admin() to authenticated;
+
+-- [audit] SEC-3: "phone_registry is writable by any signed-in user". The two live policies, as the preflight read
+-- them on 2026-10-06: an ALL policy for the owner or any administrator, and a restrictive one that makes an
+-- administrator's access depend on a verified session.
 create table public.phone_registry (
   phone_key text primary key,
   user_id   uuid not null references public.profiles(id) on delete cascade,
@@ -79,7 +87,11 @@ create table public.phone_registry (
 create index phone_registry_user_idx on public.phone_registry (user_id);
 alter table public.phone_registry enable row level security;
 create policy phone_registry_own on public.phone_registry for all to authenticated
-  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+  using ((user_id = (select auth.uid())) or (select private.is_admin()))
+  with check ((user_id = (select auth.uid())) or (select private.is_admin()));
+create policy phone_registry_require_verified_admin_mutation on public.phone_registry as restrictive for all to authenticated
+  using ((select private.is_admin_verified()) or not (select private.is_admin()))
+  with check ((select private.is_admin_verified()) or not (select private.is_admin()));
 
 create table public.categories (
   id uuid primary key default gen_random_uuid(),

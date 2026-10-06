@@ -289,7 +289,23 @@ describe.skipIf(!available)('the database hardening migrations, run for real in 
       expect(result.err).toContain('dropping policy phone_registry_admin_all');
       expect(result.err).toContain('dropping policy phone_registry_own');
       expect(result.err).toContain('dropping policy phone_registry_odd_insert');
-      expect(value(db, `select string_agg(polname, ',' order by polname) from pg_policy where polrelid = 'public.phone_registry'::regclass`)).toBe('phone_registry_admin_read,phone_registry_select_own');
+      expect(value(db, `select string_agg(polname, ',' order by polname) from pg_policy where polrelid = 'public.phone_registry'::regclass`)).toBe('phone_registry_admin_read,phone_registry_require_verified_admin_mutation,phone_registry_select_own');
+    });
+
+    it('keeps a restrictive policy: it can only narrow access, never widen it', () => {
+      const db = seeded();
+      const result = apply(db, up(B));
+      expect(result.ok, result.err).toBe(true);
+      expect(result.err).not.toContain('dropping policy phone_registry_require_verified_admin_mutation');
+      expect(value(db, `select polpermissive::text || ':' || polcmd::text from pg_policy where polrelid = 'public.phone_registry'::regclass and polname = 'phone_registry_require_verified_admin_mutation'`)).toBe('false:*');
+    });
+
+    it('before: an administrator could write any row (the live ALL policy); after: no direct writes for anyone', () => {
+      const db = seeded();
+      expect(as(db, 'admin', `insert into public.phone_registry (phone_key, user_id) values ('70111222', '${SHOPPER}')`).ok).toBe(true);
+      run(db, 'delete from public.phone_registry');
+      applyOk(db, up(B));
+      expect(as(db, 'admin', `insert into public.phone_registry (phone_key, user_id) values ('70111222', '${SHOPPER}')`).err).toContain('permission denied');
     });
 
     it('turns row-level security back on if it had been switched off', () => {
@@ -323,7 +339,8 @@ describe.skipIf(!available)('the database hardening migrations, run for real in 
       run(db, down(B));
       expect(as(db, 'shopper', `insert into public.phone_registry (phone_key, user_id) values ('70123456', '${SHOPPER}')`).ok).toBe(true);
       expect(as(db, 'shopper', `delete from public.phone_registry where user_id = '${SHOPPER}'`).ok).toBe(true);
-      expect(value(db, `select string_agg(polname || ':' || polcmd::text, ',') from pg_policy where polrelid = 'public.phone_registry'::regclass`)).toBe('phone_registry_own:*');
+      expect(value(db, `select string_agg(polname || ':' || polcmd::text, ',' order by polname) from pg_policy where polrelid = 'public.phone_registry'::regclass`)).toBe('phone_registry_own:*,phone_registry_require_verified_admin_mutation:*');
+      expect(value(db, `select pg_get_expr(polqual, polrelid) from pg_policy where polrelid = 'public.phone_registry'::regclass and polname = 'phone_registry_own'`)).toContain('is_admin()');
       expect(apply(db, up(B)).ok).toBe(true);
     });
   });
