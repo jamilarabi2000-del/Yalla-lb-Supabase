@@ -88,7 +88,9 @@ describe('the shop uses them', () => {
 
   it('through the helper, with the shopper\'s language', () => {
     for (const call of [
-      'showToast(addedToCartMessage(product, quantity, language));',
+      'showToast(addedToCartMessage(currentProduct, plan.added, language));',
+      "showToast(allInBasketMessage(currentProduct, plan.stock, language), 'warning');",
+      "showToast(addedLimitedMessage(currentProduct, plan.added, plan.stock, plan.total, language), 'warning');",
       "showToast(removedFromCartMessage(language), 'info');",
       "showToast(redirectingToProviderMessage('Google', language), 'info');",
       "showToast(providerSignInFailedMessage('Google', error.message, language), 'warning');",

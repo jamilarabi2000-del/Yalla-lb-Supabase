@@ -16,6 +16,46 @@ export const addedToCartMessage = (product: { name: string; arabicName?: string 
   return isArabic(language) ? `تمت إضافة ${quantity}× "${name}" إلى السلة!` : `Added ${quantity}x "${name}" to cart!`;
 };
 
+/** The product's name as the shopper reads it, the same way the "added" message writes it. */
+const readableName = (product: { name: string; arabicName?: string }, language: string): string =>
+  ((isArabic(language) && product.arabicName) || product.name).split('(')[0].trim();
+
+/** Fewer went into the basket than were asked for, because that is all there is. The one message the shopper sees. */
+export const addedLimitedMessage = (product: { name: string; arabicName?: string }, added: number, stock: number, total: number, language: string): string => {
+  const name = readableName(product, language);
+  return isArabic(language)
+    ? `المتوفر ${stock} فقط من "${name}": تمت إضافة ${added}، ولديك ${total} في السلة.`
+    : `Only ${stock} of "${name}" in stock: ${added} added, ${total} in your basket.`;
+};
+
+/** Everything in stock is already in the basket, so nothing was added. */
+export const allInBasketMessage = (product: { name: string; arabicName?: string }, stock: number, language: string): string => {
+  const name = readableName(product, language);
+  return isArabic(language)
+    ? `كل الكمية المتوفرة (${stock}) من "${name}" موجودة بالفعل في سلتك.`
+    : `All ${stock} of "${name}" in stock are already in your basket.`;
+};
+
+/**
+ * The line under Quick View's quantity stepper: how many can still be added. Quiet while stock is plentiful (more than 10
+ * left), because then the stepper's own limit is not something the shopper will meet.
+ */
+export const stockNoteMessage = (stock: number, inBasket: number, language: string): string | null => {
+  const remaining = Math.max(0, stock - inBasket);
+  if (stock <= 0) return null;
+  if (remaining === 0) return allInBasketCountMessage(stock, language);
+  if (inBasket > 0) {
+    return isArabic(language)
+      ? `${inBasket} في سلتك بالفعل · يمكنك إضافة ${remaining} فقط`
+      : `${inBasket} already in your basket · ${remaining} more available`;
+  }
+  if (remaining > 10) return null;
+  return isArabic(language) ? `المتوفر ${remaining} قطعة فقط` : `Only ${remaining} available`;
+};
+
+const allInBasketCountMessage = (stock: number, language: string): string =>
+  isArabic(language) ? `كل الكمية المتوفرة (${stock}) موجودة بالفعل في سلتك` : `All ${stock} in stock are already in your basket`;
+
 export const removedFromCartMessage = (language: string): string =>
   isArabic(language) ? 'تمت إزالة المنتج من السلة' : 'Item removed from cart';
 

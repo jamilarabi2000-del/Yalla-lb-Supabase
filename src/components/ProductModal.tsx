@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
+import { quantityInBasket, remainingStock, stockOf } from '../lib/cartQuantity';
+import { stockNoteMessage } from '../lib/shopperMessages';
 import { 
   X, 
   Heart, 
@@ -23,7 +25,8 @@ export const ProductModal: React.FC = () => {
     addToCart, 
     toggleWishlist, 
     isInWishlist,
-    showToast,
+    products,
+    cart,
     language,
     t
   } = useShop();
@@ -41,13 +44,18 @@ export const ProductModal: React.FC = () => {
   const isLiked = isInWishlist(product.id);
   const displayTitle = language === 'ar' ? (product.arabicName || product.name) : product.name;
 
+  // Quick View is opened with a snapshot of the product; the list holds the latest stock, which is what the basket checks.
+  const stock = stockOf(products.find(p => p.id === product.id) || product);
+  const inBasket = quantityInBasket(cart, product.id);
+  const remaining = remainingStock(stock, inBasket);
+  // Never more than can still be added, so the number the shopper picks is the number the basket gets.
+  const maxQuantity = Math.max(1, remaining);
+  const chosen = Math.min(Math.max(1, quantity), maxQuantity);
+  const stockNote = stockNoteMessage(stock, inBasket, language);
+
+  // addToCart tells the shopper what went in, and why not more if that is the case; this closes only when something did.
   const handleAddMultipleToCart = () => {
-    addToCart(product, quantity);
-    setSelectedProductForModal(null);
-    showToast(
-      language === 'ar' ? `تمت إضافة ${quantity} إلى سلتك!` : `Added ${quantity} to your basket!`,
-      'success'
-    );
+    if (addToCart(product, chosen).added > 0) setSelectedProductForModal(null);
   };
 
   const handleViewFullPage = () => {
@@ -119,14 +127,14 @@ export const ProductModal: React.FC = () => {
               {/* Price & Stock */}
               <div className="flex items-baseline gap-2 flex-wrap pt-1">
                 <span className="text-xl font-black text-[#171717]">
-                  {formatPrice(product.priceUSD * quantity)}
+                  {formatPrice(product.priceUSD * chosen)}
                 </span>
                 {product.originalPriceUSD && (
                   <span className="text-xs text-slate-600 line-through font-medium">
-                    {formatPrice(product.originalPriceUSD * quantity)}
+                    {formatPrice(product.originalPriceUSD * chosen)}
                   </span>
                 )}
-                {product.stock > 0 ? (
+                {stock > 0 ? (
                   <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                     {language === 'ar' ? 'متوفر' : 'In Stock'}
                   </span>
@@ -159,19 +167,22 @@ export const ProductModal: React.FC = () => {
                 {/* Quantity Controls */}
                 <div className="flex items-center gap-1.5 bg-[#F8F8F6] border border-[#E5E5E5] rounded-lg p-1">
                   <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-slate-700 hover:text-black hover:bg-white cursor-pointer transition-all"
-                    aria-label="Decrease quantity"
+                    onClick={() => setQuantity(Math.max(1, chosen - 1))}
+                    disabled={chosen <= 1}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-slate-700 hover:text-black hover:bg-white cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    aria-label={language === 'ar' ? 'تقليل الكمية' : 'Decrease quantity'}
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                   <span className="text-xs font-bold text-slate-900 px-2 min-w-[20px] text-center">
-                    {quantity}
+                    {chosen}
                   </span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-slate-700 hover:text-black hover:bg-white cursor-pointer transition-all"
-                    aria-label="Increase quantity"
+                    onClick={() => setQuantity(Math.min(maxQuantity, chosen + 1))}
+                    disabled={chosen >= maxQuantity}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-slate-700 hover:text-black hover:bg-white cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    aria-label={language === 'ar' ? 'زيادة الكمية' : 'Increase quantity'}
+                    aria-describedby={stockNote ? 'modal-stock-note' : undefined}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -194,13 +205,20 @@ export const ProductModal: React.FC = () => {
                 <button
                   id="modal-add-to-cart-btn"
                   onClick={handleAddMultipleToCart}
-                  disabled={product.stock <= 0}
+                  disabled={remaining <= 0}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#171717] hover:bg-[#8F7137] disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-[0.98]"
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
                   <span>{t('addToCart')}</span>
                 </button>
               </div>
+
+              {/* How many more can go in: the stepper stops there, and this says why. */}
+              {stockNote && (
+                <p id="modal-stock-note" className="text-[11px] font-semibold text-[#7d6230]">
+                  {stockNote}
+                </p>
+              )}
             </div>
           </div>
         </div>
