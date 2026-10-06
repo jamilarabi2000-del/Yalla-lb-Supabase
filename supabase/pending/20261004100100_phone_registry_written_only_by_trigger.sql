@@ -13,8 +13,10 @@
 -- WHAT THIS DOES
 -- --------------
 --   * revokes INSERT, UPDATE, DELETE (and TRUNCATE, REFERENCES, TRIGGER) from anon and authenticated;
---   * drops every policy that lets a client write (any INSERT, UPDATE, DELETE or ALL policy);
---   * keeps a signed-in user's read of their own row (policy phone_registry_select_own).
+--   * drops every permissive policy that lets a client write (any INSERT, UPDATE, DELETE or ALL policy). Restrictive
+--     policies stay: they can only ever narrow access (the live project has one requiring a verified administrator);
+--   * keeps a signed-in user's read of their own row (policy phone_registry_select_own). The old ALL policy also let
+--     an administrator read every row; nothing in the app or its functions reads the table that way, so that goes.
 -- The trigger is SECURITY DEFINER and owned by the table owner, so it keeps writing as before.
 --
 -- SAFETY
@@ -53,6 +55,7 @@ begin
     select p.polname
     from pg_policy p
     where p.polrelid = 'public.phone_registry'::regclass
+      and p.polpermissive                    -- a restrictive policy never lets anyone in
       and p.polcmd in ('*', 'a', 'w', 'd')   -- ALL, INSERT, UPDATE, DELETE
   loop
     raise notice 'dropping policy % on public.phone_registry (it lets a client write)', v_policy.polname;
@@ -76,7 +79,7 @@ begin
      or has_table_privilege('authenticated', 'public.phone_registry', 'DELETE') then
     raise exception 'PHONE_REGISTRY_STILL_WRITABLE_BY_CLIENTS';
   end if;
-  if exists (select 1 from pg_policy p where p.polrelid = 'public.phone_registry'::regclass and p.polcmd in ('*', 'a', 'w', 'd')) then
+  if exists (select 1 from pg_policy p where p.polrelid = 'public.phone_registry'::regclass and p.polpermissive and p.polcmd in ('*', 'a', 'w', 'd')) then
     raise exception 'PHONE_REGISTRY_WRITE_POLICY_REMAINS';
   end if;
   if not exists (select 1 from pg_policy p where p.polrelid = 'public.phone_registry'::regclass and p.polname = 'phone_registry_select_own' and p.polcmd = 'r') then

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prepareFixture, postgresAvailable, read, ADMIN, SHOPPER } from './harness.mjs';
-import { dryRunSql, HARDENING_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
+import { dryRunSql, withoutCommentLines, HARDENING_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
 
 // The two scripts for the database approval step: the read-only preflight, and the dry run that applies the
 // four migrations and rolls them back. Both must leave the database exactly as they found it.
@@ -32,6 +32,30 @@ describe('the dry run, as a file', () => {
       expect(next, name).toBeGreaterThan(at);
       at = next;
     }
+  });
+});
+
+describe('the dry run, compact form and timeouts', () => {
+  it('sets a lock timeout and a statement timeout before touching anything, so it never queues behind live traffic', () => {
+    const sql = dryRunSql();
+    const timeouts = sql.indexOf("set local lock_timeout = '3s';");
+    expect(timeouts).toBeGreaterThan(sql.indexOf('begin;'));
+    expect(timeouts).toBeLessThan(sql.indexOf('-- ===== 20261004100000'));
+    expect(sql).toContain("set local statement_timeout = '120s';");
+  });
+
+  it('the compact form is the same SQL without the comment-only lines, and much shorter', () => {
+    const full = dryRunSql();
+    const compact = dryRunSql(process.cwd(), { compact: true });
+    expect(compact.length).toBeLessThan(full.length * 0.7);
+    let at = compact.indexOf('begin;');
+    for (const name of HARDENING_MIGRATIONS) {
+      const next = compact.indexOf(withoutCommentLines(read(`supabase/pending/${name}.sql`)), at);
+      expect(next, name).toBeGreaterThan(at);
+      at = next;
+    }
+    expect(compact.trimEnd().endsWith('rollback;')).toBe(true);
+    for (const line of compact.split('\n')) if (/^\s*--/.test(line)) expect(line).toMatch(/^-- (Dry run|=====)/);
   });
 });
 
@@ -68,6 +92,15 @@ describe.skipIf(!available)('the approval-step scripts, run in a scratch Postgre
     const result = fixture.pg.run(db, dryRunSql());
     expect(result.ok, result.err).toBe(true);
     for (const name of HARDENING_MIGRATIONS) expect(result.err, name).toContain(`dry run: applying ${name}`);
+    expect(result.err).toContain('all four migrations applied and their checks passed; rolling back');
+    expect(fixture.pg.dump(db)).toBe(before);
+  });
+
+  it('the compact dry run behaves the same: all four applied, all checks pass, nothing left', () => {
+    const db = seeded();
+    const before = fixture.pg.dump(db);
+    const result = fixture.pg.run(db, dryRunSql(process.cwd(), { compact: true }));
+    expect(result.ok, result.err).toBe(true);
     expect(result.err).toContain('all four migrations applied and their checks passed; rolling back');
     expect(fixture.pg.dump(db)).toBe(before);
   });

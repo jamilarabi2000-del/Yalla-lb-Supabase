@@ -32,8 +32,9 @@ does not hold; and each ends by checking the state it was meant to reach. They a
    whether they call `is_admin_verified`; the `phone_registry` policies (any policy that lets a client write
    will be dropped); insert triggers on the four tables; the longest existing search and application; the
    rate limiter's source.
-2. **Dry run.** `node scripts/db/dryrun-hardening.mjs` prints one script that applies the four migrations and
-   rolls everything back. Every check inside them runs against the real data; nothing stays.
+2. **Dry run.** `node scripts/db/dryrun-hardening.mjs` (add `--compact` for a shorter script without comment
+   lines) prints one script that applies the four migrations and rolls everything back; it sets a 3 s lock
+   timeout first, so on the live database it gives up rather than queue behind other work. Every check inside them runs against the real data; nothing stays.
    (`test/db/dryrun.db.test.ts` proves the database is identical before and after.)
 3. **Apply,** in order: 100000, 100100, 100200, 100300.
 4. **Check on the live site:** delete a test category from the admin panel; a storefront search still appears
@@ -62,3 +63,13 @@ longer than 200 characters would still work, but its log row would be refused.
 The real bodies of the live-only functions, the live policies and grants (the migrations check them as they
 run), and PostgreSQL 17's MAINTAIN privilege (the scratch server here is older; the revoke is skipped and says
 so, and the dry run on the project exercises it).
+
+### What the read-only preflight found on the live project (2026-10-06)
+
+PostgreSQL 17.6; the migration role can `SET ROLE` to `anon` and `authenticated` (the safety probes need that).
+The two private delete functions are SECURITY DEFINER, call `is_admin_verified`, and signed-in users cannot run
+them: the bug is real on the project, not only in the repository. `phone_registry` has an ALL policy (owner **or
+any administrator**) plus a *restrictive* policy requiring a verified administrator for administrators' changes;
+migration B drops only permissive write policies, so the restrictive one stays. Every grant matched the audit
+(MAINTAIN held on 23 tables). The rate limiter is SECURITY DEFINER and reads the leftmost `x-forwarded-for`, so
+nothing the migrations do can break it. Largest existing search: 5 characters; no seller applications; database 47 MB.
