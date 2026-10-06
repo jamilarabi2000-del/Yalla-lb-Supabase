@@ -7,6 +7,7 @@
  *
  *   node scripts/db/dryrun-hardening.mjs > /tmp/dryrun.sql             (the migrations verbatim)
  *   node scripts/db/dryrun-hardening.mjs --compact > /tmp/dryrun.sql   (without comment-only lines: shorter to send)
+ *   node scripts/db/dryrun-hardening.mjs --compact --evidence > /tmp/dryrun.sql   (ends by showing one row of facts, then rolls back)
  *
  * test/db/dryrun.db.test.ts runs the printed script in a scratch database and checks that it leaves the
  * database exactly as it found it.
@@ -25,7 +26,25 @@ export const HARDENING_MIGRATIONS = [
 /** The migration text without its comment-only lines (the SQL is identical; the script is much shorter to send). */
 export const withoutCommentLines = sql => sql.split('\n').filter(line => !/^\s*--/.test(line)).join('\n').replace(/\n{3,}/g, '\n\n');
 
-export function dryRunSql(root = process.cwd(), { compact = false } = {}) {
+/**
+ * One row of facts about the state inside the dry run (just before it is rolled back), so whoever runs the script in
+ * an SQL editor sees what the four migrations would have done instead of an empty result.
+ */
+export const EVIDENCE_SQL = `select 'dry run finished: all four migrations applied and every check passed; the next statement rolls it all back' as note,
+  has_function_privilege('authenticated', 'private.admin_delete_category(uuid,uuid,boolean)', 'EXECUTE') as category_delete_callable_by_signed_in,
+  has_function_privilege('authenticated', 'private.admin_delete_seller(uuid,uuid)', 'EXECUTE') as seller_delete_callable_by_signed_in,
+  has_function_privilege('anon', 'private.admin_delete_category(uuid,uuid,boolean)', 'EXECUTE') as anon_can_run_category_delete,
+  has_table_privilege('authenticated', 'public.phone_registry', 'INSERT') as signed_in_can_insert_phone_registry,
+  (select string_agg(polname || ':' || polcmd::text || ':' || case when polpermissive then 'permissive' else 'restrictive' end, ', ' order by polname) from pg_policy where polrelid = 'public.phone_registry'::regclass) as phone_registry_policies,
+  has_table_privilege('anon', 'public.search_logs', 'SELECT') as anon_can_select_search_logs,
+  has_table_privilege('anon', 'public.coupons', 'SELECT') as anon_can_select_coupons,
+  case when current_setting('server_version_num')::int >= 170000 then (select count(*) from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p') and (has_table_privilege('anon', c.oid, 'MAINTAIN') or has_table_privilege('authenticated', c.oid, 'MAINTAIN'))) end as tables_with_maintain_for_browser_roles,
+  has_table_privilege('authenticated', 'public.admin_activities', 'DELETE') as signed_in_can_delete_admin_activities,
+  (select count(*) from pg_constraint where conname in ('search_logs_query_length', 'seller_applications_payload_size')) as size_caps_present,
+  has_function_privilege('anon', 'private.purge_search_logs(interval)', 'EXECUTE') as purge_callable_by_anon,
+  has_function_privilege('service_role', 'private.purge_search_logs(interval)', 'EXECUTE') as purge_callable_by_service_role;`;
+
+export function dryRunSql(root = process.cwd(), { compact = false, evidence = false } = {}) {
   const parts = [
     '-- Dry run of the database hardening migrations: everything below is rolled back at the end.',
     'begin;',
@@ -41,10 +60,11 @@ export function dryRunSql(root = process.cwd(), { compact = false } = {}) {
     parts.push(compact ? withoutCommentLines(sql) : sql);
   }
   parts.push("\ndo $$ begin raise notice 'dry run: all four migrations applied and their checks passed; rolling back'; end $$;");
+  if (evidence) parts.push(EVIDENCE_SQL);
   parts.push('rollback;');
   return parts.join('\n');
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  process.stdout.write(dryRunSql(process.cwd(), { compact: process.argv.includes('--compact') }));
+  process.stdout.write(dryRunSql(process.cwd(), { compact: process.argv.includes('--compact'), evidence: process.argv.includes('--evidence') }));
 }

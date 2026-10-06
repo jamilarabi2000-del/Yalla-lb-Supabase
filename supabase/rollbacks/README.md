@@ -33,7 +33,7 @@ does not hold; and each ends by checking the state it was meant to reach. They a
    will be dropped); insert triggers on the four tables; the longest existing search and application; the
    rate limiter's source.
 2. **Dry run.** `node scripts/db/dryrun-hardening.mjs` (add `--compact` for a shorter script without comment
-   lines) prints one script that applies the four migrations and rolls everything back; it sets a 3 s lock
+   lines, and `--evidence` to end with one row showing the state the migrations would leave) prints one script that applies the four migrations and rolls everything back; it sets a 3 s lock
    timeout first, so on the live database it gives up rather than queue behind other work. Every check inside them runs against the real data; nothing stays.
    (`test/db/dryrun.db.test.ts` proves the database is identical before and after.)
 3. **Apply,** in order: 100000, 100100, 100200, 100300.
