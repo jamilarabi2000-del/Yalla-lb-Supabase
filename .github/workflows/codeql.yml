@@ -17,6 +17,10 @@ permissions:
 jobs:
   analyze:
     name: Analyze JavaScript/TypeScript
+    # CodeQL is free on public repositories only. On a private one it needs a paid GitHub plan (Code Security) and
+    # the job would fail on every push, so it steps aside there; tests, the secret scan and the dependency audit
+    # (verify.yml, security.yml) still run on a private repository. An unknown value counts as "run".
+    if: ${{ github.event.repository.private != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
