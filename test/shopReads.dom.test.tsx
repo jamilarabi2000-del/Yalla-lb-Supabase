@@ -63,11 +63,12 @@ vi.mock('../src/lib/supabase', () => {
 });
 
 const { ShopProvider, useShop } = await import('../src/context/ShopContext');
+const { supabaseOrderService } = await import('../src/services/supabaseOrderService');
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const seen: { rules: unknown[]; bulkImport: ((check: any) => Promise<{ created: number; updated: number; errors: string[] }>) | null } = { rules: [], bulkImport: null };
-const Probe: React.FC = () => { const shop = useShop(); seen.rules = shop.discountRules; seen.bulkImport = shop.bulkImportProducts; return null; };
+const seen: { rules: unknown[]; bulkImport: ((check: any) => Promise<{ created: number; updated: number; errors: string[] }>) | null; placeOrder: ((order: any) => Promise<unknown>) | null } = { rules: [], bulkImport: null, placeOrder: null };
+const Probe: React.FC = () => { const shop = useShop(); seen.rules = shop.discountRules; seen.bulkImport = shop.bulkImportProducts; seen.placeOrder = shop.placeOrder; return null; };
 
 let host: HTMLDivElement;
 let root: Root;
@@ -77,10 +78,18 @@ const mount = async () => {
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
 };
 const readsOf = (table: string) => rec.reads.filter(r => r.table === table);
+const person = (id: string) => ({ id, email: `${id}@example.test`, email_confirmed_at: '2026-01-01T00:00:00Z', app_metadata: {}, user_metadata: {}, aud: 'authenticated' });
+const admin = person('a1');
+const customer = person('c1');
+const signInAs = (user: ReturnType<typeof person>, role: string) => {
+  rec.session = { user, access_token: 'x' };
+  rec.rows.profiles = [{ id: user.id, role, email: user.email }];
+};
+const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
 const channelsOn = (table: string) => rec.channels.filter(c => c.tables.includes(table));
 
 beforeEach(() => {
-  rec.reads.length = 0; rec.rpcs.length = 0; rec.channels.length = 0; rec.removed = 0; rec.session = null; rec.rows = {}; rec.authCallbacks.length = 0; rec.listeners.length = 0; seen.rules = []; seen.bulkImport = null;
+  rec.reads.length = 0; rec.rpcs.length = 0; rec.channels.length = 0; rec.removed = 0; rec.session = null; rec.rows = {}; rec.authCallbacks.length = 0; rec.listeners.length = 0; seen.rules = []; seen.bulkImport = null; seen.placeOrder = null;
   try { localStorage.clear(); sessionStorage.clear(); } catch {}
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -106,10 +115,9 @@ describe('a visitor who is not signed in', () => {
     expect(readsOf('discount_rules')).toHaveLength(0);
   });
 
-  it('keeps one live-update channel on the product table, and none on a table that is not published', async () => {
+  it('holds no live connection to the database at all: a channel per shopper is a burst on every order', async () => {
     await mount();
-    expect(channelsOn('products')).toHaveLength(1);
-    expect(rec.channels.flatMap(c => c.tables)).not.toContain('product_images');
+    expect(rec.channels).toHaveLength(0);
   });
 
   it('still reads everything the page is made of, once each', async () => {
@@ -119,24 +127,17 @@ describe('a visitor who is not signed in', () => {
     }
     expect(readsOf('categories')).toHaveLength(1);
     expect(readsOf('sellers')).toHaveLength(1);
-    // and keeps the live updates for categories
-    expect(channelsOn('categories')).toHaveLength(1);
-  });
-
-  it('closes its channels when the page goes away', async () => {
-    await mount();
-    const opened = rec.channels.length;
-    act(() => root.unmount());
-    expect(rec.removed).toBe(opened);
-    root = createRoot(host);
   });
 });
 
 describe('a change to the products', () => {
-  const productReads = () => readsOf('public_storefront_products').length;
+  // a shopper's page reads the public view; an administrator's reads the table itself
+  const productReads = () => readsOf('public_storefront_products').length + readsOf('products').length;
 
-  it('announced by the database is one re-read of the catalogue, however many listeners the page has', async () => {
+  it('announced by the database is one re-read of the catalogue, however many listeners the page has (an administrator)', async () => {
+    signInAs(admin, 'admin');
     await mount();
+    await settle();
     const before = productReads();
     // the database tells every listener on the product table; the page may only react once
     vi.useFakeTimers();
@@ -154,8 +155,10 @@ describe('a change to the products', () => {
     expect(productReads() - before).toBe(1);
   });
 
-  it('a burst of changes is still one re-read', async () => {
+  it('a burst of changes is still one re-read (an administrator)', async () => {
+    signInAs(admin, 'admin');
     await mount();
+    await settle();
     const before = productReads();
     vi.useFakeTimers();
     await act(async () => {
@@ -168,7 +171,40 @@ describe('a change to the products', () => {
 });
 
 describe('an administrator', () => {
-  const admin = { id: 'a1', email: 'admin@example.test', email_confirmed_at: '2026-01-01T00:00:00Z', app_metadata: {}, user_metadata: {}, aud: 'authenticated' };
+  it('keeps live connections for the products, the categories and the orders, and closes them when the page goes away', async () => {
+    signInAs(admin, 'admin');
+    await mount();
+    await settle();
+    expect(channelsOn('products')).toHaveLength(1);
+    expect(channelsOn('categories')).toHaveLength(1);
+    expect(channelsOn('orders')).toHaveLength(1);
+    expect(rec.channels.flatMap(c => c.tables)).not.toContain('product_images');   // not a published table
+    const opened = rec.channels.length;
+    act(() => root.unmount());
+    expect(rec.removed).toBe(opened);
+    root = createRoot(host);
+  });
+
+  it('sees a change to the categories live', async () => {
+    signInAs(admin, 'admin');
+    await mount();
+    await settle();
+    const before = readsOf('categories').length;
+    vi.useFakeTimers();
+    await act(async () => { rec.listeners.filter(l => l.table === 'categories').forEach(l => l.callback({ eventType: 'UPDATE' })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(readsOf('categories').length - before).toBe(1);
+  });
+
+  it('keeps the live channels when they sign in after the page opened, and drops none that it should keep', async () => {
+    await mount();
+    expect(rec.channels).toHaveLength(0);                       // opened as a visitor
+    signInAs(admin, 'admin');
+    await act(async () => { rec.authCallbacks.forEach(callback => callback('SIGNED_IN', rec.session)); });
+    await settle();
+    expect(channelsOn('products')).toHaveLength(1);
+    expect(channelsOn('categories')).toHaveLength(1);
+  });
 
   it('still gets the discount rules', async () => {
     rec.session = { user: admin, access_token: 'x' };
@@ -191,6 +227,97 @@ describe('an administrator', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
     expect(seen.rules).toHaveLength(0);
     expect(readsOf('discount_rules')).toHaveLength(readsWhileAdmin);
+  });
+});
+
+describe('a shopper\'s page that comes back into view', () => {
+  const comeBackAfter = async (ms: number) => {
+    vi.useFakeTimers();
+    await act(async () => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+    await act(async () => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+  };
+  afterEach(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); });
+
+  it('re-reads the catalogue and the categories once after a minute away', async () => {
+    await mount();
+    const products = readsOf('public_storefront_products').length;
+    const categories = readsOf('categories').length;
+    await comeBackAfter(61_000);
+    expect(readsOf('public_storefront_products').length - products).toBe(1);
+    expect(readsOf('categories').length - categories).toBe(1);
+  });
+
+  it('does not re-read when it was away only a moment', async () => {
+    await mount();
+    const products = readsOf('public_storefront_products').length;
+    await comeBackAfter(5_000);
+    expect(readsOf('public_storefront_products').length - products).toBe(0);
+  });
+
+  it('stops listening when the page goes away', async () => {
+    await mount();
+    act(() => root.unmount());
+    const products = readsOf('public_storefront_products').length;
+    await comeBackAfter(120_000);
+    expect(readsOf('public_storefront_products').length).toBe(products);
+    root = createRoot(host);
+  });
+});
+
+describe('a shopper who places an order', () => {
+  // The page has no live channel to correct its optimistic stock figure, so placing an order asks for the real ones.
+  it('has the catalogue read once more, shortly after, and not before', async () => {
+    signInAs(customer, 'customer');
+    await mount();
+    await settle();
+    const placed = { id: 'o1', trackingNumber: 'T1', status: 'pending', items: [], totalUSD: 5 } as any;
+    const place = vi.spyOn(supabaseOrderService, 'createOrderAuthoritative').mockResolvedValue(placed);
+    const before = readsOf('public_storefront_products').length;
+    vi.useFakeTimers();
+    await act(async () => {
+      await seen.placeOrder!({
+        items: [{ product: { id: 'p1' }, quantity: 1 }], paymentMethod: 'cod_usd',
+        shipping: { fullName: 'A B', phone: '03123456', governorate: 'Beirut', city: 'Beirut', street: 'Hamra' },
+      });
+    });
+    expect(place).toHaveBeenCalledTimes(1);
+    expect(readsOf('public_storefront_products').length - before).toBe(0);   // debounced, not instant
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(readsOf('public_storefront_products').length - before).toBe(1);
+  });
+
+  it('has nothing re-read when the order is refused', async () => {
+    signInAs(customer, 'customer');
+    await mount();
+    await settle();
+    vi.spyOn(supabaseOrderService, 'createOrderAuthoritative').mockRejectedValue(new Error('nope'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const before = readsOf('public_storefront_products').length;
+    vi.useFakeTimers();
+    await act(async () => {
+      await seen.placeOrder!({ items: [{ product: { id: 'p1' }, quantity: 1 }], shipping: { fullName: 'A', phone: '1', governorate: 'x', city: 'x', street: 'x' } }).catch(() => {});
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(readsOf('public_storefront_products').length - before).toBe(0);
+  });
+});
+
+describe('a signed-in customer', () => {
+  it('holds no live connection either, and sees their orders again when the page comes back', async () => {
+    signInAs(customer, 'customer');
+    await mount();
+    await settle();
+    expect(rec.channels).toHaveLength(0);
+    const before = readsOf('orders').length;
+    expect(before).toBeGreaterThanOrEqual(1);   // the orders were read when the page opened
+    vi.useFakeTimers();
+    await act(async () => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(61_000); });
+    await act(async () => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(readsOf('orders').length - before).toBe(1);
   });
 });
 
