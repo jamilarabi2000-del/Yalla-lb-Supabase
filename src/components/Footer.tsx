@@ -4,6 +4,7 @@ import { EyeOff } from 'lucide-react';
 import { SocialIconLinks } from './SocialIconLinks';
 import { Ltr } from './ui/Ltr';
 import { channelAlign, shownChannels, type SocialAlign } from '../lib/socialChannels';
+import { copyrightBarClasses, copyrightTextClasses } from '../lib/footerCopyright';
 
 const ALIGN_SELF: Record<SocialAlign, string> = { start: 'self-start', center: 'self-center', end: 'self-end' };
 
@@ -57,8 +58,8 @@ export const Footer: React.FC = () => {
           </div>
         )}
 
-        {(visibility.footerCopyright || isVisualEditMode) && <div className={`pt-4 border-t border-white/10 w-full flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-neutral-400 relative ${!visibility.footerCopyright && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-xl p-2' : ''}`}>
-          <div className="flex items-center gap-2"><span className="whitespace-pre-line text-center sm:text-start leading-relaxed">{language === 'ar' ? (footerData.copyrightTextArabic || footerData.copyrightText || `© ${new Date().getFullYear()} يلا. جميع الحقوق محفوظة.`) : (footerData.copyrightText || `© ${new Date().getFullYear()} Yalla. All Rights Reserved.`)}</span></div>
+        {(visibility.footerCopyright || isVisualEditMode) && <div id="footer-copyright-bar" className={`${copyrightBarClasses(footerData)} ${!visibility.footerCopyright && isVisualEditMode ? 'opacity-70 border-2 border-dashed border-rose-500/80 rounded-xl p-2' : ''}`}>
+          <div className="flex items-center gap-2"><span id="footer-copyright-text" className={copyrightTextClasses(footerData)}>{language === 'ar' ? (footerData.copyrightTextArabic || footerData.copyrightText || `© ${new Date().getFullYear()} يلا. جميع الحقوق محفوظة.`) : (footerData.copyrightText || `© ${new Date().getFullYear()} Yalla. All Rights Reserved.`)}</span></div>
         </div>}
       </div>
     </footer>
