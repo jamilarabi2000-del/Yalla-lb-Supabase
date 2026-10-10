@@ -68,6 +68,7 @@ import { assertHighRiskAuthorization } from '../utils/adminMfa';
 
 import { supabase } from '../lib/supabase';
 import { getCaptchaToken } from '../lib/captcha';
+import { keepsLiveChannel, refreshWhenBackInView } from '../lib/liveRefresh';
 
 import type {
   User as SupabaseUser,
@@ -1622,21 +1623,26 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshTimer = setTimeout(refreshCategories, 400);
     };
 
-    const channel = supabase
-      .channel('yalla-categories')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, scheduleRefresh)
-      .subscribe((status: string) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`[ShopContext] Supabase realtime channel for categories: ${status}`);
-        }
-      });
+    // Only staff keep a live channel; a shopper's page re-reads when it comes back into view (see lib/liveRefresh).
+    const channel = keepsLiveChannel({ isAdminUser, isSellerUser })
+      ? supabase
+        .channel('yalla-categories')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, scheduleRefresh)
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error(`[ShopContext] Supabase realtime channel for categories: ${status}`);
+          }
+        })
+      : null;
+    const stopRefreshingOnReturn = channel ? null : refreshWhenBackInView(refreshCategories);
 
     return () => {
       isMounted = false;
       if (refreshTimer) clearTimeout(refreshTimer);
-      supabase.removeChannel(channel);
+      stopRefreshingOnReturn?.();
+      if (channel) supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isAdminUser, isSellerUser]);
 
   const addCategory = async (catData: Omit<CategoryItem, 'id'> & { id?: string }) => {
     // categories.id is uuid, so the readable slug this used to use as the
@@ -2470,17 +2476,24 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // (which lowers stock) made every open page download the catalogue twice.
     // Gallery rows (product_images) are not in the realtime publication, so
     // listening for them never delivered anything.
-    const channel = supabase
-      .channel('yalla-products-catalog')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
-      .subscribe((status: string) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Not fatal: the catalogue still loads on mount and after each admin
-          // write. Logged so a broken realtime connection is visible rather
-          // than silently degrading to a stale storefront.
-          console.error(`[ShopContext] Supabase realtime channel for products: ${status}`);
-        }
-      });
+    // Only staff keep a live channel. Every order lowers stock, and with a channel per shopper each order made every
+    // open page download the catalogue at the same instant. A shopper's page re-reads when it comes back into view
+    // after a while away (lib/liveRefresh), and after their own order (the event below); checkout checks stock on
+    // the server either way.
+    const channel = keepsLiveChannel({ isAdminUser, isSellerUser })
+      ? supabase
+        .channel('yalla-products-catalog')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, scheduleRefresh)
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            // Not fatal: the catalogue still loads on mount and after each admin
+            // write. Logged so a broken realtime connection is visible rather
+            // than silently degrading to a stale storefront.
+            console.error(`[ShopContext] Supabase realtime channel for products: ${status}`);
+          }
+        })
+      : null;
+    const stopRefreshingOnReturn = channel ? null : refreshWhenBackInView(refreshCatalog);
 
     window.addEventListener('yalla-products-changed', scheduleRefresh);
 
@@ -2490,7 +2503,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted = false;
       if (refreshTimer) clearTimeout(refreshTimer);
       window.removeEventListener('yalla-products-changed', scheduleRefresh);
-      supabase.removeChannel(channel);
+      stopRefreshingOnReturn?.();
+      if (channel) supabase.removeChannel(channel);
     };
   }, [isAdminUser, isSellerUser, sellerId]);
 
@@ -2567,19 +2581,25 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshTimer = setTimeout(loadOrders, 400);
     };
 
-    const channel = supabase
-      .channel('yalla-orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
-      .subscribe((status: string) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`[ShopContext] Supabase realtime channel for orders: ${status}`);
-        }
-      });
+    // Staff see an order the moment it changes. A customer's page re-reads their orders when it comes back into view
+    // (their own new order is added to the page when they place it).
+    const channel = keepsLiveChannel({ isAdminUser, isSellerUser })
+      ? supabase
+        .channel('yalla-orders')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleRefresh)
+        .subscribe((status: string) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error(`[ShopContext] Supabase realtime channel for orders: ${status}`);
+          }
+        })
+      : null;
+    const stopRefreshingOnReturn = channel ? null : refreshWhenBackInView(loadOrders);
 
     return () => {
       isMounted = false;
       if (refreshTimer) clearTimeout(refreshTimer);
-      supabase.removeChannel(channel);
+      stopRefreshingOnReturn?.();
+      if (channel) supabase.removeChannel(channel);
     };
   }, [authUser, isAdminUser, isSellerUser, sellerId]);
 
@@ -4462,7 +4482,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Optimistic local stock decrement so the shopper immediately sees the
-      // new availability. Realtime on `products` corrects it either way.
+      // new availability; the real figures are re-read right after (below).
       setProducts(prevProducts =>
         prevProducts.map(p => {
           const line = lineItems.find(i => i.product.id === p.id);
@@ -4471,6 +4491,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       setOrders(prev => (prev.some(o => o.id === placedOrder.id) ? prev : [placedOrder, ...prev]));
+      // A shopper's page has no live channel to correct the stock above, so ask for the real figures once.
+      window.dispatchEvent(new Event('yalla-products-changed'));
 
       // Cart is cleared ONLY after a confirmed order id.
       clearCart();
