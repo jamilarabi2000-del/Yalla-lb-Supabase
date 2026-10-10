@@ -775,6 +775,10 @@ export interface SiteContent {
     hoursArabic?: string;
     copyrightText: string;
     copyrightTextArabic?: string;
+    /** Where the copyright notice sits along the footer (CMS -> Footer). Not set: left on a computer, centred on a phone. */
+    copyrightAlign?: 'auto' | 'start' | 'center' | 'end';
+    /** How far below the divider line the notice sits. Not set: the usual distance. */
+    copyrightSpacing?: 'tight' | 'normal' | 'roomy';
   };
 }
 

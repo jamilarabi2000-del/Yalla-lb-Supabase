@@ -11,7 +11,11 @@ import {
   ChevronDown,
   AlignLeft,
   AlignCenter,
-  AlignRight
+  AlignRight,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  Wand2
 } from 'lucide-react';
 import { BrandIcon, GmailIcon } from '../../ui/BrandIcon';
 import { SocialIconLinks } from '../../SocialIconLinks';
@@ -25,6 +29,16 @@ import {
   shownChannels,
   type SocialAlign,
 } from '../../../lib/socialChannels';
+import {
+  COPYRIGHT_ALIGN_OPTIONS,
+  COPYRIGHT_SPACING_OPTIONS,
+  copyrightAlign,
+  copyrightBarClasses,
+  copyrightSpacing,
+  copyrightTextClasses,
+  type CopyrightAlign,
+  type CopyrightSpacing,
+} from '../../../lib/footerCopyright';
 
 /** What each channel's field asks for. Email, Call and WhatsApp fall back to the support contact above. */
 const CHANNEL_FIELDS: Record<SocialChannel, { label: string; placeholder: string; type: 'text' | 'email' | 'tel'; hint?: string }> = {
@@ -55,6 +69,9 @@ const ALIGN_OPTIONS: { value: SocialAlign; label: string; Icon: typeof AlignLeft
   { value: 'end', label: 'Right', Icon: AlignRight },
 ];
 
+const COPYRIGHT_ALIGN_ICONS: Record<CopyrightAlign, typeof AlignLeft> = { auto: Wand2, start: AlignLeft, center: AlignCenter, end: AlignRight };
+const COPYRIGHT_SPACING_ICONS: Record<CopyrightSpacing, typeof ArrowUp> = { tight: ArrowUp, normal: Minus, roomy: ArrowDown };
+
 const ALIGN_SELF: Record<SocialAlign, string> = { start: 'self-start', center: 'self-center', end: 'self-end' };
 
 interface CMSFooterTabProps {
@@ -75,6 +92,8 @@ interface CMSFooterTabProps {
     hoursArabic?: string;
     copyrightText: string;
     copyrightTextArabic?: string;
+    copyrightAlign?: CopyrightAlign;
+    copyrightSpacing?: CopyrightSpacing;
   };
   socialLinks: {
     instagram: string;
@@ -449,6 +468,71 @@ export const CMSFooterTab: React.FC<CMSFooterTabProps> = ({
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none leading-relaxed"
             />
             <p className="text-[11px] text-slate-500 mt-1" dir="rtl">اضغط <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] text-indigo-600">Enter</kbd> لكتابة النص على عدة أسطر منفصلة.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+          <div>
+            <p id="copyright-align-label" className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Alignment</p>
+            <div role="radiogroup" aria-labelledby="copyright-align-label" className="inline-flex flex-wrap items-center gap-1 bg-white/70 p-1 rounded-xl border border-slate-200">
+              {COPYRIGHT_ALIGN_OPTIONS.map(({ value, label, hint }) => {
+                const Icon = COPYRIGHT_ALIGN_ICONS[value];
+                const selected = copyrightAlign(footerData) === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    id={`copyright-align-${value}`}
+                    title={hint}
+                    onClick={() => onChangeFooterField('copyrightAlign', value)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${selected ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Auto is left on a computer and centred on a phone. Left and Right swap in Arabic, because the page is mirrored.</p>
+          </div>
+
+          <div>
+            <p id="copyright-spacing-label" className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Vertical position</p>
+            <div role="radiogroup" aria-labelledby="copyright-spacing-label" className="inline-flex flex-wrap items-center gap-1 bg-white/70 p-1 rounded-xl border border-slate-200">
+              {COPYRIGHT_SPACING_OPTIONS.map(({ value, label, hint }) => {
+                const Icon = COPYRIGHT_SPACING_ICONS[value];
+                const selected = copyrightSpacing(footerData) === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    id={`copyright-spacing-${value}`}
+                    title={hint}
+                    onClick={() => onChangeFooterField('copyrightSpacing', value)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${selected ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">Up puts the text close under the divider line, Down puts it further below.</p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Preview (computer view)</p>
+          <div className="rounded-2xl bg-[#171717] px-4 pb-4 pt-1" aria-hidden="true" inert>
+            <div id="copyright-preview" className={copyrightBarClasses(footerData)}>
+              <div className="flex items-center gap-2">
+                <span className={copyrightTextClasses(footerData)}>{footerData.copyrightText || '© 2026 Yalla. All Rights Reserved.'}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
