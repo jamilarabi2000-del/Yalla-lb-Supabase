@@ -138,7 +138,8 @@ create table public.search_logs (
   query text not null,
   origin text,
   user_id uuid,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  client_ip inet    -- [audit] filled in by the anonymous-insert limiter
 );
 alter table public.search_logs enable row level security;
 create policy search_insert on public.search_logs for insert to anon, authenticated
@@ -148,13 +149,37 @@ create policy search_logs_admin_delete on public.search_logs for delete to authe
 
 create table public.seller_applications (
   id uuid primary key default gen_random_uuid(),
+  applicant_user_id uuid,
   payload jsonb not null default '{}'::jsonb,
   status text not null default 'pending',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  client_ip inet
 );
 alter table public.seller_applications enable row level security;
-create policy seller_applications_insert on public.seller_applications for insert to anon, authenticated with check (true);
+create policy seller_applications_insert on public.seller_applications for insert to anon, authenticated
+  with check ((applicant_user_id = (select auth.uid())) or (applicant_user_id is null));
 create policy seller_applications_admin  on public.seller_applications for all to authenticated using (private.is_admin_verified()) with check (private.is_admin_verified());
+
+-- [audit] the third table the anonymous-insert limiter guards, as the live project has it (an anonymous or signed-in
+-- insert; signed-in users can also read).
+create table public.analytics_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid,
+  session_id text,
+  event_name text not null,
+  entity_type text,
+  entity_id uuid,
+  properties jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  client_ip inet
+);
+alter table public.analytics_events enable row level security;
+create policy analytics_insert_public on public.analytics_events for insert to anon, authenticated
+  with check (user_id is null or user_id = (select auth.uid()));
+create policy analytics_admin_read on public.analytics_events for select to authenticated using (private.is_admin_verified());
+revoke select, update, delete on public.analytics_events from anon;
+revoke update, delete on public.analytics_events from authenticated;
 
 -- [audit] SEC-9: authenticated holds UPDATE/DELETE on admin_activities, "blocked only by a trigger".
 create table public.admin_activities (

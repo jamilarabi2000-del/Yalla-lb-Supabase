@@ -4,7 +4,7 @@ import { prepareFixture, postgresAvailable, read, ADMIN, SHOPPER } from './harne
 import { dryRunSql, withoutCommentLines, EVIDENCE_SQL, HARDENING_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
 
 // The two scripts for the database approval step: the read-only preflight, and the dry run that applies the
-// four migrations and rolls them back. Both must leave the database exactly as they found it.
+// five migrations and rolls them back. Both must leave the database exactly as they found it.
 const available = postgresAvailable();
 const strip = (sql: string) => sql.replace(/--[^\n]*/g, '');
 
@@ -21,7 +21,7 @@ describe('the read-only preflight, as a file', () => {
 });
 
 describe('the dry run, as a file', () => {
-  it('contains the four migrations in order, between a begin and a rollback', () => {
+  it('contains the five migrations in order, between a begin and a rollback', () => {
     const sql = dryRunSql();
     expect(sql.trimEnd().endsWith('rollback;')).toBe(true);
     expect(sql).not.toMatch(/\bcommit\b/i);
@@ -63,8 +63,8 @@ describe('the dry run with its evidence row', () => {
   it('shows the evidence just before the rollback, and only when asked', () => {
     const plain = dryRunSql(process.cwd(), { compact: true });
     const shown = dryRunSql(process.cwd(), { compact: true, evidence: true });
-    expect(plain).not.toContain('dry run finished: all four migrations applied');
-    expect(shown.indexOf(EVIDENCE_SQL)).toBeGreaterThan(shown.indexOf('-- ===== 20261004100300'));
+    expect(plain).not.toContain('dry run finished: all five migrations applied');
+    expect(shown.indexOf(EVIDENCE_SQL)).toBeGreaterThan(shown.indexOf('-- ===== 20261010100000'));
     expect(shown.indexOf(EVIDENCE_SQL)).toBeLessThan(shown.lastIndexOf('rollback;'));
     expect(shown.trimEnd().endsWith('rollback;')).toBe(true);
     const outsideQuotes = strip(EVIDENCE_SQL).replace(/'[^']*'/g, "''");   // 'INSERT' as a privilege name is not an insert
@@ -100,22 +100,22 @@ describe.skipIf(!available)('the approval-step scripts, run in a scratch Postgre
     expect(fixture.pg.dump(db)).toBe(before);
   });
 
-  it('the dry run applies all four migrations, their checks pass, and the database is exactly as before', () => {
+  it('the dry run applies all five migrations, their checks pass, and the database is exactly as before', () => {
     const db = seeded();
     const before = fixture.pg.dump(db);
     const result = fixture.pg.run(db, dryRunSql());
     expect(result.ok, result.err).toBe(true);
     for (const name of HARDENING_MIGRATIONS) expect(result.err, name).toContain(`dry run: applying ${name}`);
-    expect(result.err).toContain('all four migrations applied and their checks passed; rolling back');
+    expect(result.err).toContain('all five migrations applied and their checks passed; rolling back');
     expect(fixture.pg.dump(db)).toBe(before);
   });
 
-  it('the compact dry run behaves the same: all four applied, all checks pass, nothing left', () => {
+  it('the compact dry run behaves the same: all five applied, all checks pass, nothing left', () => {
     const db = seeded();
     const before = fixture.pg.dump(db);
     const result = fixture.pg.run(db, dryRunSql(process.cwd(), { compact: true }));
     expect(result.ok, result.err).toBe(true);
-    expect(result.err).toContain('all four migrations applied and their checks passed; rolling back');
+    expect(result.err).toContain('all five migrations applied and their checks passed; rolling back');
     expect(fixture.pg.dump(db)).toBe(before);
   });
 
@@ -126,9 +126,9 @@ describe.skipIf(!available)('the approval-step scripts, run in a scratch Postgre
     expect(result.ok, result.err).toBe(true);
     const row = result.out.split('\n').find(line => line.startsWith('dry run finished'))!;
     expect(row, result.out).toBeDefined();
-    const [, categoryDelete, sellerDelete, anonCategoryDelete, registryInsert, policies, anonSearchLogs, anonCoupons, maintain, auditDelete, caps, purgeAnon, purgeService] = row.split('|');
-    expect({ categoryDelete, sellerDelete, anonCategoryDelete, registryInsert, anonSearchLogs, anonCoupons, auditDelete, caps, purgeAnon, purgeService })
-      .toEqual({ categoryDelete: 't', sellerDelete: 't', anonCategoryDelete: 'f', registryInsert: 'f', anonSearchLogs: 'f', anonCoupons: 'f', auditDelete: 'f', caps: '2', purgeAnon: 'f', purgeService: 't' });
+    const [, categoryDelete, sellerDelete, anonCategoryDelete, registryInsert, policies, anonSearchLogs, anonCoupons, maintain, auditDelete, caps, purgeAnon, purgeService, limiterEdge, limiterVisitor] = row.split('|');
+    expect({ categoryDelete, sellerDelete, anonCategoryDelete, registryInsert, anonSearchLogs, anonCoupons, auditDelete, caps, purgeAnon, purgeService, limiterEdge, limiterVisitor })
+      .toEqual({ categoryDelete: 't', sellerDelete: 't', anonCategoryDelete: 'f', registryInsert: 'f', anonSearchLogs: 'f', anonCoupons: 'f', auditDelete: 'f', caps: '2', purgeAnon: 'f', purgeService: 't', limiterEdge: 't', limiterVisitor: 'f' });
     expect(policies).toBe('phone_registry_require_verified_admin_mutation:*:restrictive, phone_registry_select_own:r:permissive');
     expect(maintain).toBe('');   // this scratch server is older than 17: reported as empty, not as zero
     expect(fixture.pg.dump(db)).toBe(before);
@@ -143,7 +143,7 @@ describe.skipIf(!available)('the approval-step scripts, run in a scratch Postgre
     const result = fixture.pg.run(db, dryRunSql(), { allowError: true });
     expect(result.ok).toBe(false);
     expect(result.err).toContain('did not refuse a signed-in user who is not an administrator');
-    expect(result.err).not.toContain('all four migrations applied');
+    expect(result.err).not.toContain('all five migrations applied');
     expect(fixture.pg.dump(db)).toBe(before);
   });
 });
