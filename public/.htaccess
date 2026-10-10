@@ -1,0 +1,54 @@
+# Apache / LiteSpeed (for example Hostinger) equivalent of vercel.json: the same security headers, the same
+# single-page-app fallback, the same one-year cache for the hashed files under /assets.
+#
+# Vite copies this file to the root of the built site (dist/.htaccess). Upload the whole of dist/, dotfile included.
+# On Vercel it is ignored. test/hostingParity.test.ts fails if the headers, the preview exception, the cache rule or the
+# fallback here ever differ from vercel.json, so change them in both places together.
+#
+# Not here, on purpose: a redirect from http to https. Hostinger has a "Force HTTPS" switch for that, and with
+# Cloudflare in front a redirect written here can loop. The Strict-Transport-Security header below only counts
+# once the site is served over https.
+
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_headers.c>
+  # CMS Studio shows the storefront in a frame of the same site, only for an address with cmsPreview=1.
+  SetEnvIf Query_String "(^|&)cmsPreview=1(&|$)" CMS_PREVIEW=1
+
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob: https://yjmpjuskgbbshrvhgmys.supabase.co; connect-src 'self' https://yjmpjuskgbbshrvhgmys.supabase.co wss://yjmpjuskgbbshrvhgmys.supabase.co https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests" env=!CMS_PREVIEW
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' blob: https://yjmpjuskgbbshrvhgmys.supabase.co; connect-src 'self' https://yjmpjuskgbbshrvhgmys.supabase.co wss://yjmpjuskgbbshrvhgmys.supabase.co https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests" env=CMS_PREVIEW
+  Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY" env=!CMS_PREVIEW
+  Header always set X-Frame-Options "SAMEORIGIN" env=CMS_PREVIEW
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Resource-Policy "same-origin"
+
+  # The page itself is always re-checked, so a new deployment is picked up at once.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  # Hashed app files (everything Vite writes to /assets carries a content hash) stay in the browser for a year.
+  Header set Cache-Control "public, max-age=31536000, immutable" env=YALLA_HASHED_ASSET
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Mark requests for hashed app files (read by the Header line above).
+  RewriteRule ^assets/ - [E=YALLA_HASHED_ASSET:1]
+
+  # A real file or folder is served as it is.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Every other address is the single-page app, except a missing file under /assets, which must stay "not found"
+  # (answering an old, deleted app file with the home page breaks the page that asked for it).
+  RewriteCond %{REQUEST_URI} !^/assets/
+  RewriteRule ^ /index.html [L]
+</IfModule>

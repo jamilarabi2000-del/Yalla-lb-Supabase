@@ -389,9 +389,9 @@ historical order is misreported the next time the rate moves.
 
 | Surface | Control |
 | :--- | :--- |
-| `search_logs` | 60 anonymous inserts / minute / IP |
-| `seller_applications` | 5 anonymous inserts / minute / IP |
-| `analytics_events` | 60 anonymous inserts / minute / IP, payload ≤4 KiB |
+| `search_logs` | 60 anonymous inserts / minute / visitor address (`CF-Connecting-IP`; `X-Forwarded-For` is not trusted); signed in: per account, 5x |
+| `seller_applications` | 5 anonymous inserts / minute / visitor address; signed in: per account, 5x |
+| `analytics_events` | 60 anonymous inserts / minute / visitor address, payload ≤4 KiB; signed in: per account, 5x |
 | `checkout_attempts` | `private.rate_limit_checkout_attempt()` |
 | `reviews` | `private.rate_limit_review_insert()`, purchase required via `private.can_review_product()` |
 | `orders.shipping` | ≤8 KiB |
@@ -413,11 +413,26 @@ It stays off, and nothing changes, until the site key is set. To switch it
 on, in this order:
 
 1. Cloudflare dashboard → Turnstile → add a widget for the site's hostname
-   (mode "Managed"). Copy the site key and the secret key.
-2. Vercel → Project → Settings → Environment Variables:
-   `VITE_TURNSTILE_SITE_KEY` = the site key. Redeploy.
+   (mode "Managed"; free). Copy the site key and the secret key.
+2. Give the **build** the site key as `VITE_TURNSTILE_SITE_KEY`, then build and
+   deploy again. A Vite site bakes `VITE_` values into the files when
+   `npm run build` runs, so it must be set where the build happens: on Vercel,
+   Project → Settings → Environment Variables, then Redeploy; on Hostinger (or
+   any host you upload `dist/` to), in a `.env.production` file next to
+   `package.json` on the machine that builds, or as a GitHub Actions variable,
+   then rebuild and upload `dist/` again. The site key is public by design (it
+   is sent to every visitor's browser), so it is safe in any of those places.
+   **The secret key never goes in the website or the repository**: only in
+   step 3.
 3. Supabase → Authentication → Attack Protection → enable CAPTCHA
    protection, provider Cloudflare Turnstile, paste the secret key.
+
+Check it worked, without a browser: `scripts/check-captcha.mjs` makes one
+password sign-in request with a made-up address and no token. With CAPTCHA on
+Supabase should refuse it with `captcha_failed`; with it off it says
+`invalid_credentials`. Any other answer is reported as "could not tell", never
+as success. (Not yet run against the live project, because the publishable key
+was not available to the session: run it once on your own machine.)
 
 Step 3 before step 2 stops every sign-in until the redeploy is live. The CSP
 allows `https://challenges.cloudflare.com` for the script and its frame.
@@ -428,7 +443,8 @@ allows `https://challenges.cloudflare.com` for the script and its frame.
 
 These reduce blast radius. None of them is an authorization control.
 
-- **Transport headers** (`vercel.json`, `netlify.toml`): CSP with
+- **Transport headers** (`vercel.json`; `public/.htaccess` for an Apache or LiteSpeed host such as
+  Hostinger, kept identical by `test/hostingParity.test.ts`; `netlify.toml` is an older, unused copy): CSP with
   `frame-ancestors 'none'`, `object-src 'none'` and `base-uri 'self'`; HSTS;
   `X-Content-Type-Options`; `X-Frame-Options`; `Referrer-Policy`;
   `Permissions-Policy`; COOP/CORP. `script-src` has no `'unsafe-inline'`, so
@@ -516,10 +532,11 @@ These reduce blast radius. None of them is an authorization control.
 | Gap | Status |
 | :--- | :--- |
 | Leaked-password protection (HaveIBeenPwned) | **Not enabled** — requires a paid Supabase plan. |
-| Public source repository | The GitHub repository is **public**: the full source, migrations and these documents can be read by anyone. No secret is in it (history scanned 2026-09-25), and the design does not rely on the source being secret, but making it private removes the map an attacker would study. Vercel's free plan deploys private repositories from a personal account. |
-| Legacy Firebase browser key in git history | `firebase-applet-config.json` (added 2026-09-13, deleted 2026-09-14) held a Google/Firebase **browser** API key. Such keys identify a project rather than grant access, but it remains readable in the public history: restrict it to the site's referrer in Google Cloud → Credentials, or delete the unused Firebase project. |
-| CAPTCHA | **Off in production**: `VITE_TURNSTILE_SITE_KEY` is not set in Vercel (checked 2026-09-25). Turn it on as described in section 6. |
+| Public source repository | The GitHub repository is **public**: the full source, migrations and these documents can be read by anyone. No secret is in it (history scanned 2026-09-25), and the design does not rely on the source being secret, but making it private removes the map an attacker would study. Vercel's free plan deploys private repositories from a personal account. If it goes private: CodeQL needs a paid GitHub plan there, so its job now skips itself on a private repository (`.github/workflows/codeql.yml`); the tests, build, secret scan and dependency audit keep running. |
+| Legacy Firebase browser key in git history | `firebase-applet-config.json` (added 2026-09-13, deleted 2026-09-14) held a Google/Firebase **browser** API key. Such keys identify a project rather than grant access, but it remains readable in the public history: restrict it to the site's referrer in Google Cloud → Credentials, or delete the unused Firebase project. Nothing in the repository depends on Firebase any more: five leftover Firebase-era scripts (`backfill-seller-claims`, `migrate-coupons`, `migrate-product-private`, `migrate-sellers`, `publish-cms`; none could run, they imported a removed helper and a package that is not installed) were deleted, and `test/noFirebase.test.ts` fails if a Firebase package, import, security-header allowance or config file comes back. (A few components still call the signed-in Supabase user `firebaseUser`: a leftover variable name, nothing more.) |
+| CAPTCHA | **Off in production**: `VITE_TURNSTILE_SITE_KEY` is not set in Vercel (checked 2026-09-25). Turn it on as described in section 6, then confirm with `scripts/check-captcha.mjs`. |
 | Sign-in hook | **Must be switched on** in Supabase -> Authentication -> Hooks. Until then Supabase itself does not insist on the password + code pair: a password alone, or a code alone, still signs in through the API; the site's own forms always ask for both. |
+| Hosting | Not tied to Vercel. The browser talks to Supabase directly, so the database rules (rate limits, row-level security) do not depend on the host. `vercel.json` and `public/.htaccess` (Apache/LiteSpeed, for example Hostinger) carry the same security headers, cache rules and page fallback, kept identical by `test/hostingParity.test.ts`. **Not verified:** how a real Hostinger server answers; check the headers after the first upload (browser developer tools → Network → the page → Response Headers). `netlify.toml` is an older copy that no longer matches and is not used. |
 | Forgot password | Needs only the mailbox, by the owner's choice (above). |
 | Seller provisioning | `admin-seller-provision` sets the temporary password the admin passes on; the seller signs in with it and an emailed code, and can change it with Forgot password. |
 | Online card payment | **Not built.** No gateway, no payment state on `orders`. Checkout offers cash on delivery and Whish/OMT only, enforced by `trg_enforce_supported_payment_method`. |
@@ -567,7 +584,7 @@ app (`src/lib/earlyFetch.ts`) instead of asking again. What this does and does n
 
 ## Database hardening and pinned CI (Build 3)
 
-Four migrations, written and tested on the branch and **not applied to the project until the owner approves
+Five migrations, written and tested on the branch and **not applied to the project until the owner approves
 them separately** (procedure, preflight, dry run and rollbacks: `supabase/rollbacks/README.md`). They wait in
 `supabase/pending/`, not `supabase/migrations/`, so that a merge to `main` cannot apply them through the Supabase
 GitHub integration:
@@ -585,8 +602,12 @@ GitHub integration:
   and repeats an anonymous insert to prove it still works.
 - **Size caps on anonymous writes:** a logged search at most 200 characters (the storefront cuts to that before
   logging), a seller application at most 16 kB; `NOT VALID`, so existing rows are untouched.
-- **Still open:** the anonymous-insert rate limiter trusts the first `x-forwarded-for` address and skips signed-in
-  callers. It exists only in the live project and is to be rewritten from its live source (see the README).
+- **The anonymous-insert rate limit counts by an address the visitor cannot choose** (`20261010100000_rate_limit_uses_edge_ip`).
+  It used the first `X-Forwarded-For` address, which Cloudflare leaves as whatever the visitor typed, so the limit never
+  bit; and it skipped signed-in callers. It now counts signed-out visitors by `CF-Connecting-IP` (set by Cloudflare;
+  IPv6 by /64), signed-in callers by account at five times the allowance, and falls back to a shared cap when there is no
+  usable address. It only ever throttles for the rest of the minute: no address is banned or remembered, because shoppers
+  share mobile connection addresses. The browser talks to Supabase directly, so it does not depend on the website host.
 
 `test/db/hardening.db.test.ts` runs every migration, its refusals and its rollback in a scratch PostgreSQL
 (`scripts/db/scratchPostgres.mjs`); CI installs the server programs if needed and fails rather than skip.
