@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useShop } from '../context/ShopContext';
 import { requestAccountSignIn } from '../lib/accountSignIn';
 import { responsiveImage } from '../lib/responsiveImage';
+import { brandTagline } from '../lib/brandTagline';
 import systemLogo from '../assets/images/system_logo_1786837577985.webp';
 import { 
   ShoppingBag, 
@@ -58,6 +59,8 @@ export const Navbar: React.FC = () => {
     }
   }, [searchQuery, logSearchQuery]);
 
+  const tagline = brandTagline(siteContent?.navbar, language);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) logSearchQuery(searchQuery.trim(), 'navbar');
@@ -76,12 +79,16 @@ export const Navbar: React.FC = () => {
 
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16 lg:h-18 gap-2 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group py-1 flex-shrink-0 select-none" onClick={() => { setActiveTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group py-1 select-none" onClick={() => { setActiveTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
             <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#F8F8F6] overflow-hidden border border-[#E5E5E5] shadow-2xs group-hover:border-[#B89753] transition-all flex-shrink-0">
               <img src={siteContent?.navbar?.logoUrl || systemLogo} {...responsiveImage(siteContent?.navbar?.logoUrl, '(min-width: 640px) 40px, 36px')} decoding="async" alt={siteContent?.navbar?.brandName || 'Logo'} className="w-full h-full object-cover group-hover:scale-105 transition-transform" referrerPolicy="no-referrer" />
               <span className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 flex h-2.5 w-2.5 sm:h-3 sm:w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-500"></span></span>
             </div>
-            <div className="flex items-center"><span className="text-base sm:text-lg lg:text-xl font-bold tracking-tight text-[#171717] uppercase font-sans whitespace-nowrap leading-none">{siteContent.navbar?.brandName || 'Yalla'}</span></div>
+            <div className="flex flex-col justify-center">
+              <span className="text-base sm:text-lg lg:text-xl font-bold tracking-tight text-[#171717] uppercase font-sans whitespace-nowrap leading-none">{siteContent.navbar?.brandName || 'Yalla'}</span>
+              {/* The tagline only uses room the header has: it wraps and is cut off with an ellipsis instead of pushing the buttons or the search box (two lines on a phone, one line on a small tablet, two lines in a 112px column beside the search box, one line again on a wide screen), and it is left out below 360px where there is no room. */}
+              {tagline && <span id="brand-tagline" title={tagline} className="mt-1 text-[10px] sm:text-[11px] leading-tight font-medium text-[#666666] [overflow-wrap:anywhere] line-clamp-2 sm:line-clamp-1 md:line-clamp-2 md:max-w-[112px] 2xl:line-clamp-1 2xl:max-w-[260px] max-[359px]:hidden">{tagline}</span>}
+            </div>
           </div>
 
           {showSearch && (
