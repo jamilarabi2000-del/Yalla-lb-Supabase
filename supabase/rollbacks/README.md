@@ -12,7 +12,7 @@ Supabase GitHub integration ("Deploy to production") is still switched on, and i
 apply them by itself. When they are applied (with approval, in the order below), each file moves into
 `supabase/migrations/` under the version the project recorded, as earlier migrations were (see commit 34e9ce6).
 
-## The database hardening (Build 3): four migrations, in `supabase/pending/`
+## The database hardening (Build 3): five migrations, in `supabase/pending/`
 
 | Migration | What it changes | Undo with |
 |---|---|---|
@@ -20,6 +20,7 @@ apply them by itself. When they are applied (with approval, in the order below),
 | `20261004100100_phone_registry_written_only_by_trigger` | Signed-in users can no longer write `phone_registry` directly; the trigger still keeps it in step. | `…100100….rollback.sql` |
 | `20261004100200_revoke_unneeded_browser_grants` | Takes MAINTAIN (PostgreSQL 17) from the browser roles, SELECT on four admin-only tables from anon, UPDATE/DELETE on the audit trail from browsers. | `…100200….rollback.sql` |
 | `20261004100300_anonymous_insert_size_caps_and_log_purge` | Caps a logged search at 200 characters and a seller application at 16 kB (new rows only); adds a search-log purge function that nothing runs yet. | `…100300….rollback.sql` |
+| `20261010100000_rate_limit_uses_edge_ip` | The anonymous-insert rate limit counts signed-out visitors by the address Cloudflare saw (`CF-Connecting-IP`, which a visitor cannot choose) instead of the first `X-Forwarded-For` address (which they can), and counts signed-in callers by account. Same limits, still only a throttle: nothing is banned or remembered. | `…10100000….rollback.sql` |
 
 Every migration checks its own assumptions against the database first and stops, changing nothing, if one
 does not hold; and each ends by checking the state it was meant to reach. They are safe to run twice.
@@ -33,13 +34,13 @@ does not hold; and each ends by checking the state it was meant to reach. They a
    will be dropped); insert triggers on the four tables; the longest existing search and application; the
    rate limiter's source.
 2. **Dry run.** `node scripts/db/dryrun-hardening.mjs` (add `--compact` for a shorter script without comment
-   lines, and `--evidence` to end with one row showing the state the migrations would leave) prints one script that applies the four migrations and rolls everything back; it sets a 3 s lock
+   lines, and `--evidence` to end with one row showing the state the migrations would leave) prints one script that applies the five migrations and rolls everything back; it sets a 3 s lock
    timeout first, so on the live database it gives up rather than queue behind other work. Every check inside them runs against the real data; nothing stays.
    (`test/db/dryrun.db.test.ts` proves the database is identical before and after.)
-3. **Apply,** in order: 100000, 100100, 100200, 100300.
+3. **Apply,** in order: 20261004100000, …100100, …100200, …100300, then 20261010100000.
 4. **Check on the live site:** delete a test category from the admin panel; a storefront search still appears
    in Search Trends; the sign-up phone check still answers.
-5. **If anything is wrong,** run the rollbacks in reverse order (100300, 100200, 100100, 100000).
+5. **If anything is wrong,** run the rollbacks in reverse order (20261010100000, then 100300, 100200, 100100, 100000).
 
 ### Order with the website
 
@@ -49,11 +50,9 @@ longer than 200 characters would still work, but its log row would be refused.
 
 ### Not done here, and why
 
-- **The rate limiter** (`private.rate_limit_anonymous_insert`, audit SEC-2): it trusts the first address in
-  `x-forwarded-for`, which a visitor can set, and skips signed-in callers. It exists only in the live project,
-  so it has to be read there first (the preflight prints it) and rewritten from that, keeping whatever else it
-  does: prefer `cf-connecting-ip` (as `is_phone_available` and `login_caller_key` already do) and count
-  signed-in callers per account.
+- **Blocking addresses.** The limiter only ever throttles: past the limit an insert is refused until the minute is over,
+  then works again. Nothing is banned and no address is remembered beyond the rows it wrote, because many shoppers in
+  Lebanon share one mobile connection address and a ban would lock out innocent people.
 - **How long to keep search logs** is the owner's decision. `private.purge_search_logs(interval)` exists for
   whatever schedule is chosen (it refuses less than 7 days); nothing schedules it.
 - **`VALIDATE CONSTRAINT`** on the two size caps: only after the preflight shows no existing row over the limit.
@@ -71,5 +70,27 @@ The two private delete functions are SECURITY DEFINER, call `is_admin_verified`,
 them: the bug is real on the project, not only in the repository. `phone_registry` has an ALL policy (owner **or
 any administrator**) plus a *restrictive* policy requiring a verified administrator for administrators' changes;
 migration B drops only permissive write policies, so the restrictive one stays. Every grant matched the audit
-(MAINTAIN held on 23 tables). The rate limiter is SECURITY DEFINER and reads the leftmost `x-forwarded-for`, so
-nothing the migrations do can break it. Largest existing search: 5 characters; no seller applications; database 47 MB.
+(MAINTAIN held on 23 tables). The rate limiter is SECURITY DEFINER and reads the leftmost `x-forwarded-for` (which is what migration
+`20261010100000` replaces), so nothing in the first four migrations can break it. Largest existing search: 5 characters; no seller applications; database 47 MB.
+
+### The rate limiter (`20261010100000_rate_limit_uses_edge_ip`)
+
+Read from the live project on 2026-10-10 and rewritten from that source; the rollback puts the old body back verbatim.
+
+- **Why the old one did not work.** Cloudflare (in front of every Supabase project) *adds* the real address to
+  whatever `X-Forwarded-For` the visitor already sent, so the first address in the header is whatever the visitor
+  typed: a different one per request gave every request a fresh budget. It also let signed-in callers through uncounted.
+- **What it counts by now.** Signed out: `CF-Connecting-IP`, which Cloudflare sets itself (the project's gateway logs
+  carry it on every request). IPv4 counts per address; IPv6 per /64, since one home connection is given billions of
+  addresses inside it. Signed in, writing a row in their own name: per account, five times the signed-out allowance.
+  No usable address: the old conservative shared cap (ten times the limit), so an unattributable flood is still bounded.
+- **Same limits, same error.** 60 a minute (5 for seller applications), `RATE_LIMIT_EXCEEDED` / SQLSTATE 53400.
+- **Independent of the host.** The browser talks to Supabase directly, so moving the website from Vercel to Hostinger
+  changes nothing here.
+- **Checks.** It stops, changing nothing, unless the function is the SECURITY DEFINER limiter it was written against, its
+  three triggers exist and the tables have the columns it reads. After replacing the function, a probe inserts as a
+  signed-out visitor who sends a forged `X-Forwarded-For` and proves the row is recorded under the Cloudflare address
+  (the probe is rolled back). `test/db/rateLimit.db.test.ts` runs all of this, and the old behaviour, in a scratch PostgreSQL.
+- **After applying, check once on the live site:** do one search, then look at the newest `search_logs` row: its
+  `client_ip` should be your address. If it is empty the header did not reach the database; the limiter then falls back
+  to the shared cap (nobody is blocked) and the migration should be rolled back and looked at again.

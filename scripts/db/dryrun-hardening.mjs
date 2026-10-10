@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Prints one SQL script that applies the four database hardening migrations inside a transaction and then
+ * Prints one SQL script that applies the five database hardening migrations inside a transaction and then
  * rolls it back: each migration's own checks run against the real database (they stop with an error if an
  * assumption does not hold), and nothing stays. Use it for the dry run on the project, after the read-only
  * preflight (scripts/db/preflight_hardening.sql), and only with the owner's approval.
@@ -21,6 +21,7 @@ export const HARDENING_MIGRATIONS = [
   '20261004100100_phone_registry_written_only_by_trigger',
   '20261004100200_revoke_unneeded_browser_grants',
   '20261004100300_anonymous_insert_size_caps_and_log_purge',
+  '20261010100000_rate_limit_uses_edge_ip',
 ];
 
 /** The migration text without its comment-only lines (the SQL is identical; the script is much shorter to send). */
@@ -28,9 +29,9 @@ export const withoutCommentLines = sql => sql.split('\n').filter(line => !/^\s*-
 
 /**
  * One row of facts about the state inside the dry run (just before it is rolled back), so whoever runs the script in
- * an SQL editor sees what the four migrations would have done instead of an empty result.
+ * an SQL editor sees what the five migrations would have done instead of an empty result.
  */
-export const EVIDENCE_SQL = `select 'dry run finished: all four migrations applied and every check passed; the next statement rolls it all back' as note,
+export const EVIDENCE_SQL = `select 'dry run finished: all five migrations applied and every check passed; the next statement rolls it all back' as note,
   has_function_privilege('authenticated', 'private.admin_delete_category(uuid,uuid,boolean)', 'EXECUTE') as category_delete_callable_by_signed_in,
   has_function_privilege('authenticated', 'private.admin_delete_seller(uuid,uuid)', 'EXECUTE') as seller_delete_callable_by_signed_in,
   has_function_privilege('anon', 'private.admin_delete_category(uuid,uuid,boolean)', 'EXECUTE') as anon_can_run_category_delete,
@@ -42,7 +43,9 @@ export const EVIDENCE_SQL = `select 'dry run finished: all four migrations appli
   has_table_privilege('authenticated', 'public.admin_activities', 'DELETE') as signed_in_can_delete_admin_activities,
   (select count(*) from pg_constraint where conname in ('search_logs_query_length', 'seller_applications_payload_size')) as size_caps_present,
   has_function_privilege('anon', 'private.purge_search_logs(interval)', 'EXECUTE') as purge_callable_by_anon,
-  has_function_privilege('service_role', 'private.purge_search_logs(interval)', 'EXECUTE') as purge_callable_by_service_role;`;
+  has_function_privilege('service_role', 'private.purge_search_logs(interval)', 'EXECUTE') as purge_callable_by_service_role,
+  pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure) ~* 'cf-connecting-ip' as limiter_reads_edge_address,
+  pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure) ~* 'x-forwarded-for|x-real-ip' as limiter_reads_visitor_header;`;
 
 export function dryRunSql(root = process.cwd(), { compact = false, evidence = false } = {}) {
   const parts = [
@@ -59,7 +62,7 @@ export function dryRunSql(root = process.cwd(), { compact = false, evidence = fa
     const sql = fs.readFileSync(path.join(root, 'supabase/pending', `${name}.sql`), 'utf8');
     parts.push(compact ? withoutCommentLines(sql) : sql);
   }
-  parts.push("\ndo $$ begin raise notice 'dry run: all four migrations applied and their checks passed; rolling back'; end $$;");
+  parts.push("\ndo $$ begin raise notice 'dry run: all five migrations applied and their checks passed; rolling back'; end $$;");
   if (evidence) parts.push(EVIDENCE_SQL);
   parts.push('rollback;');
   return parts.join('\n');
