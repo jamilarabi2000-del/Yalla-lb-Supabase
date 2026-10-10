@@ -299,8 +299,10 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               type="text"
               value={navbarData.brandSubtitle || ''}
               onChange={(e) => onChangeField('brandSubtitle', e.target.value)}
+              aria-describedby="navbar-brand-sub-en-hint"
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
+            <p id="navbar-brand-sub-en-hint" className="mt-1 text-[11px] text-slate-500">Shown in small text under the brand name in the header. Leave empty to show no tagline in English.</p>
           </div>
           <div>
             <label htmlFor="navbar-brand-sub-ar" className="block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1.5 cursor-pointer" dir="rtl">
@@ -312,8 +314,10 @@ export const CMSNavbarTab: React.FC<CMSNavbarTabProps> = ({
               dir="rtl"
               value={navbarData.brandSubtitleArabic || ''}
               onChange={(e) => onChangeField('brandSubtitleArabic', e.target.value)}
+              aria-describedby="navbar-brand-sub-ar-hint"
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
             />
+            <p id="navbar-brand-sub-ar-hint" className="mt-1 text-[11px] text-slate-500">Shown to Arabic visitors. If empty, they see the English tagline.</p>
           </div>
 
           <div>
