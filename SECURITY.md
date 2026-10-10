@@ -437,6 +437,29 @@ was not available to the session: run it once on your own machine.)
 Step 3 before step 2 stops every sign-in until the redeploy is live. The CSP
 allows `https://challenges.cloudflare.com` for the script and its frame.
 
+### Optional: a free edge in front of the website
+
+A proxy such as Cloudflare's free plan in front of the **website** works the same
+whether the files are served by Vercel or by Hostinger. Know what it covers: the
+browser talks to Supabase directly, so it does not stand in front of the database.
+The database's own limits (table above), row-level security and the CAPTCHA are what
+protect that, and they stay with you if the host changes.
+
+If you add one, shape it so real shoppers are never locked out. Many people in
+Lebanon share one mobile address, so **never block by address or country**:
+
+- Use *Managed Challenge* (a quick check that most people never see), not *Block*.
+- A rate-limit rule should be short and per-address (seconds, not hours): a
+  throttle, not a ban. Check which actions your plan allows.
+- Challenge, rather than block, requests for paths this site does not have and
+  scanners probe for: `/wp-admin`, `/wp-login.php`, `/xmlrpc.php`, `/.env`, `/.git`,
+  `/phpmyadmin`. Do not list the private admin address anywhere in a rule.
+- Leave "Under Attack" mode for a real attack; it challenges every visitor.
+
+Free-plan allowance (Cloudflare's WAF documentation): five custom rules and one
+rate-limiting rule. **Not verified here:** that Managed Challenge and Bot Fight Mode
+are available on the free plan today; confirm in the dashboard before relying on them.
+
 ---
 
 ## 7. Client-side hardening
