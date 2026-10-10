@@ -111,6 +111,7 @@ describe('every address is the app, except a missing file under /assets', () => 
 
 describe('the file does what its comment says it leaves out, and nothing riskier', () => {
   it('does not list folders', () => { expect(code).toMatch(/^Options -Indexes$/m); });
+  it('names the home page explicitly, so a host\'s placeholder page (default.php, index.php) cannot win', () => { expect(code).toMatch(/^DirectoryIndex index\.html$/m); });
   it('does not redirect http to https itself (the host switch does; a redirect behind Cloudflare can loop)', () => {
     expect(code).not.toMatch(/%\{HTTPS\}|%\{HTTP:X-Forwarded-Proto\}|R=30[12]/i);
   });

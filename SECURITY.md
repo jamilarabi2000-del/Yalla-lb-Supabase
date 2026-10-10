@@ -389,9 +389,9 @@ historical order is misreported the next time the rate moves.
 
 | Surface | Control |
 | :--- | :--- |
-| `search_logs` | 60 anonymous inserts / minute / visitor address (`CF-Connecting-IP`; `X-Forwarded-For` is not trusted); signed in: per account, 5x |
-| `seller_applications` | 5 anonymous inserts / minute / visitor address; signed in: per account, 5x |
-| `analytics_events` | 60 anonymous inserts / minute / visitor address, payload ≤4 KiB; signed in: per account, 5x |
+| `search_logs` | 60 anonymous inserts / minute / visitor address (see the note below the table) |
+| `seller_applications` | 5 anonymous inserts / minute / visitor address (see the note) |
+| `analytics_events` | 60 anonymous inserts / minute / visitor address, payload ≤4 KiB (see the note) |
 | `checkout_attempts` | `private.rate_limit_checkout_attempt()` |
 | `reviews` | `private.rate_limit_review_insert()`, purchase required via `private.can_review_product()` |
 | `orders.shipping` | ≤8 KiB |
@@ -399,6 +399,23 @@ historical order is misreported the next time the rate moves.
 | Payment webhook | HMAC-SHA256, ±300 s timestamp window, unique `provider_event_id` |
 | Sign-in, sign-up, email links, password resets | Supabase Auth's per-IP limits; CAPTCHA once switched on (below) |
 | Password step (`verify_login_password`) | 5 wrong / 15 min and 20 / day per email, 30 / 15 min per caller, serialized by advisory locks |
+
+**Which address the anonymous-insert limit counts.** *In force today:* the first `X-Forwarded-For`
+address, which a visitor can choose, so the limit can be sidestepped, and signed-in callers are not
+counted (audit SEC-2; listed in section 9). *After migration `20261010100000_rate_limit_uses_edge_ip` is
+applied* (written, tested, waiting for the owner's approval; update this note when it is applied):
+
+- signed out: `CF-Connecting-IP`, which Cloudflare sets (IPv6 by /64; an IPv4 address written the IPv6 way
+  counts as IPv4); signed in: per account at 5x; no usable address: a shared cap at 10x, so nobody is locked out;
+- it only throttles for the rest of the minute: no address is banned or remembered, because many shoppers share
+  one mobile address;
+- the server, not the browser, decides the `client_ip` and `created_at` the counts read: a row cannot carry a
+  planted address or a future date. Two honest limits remain: the counts are *soft* (concurrent requests can
+  overshoot a limit by a few rows), and a search queued offline keeps its own time up to 24 hours back, so a
+  script that backdates searches can slip past the per-minute count of `search_logs` (a log table; applications
+  and events are dated by the server). A trusted insertion-time column would close both; not built.
+
+Details, checks and rollback: `supabase/rollbacks/README.md`.
 
 ### CAPTCHA (Cloudflare Turnstile, free)
 
@@ -557,6 +574,7 @@ These reduce blast radius. None of them is an authorization control.
 | Leaked-password protection (HaveIBeenPwned) | **Not enabled** — requires a paid Supabase plan. |
 | Public source repository | The GitHub repository is **public**: the full source, migrations and these documents can be read by anyone. No secret is in it (history scanned 2026-09-25), and the design does not rely on the source being secret, but making it private removes the map an attacker would study. Vercel's free plan deploys private repositories from a personal account. If it goes private: CodeQL needs a paid GitHub plan there, so its job now skips itself on a private repository (`.github/workflows/codeql.yml`); the tests, build, secret scan and dependency audit keep running. |
 | Legacy Firebase browser key in git history | `firebase-applet-config.json` (added 2026-09-13, deleted 2026-09-14) held a Google/Firebase **browser** API key. Such keys identify a project rather than grant access, but it remains readable in the public history: restrict it to the site's referrer in Google Cloud → Credentials, or delete the unused Firebase project. Nothing in the repository depends on Firebase any more: five leftover Firebase-era scripts (`backfill-seller-claims`, `migrate-coupons`, `migrate-product-private`, `migrate-sellers`, `publish-cms`; none could run, they imported a removed helper and a package that is not installed) were deleted, and `test/noFirebase.test.ts` fails if a Firebase package, import, security-header allowance or config file comes back. (A few components still call the signed-in Supabase user `firebaseUser`: a leftover variable name, nothing more.) |
+| Anonymous-insert rate limit | **Sidesteppable today**: the live limiter counts by a header the visitor writes, and skips signed-in callers (audit SEC-2). Fixed by migration `20261010100000`, written and tested, **not applied** until the owner approves; remove this row when it is. See section 6. |
 | CAPTCHA | **Off in production**: `VITE_TURNSTILE_SITE_KEY` is not set in Vercel (checked 2026-09-25). Turn it on as described in section 6, then confirm with `scripts/check-captcha.mjs`. |
 | Sign-in hook | **Must be switched on** in Supabase -> Authentication -> Hooks. Until then Supabase itself does not insist on the password + code pair: a password alone, or a code alone, still signs in through the API; the site's own forms always ask for both. |
 | Hosting | Not tied to Vercel. The browser talks to Supabase directly, so the database rules (rate limits, row-level security) do not depend on the host. `vercel.json` and `public/.htaccess` (Apache/LiteSpeed, for example Hostinger) carry the same security headers, cache rules and page fallback, kept identical by `test/hostingParity.test.ts`. **Not verified:** how a real Hostinger server answers; check the headers after the first upload (browser developer tools → Network → the page → Response Headers). `netlify.toml` is an older copy that no longer matches and is not used. |
@@ -625,12 +643,9 @@ GitHub integration:
   and repeats an anonymous insert to prove it still works.
 - **Size caps on anonymous writes:** a logged search at most 200 characters (the storefront cuts to that before
   logging), a seller application at most 16 kB; `NOT VALID`, so existing rows are untouched.
-- **The anonymous-insert rate limit counts by an address the visitor cannot choose** (`20261010100000_rate_limit_uses_edge_ip`).
-  It used the first `X-Forwarded-For` address, which Cloudflare leaves as whatever the visitor typed, so the limit never
-  bit; and it skipped signed-in callers. It now counts signed-out visitors by `CF-Connecting-IP` (set by Cloudflare;
-  IPv6 by /64), signed-in callers by account at five times the allowance, and falls back to a shared cap when there is no
-  usable address. It only ever throttles for the rest of the minute: no address is banned or remembered, because shoppers
-  share mobile connection addresses. The browser talks to Supabase directly, so it does not depend on the website host.
+- **The anonymous-insert rate limit counts by an address the visitor cannot choose**
+  (`20261010100000_rate_limit_uses_edge_ip`): the guarantees and the two soft limits are in section 6; the
+  checks and the rollback are in `supabase/rollbacks/README.md`.
 
 `test/db/hardening.db.test.ts` runs every migration, its refusals and its rollback in a scratch PostgreSQL
 (`scripts/db/scratchPostgres.mjs`); CI installs the server programs if needed and fails rather than skip.

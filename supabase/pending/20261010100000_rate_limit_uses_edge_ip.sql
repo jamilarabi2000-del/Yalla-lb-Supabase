@@ -45,8 +45,8 @@ begin
 
   -- every table the function guards has the columns the new version reads
   for v_table in
-    select distinct t.tgrelid, t.tgrelid::regclass::text as name, c.relname
-    from pg_trigger t join pg_class c on c.oid = t.tgrelid
+    select distinct t.tgrelid, t.tgrelid::regclass::text as name
+    from pg_trigger t
     where t.tgfoid = v_fn and not t.tgisinternal
   loop
     if not exists (select 1 from pg_attribute where attrelid = v_table.tgrelid and attname = 'client_ip' and not attisdropped)
@@ -82,16 +82,31 @@ declare
   v_limit    integer := case when tg_table_name = 'seller_applications' then 5 else 60 end;
   v_user_col text := case when tg_table_name = 'seller_applications' then 'applicant_user_id' else 'user_id' end;
   v_uid      uuid := (select auth.uid());
+  v_browser  boolean := coalesce((select auth.role()), '') in ('anon', 'authenticated');
   v_actor    uuid;
   v_ip       inet;
   v_net      inet;
   v_recent   integer;
 begin
+  -- The counts below read created_at and client_ip, and a browser can write both. So for a browser the server
+  -- decides them: client_ip is cleared (it is filled in below from the edge address only), and a row can never be
+  -- dated in the future, where it would count against other visitors for years. Searches queued while offline keep
+  -- the time they happened, up to a day back (the app sends it); applications and events are dated now.
+  if v_browser then
+    new.client_ip := null;
+    new.created_at := case when tg_table_name = 'search_logs'
+                           then least(now(), greatest(coalesce(new.created_at, now()), now() - interval '24 hours'))
+                           else now() end;
+  end if;
+
   -- The address Cloudflare saw. A value that is not an address counts as no address (the visitor is then limited
   -- by the shared cap below), never as an error for them.
   begin
     v_ip := nullif(btrim(v_headers ->> 'cf-connecting-ip'), '')::inet;
     if v_ip is not null then
+      if family(v_ip) = 6 and v_ip <<= '::ffff:0:0/96'::inet then
+        v_ip := regexp_replace(host(v_ip), '^::ffff:', '')::inet;   -- an IPv4 address written the IPv6 way
+      end if;
       v_ip := set_masklen(v_ip, case family(v_ip) when 4 then 32 else 128 end);
     end if;
   exception when others then
@@ -140,8 +155,7 @@ $fn$;
 
 do $verify$
 declare
-  v_def  text := pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure);
-  v_seen text;
+  v_def text := pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure);
 begin
   if v_def !~* 'cf-connecting-ip' then
     raise exception 'RATE_LIMITER_DOES_NOT_READ_THE_EDGE_ADDRESS';
@@ -149,7 +163,7 @@ begin
   if v_def ~* 'x-forwarded-for' or v_def ~* 'x-real-ip' then
     raise exception 'RATE_LIMITER_STILL_READS_A_VISITOR_CHOSEN_HEADER';
   end if;
-  if pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure) !~* 'security definer' then
+  if v_def !~* 'security definer' then
     raise exception 'RATE_LIMITER_NOT_SECURITY_DEFINER';
   end if;
 end;
@@ -158,7 +172,7 @@ $verify$;
 -- A signed-out visitor who forges X-Forwarded-For is recorded under the Cloudflare address. The probe inserts one
 -- row and undoes it (and the role change) by raising inside its own sub-transaction. 203.0.113.0/24 is reserved
 -- for documentation, so it can never be a real visitor's address.
-create function pg_temp.probe_forged_forwarded_for() returns text
+create or replace function pg_temp.probe_forged_forwarded_for() returns text
 language plpgsql
 as $probe$
 declare
@@ -179,7 +193,7 @@ begin
     when insufficient_privilege then
       return 'inconclusive: ' || case when sqlerrm like 'permission denied%' then 'permission' else 'rls' end;
     when others then
-      return 'inconclusive: ' || sqlstate;
+      return 'failed: ' || sqlstate || ' ' || sqlerrm;   -- the limiter itself broke: never "inconclusive"
   end;
 end;
 $probe$;
@@ -193,6 +207,8 @@ begin
     null;   -- recorded under the Cloudflare address, as intended
   elsif v_outcome like 'inconclusive:%' then
     raise notice 'the probe insert could not run here (%): relying on the definition check alone', v_outcome;
+  elsif v_outcome like 'failed:%' then
+    raise exception 'RATE_LIMITER_PROBE_FAILED (%)', v_outcome;
   elsif v_outcome = 'null' then
     raise exception 'RATE_LIMITER_DID_NOT_RECORD_THE_EDGE_ADDRESS';
   else

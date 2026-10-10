@@ -109,7 +109,7 @@ describe.skipIf(!available)('the anonymous-insert rate limiter, run for real in 
       expect(burst(db, 'anon', 'search_logs', 1, fromEdge('203.0.113.9'))).toBe(0);
     });
 
-    it.each(['search_logs', 'seller_applications', 'analytics_events'] as const)('applies the same limits to %s as before (%s a minute)', table => {
+    it.each(['search_logs', 'seller_applications', 'analytics_events'] as const)('applies the same limit to %s as before', table => {
       const db = withE();
       const limit = LIMIT[table];
       expect(burst(db, 'anon', table, limit + 5, fromEdge('203.0.113.7'))).toBe(5);
@@ -172,6 +172,14 @@ describe.skipIf(!available)('the anonymous-insert rate limiter, run for real in 
       expect(value(db, `select count(*) from public.search_logs where client_ip is not null`)).toBe('0');
     });
 
+    it('counts an address that arrives with a network mask as that one host, never as the whole network', () => {
+      const db = withE();
+      expect(burst(db, 'anon', 'search_logs', 3, fromEdge('203.0.113.7/8'))).toBe(0);
+      expect(value(db, `select string_agg(distinct host(client_ip) || '/' || masklen(client_ip), ',') from public.search_logs`)).toBe('203.0.113.7/32');
+      // a different address inside the same /8 keeps its own budget
+      expect(burst(db, 'anon', 'search_logs', 60, fromEdge('203.99.1.1'))).toBe(0);
+    });
+
     it('does not fail when no headers were passed at all', () => {
       const db = withE();
       const result = fixture.pg.asRole(db, 'anon', `insert into public.search_logs (query, origin) values ('x', 'y')`, { allowError: true });
@@ -218,6 +226,75 @@ describe.skipIf(!available)('the anonymous-insert rate limiter, run for real in 
       const db = withE();
       expect(burst(db, 'shopper', 'seller_applications', 8, fromEdge('203.0.113.7'), null)).toBe(3);
       expect(count(db, 'seller_applications', 'client_ip is not null')).toBe(5);
+    });
+  });
+
+  // ── review findings: what a browser can write, and what the limiter must not trust ──────────────────
+  describe('columns a browser can write', () => {
+    const stored = (db: string, table: Table, col: string) => value(db, `select ${col} from public.${table} order by created_at desc limit 1`);
+
+    it('cannot plant a client_ip to throttle somebody else (signed in, or with no address at all)', () => {
+      const db = withE();
+      fixture.pg.asRole(db, 'authenticated', `
+        insert into public.search_logs (query, user_id, client_ip) values ('planted', '${SHOPPER}', '203.0.113.50');`, { claims: { sub: SHOPPER } });
+      fixture.pg.asRole(db, 'anon', `
+        insert into public.search_logs (query, client_ip) values ('planted too', '203.0.113.50');`);
+      expect(value(db, `select count(*) from public.search_logs where client_ip is not null`)).toBe('0');
+      // the real visitor at that address is not refused on their first insert
+      expect(burst(db, 'anon', 'search_logs', 1, fromEdge('203.0.113.50'))).toBe(0);
+    });
+
+    it('cannot date a row in the future: it would count against others for years', () => {
+      const db = withE();
+      fixture.pg.asRole(db, 'authenticated', `
+        insert into public.search_logs (query, user_id, created_at) values ('future', '${SHOPPER}', now() + interval '10 years');`, { claims: { sub: SHOPPER } });
+      expect(value(db, `select count(*) from public.search_logs where created_at > now()`)).toBe('0');
+    });
+
+    it('keeps the time of a search queued offline, up to a day back, and no further', () => {
+      const db = withE();
+      fixture.pg.asRole(db, 'anon', `insert into public.search_logs (query, created_at) values ('two hours', now() - interval '2 hours'), ('a week', now() - interval '7 days');`);
+      expect(value(db, `select query || ':' || (now() - created_at < interval '2 hours 1 minute' and now() - created_at > interval '1 hour 59 minutes')::text from public.search_logs where query = 'two hours'`)).toBe('two hours:true');
+      expect(value(db, `select (now() - created_at between interval '23 hours 59 minutes' and interval '24 hours 1 minute')::text from public.search_logs where query = 'a week'`)).toBe('true');
+    });
+
+    it.each(['seller_applications', 'analytics_events'] as const)('cannot backdate a row in %s to hide it from the limit: those are dated by the server', table => {
+      const db = withE();
+      const { cols, vals } = COLUMNS[table];
+      const result = fixture.pg.asRole(db, 'anon', `
+        do $$ declare refused int := 0; begin
+          for i in 1..${LIMIT[table] + 3} loop
+            perform set_config('request.headers', ${fromEdge('203.0.113.7')}, false);
+            begin
+              insert into public.${table} (${cols}, created_at) values (${vals(null)}, now() - interval '3 hours');
+            exception when sqlstate '53400' then refused := refused + 1; end;
+          end loop;
+          perform set_config('test.refused', refused::text, false);
+        end $$;
+        select current_setting('test.refused');`);
+      expect(Number(result.out.split('\n').pop())).toBe(3);
+      expect(value(db, `select count(*) from public.${table} where created_at < now() - interval '1 minute'`)).toBe('0');
+    });
+
+    it('leaves a back-office write alone: a service_role import keeps its own dates and addresses', () => {
+      const db = withE();
+      fixture.pg.asRole(db, 'service_role', `
+        insert into public.search_logs (query, created_at, client_ip) values ('imported', now() - interval '30 days', '198.51.100.4');`);
+      expect(value(db, `select (now() - created_at > interval '29 days')::text || ':' || host(client_ip) from public.search_logs where query = 'imported'`)).toBe('true:198.51.100.4');
+    });
+  });
+
+  describe('addresses written the IPv6 way', () => {
+    it('an IPv4-mapped address is that IPv4 address: it shares the budget of the plain form, and is recorded plain', () => {
+      const db = withE();
+      expect(burst(db, 'anon', 'search_logs', 30, fromEdge('::ffff:203.0.113.7'))).toBe(0);
+      expect(burst(db, 'anon', 'search_logs', 30, fromEdge('203.0.113.7'))).toBe(0);
+      expect(burst(db, 'anon', 'search_logs', 1, fromEdge('::ffff:203.0.113.7'))).toBe(1);
+      expect(value(db, `select string_agg(distinct host(client_ip), ',') from public.search_logs`)).toBe('203.0.113.7');
+    });
+    it('and different mapped addresses do not all fall into one bucket', () => {
+      const db = withE();
+      expect(burst(db, 'anon', 'search_logs', 70, `json_build_object('cf-connecting-ip', '::ffff:203.0.113.' || (i % 250 + 1))::text`)).toBe(0);
     });
   });
 
@@ -276,12 +353,29 @@ describe.skipIf(!available)('the anonymous-insert rate limiter, run for real in 
     it('stops, changing nothing, if the new body would still read a header the visitor chooses', () => {
       const db = fixture.fresh();
       const before = body(db);
-      const reads = up.replace('begin\n  -- The address Cloudflare saw.', 'begin\n  -- X-Forwarded-For is not used.\n  -- The address Cloudflare saw.');
+      const reads = up.replace("  -- Whose row it is, by the row's own owner column.", "  -- X-Forwarded-For is not used.\n  -- Whose row it is, by the row's own owner column.");
       expect(reads).not.toBe(up);
       const result = apply(db, reads);
       expect(result.ok).toBe(false);
       expect(result.err).toContain('RATE_LIMITER_STILL_READS_A_VISITOR_CHOSEN_HEADER');
       expect(body(db)).toBe(before);
+    });
+
+    it('stops, changing nothing, if the new limiter fails on an ordinary insert (the probe may not hide it)', () => {
+      const db = fixture.fresh();
+      const before = body(db);
+      const broken = up.replace('and client_ip <<= $1', 'and client_ipx <<= $1');
+      expect(broken).not.toBe(up);
+      const result = apply(db, broken);
+      expect(result.ok).toBe(false);
+      expect(result.err).toContain('RATE_LIMITER_PROBE_FAILED');
+      expect(body(db)).toBe(before);
+    });
+
+    it('can be run twice in one session (the probe helper is replaceable)', () => {
+      const db = fixture.fresh();
+      const result = apply(db, `${up}\n${up}`);
+      expect(result.ok, result.err).toBe(true);
     });
 
     it('stops, changing nothing, if the new body records no address at all', () => {

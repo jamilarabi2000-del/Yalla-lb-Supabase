@@ -87,10 +87,20 @@ Read from the live project on 2026-10-10 and rewritten from that source; the rol
 - **Same limits, same error.** 60 a minute (5 for seller applications), `RATE_LIMIT_EXCEEDED` / SQLSTATE 53400.
 - **Independent of the host.** The browser talks to Supabase directly, so moving the website from Vercel to Hostinger
   changes nothing here.
+- **The server decides what the counts read.** For a browser (`anon`/`authenticated`) the trigger clears any
+  `client_ip` the caller sent and fixes `created_at`: never in the future (a planted future date would count against
+  others for years); for `search_logs`, up to 24 hours back, because the app sends the time of a search queued while
+  offline; for `seller_applications` and `analytics_events`, always now. Back-office writes (`service_role`, imports)
+  are left alone.
+- **Two soft limits, stated plainly.** (1) The count is read-then-insert, so concurrent requests from one address can
+  overshoot a limit by a few rows (measured in review: 6 to 7 against a limit of 5 under 16 simultaneous sessions); a
+  per-address advisory lock would make it hard, at the price of serialising those inserts; not done. (2) A script that
+  backdates `search_logs` rows by hours slips past the per-minute count (a log table, 200 characters a row); a trusted
+  insertion-time column would close it and is a schema change, so it is left for the owner to decide.
 - **Checks.** It stops, changing nothing, unless the function is the SECURITY DEFINER limiter it was written against, its
   three triggers exist and the tables have the columns it reads. After replacing the function, a probe inserts as a
   signed-out visitor who sends a forged `X-Forwarded-For` and proves the row is recorded under the Cloudflare address
-  (the probe is rolled back). `test/db/rateLimit.db.test.ts` runs all of this, and the old behaviour, in a scratch PostgreSQL.
+  (the probe is rolled back; if the new limiter fails on an ordinary insert the migration aborts rather than treating that as "inconclusive"). `test/db/rateLimit.db.test.ts` runs all of this, and the old behaviour, in a scratch PostgreSQL.
 - **After applying, check once on the live site:** do one search, then look at the newest `search_logs` row: its
   `client_ip` should be your address. If it is empty the header did not reach the database; the limiter then falls back
   to the shared cap (nobody is blocked) and the migration should be rolled back and looked at again.
