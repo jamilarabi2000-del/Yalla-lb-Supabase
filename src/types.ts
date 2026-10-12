@@ -500,6 +500,8 @@ export interface SectionVisibilityConfig {
   detailWhatsAppInquiry: boolean;
   detailCustomerReviews: boolean;
   detailRelatedProducts: boolean;
+  /** Show the seller's (artisan's) name wherever shoppers see or search it. Off hides it on screen only. */
+  sellerName: boolean;
   
   // Checkout Page
   checkoutSteps: boolean;

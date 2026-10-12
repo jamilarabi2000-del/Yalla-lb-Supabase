@@ -20,6 +20,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { CMSPromoSliderConfig, CMSPromoSlide } from '../types';
+import { sellerNameShown } from '../lib/sellerNameVisibility';
 
 interface HomepagePromoSliderProps {
   bannerConfig?: CMSPromoSliderConfig;
@@ -517,7 +518,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
               <p className={`text-[10px] sm:text-[12px] truncate mt-0.5 ${
                 isDarkBg ? 'text-white/70' : 'text-[#666666]'
               }`} style={colorStyle(design.descriptionColor)}>
-                {descriptionText || selectedProduct.artisan || selectedProduct.seller || (isAr ? 'حرفي لبناني' : 'Lebanese Artisan')}
+                {descriptionText || (sellerNameShown(siteContent?.visibility) ? (selectedProduct.artisan || selectedProduct.seller) : '') || (isAr ? 'حرفي لبناني' : 'Lebanese Artisan')}
               </p>
             </div>
 

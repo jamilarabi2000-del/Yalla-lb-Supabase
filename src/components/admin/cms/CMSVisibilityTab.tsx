@@ -89,6 +89,7 @@ export const CMSVisibilityTab: React.FC<CMSVisibilityTabProps> = ({
         { key: 'detailWhatsAppInquiry' as const, label: 'WhatsApp Inquiry Button', desc: 'Direct WhatsApp link to discuss custom orders' },
         { key: 'detailCustomerReviews' as const, label: 'Customer Reviews & Ratings', desc: 'Patron review list and submission form' },
         { key: 'detailRelatedProducts' as const, label: 'Related Heritage Items', desc: 'Carousel of related artisan crafts' },
+        { key: 'sellerName' as const, label: 'Seller Name', desc: 'The seller\'s name on the product page, Quick View and promo slider, and searching by it. Off hides it on screen only; it is not removed from the shop\'s data' },
       ]
     },
     {

@@ -8,6 +8,7 @@ import { quantityInBasket, remainingStock, stockOf } from '../lib/cartQuantity';
 import { stockNoteMessage } from '../lib/shopperMessages';
 import { ProductCard } from './ProductCard';
 import { ProductReviews } from './ProductReviews';
+import { sellerNameShown } from '../lib/sellerNameVisibility';
 
 export const ProductDetailView: React.FC = () => {
   const shop = useShop() as any;
@@ -17,7 +18,7 @@ export const ProductDetailView: React.FC = () => {
 
   const visibility = shop.siteContent?.visibility || {
     detailBreadcrumbs: true, detailGallery: true, detailPriceBox: true, detailArtisanBio: true,
-    detailCraftStory: true, detailWhatsAppInquiry: true, detailCustomerReviews: true, detailRelatedProducts: true,
+    detailCraftStory: true, detailWhatsAppInquiry: true, detailCustomerReviews: true, detailRelatedProducts: true, sellerName: true,
   };
   const isVisualEditMode = !!shop.isVisualEditMode;
   const language = shop.language === 'ar' ? 'ar' : 'en';
@@ -38,6 +39,10 @@ export const ProductDetailView: React.FC = () => {
   }
 
   const show = (key: string) => visibility[key] || isVisualEditMode;
+  const showSellerName = sellerNameShown(visibility);
+  // the brand is the shop's own line; only the seller / artisan fallback is the seller's name
+  const headerLine = p.brand || (showSellerName ? (p.seller || p.artisan) : '');
+  const makerName = showSellerName ? (p.artisan || p.seller) : '';
   const displayName = isRTL ? p.arabicName || p.name : p.name;
   const price = shop.formatPrice?.(p.priceUSD) || '$' + p.priceUSD;
   const originalPrice = p.originalPriceUSD ? (shop.formatPrice?.(p.originalPriceUSD) || '$' + p.originalPriceUSD) : null;
@@ -106,7 +111,7 @@ export const ProductDetailView: React.FC = () => {
           {show('detailPriceBox') && (
             <div className={`lg:sticky lg:top-24 ${!visibility.detailPriceBox && isVisualEditMode ? 'ring-2 ring-dashed ring-rose-500 rounded-[28px] p-4' : ''}`}>
               <div className="rounded-[28px] border border-[#E5E5E5] bg-white p-5 sm:p-7 shadow-[0_16px_45px_rgba(23,23,23,0.06)]">
-                {(p.brand || p.seller || p.artisan) && <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-[#7d6230] mb-2">{p.brand || p.seller || p.artisan}</p>}
+                {headerLine && <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] text-[#7d6230] mb-2">{headerLine}</p>}
                 <h1 className="text-2xl sm:text-3xl xl:text-4xl font-serif font-semibold tracking-tight text-[#171717] leading-tight">{displayName}</h1>
                 {!isRTL && p.arabicName && <p className="mt-1 text-sm text-[#666666]" dir="rtl">{p.arabicName}</p>}
                 {p.description && <p className="text-sm leading-7 text-[#666666] mt-5">{p.description}</p>}
@@ -158,9 +163,9 @@ export const ProductDetailView: React.FC = () => {
           )}
         </div>
 
-        {show('detailArtisanBio') && (p.artisan || p.artisanBio) && (
+        {show('detailArtisanBio') && ((showSellerName && p.artisan) || p.artisanBio) && (
           <section className={`mt-8 rounded-[24px] border border-[#E5E5E5] bg-white p-5 sm:p-7 shadow-sm ${!visibility.detailArtisanBio && isVisualEditMode ? 'ring-2 ring-dashed ring-rose-500' : ''}`}>
-            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/60 text-[#7d6230] flex items-center justify-center"><Sparkles className="w-5 h-5" /></div><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7d6230]">{isRTL ? 'من الصانع' : 'From the Maker'}</p><h2 className="text-lg sm:text-xl font-serif font-semibold text-[#171717]">{p.artisan || p.seller}</h2></div></div>
+            <div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/60 text-[#7d6230] flex items-center justify-center"><Sparkles className="w-5 h-5" /></div><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7d6230]">{isRTL ? 'من الصانع' : 'From the Maker'}</p>{makerName && <h2 className="text-lg sm:text-xl font-serif font-semibold text-[#171717]">{makerName}</h2>}</div></div>
             {p.artisanBio && <p className="text-sm leading-7 text-[#666666]">{p.artisanBio}</p>}
           </section>
         )}

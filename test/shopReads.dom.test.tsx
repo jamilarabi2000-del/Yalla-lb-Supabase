@@ -67,8 +67,8 @@ const { supabaseOrderService } = await import('../src/services/supabaseOrderServ
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const seen: { rules: unknown[]; bulkImport: ((check: any) => Promise<{ created: number; updated: number; errors: string[] }>) | null; placeOrder: ((order: any) => Promise<unknown>) | null } = { rules: [], bulkImport: null, placeOrder: null };
-const Probe: React.FC = () => { const shop = useShop(); seen.rules = shop.discountRules; seen.bulkImport = shop.bulkImportProducts; seen.placeOrder = shop.placeOrder; return null; };
+const seen: { rules: unknown[]; bulkImport: ((check: any) => Promise<{ created: number; updated: number; errors: string[] }>) | null; placeOrder: ((order: any) => Promise<unknown>) | null; visibility: Record<string, unknown> | undefined } = { rules: [], bulkImport: null, placeOrder: null, visibility: undefined };
+const Probe: React.FC = () => { const shop = useShop(); seen.rules = shop.discountRules; seen.bulkImport = shop.bulkImportProducts; seen.placeOrder = shop.placeOrder; seen.visibility = (shop as any).siteContent?.visibility; return null; };
 
 let host: HTMLDivElement;
 let root: Root;
@@ -89,7 +89,7 @@ const settle = () => act(async () => { await new Promise(resolve => setTimeout(r
 const channelsOn = (table: string) => rec.channels.filter(c => c.tables.includes(table));
 
 beforeEach(() => {
-  rec.reads.length = 0; rec.rpcs.length = 0; rec.channels.length = 0; rec.removed = 0; rec.session = null; rec.rows = {}; rec.authCallbacks.length = 0; rec.listeners.length = 0; seen.rules = []; seen.bulkImport = null; seen.placeOrder = null;
+  rec.reads.length = 0; rec.rpcs.length = 0; rec.channels.length = 0; rec.removed = 0; rec.session = null; rec.rows = {}; rec.authCallbacks.length = 0; rec.listeners.length = 0; seen.rules = []; seen.bulkImport = null; seen.placeOrder = null; seen.visibility = undefined;
   try { localStorage.clear(); sessionStorage.clear(); } catch {}
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -318,6 +318,29 @@ describe('a signed-in customer', () => {
     await act(async () => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')); });
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
     expect(readsOf('orders').length - before).toBe(1);
+  });
+});
+
+describe('the admin\'s "Seller Name" switch, as it reaches the page', () => {
+  const published = (visibility: Record<string, unknown>) => {
+    rec.rows.cms_site_content = [{ id: 'main', published: true, updated_at: '2026-10-01T00:00:00Z', content: { visibility } }];
+  };
+
+  it('is on for a site published before the switch existed', async () => {
+    published({ detailArtisanBio: true, detailPriceBox: true });   // an older save: no sellerName in it
+    await mount();
+    await settle();
+    expect(seen.visibility?.sellerName).toBe(true);
+    expect(seen.visibility?.detailArtisanBio).toBe(true);
+  });
+
+  it('is off when the admin published it off, and the rest of the settings are untouched', async () => {
+    published({ sellerName: false, detailPriceBox: true });
+    await mount();
+    await settle();
+    expect(seen.visibility?.sellerName).toBe(false);
+    expect(seen.visibility?.detailPriceBox).toBe(true);
+    expect(seen.visibility?.productsGrid).toBe(true);              // a default the save did not mention
   });
 });
 

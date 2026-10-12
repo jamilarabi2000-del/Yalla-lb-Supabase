@@ -55,6 +55,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     detailWhatsAppInquiry: true,
     detailCustomerReviews: true,
     detailRelatedProducts: true,
+    sellerName: true,
     
     // Checkout Page
     checkoutSteps: true,

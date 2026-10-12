@@ -3,6 +3,7 @@ import { useShop } from '../context/ShopContext';
 import { useDialog } from '../hooks/useDialog';
 import { quantityInBasket, remainingStock, stockOf } from '../lib/cartQuantity';
 import { stockNoteMessage } from '../lib/shopperMessages';
+import { sellerNameShown } from '../lib/sellerNameVisibility';
 import { 
   X, 
   Heart, 
@@ -28,6 +29,7 @@ export const ProductModal: React.FC = () => {
     products,
     cart,
     language,
+    siteContent,
     t
   } = useShop();
 
@@ -116,12 +118,14 @@ export const ProductModal: React.FC = () => {
                 <h2 className="text-base sm:text-lg font-bold text-[#171717] leading-snug line-clamp-2">
                   {displayTitle}
                 </h2>
-                <p className="text-xs text-[#666666] mt-0.5">
-                  <span>{language === 'ar' ? 'البائع:' : 'Seller:'}</span>{' '}
-                  <span className="font-semibold text-slate-800">
-                    {product.artisan.startsWith('Seller:') ? product.artisan.replace('Seller:', '').trim() : product.artisan}
-                  </span>
-                </p>
+                {sellerNameShown(siteContent?.visibility) && (
+                  <p className="text-xs text-[#666666] mt-0.5">
+                    <span>{language === 'ar' ? 'البائع:' : 'Seller:'}</span>{' '}
+                    <span className="font-semibold text-slate-800">
+                      {product.artisan.startsWith('Seller:') ? product.artisan.replace('Seller:', '').trim() : product.artisan}
+                    </span>
+                  </p>
+                )}
               </div>
 
               {/* Price & Stock */}
