@@ -18,7 +18,7 @@ const GLOBAL_CONTROLS = [
 
 const PAGE_SECTIONS = [
   ['products', 'Catalog', [['productsHeader', 'Header'], ['productsSearchFilter', 'Search & Filters'], ['productsCategoryTabs', 'Category Tabs'], ['productsSort', 'Sort'], ['productsGrid', 'Product Grid']]],
-  ['product_detail', 'Product Detail', [['detailBreadcrumbs', 'Breadcrumbs'], ['detailGallery', 'Product Gallery'], ['detailPriceBox', 'Price Box'], ['detailArtisanBio', 'Seller / Artisan'], ['detailCraftStory', 'Craft Story'], ['detailWhatsAppInquiry', 'WhatsApp Inquiry'], ['detailCustomerReviews', 'Reviews'], ['detailRelatedProducts', 'Related Products']]],
+  ['product_detail', 'Product Detail', [['detailBreadcrumbs', 'Breadcrumbs'], ['detailGallery', 'Product Gallery'], ['detailPriceBox', 'Price Box'], ['detailArtisanBio', 'Seller / Artisan'], ['detailCraftStory', 'Craft Story'], ['detailWhatsAppInquiry', 'WhatsApp Inquiry'], ['detailCustomerReviews', 'Reviews'], ['detailRelatedProducts', 'Related Products'], ['sellerName', 'Seller Name']]],
   ['checkout', 'Checkout', [['checkoutSteps', 'Checkout Steps'], ['checkoutAddressForm', 'Address Form'], ['checkoutDeliverySpeed', 'Delivery Speed'], ['checkoutPaymentMethod', 'Payment Method'], ['checkoutOrderSummary', 'Order Summary'], ['checkoutGuarantees', 'Guarantees']]],
   ['account', 'Account', [['accountOrders', 'Orders'], ['accountProfile', 'Profile'], ['accountWishlist', 'Wishlist'], ['accountSupportCard', 'Support Card']]],
   ['footer', 'Footer', [['footerAbout', 'About'], ['footerQuickLinks', 'Quick Links'], ['footerContact', 'Contact'], ['footerSocial', 'Social Links'], ['footerCopyright', 'Copyright']]],

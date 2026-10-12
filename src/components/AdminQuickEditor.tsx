@@ -87,6 +87,7 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
     detailWhatsAppInquiry: true,
     detailCustomerReviews: true,
     detailRelatedProducts: true,
+    sellerName: true,
     checkoutSteps: true,
     checkoutAddressForm: true,
     checkoutDeliverySpeed: true,
@@ -137,7 +138,8 @@ export const AdminQuickEditor: React.FC<AdminQuickEditorProps> = ({
           { key: 'detailArtisanBio', label: 'Artisan Workshop & Provenance', desc: 'Master artisan info, village of origin' },
           { key: 'detailCraftStory', label: 'Heritage Craft Story', desc: 'Historical crafting technique narrative' },
           { key: 'detailWhatsAppInquiry', label: 'WhatsApp Concierge Inquiry', desc: 'Direct chat button with artisan' },
-          { key: 'detailRelatedProducts', label: 'Related Heritage Treasures', desc: 'Matching items from same collection' }
+          { key: 'detailRelatedProducts', label: 'Related Heritage Treasures', desc: 'Matching items from same collection' },
+          { key: 'sellerName', label: 'Seller Name', desc: 'Seller name on the product page, Quick View, slider and search' }
         ];
       case 'checkout':
         return [

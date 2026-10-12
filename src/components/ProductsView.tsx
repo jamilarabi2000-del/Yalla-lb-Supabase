@@ -20,6 +20,7 @@ import {
   Grid
 } from 'lucide-react';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { sellerNameShown } from '../lib/sellerNameVisibility';
 
 export const ProductsView: React.FC = () => {
   const { 
@@ -59,6 +60,8 @@ export const ProductsView: React.FC = () => {
     productsSort: true,
     productsGrid: true
   };
+
+  const showSellerName = sellerNameShown(visibility);
 
   const activeCategoryObj = contextCategories?.find(c => c.id === selectedCategory);
   
@@ -156,7 +159,7 @@ export const ProductsView: React.FC = () => {
         const query = searchQuery.toLowerCase();
         const matchesName = product.name.toLowerCase().includes(query);
         const matchesAr = product.arabicName ? product.arabicName.toLowerCase().includes(query) : false;
-        const matchesArtisan = product.artisan.toLowerCase().includes(query);
+        const matchesArtisan = showSellerName && product.artisan.toLowerCase().includes(query);
         const matchesOrigin = product.origin.toLowerCase().includes(query);
         const matchesTags = product.tags.some(t => t.toLowerCase().includes(query));
         const matchesKeywords = product.keywords ? product.keywords.some(k => k.toLowerCase().includes(query)) : false;
@@ -180,7 +183,7 @@ export const ProductsView: React.FC = () => {
       if (!a.isFeatured && b.isFeatured) return 1;
       return b.rating - a.rating;
     });
-  }, [products, selectedCategory, onlyInStock, searchQuery, sortBy, isVisualEditMode]);
+  }, [products, selectedCategory, onlyInStock, searchQuery, sortBy, isVisualEditMode, showSellerName]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
