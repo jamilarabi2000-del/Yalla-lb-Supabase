@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { startScratchPostgres, postgresAvailable, findPostgresBin } from '../../scripts/db/scratchPostgres.mjs';
+import { dryRunSql, REDTEAM_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
 
 // The red-team review of 2026-10-18, run for real in a scratch PostgreSQL: the attacks the live guards stop (so they
 // keep stopping them), and the two pending migrations that close what the review found (RT-3/RT-4 in checkout, RT-5
@@ -273,6 +274,37 @@ describe.skipIf(!available)('red-team review: guards that hold, and the pending 
       applyOk(db, up(CHECKOUT));
       applyOk(db, down(CHECKOUT));
       expect(value(db, `select md5(pg_get_functiondef('private.checkout_create_order(jsonb,numeric)'::regprocedure))`)).toBe(original);
+    });
+  });
+
+  // ── the dry run the owner runs on the live project before approving the apply ────────────────────────────────
+  describe('dry run of both fixes (node scripts/db/dryrun-hardening.mjs --set=redteam)', () => {
+    it.each([['verbatim', false], ['compact', true]])('%s: applies both, shows one row of facts, and leaves the database exactly as it found it', (_label, compact) => {
+      const db = fresh();
+      const before = pg.dump(db);
+      const result = pg.run(db, dryRunSql(root, { compact, evidence: true, set: 'redteam' }));
+      expect(result.out).toMatch(/^dry run finished: both migrations applied and every check passed.*\|t\|t\|t\|t\|89500$/m);
+      expect(pg.dump(db)).toBe(before);
+    });
+
+    it('covers exactly the two pending files, in order', () => {
+      expect(REDTEAM_MIGRATIONS).toEqual([CHECKOUT, FLAGS]);
+      for (const name of REDTEAM_MIGRATIONS) expect(fs.existsSync(path.resolve(root, `supabase/rollbacks/${name}.rollback.sql`)), name).toBe(true);
+    });
+
+    it('stops with the migration\'s own message, and still changes nothing, when the live function is not the one it expects', () => {
+      const db = fresh();
+      pg.run(db, `create or replace function private.checkout_create_order(p_items jsonb, p_usd numeric) returns numeric language plpgsql security definer set search_path to '' as $f$ begin return p_usd; end; $f$;`);
+      const before = pg.dump(db);
+      const result = pg.run(db, dryRunSql(root, { set: 'redteam' }), { allowError: true });
+      expect(result.ok).toBe(false);
+      expect(result.err).toContain('CHECKOUT_RATE_TEXT_COUNT_UNEXPECTED');
+      pg.run(db, 'rollback;', { allowError: true });
+      expect(pg.dump(db)).toBe(before);
+    });
+
+    it('rejects an unknown set', () => {
+      expect(() => dryRunSql(root, { set: 'nonsense' })).toThrow(/unknown migration set/);
     });
   });
 });

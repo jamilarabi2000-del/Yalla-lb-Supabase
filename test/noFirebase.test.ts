@@ -27,7 +27,7 @@ describe('no Firebase dependency', () => {
   });
 
   it('is not allowed or called by the page, its security headers or the build settings', () => {
-    const configs = ['index.html', 'vercel.json', 'netlify.toml', 'public/.htaccess', 'vite.config.ts', '.env.example'];
+    const configs = ['index.html', 'vercel.json', 'public/.htaccess', 'vite.config.ts', '.env.example'];
     for (const f of configs) {
       expect(read(f), f).not.toMatch(/firebaseio\.com|firebaseapp\.com|firestore\.googleapis|identitytoolkit|securetoken\.googleapis|gstatic\.com\/firebasejs|VITE_FIREBASE/i);
     }

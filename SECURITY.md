@@ -484,7 +484,8 @@ are available on the free plan today; confirm in the dashboard before relying on
 These reduce blast radius. None of them is an authorization control.
 
 - **Transport headers** (`vercel.json`; `public/.htaccess` for an Apache or LiteSpeed host such as
-  Hostinger, kept identical by `test/hostingParity.test.ts`; `netlify.toml` is an older, unused copy): CSP with
+  Hostinger, kept identical by `test/hostingParity.test.ts`; the old, unmaintained `netlify.toml` was removed on 2026-10-18, so a
+  Netlify deployment would need those headers re-created and put under the same test): CSP with
   `frame-ancestors 'none'`, `object-src 'none'` and `base-uri 'self'`; HSTS;
   `X-Content-Type-Options`; `X-Frame-Options`; `Referrer-Policy`;
   `Permissions-Policy`; COOP/CORP. `script-src` has no `'unsafe-inline'`, so

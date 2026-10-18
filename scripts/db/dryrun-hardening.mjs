@@ -8,6 +8,7 @@
  *   node scripts/db/dryrun-hardening.mjs > /tmp/dryrun.sql             (the migrations verbatim)
  *   node scripts/db/dryrun-hardening.mjs --compact > /tmp/dryrun.sql   (without comment-only lines: shorter to send)
  *   node scripts/db/dryrun-hardening.mjs --compact --evidence > /tmp/dryrun.sql   (ends by showing one row of facts, then rolls back)
+ *   node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > /tmp/dryrun2.sql   (the two red-team fixes of 2026-10-18)
  *
  * test/db/dryrun.db.test.ts runs the printed script in a scratch database and checks that it leaves the
  * database exactly as it found it.
@@ -23,6 +24,25 @@ export const HARDENING_MIGRATIONS = [
   '20261004100300_anonymous_insert_size_caps_and_log_purge',
   '20261010100000_rate_limit_uses_edge_ip',
 ];
+
+/** The two fixes from the red-team review (SECURITY_REVIEW_2026-10-18.md): checkout's rate and lock order, seller badges. */
+export const REDTEAM_MIGRATIONS = [
+  '20261018100000_checkout_uses_lbp_rate_and_locks_in_order',
+  '20261018100100_seller_cannot_set_storefront_flags',
+];
+
+/** One row of facts for the red-team set. Looks the functions up by name, so it needs no signature. */
+export const REDTEAM_EVIDENCE_SQL = `with checkout as (
+  select pg_get_functiondef(p.oid) as def from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'checkout_create_order'
+), guard as (
+  select pg_get_functiondef(p.oid) as def from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'protect_product_mutation'
+)
+select 'dry run finished: both migrations applied and every check passed; the next statement rolls it all back' as note,
+  (select position('order by lk.id for update' in def) > 0 from checkout) as checkout_locks_in_order,
+  (select position('''lbp_usd_rate''' in def) > 0 from checkout) as checkout_reads_lbp_rate,
+  (select position('v_lbp_rate numeric:=89500;' in def) = 0 from checkout) as fixed_rate_gone,
+  (select def ~ 'new\\.is_bestseller is distinct from old\\.is_bestseller' and def ~ 'new\\.yalla_item_code is distinct from old\\.yalla_item_code' from guard) as sellers_cannot_set_badges,
+  (select value from public.app_settings where key = 'lbp_usd_rate') as lbp_rate_now;`;
 
 /** The migration text without its comment-only lines (the SQL is identical; the script is much shorter to send). */
 export const withoutCommentLines = sql => sql.split('\n').filter(line => !/^\s*--/.test(line)).join('\n').replace(/\n{3,}/g, '\n\n');
@@ -47,27 +67,35 @@ export const EVIDENCE_SQL = `select 'dry run finished: all five migrations appli
   pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure) ~* 'cf-connecting-ip' as limiter_reads_edge_address,
   pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure) ~* 'x-forwarded-for|x-real-ip' as limiter_reads_visitor_header;`;
 
-export function dryRunSql(root = process.cwd(), { compact = false, evidence = false } = {}) {
+export const MIGRATION_SETS = {
+  hardening: { names: HARDENING_MIGRATIONS, label: 'the database hardening migrations', done: 'all five migrations applied and their checks passed', evidence: () => EVIDENCE_SQL },
+  redteam: { names: REDTEAM_MIGRATIONS, label: 'the red-team fixes (checkout, seller badges)', done: 'both migrations applied and their checks passed', evidence: () => REDTEAM_EVIDENCE_SQL },
+};
+
+export function dryRunSql(root = process.cwd(), { compact = false, evidence = false, set = 'hardening' } = {}) {
+  const chosen = MIGRATION_SETS[set];
+  if (!chosen) throw new Error(`unknown migration set "${set}" (use ${Object.keys(MIGRATION_SETS).join(' or ')})`);
   const parts = [
-    '-- Dry run of the database hardening migrations: everything below is rolled back at the end.',
+    `-- Dry run of ${chosen.label}: everything below is rolled back at the end.`,
     'begin;',
     // On a live database: give up quickly rather than queue behind a long-running statement and block everything
     // that queues behind us, and never run away.
     "set local lock_timeout = '3s';",
     "set local statement_timeout = '120s';",
   ];
-  for (const name of HARDENING_MIGRATIONS) {
+  for (const name of chosen.names) {
     parts.push(`\n-- ===== ${name} =====`);
     parts.push(`do $$ begin raise notice 'dry run: applying ${name}'; end $$;`);
     const sql = fs.readFileSync(path.join(root, 'supabase/pending', `${name}.sql`), 'utf8');
     parts.push(compact ? withoutCommentLines(sql) : sql);
   }
-  parts.push("\ndo $$ begin raise notice 'dry run: all five migrations applied and their checks passed; rolling back'; end $$;");
-  if (evidence) parts.push(EVIDENCE_SQL);
+  parts.push(`\ndo $$ begin raise notice 'dry run: ${chosen.done}; rolling back'; end $$;`);
+  if (evidence) parts.push(chosen.evidence());
   parts.push('rollback;');
   return parts.join('\n');
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  process.stdout.write(dryRunSql(process.cwd(), { compact: process.argv.includes('--compact'), evidence: process.argv.includes('--evidence') }));
+  const set = (process.argv.find(a => a.startsWith('--set=')) ?? '--set=hardening').slice('--set='.length);
+  process.stdout.write(dryRunSql(process.cwd(), { compact: process.argv.includes('--compact'), evidence: process.argv.includes('--evidence'), set }));
 }

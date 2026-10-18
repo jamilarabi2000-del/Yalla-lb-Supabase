@@ -778,6 +778,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
               <div
                 key={slide.id || idx}
                 aria-hidden={!isActive}
+                inert={!isActive}
                 className={`absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out ${
                   isActive ? 'opacity-100 z-10 pointer-events-auto' : 'opacity-0 z-0 pointer-events-none'
                 }`}
@@ -793,6 +794,7 @@ export const HomepagePromoSlider: React.FC<HomepagePromoSliderProps> = ({
             <div
               key={slide.id || idx}
               aria-hidden={!isActive}
+              inert={!isActive}
               className={`absolute inset-0 w-full h-full transition-transform duration-500 ease-out ${
                 isActive ? 'z-10 pointer-events-auto' : 'z-0 pointer-events-none'
               }`}

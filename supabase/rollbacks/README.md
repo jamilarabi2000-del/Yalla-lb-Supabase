@@ -121,9 +121,11 @@ retyped.
 - **Rollback** puts the two pieces of text back exactly and refuses to run if they are not there.
 - **Tests:** `test/db/redteam.db.test.ts` (a stand-in function carrying the live text of the two pieces, two real concurrent
   sessions for the deadlock, eight bad rates, a missing row, wrong function, twice, rollback).
-- **Dry run before applying:** run the file between `begin;` and `rollback;` in the SQL editor, then
-  `select position('order by lk.id for update' in pg_get_functiondef('private.checkout_create_order(jsonb, public.payment_method, public.currency_code, public.delivery_speed, jsonb, text, text)'::regprocedure));`
-  inside the same transaction; it must be above 0.
+- **Dry run before applying (both red-team fixes in one go):** `node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > dryrun2.sql`,
+  then run that file in the Supabase SQL editor. It applies both inside a transaction, shows one row of facts
+  (`checkout_locks_in_order`, `checkout_reads_lbp_rate`, `fixed_rate_gone`, `sellers_cannot_set_badges` should all be `t`, and
+  `lbp_rate_now` is the rate in settings today) and rolls everything back. `test/db/redteam.db.test.ts` proves the script leaves a database
+  byte-for-byte as it found it.
 
 ## 20261018100100_seller_cannot_set_storefront_flags  (red-team review RT-5)
 
