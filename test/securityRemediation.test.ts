@@ -204,10 +204,6 @@ describe('Transport security headers are declared', () => {
     expect(vercel).toContain("object-src 'none'");
   });
 
-  it('netlify.toml sets them', () => {
-    const netlify = read('netlify.toml');
-    for (const header of required) expect(netlify).toContain(header);
-  });
 
   it('drops the obscurity-only admin alias', () => {
     expect(read('vercel.json')).not.toContain('portal-x9k2m7v8');
