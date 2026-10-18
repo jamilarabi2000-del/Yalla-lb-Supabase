@@ -17,7 +17,8 @@
 
 export const CATEGORY_COLUMNS = 'id,name_en,name_ar,icon,description,description_ar,subcategories,banner_url,arabic_keywords,english_keywords,is_published,display_order,free_delivery_lebanon';
 export const REGION_COLUMNS = 'id,name_en,name_ar,major_cities,express_available,base_delivery_usd,estimated_time_en,estimated_time_ar';
-export const SELLER_COLUMNS = 'id,seller_code,name_en,name_ar,logo_url,banner_image,bio_en,bio_ar,governorate,district,village,region,contact_phone,craft_category,is_active,has_account,created_at,updated_at';
+/** No contact_phone: a seller's number is not for every visitor. The admin and the seller read it on their own (fetchSellerContactPhones). */
+export const SELLER_COLUMNS = 'id,seller_code,name_en,name_ar,logo_url,banner_image,bio_en,bio_ar,governorate,district,village,region,craft_category,is_active,has_account,created_at,updated_at';
 
 /** How long an early answer waits for the app to pick it up; after that it is let go and the app asks the server. */
 export const EARLY_MAX_AGE_MS = 15_000;

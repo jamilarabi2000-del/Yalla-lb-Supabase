@@ -152,3 +152,18 @@ bounded (name 300, first/last name 100, phone 40, governorate/city 120, address 
 20 saved addresses per person (trigger `private.limit_user_addresses`, not callable by browsers). Nothing stored is rewritten and no stored
 row breaks a limit today (largest cart 5 bytes, largest shipping record 304). Needs the same care as migration D: each check takes a brief
 lock on its table; the file gives up after 5 seconds rather than queue. Rollback removes all of it and touches no data. Tests as above.
+
+## 20261018210000_seller_phone_private_routes  (red-team review RT-8, step 1 of 3) — WRITTEN AND TESTED, NOT APPLIED
+
+Purely additive: `public.admin_list_seller_phones()` (every seller's phone; refuses unless the administrator's session is verified) and
+`public.my_seller_contact()` (the signed-in seller's own phone, no argument; no rows for a customer or a seller without a seller), each a
+thin SECURITY INVOKER wrapper over a SECURITY DEFINER function in `private`, callable by signed-in users only. No existing function or
+table right is changed. Rollback drops the four functions. Tests: `test/db/sellerPhone.db.test.ts`. **Dry run (covers this and the
+revoke below):** `node scripts/db/dryrun-hardening.mjs --set=sellerphones --compact --evidence`.
+
+## 20261018210100_revoke_seller_phone_from_browsers  (red-team review RT-8, step 3 of 3) — HELD: NOT BEFORE THE WEBSITE HAS BEEN LIVE FOR A DAY
+
+`revoke select (contact_phone) on public.sellers from anon, authenticated`. Stops unless both routes above exist; afterwards checks that
+no browser role can read the column and that the public columns still can (undoes itself otherwise, for example if a table-wide SELECT
+grant exists). A browser tab opened before the website change would get "permission denied" on the seller read until reloaded, which is
+why it waits. Rollback: `grant select (contact_phone) ...` (restores the exposure on purpose).
