@@ -69,6 +69,7 @@ import { assertHighRiskAuthorization } from '../utils/adminMfa';
 import { supabase } from '../lib/supabase';
 import { getCaptchaToken } from '../lib/captcha';
 import { keepsLiveChannel, refreshWhenBackInView } from '../lib/liveRefresh';
+import { withSellerPhones, withoutSellerPhone } from '../lib/sellerPhones';
 
 import type {
   User as SupabaseUser,
@@ -1494,7 +1495,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setRegions(supabaseRegions);
         }
         if (supabaseSellers) {
-          setSellers(supabaseSellers);
+          setSellers(withSellerPhones(supabaseSellers, sellerPhonesRef.current));
+          // Only an administrator or a seller gets any; for everyone else this clears what an earlier session left.
+          void readSellerPhones().then(phones => setSellers(prev => withSellerPhones(prev.map(withoutSellerPhone), phones)));
         }
         if (supabaseProds) {
           setProducts(supabaseProds.map(ensureSellerItemCode));
@@ -1918,12 +1921,30 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 // Sellers Management State & Sync
   // Cache or empty, never the bundled DEFAULT_SELLERS.
   const [sellers, setSellers] = useState<Seller[]>(() =>
-    readCachedList<Seller>(CATALOG_CACHE_KEYS.sellers)
+    readCachedList<Seller>(CATALOG_CACHE_KEYS.sellers).map(withoutSellerPhone)
   );
+
+  // Phone numbers of sellers this session may see (see withSellerPhones). Empty for a visitor and for a customer.
+  const sellerPhonesRef = useRef<Record<string, string>>({});
+  const sellerPhoneAccessRef = useRef<{ who: 'admin' | 'seller'; sellerId: string | null } | null>(null);
+  sellerPhoneAccessRef.current = isAdminUser ? { who: 'admin', sellerId: null } : isSellerUser ? { who: 'seller', sellerId } : null;
+  const readSellerPhones = useCallback(async (): Promise<Record<string, string>> => {
+    const access = sellerPhoneAccessRef.current;
+    if (!access) {
+      sellerPhonesRef.current = {};
+      return sellerPhonesRef.current;
+    }
+    try {
+      sellerPhonesRef.current = await supabaseCatalogService.fetchSellerContactPhones(access.who, access.sellerId);
+    } catch (err) {
+      console.warn('[ShopContext] Seller phone numbers could not be read:', err);
+    }
+    return sellerPhonesRef.current;
+  }, []);
 
   useEffect(() => {
     try {
-      writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (sellers));
+      writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (sellers.map(withoutSellerPhone)));
     } catch {}
   }, [sellers]);
 
@@ -1944,10 +1965,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshSellersFromSupabase = useCallback(async () => {
     try {
       const fresh = await supabaseCatalogService.fetchSellers();
+      const phones = await readSellerPhones();
       // Codes come from the database (sellers.seller_code is NOT NULL and
       // assigned on insert); none is made up here, where a list position
       // could hand one seller another seller's code.
-      setSellers(fresh);
+      setSellers(withSellerPhones(fresh, phones));
       try {
         writeCatalogCache(CATALOG_CACHE_KEYS.sellers, (fresh));
       } catch {}
@@ -1955,7 +1977,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('[ShopContext] Seller refresh failed:', err);
       throw err;
     }
-  }, []);
+  }, [readSellerPhones]);
 
   const addSeller = async (sellerData: Omit<Seller, 'id' | 'createdAt' | 'updatedAt' | 'sellerCode'> & { id?: string }): Promise<Seller> => {
     // sellers.id is uuid; the workshop slug lives in legacy_id.

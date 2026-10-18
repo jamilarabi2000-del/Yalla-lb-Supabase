@@ -1240,6 +1240,46 @@ export const supabaseCatalogService = {
   },
 
   /**
+   * The phone numbers of sellers, read privately: every seller's for an administrator, only their own for a seller
+   * (the public read above no longer carries contact_phone). Keyed by seller id.
+   *
+   * It asks the database's private routes first. If a route is not installed yet (PGRST202 / 42883) it falls back to
+   * reading the column, which works only while browsers may still read it; any other error is thrown, so a shopper
+   * who is not allowed (or an admin session that is not verified) never gets a number by a side door.
+   */
+  async fetchSellerContactPhones(
+    who: 'admin' | 'seller',
+    sellerId?: string | null,
+  ): Promise<Record<string, string>> {
+    const phones: Record<string, string> = {};
+    const { data, error } = await supabase.rpc(
+      who === 'admin' ? 'admin_list_seller_phones' : 'my_seller_contact',
+    );
+    if (!error) {
+      for (const row of (data ?? []) as Array<{ id?: string; seller_id?: string; contact_phone?: string | null }>) {
+        const id = who === 'admin' ? row.id : row.seller_id;
+        if (id && row.contact_phone) phones[id] = row.contact_phone;
+      }
+      return phones;
+    }
+    const routeMissing =
+      error.code === 'PGRST202' || error.code === '42883' || /could not find the function/i.test(error.message ?? '');
+    if (!routeMissing) throw error;
+
+    let query = supabase.from('sellers').select('id,contact_phone');
+    if (who === 'seller') {
+      if (!sellerId) return phones;
+      query = query.eq('id', sellerId);
+    }
+    const direct = await query;
+    if (direct.error) throw direct.error;
+    for (const row of direct.data ?? []) {
+      if (row.id && row.contact_phone) phones[row.id] = row.contact_phone;
+    }
+    return phones;
+  },
+
+  /**
    * Fetch delivery regions.
    */
   async fetchRegions(): Promise<

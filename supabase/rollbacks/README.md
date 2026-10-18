@@ -104,3 +104,14 @@ Read from the live project on 2026-10-10 and rewritten from that source; the rol
 - **After applying, check once on the live site:** do one search, then look at the newest `search_logs` row: its
   `client_ip` should be your address. If it is empty the header did not reach the database; the limiter then falls back
   to the shared cap (nobody is blocked) and the migration should be rolled back and looked at again.
+
+## 20261018232313_seller_phone_private_routes  (red-team review RT-8, step 1 of 3) — APPLIED 2026-10-18
+
+Purely additive: `public.admin_list_seller_phones()` (every seller's phone; refuses unless the administrator's session is verified) and
+`public.my_seller_contact()` (the signed-in seller's own phone, no argument; no rows for a customer or a seller without a seller), each a
+thin SECURITY INVOKER wrapper over a SECURITY DEFINER function in `private`, callable by signed-in users only. No existing function or
+table right is changed. Written as `20261018210000_...`; Supabase recorded it as version `20261018232313`. Checked on the project before
+and after: functions 92 → 96, and the hashes of every other function, the policies, the table rights, the triggers and the sellers
+column rights were identical. The website reads the number through these routes (falling back to the column while a route is missing).
+Rollback drops the four functions.
+
