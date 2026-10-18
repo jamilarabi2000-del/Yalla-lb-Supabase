@@ -1,4 +1,4 @@
--- Undoes 20261018100100_seller_cannot_set_storefront_flags: takes the four columns back out of the seller checks.
+-- Undoes 20261018182835_seller_cannot_set_storefront_flags: takes the four columns back out of the seller checks.
 -- This lets a seller set Bestseller / Featured / New Arrival and the item code on their own products again.
 --
 -- It refuses to run over a function that does not carry the migration's text exactly once.

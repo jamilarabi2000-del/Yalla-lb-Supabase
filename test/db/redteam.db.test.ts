@@ -7,7 +7,7 @@ import { startScratchPostgres, postgresAvailable, findPostgresBin } from '../../
 import { dryRunSql, REDTEAM_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
 
 // The red-team review of 2026-10-18, run for real in a scratch PostgreSQL: the attacks the live guards stop (so they
-// keep stopping them), and the two pending migrations that close what the review found (RT-3/RT-4 in checkout, RT-5
+// keep stopping them), and the two migrations (applied 2026-10-18) that close what the review found (RT-3/RT-4 in checkout, RT-5
 // the seller product flags). The function bodies and policies in fixture_redteam.sql are copied from the live project.
 // What is NOT here: the project itself (nothing in this file can reach it), the real checkout function (only the two
 // pieces of text the migration changes, in a stand-in), and Supabase's own auth service.
@@ -20,9 +20,9 @@ if (process.env.REQUIRE_SCRATCH_POSTGRES === '1') {
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.resolve(root, file), 'utf8');
-const CHECKOUT = '20261018100000_checkout_uses_lbp_rate_and_locks_in_order';
-const FLAGS = '20261018100100_seller_cannot_set_storefront_flags';
-const up = (name: string) => read(`supabase/pending/${name}.sql`);
+const CHECKOUT = '20261018182807_checkout_uses_lbp_rate_and_locks_in_order';
+const FLAGS = '20261018182835_seller_cannot_set_storefront_flags';
+const up = (name: string) => read(`supabase/migrations/${name}.sql`);
 const down = (name: string) => read(`supabase/rollbacks/${name}.rollback.sql`);
 
 const U = { cust: '00000000-0000-4000-8000-0000000000b2', cust2: '00000000-0000-4000-8000-0000000000c3', sell: '00000000-0000-4000-8000-0000000000d4', sell2: '00000000-0000-4000-8000-0000000000e5', adm: '00000000-0000-4000-8000-0000000000a1' } as const;
@@ -34,7 +34,7 @@ const PA = '55555555-5555-4555-8555-00000000000a';
 const PB = '55555555-5555-4555-8555-00000000000b';
 const ORD = '44444444-4444-4444-8444-000000000001';
 
-describe.skipIf(!available)('red-team review: guards that hold, and the pending fixes, in a scratch PostgreSQL', () => {
+describe.skipIf(!available)('red-team review: guards that hold, and the applied fixes, in a scratch PostgreSQL', () => {
   let pg: ReturnType<typeof startScratchPostgres>;
   let copies = 0;
   beforeAll(() => {
@@ -287,7 +287,7 @@ describe.skipIf(!available)('red-team review: guards that hold, and the pending 
       expect(pg.dump(db)).toBe(before);
     });
 
-    it('covers exactly the two pending files, in order', () => {
+    it('covers exactly the two migration files, in order', () => {
       expect(REDTEAM_MIGRATIONS).toEqual([CHECKOUT, FLAGS]);
       for (const name of REDTEAM_MIGRATIONS) expect(fs.existsSync(path.resolve(root, `supabase/rollbacks/${name}.rollback.sql`)), name).toBe(true);
     });

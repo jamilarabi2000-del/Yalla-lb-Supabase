@@ -18,7 +18,7 @@
 -- either is not found exactly once, so it cannot patch a function it was not written for), and recreates it. It
 -- checks that the function's grants are the same afterwards. Running it twice is harmless.
 --
--- Rollback: supabase/rollbacks/20261018100000_checkout_uses_lbp_rate_and_locks_in_order.rollback.sql
+-- Rollback: supabase/rollbacks/20261018182807_checkout_uses_lbp_rate_and_locks_in_order.rollback.sql
 
 do $migration$
 declare

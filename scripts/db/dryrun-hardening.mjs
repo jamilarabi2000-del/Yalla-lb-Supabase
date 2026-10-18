@@ -25,10 +25,11 @@ export const HARDENING_MIGRATIONS = [
   '20261010100000_rate_limit_uses_edge_ip',
 ];
 
-/** The two fixes from the red-team review (SECURITY_REVIEW_2026-10-18.md): checkout's rate and lock order, seller badges. */
+/** The two fixes from the red-team review (SECURITY_REVIEW_2026-10-18.md): checkout's rate and lock order, seller badges.
+ *  Applied to the project on 2026-10-18, so they now live in supabase/migrations; both are safe to run again (a dry run is a check). */
 export const REDTEAM_MIGRATIONS = [
-  '20261018100000_checkout_uses_lbp_rate_and_locks_in_order',
-  '20261018100100_seller_cannot_set_storefront_flags',
+  '20261018182807_checkout_uses_lbp_rate_and_locks_in_order',
+  '20261018182835_seller_cannot_set_storefront_flags',
 ];
 
 /** One row of facts for the red-team set. Looks the functions up by name, so it needs no signature. */
@@ -68,8 +69,8 @@ export const EVIDENCE_SQL = `select 'dry run finished: all five migrations appli
   pg_get_functiondef('private.rate_limit_anonymous_insert()'::regprocedure) ~* 'x-forwarded-for|x-real-ip' as limiter_reads_visitor_header;`;
 
 export const MIGRATION_SETS = {
-  hardening: { names: HARDENING_MIGRATIONS, label: 'the database hardening migrations', done: 'all five migrations applied and their checks passed', evidence: () => EVIDENCE_SQL },
-  redteam: { names: REDTEAM_MIGRATIONS, label: 'the red-team fixes (checkout, seller badges)', done: 'both migrations applied and their checks passed', evidence: () => REDTEAM_EVIDENCE_SQL },
+  hardening: { dir: 'supabase/pending', names: HARDENING_MIGRATIONS, label: 'the database hardening migrations', done: 'all five migrations applied and their checks passed', evidence: () => EVIDENCE_SQL },
+  redteam: { dir: 'supabase/migrations', names: REDTEAM_MIGRATIONS, label: 'the red-team fixes (checkout, seller badges)', done: 'both migrations applied and their checks passed', evidence: () => REDTEAM_EVIDENCE_SQL },
 };
 
 export function dryRunSql(root = process.cwd(), { compact = false, evidence = false, set = 'hardening' } = {}) {
@@ -86,7 +87,7 @@ export function dryRunSql(root = process.cwd(), { compact = false, evidence = fa
   for (const name of chosen.names) {
     parts.push(`\n-- ===== ${name} =====`);
     parts.push(`do $$ begin raise notice 'dry run: applying ${name}'; end $$;`);
-    const sql = fs.readFileSync(path.join(root, 'supabase/pending', `${name}.sql`), 'utf8');
+    const sql = fs.readFileSync(path.join(root, chosen.dir, `${name}.sql`), 'utf8');
     parts.push(compact ? withoutCommentLines(sql) : sql);
   }
   parts.push(`\ndo $$ begin raise notice 'dry run: ${chosen.done}; rolling back'; end $$;`);

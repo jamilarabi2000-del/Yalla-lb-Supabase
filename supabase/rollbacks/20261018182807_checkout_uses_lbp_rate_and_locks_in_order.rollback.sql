@@ -1,4 +1,4 @@
--- Undoes 20261018100000_checkout_uses_lbp_rate_and_locks_in_order: puts the two pieces of text back exactly as they were
+-- Undoes 20261018182807_checkout_uses_lbp_rate_and_locks_in_order: puts the two pieces of text back exactly as they were
 -- (the fixed 89,500 rate, and no up-front lock). This restores both defects on purpose.
 --
 -- It refuses to run over a function that does not carry the migration's text exactly once.

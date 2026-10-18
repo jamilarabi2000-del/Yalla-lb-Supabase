@@ -3,7 +3,9 @@
 //   node scripts/db/redteam-poc.mjs        (from the repository root; needs PostgreSQL's server programs, like the DB tests)
 //
 // N-lines are attacks the live guards stop. F-lines are findings that reproduce. Nothing here touches the live
-// project: the function bodies and policies in test/db/fixture_redteam.sql are copies of the live text.
+// project: the function bodies and policies in test/db/fixture_redteam.sql are copies of the live text AS THEY WERE ON
+// 2026-10-18 BEFORE THE FIXES. Since then F1 (seller badges) and F5 (checkout deadlock) are fixed on the live project, so those
+// two lines show the state the review found; the tests in test/db/redteam.db.test.ts cover the fixed state.
 import fs from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';

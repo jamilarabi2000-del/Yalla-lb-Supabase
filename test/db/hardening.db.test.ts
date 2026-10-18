@@ -567,7 +567,11 @@ describe('the hardening migrations as files', () => {
   const names = [A, B, C, D];
 
   it('each has a rollback beside it, named in its header, and they sort after every earlier migration', () => {
-    const earlier = fs.readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && !names.some(n => f.startsWith(n))).sort();
+    // Two later fixes (the 2026-10-18 red-team review) were written after these five and applied first, so they carry a later
+    // version. These five take their applied version when they are applied, as every earlier migration did; until then they
+    // only have to sort after the migrations that existed when they were written.
+    const appliedLater = ['20261018182807_', '20261018182835_'];
+    const earlier = fs.readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && !names.some(n => f.startsWith(n)) && !appliedLater.some(n => f.startsWith(n))).sort();
     for (const name of names) {
       expect(fs.existsSync(`supabase/rollbacks/${name}.rollback.sql`), name).toBe(true);
       expect(up(name)).toContain(`Rollback: supabase/rollbacks/${name}.rollback.sql`);

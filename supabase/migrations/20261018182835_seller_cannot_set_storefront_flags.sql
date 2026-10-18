@@ -14,7 +14,7 @@
 -- It reads the live function, adds the four checks to the one place the seller rules end, and stops if that place is
 -- not found exactly once. Running it twice is harmless.
 --
--- Rollback: supabase/rollbacks/20261018100100_seller_cannot_set_storefront_flags.rollback.sql
+-- Rollback: supabase/rollbacks/20261018182835_seller_cannot_set_storefront_flags.rollback.sql
 
 do $migration$
 declare

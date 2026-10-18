@@ -105,7 +105,7 @@ Read from the live project on 2026-10-10 and rewritten from that source; the rol
   `client_ip` should be your address. If it is empty the header did not reach the database; the limiter then falls back
   to the shared cap (nobody is blocked) and the migration should be rolled back and looked at again.
 
-## 20261018100000_checkout_uses_lbp_rate_and_locks_in_order  (red-team review RT-3, RT-4)
+## 20261018182807_checkout_uses_lbp_rate_and_locks_in_order  (red-team review RT-3, RT-4) — APPLIED 2026-10-18
 
 Two defects inside `private.checkout_create_order`, patched by exact text so nothing else in the 14,000-character function is
 retyped.
@@ -121,13 +121,14 @@ retyped.
 - **Rollback** puts the two pieces of text back exactly and refuses to run if they are not there.
 - **Tests:** `test/db/redteam.db.test.ts` (a stand-in function carrying the live text of the two pieces, two real concurrent
   sessions for the deadlock, eight bad rates, a missing row, wrong function, twice, rollback).
-- **Dry run before applying (both red-team fixes in one go):** `node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > dryrun2.sql`,
+- **Applied after this passed on the project:** both functions changed, nothing else (functions, 206 policies, table rights and triggers
+  were identical before and after). The dry run, which is safe to repeat because both files are idempotent: `node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > dryrun2.sql`,
   then run that file in the Supabase SQL editor. It applies both inside a transaction, shows one row of facts
   (`checkout_locks_in_order`, `checkout_reads_lbp_rate`, `fixed_rate_gone`, `sellers_cannot_set_badges` should all be `t`, and
   `lbp_rate_now` is the rate in settings today) and rolls everything back. `test/db/redteam.db.test.ts` proves the script leaves a database
   byte-for-byte as it found it.
 
-## 20261018100100_seller_cannot_set_storefront_flags  (red-team review RT-5)
+## 20261018182835_seller_cannot_set_storefront_flags  (red-team review RT-5) — APPLIED 2026-10-18
 
 Adds `is_featured`, `is_bestseller`, `is_new_arrival` and `yalla_item_code` to the columns `private.protect_product_mutation`
 already refuses for sellers. Administrators and the seller screen (which never sends these four) are unaffected. Same

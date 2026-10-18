@@ -8,10 +8,12 @@ Requested: "a full bug, logic and security review, as deep as a red team or a re
   free order.** I tried twelve concrete attacks of that kind against copies of the live rules; every one was stopped (section 3).
 * **The most serious problem is not a break-in but a flood:** anyone can fill the free database with junk until the shop
   goes read-only and nobody can order (RT-1). The fix is already written and tested; it is waiting for your approval.
-* **Five more real problems reproduced** (RT-2 to RT-6). Three have fixes ready and tested in this branch (RT-3, RT-4, RT-5);
+* **Five more real problems reproduced** (RT-2 to RT-6). Three are now **fixed on the live database** (RT-3, RT-4, RT-5, applied 2026-10-18 after a passing dry run);
   one has its fix written earlier and waiting (RT-2); one needs a decision from you (RT-6).
-* **Nothing was changed on the live site or the live database.** Every proof ran in a scratch database on this machine.
-  Fixes are files in this branch; the database ones are "pending" migrations that need your separate approval.
+* **The review itself changed nothing on the live site or the live database.** Every proof ran in a scratch database on this machine.
+  Afterwards, with your approval, two small database fixes were applied (migration versions `20261018182807` and
+  `20261018182835`), and a site-only clean-up went to `main` (`11f067f`). The database before/after check showed only those
+  two functions changed. RT-1 and RT-2 are still waiting on their dry run and your approval.
 
 ## 1. How I tested, and what I could not
 
@@ -37,7 +39,7 @@ text that runs live.
 ## 2. Findings, most serious first
 
 Severity words: **High** = a stranger can hurt the shop with no account. **Medium** = needs an account, or hurts one person or
-one rule. **Low** = small, or needs unusual conditions. Status: **Fix ready** = written and tested here, waiting for you.
+one rule. **Low** = small, or needs unusual conditions. Status: **Fixed** = applied to the live database and checked afterwards; **Fix ready** = written and tested here, waiting for you.
 
 ### RT-1 — Anyone can fill the free database and take the shop offline — HIGH — open (fix ready since 10-10)
 
@@ -63,16 +65,16 @@ signed in, throttle never ban). Apply order and the dry run are in `supabase/rol
 *Exploit:* squat a seller's or competitor's number so they cannot finish their profile; or fill the table.
 *Fix:* pending migration B (only the profile trigger may write it). *You:* approval, as RT-1.
 
-### RT-3 — Orders paid in Lebanese pounds ignore the rate you set — MEDIUM (latent) — fix ready
+### RT-3 — Orders paid in Lebanese pounds ignore the rate you set — MEDIUM (latent) — FIXED 2026-10-18
 
 *What:* the live checkout contains `v_lbp_rate numeric:=89500;`. The rate you keep in settings is never read, although
 the storefront code says it is. Both are 89,500 today, so nobody is wrong yet. On the day you change the rate, the shop
 will show one total and the order will record another on cash-on-delivery orders settled at the door.
-*Evidence:* the live function text (quoted in the migration header). *Fix:* `20261018100000_checkout_uses_lbp_rate_and_locks_in_order`
+*Evidence:* the live function text (quoted in the migration header). *Fix:* `20261018182807_checkout_uses_lbp_rate_and_locks_in_order`
 reads the setting, with 89,500 as the fallback for a missing or non-numeric value (tested with `abc`, empty, `0`, `-5`,
 `1e9`, `89 500`).
 
-### RT-4 — Two shoppers can make each other's order fail — LOW/MEDIUM — fix ready
+### RT-4 — Two shoppers can make each other's order fail — LOW/MEDIUM — FIXED 2026-10-18
 
 *What:* checkout locks product rows in the order the basket lists them. Two baskets holding the same two products in
 opposite order deadlock; the database cancels one order ("deadlock detected"). Retrying works. It gets likelier exactly
@@ -80,12 +82,12 @@ where it hurts: on best-sellers, in a busy hour.
 *Proof:* reproduced with two simultaneous sessions (`F5`; `redteam.db.test.ts` "before"). *Fix:* same migration as RT-3
 takes the locks first, in one fixed order. After it, the same two orders both succeed (tested).
 
-### RT-5 — A seller can stamp their own products "Bestseller", "Featured", "New" and copy a product number — LOW/MEDIUM — fix ready
+### RT-5 — A seller can stamp their own products "Bestseller", "Featured", "New" and copy a product number — LOW/MEDIUM — FIXED 2026-10-18
 
 *What:* the guard that stops sellers editing rating, cost, publishing and order forgot four columns the browser may write.
 A seller calling the database directly (the seller screen never sends them) can put their products on the home page
 and in the shop's own "Bestseller" badge, and overwrite the system product number with another product's.
-*Proof:* `F1`; `redteam.db.test.ts`. *Fix:* `20261018100100_seller_cannot_set_storefront_flags`. Admin and the seller
+*Proof:* `F1`; `redteam.db.test.ts`. *Fix:* `20261018182835_seller_cannot_set_storefront_flags`. Admin and the seller
 screen are unaffected (tested).
 
 ### RT-6 — Anyone can lock any customer out of password sign-in — MEDIUM — decision needed
@@ -175,17 +177,19 @@ commits and run with read-only tokens.
 
 | File | What |
 | --- | --- |
-| `supabase/pending/20261018100000_checkout_uses_lbp_rate_and_locks_in_order.sql` (+ rollback) | RT-3, RT-4. Patches the live function by exact text, refuses if the text is not found exactly once, checks grants unchanged. |
-| `supabase/pending/20261018100100_seller_cannot_set_storefront_flags.sql` (+ rollback) | RT-5, same safeguards. |
+| `supabase/migrations/20261018182807_checkout_uses_lbp_rate_and_locks_in_order.sql` (+ rollback in `supabase/rollbacks/`) — **applied** | RT-3, RT-4. Patches the live function by exact text, refuses if the text is not found exactly once, checks grants unchanged. |
+| `supabase/migrations/20261018182835_seller_cannot_set_storefront_flags.sql` (+ rollback) — **applied** | RT-5, same safeguards. |
 | `test/db/redteam.db.test.ts`, `test/db/fixture_redteam.sql` | 38 tests: the guards that hold, and both migrations (before, after, twice, wrong function, rollback). Four deliberate breakages of the migrations were each caught by a test. |
 | `scripts/db/redteam-poc.mjs` | Runs every proof above; prints `BLOCKED` / `CONFIRMED`. |
 
 ## 5. What I need from you, in order
 
-1. **Approve the dry run** of the five existing pending migrations (A–E) on the live database, then, separately, the apply.
-   This closes RT-1 and RT-2, the two that matter most. (The two new migrations here need their own dry run, same way.)
+1. **Dry-run the five older pending migrations (A–E)** on the live database, then, separately, approve the apply.
+   This closes RT-1 and RT-2, the two that matter most. The Supabase tool gives up after 60 seconds and asks for approval on
+   scripts that contain `alter table` / `drop policy`, so the reliable way is the SQL editor: `node scripts/db/dryrun-hardening.mjs --compact --evidence`.
+   The dry run passed on the live database for change A and for both RT-3/RT-4/RT-5 fixes; B to E were not completed through the tool.
 2. **Say yes or no** to RT-6 (lock per guesser), RT-8 (seller phone numbers), RT-9 (size limits).
 3. **Do** RT-10 (Firebase key) and, before leaving Vercel, RT-11's `ALLOWED_ORIGINS`.
 4. **Allow the live site** in the session's network settings if you want me to look at it in a browser.
 
-Nothing was merged to `main`, applied to the database, or deployed.
+Applied to the live database so far: RT-3/RT-4 and RT-5 only. This report and the proof script are on the review branch, not on `main`.
