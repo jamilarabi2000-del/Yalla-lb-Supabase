@@ -1,0 +1,191 @@
+# Red-team review — Yalla.lb — 2026-10-18
+
+Requested: "a full bug, logic and security review, as deep as a red team or a real hacker who wants to find vulnerabilities."
+
+## Bottom line
+
+* **Nobody can take over an account, become an admin or seller, read other people's orders, change a price or a total, or get a
+  free order.** I tried twelve concrete attacks of that kind against copies of the live rules; every one was stopped (section 3).
+* **The most serious problem is not a break-in but a flood:** anyone can fill the free database with junk until the shop
+  goes read-only and nobody can order (RT-1). The fix is already written and tested; it is waiting for your approval.
+* **Five more real problems reproduced** (RT-2 to RT-6). Three have fixes ready and tested in this branch (RT-3, RT-4, RT-5);
+  one has its fix written earlier and waiting (RT-2); one needs a decision from you (RT-6).
+* **Nothing was changed on the live site or the live database.** Every proof ran in a scratch database on this machine.
+  Fixes are files in this branch; the database ones are "pending" migrations that need your separate approval.
+
+## 1. How I tested, and what I could not
+
+**Read from the live project (read-only, no writes):** every table's security rules, grants and triggers; the text of the
+functions that guard profiles, orders, products, reviews, seller applications and sign-in; the checkout function; storage
+buckets and their rules; which tables broadcast live changes; the two deployed edge functions; Supabase's own advisor.
+**Read from the repository:** all migrations, the two edge functions, the CI workflows, the security headers, the
+rich-text cleaner, every place the pages build links or HTML, the git history for committed secrets, `npm audit`.
+**Proved in a scratch PostgreSQL** (`node scripts/db/redteam-poc.mjs`, `test/db/redteam.db.test.ts`): function bodies and
+rules in `test/db/fixture_redteam.sql` are copied from the live project, so an attack stopped there is stopped by the same
+text that runs live.
+
+**Not verified, and I will not pretend otherwise:**
+
+| Not checked | Why |
+| --- | --- |
+| The live website in a browser | This session's network policy refuses `yalla-lb-supabase.vercel.app` (the proxy answers 403). To allow it: environment menu in the session title bar → Edit → Network access → add that host. |
+| Supabase dashboard settings (allowed redirect URLs, e-mail code lifetime, CAPTCHA on/off, the sign-in hook switch) | No tool of mine reads them. |
+| That the visitor's real address (`CF-Connecting-IP`) reaches the database | Supabase's own docs say it does; I could not test it without a write to the live project. The pending limiter migration is built to degrade safely if not, and `supabase/rollbacks/README.md` says how to check after applying. |
+| Real phones, real Apache/LiteSpeed (Hostinger), real e-mail delivery | Not available here. |
+| The Strix scanner | Installed as skills only, never run: it attacks a running target, and I would not point it at production without you asking. |
+
+## 2. Findings, most serious first
+
+Severity words: **High** = a stranger can hurt the shop with no account. **Medium** = needs an account, or hurts one person or
+one rule. **Low** = small, or needs unusual conditions. Status: **Fix ready** = written and tested here, waiting for you.
+
+### RT-1 — Anyone can fill the free database and take the shop offline — HIGH — open (fix ready since 10-10)
+
+*What:* searching, applying to be a seller and page analytics are open to visitors without sign-in. Two things are wrong
+live today: (a) the "no more than 60 a minute" limit counts visitors by an address they write themselves
+(`X-Forwarded-For`), so a script that writes a different one each time is never limited; (b) the search text and the seller
+application have no size limit (the analytics one does: 4 KB).
+*Proof (scratch DB, `test/db/rateLimit.db.test.ts`, `test/db/hardening.db.test.ts`):* 100 searches with 100 different forged
+addresses → 0 refused, 100 stored; one anonymous request wrote a 1 MB search and a 1 MB application.
+*Exploit:* the public API key is in the website's code. A script can add rows without limit and reach the free plan's
+500 MB; Supabase then makes the database read-only and checkout stops until you clear it or pay. How fast depends on the
+largest request Supabase's gateway accepts, which I did not test.
+*Fix:* pending migrations D (size limits + a purge function) and E (count by the address Cloudflare sets, per account when
+signed in, throttle never ban). Apply order and the dry run are in `supabase/rollbacks/README.md`.
+*You:* approve the dry run, then the apply.
+
+### RT-2 — Anyone with an account can reserve other people's phone numbers — MEDIUM — open (fix ready since 10-04)
+
+*What:* the table that keeps "one account per phone number" can be written directly by any signed-in user, with no limit.
+*Proof:* a customer inserted `96171123456` for themselves, then 5,000 more numbers in one request (`F2`, `F2b` in
+`scripts/db/redteam-poc.mjs`; the earlier `hardening.db.test.ts` shows the real owner is then refused with
+`PHONE_ALREADY_REGISTERED`).
+*Exploit:* squat a seller's or competitor's number so they cannot finish their profile; or fill the table.
+*Fix:* pending migration B (only the profile trigger may write it). *You:* approval, as RT-1.
+
+### RT-3 — Orders paid in Lebanese pounds ignore the rate you set — MEDIUM (latent) — fix ready
+
+*What:* the live checkout contains `v_lbp_rate numeric:=89500;`. The rate you keep in settings is never read, although
+the storefront code says it is. Both are 89,500 today, so nobody is wrong yet. On the day you change the rate, the shop
+will show one total and the order will record another on cash-on-delivery orders settled at the door.
+*Evidence:* the live function text (quoted in the migration header). *Fix:* `20261018100000_checkout_uses_lbp_rate_and_locks_in_order`
+reads the setting, with 89,500 as the fallback for a missing or non-numeric value (tested with `abc`, empty, `0`, `-5`,
+`1e9`, `89 500`).
+
+### RT-4 — Two shoppers can make each other's order fail — LOW/MEDIUM — fix ready
+
+*What:* checkout locks product rows in the order the basket lists them. Two baskets holding the same two products in
+opposite order deadlock; the database cancels one order ("deadlock detected"). Retrying works. It gets likelier exactly
+where it hurts: on best-sellers, in a busy hour.
+*Proof:* reproduced with two simultaneous sessions (`F5`; `redteam.db.test.ts` "before"). *Fix:* same migration as RT-3
+takes the locks first, in one fixed order. After it, the same two orders both succeed (tested).
+
+### RT-5 — A seller can stamp their own products "Bestseller", "Featured", "New" and copy a product number — LOW/MEDIUM — fix ready
+
+*What:* the guard that stops sellers editing rating, cost, publishing and order forgot four columns the browser may write.
+A seller calling the database directly (the seller screen never sends them) can put their products on the home page
+and in the shop's own "Bestseller" badge, and overwrite the system product number with another product's.
+*Proof:* `F1`; `redteam.db.test.ts`. *Fix:* `20261018100100_seller_cannot_set_storefront_flags`. Admin and the seller
+screen are unaffected (tested).
+
+### RT-6 — Anyone can lock any customer out of password sign-in — MEDIUM — decision needed
+
+*What:* the password check is a database function open to visitors. It locks an email after 5 wrong guesses in 15 minutes
+(20 a day), **counted per email, not per person guessing**, and a locked email refuses even the correct password.
+*Proof:* five wrong guesses from five different addresses, then the right password → `locked` (`F3`).
+*Exploit:* knowing only a customer's or seller's email, keep them from signing in. They can still use "Forgot password"
+(which skips the password step), so it is a nuisance, not a lock-out for good.
+*Not covered by CAPTCHA:* Turnstile protects Supabase's own e-mail-code requests. This check is a database function that
+receives only email and password, so, as far as the code shows, no CAPTCHA token reaches it.
+*Recommendation (needs your yes, I have not built it):* lock per email **and** per guesser (5 each, 15 minutes), plus a much
+higher per-email ceiling (for example 50 in 15 minutes) so a distributed guess is still bounded. The password is only the
+first of two steps (an e-mailed code follows), so a higher ceiling costs little. Say "build RT-6" and I will.
+
+### RT-7 — The sign-in check tells a stranger whether an e-mail has an account — LOW — product decision, noted
+
+The same function answers `no_account` or `wrong`. This was chosen on purpose (task #35: unknown e-mail → "sign up
+first"), so I have not changed it. It lets someone test a list of e-mails for membership. If that matters more to you than the
+friendlier message, the answer should be the same for both.
+
+### RT-8 — Every visitor's browser receives every seller's phone number — LOW/MEDIUM (privacy) — decision needed
+
+The shop's public read of sellers includes `contact_phone`; the page code that shows shoppers anything never displays it
+(only admin and seller screens do). Anyone calling the public API can list the phone numbers of all active sellers.
+*Fix options:* stop selecting it for visitors and revoke the public column right, keeping a private route for the seller's
+own screen and for admin. It touches the seller screen, so I did not do it unasked.
+
+### RT-9 — Signed-in users can store unlimited data in their own rows — LOW/MEDIUM — recommendation
+
+`carts.items`, `wishlists.product_ids`, `user_addresses`, `orders.shipping` (set by checkout from the browser) and, until RT-2's
+fix, `phone_registry` have no size limit. Needs one account per megabyte-sized request, so it is slower than RT-1, but
+sign-up is free and CAPTCHA is still off. *Recommendation:* the same "NOT VALID size check" pattern migration D uses
+(for example cart ≤ 64 KB, shipping ≤ 8 KB, ≤ 20 addresses a user). I can write it on request.
+
+### RT-10 — A Firebase key from before the move is in the public repository's history — LOW — owner step (task #112)
+
+Commits `c4e0942` (added) and `5490d42` (removed) contain a Firebase web key (starts `AIzaSyDQI4…`). Such keys are meant to be
+public, but yours belongs to a system you left. In Google Cloud → APIs & Services → Credentials, **delete it or restrict it**
+to nothing. No Supabase secret, service-role key or token appears anywhere in the files or the history (searched).
+
+### RT-11 — Smaller items
+
+* **Moving off Vercel will break "create seller login" until you set one value.** The function allows only the two
+  `vercel.app` addresses (plus whatever is in the `ALLOWED_ORIGINS`, `APP_URL` or `SITE_URL` secrets). On Hostinger, add
+  your domain to the `ALLOWED_ORIGINS` secret of `admin-seller-provision` first.
+* **A leftover function** `one-time-imgbb-migration` is still deployed. It only answers "410 disabled" and needs a login,
+  so it is harmless; delete it for tidiness.
+* **Leaked-password protection is off** (Supabase's advisor, the only warning it gives). It is a paid-plan feature.
+* **The CI job that checks for schema drift** gets the database password as a repository secret on every pull request.
+  Fine while only you can push; one more reason to keep the repository private (task #112).
+* **Defence in depth:** the rule that lets a user insert their own profile row does not pin `is_otp_verified`, `email_verified`
+  or `seller_id`. Not exploitable today (the row already exists and cannot be deleted), but a one-line `with check` would
+  close the door for good. The app code never reads `is_otp_verified` (checkout's gate uses the e-mail confirmation instead), and it is not reset if
+  the phone number changes, so do not build a rule on it without fixing that.
+* **A product's `artisan` text** is editable by its seller and shown to shoppers. Intended (it is their name); noted because
+  it can be set to another maker's name.
+
+## 3. What I attacked and could not break
+
+Run by `node scripts/db/redteam-poc.mjs` (lines `N1`–`N12`) and kept as regression tests in `test/db/redteam.db.test.ts`:
+
+| Attack | Result |
+| --- | --- |
+| Customer sets own `role` to admin / `seller_id` | Reverted by trigger |
+| Customer sets own `email_verified` / `is_otp_verified` | Refused (`PROFILE_SECURITY_FIELDS_FORBIDDEN`) |
+| Customer re-inserts a privileged copy of own profile | Refused (row exists, no delete right) |
+| Customer edits another profile | 0 rows (row-level security) |
+| Customer lowers own order total | 0 rows (no update rule for customers) |
+| Seller on the order lowers its total / marks it delivered | Refused (`ORDER_FINANCIAL_FIELDS_FORBIDDEN`, `ORDER_STATUS_TRANSITION_FORBIDDEN`) |
+| Seller not on the order advances it | 0 rows |
+| Seller sets own rating / review count / cost price | Refused (`PRODUCT_SECURITY_FIELDS_FORBIDDEN`) |
+| Seller edits another seller's product | 0 rows |
+
+Also checked and sound: every table has row-level security; orders can only be created through the checkout function
+(a trigger refuses any other insert, and also unverified e-mails); prices, stock, region and delivery fee are all decided
+on the server; stock cannot be oversold (conditional update); the live checkout has a guard so a coupon's rule is not applied twice (`v_coupon_rule_applied`), and total discounts are capped at 70%
+(there are no coupons or discount rules in the shop yet, so this is read from the code, not exercised); admin writes need the authenticator code; the seller-login
+function verifies the caller, the admin role and a fresh authenticator step before touching anything; storage accepts
+only images up to 8 MB, only admins or the seller's own folder may write; the payment webhook (not deployed) verifies a
+signature and rejects stale or replayed events; the page's security headers (no inline scripts, no outside script hosts,
+framing denied) and its rich-text cleaner (small allow-list, no `style`, `svg`, `iframe`) are strong; the links I traced (WhatsApp, banner and slide buttons, custom blocks) are digits-only, scheme-checked or `noopener`; the preview message handler checks origin and sender; every spreadsheet
+export passes through `sanitizeRowForCsv` (formula cells are neutralised); `npm audit` for production dependencies reports 0 vulnerabilities; the CI actions are pinned to
+commits and run with read-only tokens.
+
+## 4. What is in this branch
+
+| File | What |
+| --- | --- |
+| `supabase/pending/20261018100000_checkout_uses_lbp_rate_and_locks_in_order.sql` (+ rollback) | RT-3, RT-4. Patches the live function by exact text, refuses if the text is not found exactly once, checks grants unchanged. |
+| `supabase/pending/20261018100100_seller_cannot_set_storefront_flags.sql` (+ rollback) | RT-5, same safeguards. |
+| `test/db/redteam.db.test.ts`, `test/db/fixture_redteam.sql` | 38 tests: the guards that hold, and both migrations (before, after, twice, wrong function, rollback). Four deliberate breakages of the migrations were each caught by a test. |
+| `scripts/db/redteam-poc.mjs` | Runs every proof above; prints `BLOCKED` / `CONFIRMED`. |
+
+## 5. What I need from you, in order
+
+1. **Approve the dry run** of the five existing pending migrations (A–E) on the live database, then, separately, the apply.
+   This closes RT-1 and RT-2, the two that matter most. (The two new migrations here need their own dry run, same way.)
+2. **Say yes or no** to RT-6 (lock per guesser), RT-8 (seller phone numbers), RT-9 (size limits).
+3. **Do** RT-10 (Firebase key) and, before leaving Vercel, RT-11's `ALLOWED_ORIGINS`.
+4. **Allow the live site** in the session's network settings if you want me to look at it in a browser.
+
+Nothing was merged to `main`, applied to the database, or deployed.

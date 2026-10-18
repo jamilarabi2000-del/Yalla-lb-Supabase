@@ -104,3 +104,30 @@ Read from the live project on 2026-10-10 and rewritten from that source; the rol
 - **After applying, check once on the live site:** do one search, then look at the newest `search_logs` row: its
   `client_ip` should be your address. If it is empty the header did not reach the database; the limiter then falls back
   to the shared cap (nobody is blocked) and the migration should be rolled back and looked at again.
+
+## 20261018100000_checkout_uses_lbp_rate_and_locks_in_order  (red-team review RT-3, RT-4)
+
+Two defects inside `private.checkout_create_order`, patched by exact text so nothing else in the 14,000-character function is
+retyped.
+
+- **The Lebanese-pound rate.** The function priced `total_lbp` with a fixed 89,500. It now reads `app_settings.lbp_usd_rate`
+  when an order is placed, and falls back to 89,500 if the row is missing or is not a positive number (up to nine digits,
+  up to four decimals). Both are 89,500 today, so no order changes the day this is applied.
+- **Lock order.** The order's products are locked first, in product-id order, so two shoppers whose baskets hold the same two
+  products in opposite order can no longer deadlock. The same rows are locked as before.
+- **Safeguards.** It stops, changing nothing, unless each piece of text it replaces is found exactly once (or is already
+  replaced); it checks the function's grants are identical afterwards; it checks the result is still SECURITY DEFINER and not
+  callable by browsers. Running it twice is harmless.
+- **Rollback** puts the two pieces of text back exactly and refuses to run if they are not there.
+- **Tests:** `test/db/redteam.db.test.ts` (a stand-in function carrying the live text of the two pieces, two real concurrent
+  sessions for the deadlock, eight bad rates, a missing row, wrong function, twice, rollback).
+- **Dry run before applying:** run the file between `begin;` and `rollback;` in the SQL editor, then
+  `select position('order by lk.id for update' in pg_get_functiondef('private.checkout_create_order(jsonb, public.payment_method, public.currency_code, public.delivery_speed, jsonb, text, text)'::regprocedure));`
+  inside the same transaction; it must be above 0.
+
+## 20261018100100_seller_cannot_set_storefront_flags  (red-team review RT-5)
+
+Adds `is_featured`, `is_bestseller`, `is_new_arrival` and `yalla_item_code` to the columns `private.protect_product_mutation`
+already refuses for sellers. Administrators and the seller screen (which never sends these four) are unaffected. Same
+safeguards as above (one exact piece of text, grants unchanged, SECURITY DEFINER kept, idempotent). Rollback removes the four
+checks again. Tests as above.
