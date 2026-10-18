@@ -111,12 +111,23 @@ The same function answers `no_account` or `wrong`. This was chosen on purpose (t
 first"), so I have not changed it. It lets someone test a list of e-mails for membership. If that matters more to you than the
 friendlier message, the answer should be the same for both.
 
-### RT-8 — Every visitor's browser receives every seller's phone number — LOW/MEDIUM (privacy) — decision needed
+### RT-8 — Every visitor's browser receives every seller's phone number — LOW/MEDIUM (privacy) — plan written, NOT built
 
-The shop's public read of sellers includes `contact_phone`; the page code that shows shoppers anything never displays it
-(only admin and seller screens do). Anyone calling the public API can list the phone numbers of all active sellers.
-*Fix options:* stop selecting it for visitors and revoke the public column right, keeping a private route for the seller's
-own screen and for admin. It touches the seller screen, so I did not do it unasked.
+The shop's public read of sellers includes `contact_phone`; nothing a shopper sees ever displays it (only the admin and seller screens
+do). Anyone calling the public API can list the phone numbers of all active sellers.
+
+*Plan (read from the code on 2026-10-18; three steps, in this order, each separately approved):*
+1. **Database, additive only.** Put `contact_phone` into `private.admin_list_seller_private()` (admin-verified only; the admin screens
+   already call it for the other private fields) and add `public.my_seller_contact()` (a thin wrapper over a private function) that
+   returns only the signed-in seller's own phone. Nothing changes for anyone yet.
+2. **Website.** `SELLER_COLUMNS` in `src/lib/earlyRequests.ts` (the one list every visitor's catalogue read and the page-head
+   prefetch use) loses `contact_phone`. `src/services/supabaseCatalogService.ts` (reads at line ~1213) fills `contactPhone` for admins
+   from the private list and for a seller from `my_seller_contact()`, and leaves it empty for visitors. Tests: a visitor's request
+   names no phone; the admin Sellers and Sales Analytics screens and the seller dashboard still show phones. Deploy.
+3. **Database, the revoke.** `revoke select (contact_phone) on public.sellers from anon, authenticated`. **Wait at least a day after
+   step 2:** a browser tab opened before the deploy still asks for the column and would get "permission denied" until reloaded.
+   Afterwards a public API request for the column must be refused and the storefront, admin and seller screens must load.
+Rollback for step 3 is one `grant select (contact_phone) ...`; steps 1 and 2 are harmless to leave.
 
 ### RT-9 — Signed-in users can store unlimited data in their own rows — LOW/MEDIUM — fix written and tested, NOT applied
 
