@@ -13,7 +13,7 @@
 --   * public.my_seller_contact()         -> (seller_id, contact_phone) for the signed-in seller's OWN seller only. A customer, or
 --                                           a seller whose profile has no seller, gets no rows. Never another seller's phone.
 --
--- Rollback: supabase/rollbacks/20261018210000_seller_phone_private_routes.rollback.sql (drops the four functions).
+-- Rollback: supabase/rollbacks/20261018232313_seller_phone_private_routes.rollback.sql (drops the four functions).
 
 create or replace function private.admin_list_seller_phones()
 returns table (id uuid, contact_phone text)

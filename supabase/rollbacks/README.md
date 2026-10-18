@@ -153,17 +153,21 @@ bounded (name 300, first/last name 100, phone 40, governorate/city 120, address 
 row breaks a limit today (largest cart 5 bytes, largest shipping record 304). Needs the same care as migration D: each check takes a brief
 lock on its table; the file gives up after 5 seconds rather than queue. Rollback removes all of it and touches no data. Tests as above.
 
-## 20261018210000_seller_phone_private_routes  (red-team review RT-8, step 1 of 3) — WRITTEN AND TESTED, NOT APPLIED
+## 20261018232313_seller_phone_private_routes  (red-team review RT-8, step 1 of 3) — APPLIED 2026-10-18
 
 Purely additive: `public.admin_list_seller_phones()` (every seller's phone; refuses unless the administrator's session is verified) and
 `public.my_seller_contact()` (the signed-in seller's own phone, no argument; no rows for a customer or a seller without a seller), each a
 thin SECURITY INVOKER wrapper over a SECURITY DEFINER function in `private`, callable by signed-in users only. No existing function or
-table right is changed. Rollback drops the four functions. Tests: `test/db/sellerPhone.db.test.ts`. **Dry run (covers this and the
-revoke below):** `node scripts/db/dryrun-hardening.mjs --set=sellerphones --compact --evidence`.
+table right is changed. Written as `20261018210000_...`; Supabase recorded it as version `20261018232313`. Checked on the project before
+and after: functions 92 → 96, and the hashes of every other function, the policies, the table rights, the triggers and the sellers
+column rights were identical. The public phone column is still readable, on purpose, until step 3. Rollback drops the four functions
+(do step 3's rollback first if step 3 has been applied). Tests: `test/db/sellerPhone.db.test.ts`.
 
 ## 20261018210100_revoke_seller_phone_from_browsers  (red-team review RT-8, step 3 of 3) — HELD: NOT BEFORE THE WEBSITE HAS BEEN LIVE FOR A DAY
 
-`revoke select (contact_phone) on public.sellers from anon, authenticated`. Stops unless both routes above exist; afterwards checks that
+`revoke select (contact_phone) on public.sellers from anon, authenticated`. Stops unless both routes above exist (they do, since 2026-10-18); afterwards checks that
 no browser role can read the column and that the public columns still can (undoes itself otherwise, for example if a table-wide SELECT
 grant exists). A browser tab opened before the website change would get "permission denied" on the seller read until reloaded, which is
 why it waits. Rollback: `grant select (contact_phone) ...` (restores the exposure on purpose).
+
+**Dry run for this step:** `node scripts/db/dryrun-hardening.mjs --set=sellerphones --compact --evidence` (stops at once if the routes are missing; it passed on the project on 2026-10-18 together with the routes, before they were applied).

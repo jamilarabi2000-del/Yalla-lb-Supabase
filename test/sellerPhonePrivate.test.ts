@@ -8,7 +8,7 @@ import type { Seller } from '../src/types';
 
 // Red-team review RT-8: every visitor's browser was sent every active seller's phone number. The public seller read no
 // longer asks for it; an administrator (every seller) or a seller (their own) fetches it through the database's private
-// routes (supabase/pending/20261018210000_*), and it lives in memory only. The database side is tested in
+// routes (supabase/migrations/20261018232313_*, applied 2026-10-18), and it lives in memory only. The database side is tested in
 // test/db/sellerPhone.db.test.ts, in a real PostgreSQL.
 const read = (file: string) => fs.readFileSync(path.resolve(process.cwd(), file), 'utf8');
 const URL_BASE = 'https://abcdefghij.supabase.co';

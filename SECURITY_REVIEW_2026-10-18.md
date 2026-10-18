@@ -111,18 +111,18 @@ The same function answers `no_account` or `wrong`. This was chosen on purpose (t
 first"), so I have not changed it. It lets someone test a list of e-mails for membership. If that matters more to you than the
 friendlier message, the answer should be the same for both.
 
-### RT-8 — Every visitor's browser receives every seller's phone number — LOW/MEDIUM (privacy) — steps 1 and 2 built and tested, NOT applied or deployed
+### RT-8 — Every visitor's browser receives every seller's phone number — LOW/MEDIUM (privacy) — step 1 APPLIED 2026-10-18; step 2 (website) built, not deployed; step 3 (revoke) held
 
 The shop's public read of sellers includes `contact_phone`; nothing a shopper sees ever displays it (only the admin and seller screens
 do). Anyone calling the public API can list the phone numbers of all active sellers. (The column is granted to `anon` and `authenticated`
 column by column; there is no table-wide SELECT, so a single column revoke closes it.)
 
 *Fix (built 2026-10-18 on the review branch; three steps, in this order, each separately approved):*
-1. **Database, additive only** — `supabase/pending/20261018210000_seller_phone_private_routes.sql`. Two routes, built like
+1. **Database, additive only — APPLIED 2026-10-18** (version `20261018232313`, `supabase/migrations/20261018232313_seller_phone_private_routes.sql`; checked before and after: 92 → 96 functions, every other function, policy, table right, trigger and the sellers column rights unchanged). Two routes, built like
    `admin_list_seller_private()` (private SECURITY DEFINER function + thin SECURITY INVOKER wrapper, signed-in users only):
    `admin_list_seller_phones()` (every seller; raises `ADMIN_VERIFICATION_REQUIRED` unless the admin session is verified) and
    `my_seller_contact()` (no argument; the signed-in seller's own seller only; a customer or a seller without a seller gets no rows).
-   Existing functions and table rights are not touched. I did not add the phone to `admin_list_seller_private()` itself, so no live
+   Existing functions and table rights are not touched (confirmed by the before/after check). I did not add the phone to `admin_list_seller_private()` itself, so no live
    function is rewritten.
 2. **Website** (on the branch, not deployed). `SELLER_COLUMNS` loses `contact_phone` (it feeds both the catalogue read and the page-head
    prefetch). `fetchSellerContactPhones()` asks the route for an administrator (all) or a seller (own); a visitor or customer never asks.
@@ -142,8 +142,10 @@ visitor, a seller asking for another seller, a seller turned customer; revoke re
 columns and admin writes alone, twice, undone as a whole under a table-wide grant; both rollbacks; the dry run leaves nothing behind;
 four deliberate breakages each caught) and `test/sellerPhonePrivate.test.ts` (17: what the storefront really requests, the routes and the
 fallback, no fallback after a refusal, cache never holds a number). *Dry run:* `node scripts/db/dryrun-hardening.mjs --set=sellerphones --compact --evidence`.
-*Not verified:* the admin Sellers / Sales Analytics screens and the seller dashboard in a real browser against the new routes (no
-route exists on the project yet, so the fallback is what would run today).
+*Not verified:* the admin Sellers / Sales Analytics screens and the seller dashboard in a real browser against the new routes. The routes
+now exist on the project, but the deployed website does not call them yet (the change is on this branch, not on `main`); the revoke's dry run
+also passed on the project (with a result row of: visitor cannot call either route, signed-in users can, the phone column closed to both
+browser roles, the name column still readable; one seller has a number on file).
 
 ### RT-9 — Signed-in users can store unlimited data in their own rows — LOW/MEDIUM — fix written and tested, NOT applied
 
@@ -220,9 +222,9 @@ commits and run with read-only tokens.
    scripts that contain `alter table` / `drop policy`, so the reliable way is the SQL editor: `node scripts/db/dryrun-hardening.mjs --compact --evidence`.
    The dry run passed on the live database for change A and for both RT-3/RT-4/RT-5 fixes; B to E were not completed through the tool.
 2. **RT-6 and RT-9 are written and tested** (not applied): they go through the same dry run and your approval as the five older ones.
-   **RT-8** (seller phone numbers) is built and tested on this branch (routes, website change, and a held revoke), not applied or
-   deployed. Order matters: routes (additive), website live for a day, then the revoke; the revoke must never go first.
+   **RT-8** (seller phone numbers): the private routes are applied (additive, checked). The website change is on this branch, not on `main`,
+   and the revoke is held. Order matters: routes (done), website live for a day, then the revoke; the revoke must never go first.
 3. **Do** RT-10 (Firebase key) and, before leaving Vercel, RT-11's `ALLOWED_ORIGINS`.
 4. **Allow the live site** in the session's network settings if you want me to look at it in a browser.
 
-Applied to the live database so far: RT-3/RT-4 and RT-5 only. This report and the proof script are on the review branch, not on `main`.
+Applied to the live database so far: RT-3/RT-4, RT-5 and the RT-8 private routes (step 1, additive). This report and the proof script are on the review branch, not on `main`.

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { startScratchPostgres, postgresAvailable } from '../../scripts/db/scratchPostgres.mjs';
-import { dryRunSql, SELLER_PHONE_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
+import { dryRunSql, SELLER_PHONE_ROUTES, SELLER_PHONE_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
 
 // Red-team review RT-8: every visitor's browser was sent every active seller's phone number. The fix is written in three
 // steps, run here for real in a scratch PostgreSQL and NOT applied to the project:
@@ -21,9 +21,9 @@ if (process.env.REQUIRE_SCRATCH_POSTGRES === '1') {
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.resolve(root, file), 'utf8');
-const ROUTES = '20261018210000_seller_phone_private_routes';
+const ROUTES = '20261018232313_seller_phone_private_routes';   // applied to the project on 2026-10-18, so it lives in supabase/migrations
 const REVOKE = '20261018210100_revoke_seller_phone_from_browsers';
-const up = (name: string) => read(`supabase/pending/${name}.sql`);
+const up = (name: string) => read(`supabase/${name === ROUTES ? 'migrations' : 'pending'}/${name}.sql`);
 const down = (name: string) => read(`supabase/rollbacks/${name}.rollback.sql`);
 
 const U = {
@@ -276,21 +276,34 @@ describe.skipIf(!available)('RT-8 seller phone numbers in a scratch PostgreSQL (
   });
 
   describe('the dry run for the project', () => {
-    it('covers both migrations, in order, and leaves the database exactly as it found it', () => {
+    it('covers the revoke only (the routes are already live), and leaves the database exactly as it found it', () => {
       const db = fresh();
+      applyOk(db, up(ROUTES));   // the project already has the routes; the revoke stops without them
       const sql = dryRunSql(root, { compact: true, evidence: true, set: 'sellerphones' });
-      expect(SELLER_PHONE_MIGRATIONS).toEqual([ROUTES, REVOKE]);
-      expect(sql.indexOf(ROUTES)).toBeLessThan(sql.indexOf(REVOKE));
+      expect(SELLER_PHONE_ROUTES).toBe(ROUTES);
+      expect(SELLER_PHONE_MIGRATIONS).toEqual([REVOKE]);
+      expect(sql).toContain(REVOKE);
+      expect(sql).not.toContain('create or replace function private.admin_list_seller_phones');
       expect(sql.trimEnd().endsWith('rollback;')).toBe(true);
-      const before = { acl: aclFingerprint(db), fns: value(db, 'select count(*) from pg_proc where pronamespace in (select oid from pg_namespace where nspname in (\'public\', \'private\'))') };
+      const count = 'select count(*) from pg_proc where pronamespace in (select oid from pg_namespace where nspname in (\'public\', \'private\'))';
+      const before = { acl: aclFingerprint(db), fns: value(db, count) };
       const r = pg.run(db, sql);
       expect(r.out).toContain('dry run finished');
       expect(aclFingerprint(db)).toBe(before.acl);
-      expect(value(db, 'select count(*) from pg_proc where pronamespace in (select oid from pg_namespace where nspname in (\'public\', \'private\'))')).toBe(before.fns);
+      expect(value(db, count)).toBe(before.fns);
+      expect(phoneColumnReadable(db, 'anon')).toBe(true);
+    });
+
+    it('without the routes it stops at once (so it cannot be run before step 1)', () => {
+      const db = fresh();
+      const r = pg.run(db, dryRunSql(root, { compact: true, evidence: true, set: 'sellerphones' }), { allowError: true });
+      expect(r.err).toContain('are not there');
+      expect(phoneColumnReadable(db, 'anon')).toBe(true);
     });
 
     it('its facts row says: routes callable by signed-in users only, the column closed, the name still readable', () => {
       const db = fresh();
+      applyOk(db, up(ROUTES));
       const r = pg.run(db, dryRunSql(root, { compact: true, evidence: true, set: 'sellerphones' }));
       const row = r.out.split('\n').find(l => l.includes('dry run finished')) ?? '';
       // note | admin route: visitor, signed in | seller route: visitor, signed in | phone: visitor, signed in | name: visitor | sellers with a phone
@@ -298,7 +311,7 @@ describe.skipIf(!available)('RT-8 seller phone numbers in a scratch PostgreSQL (
     });
 
     it('every migration has a rollback beside it', () => {
-      for (const name of SELLER_PHONE_MIGRATIONS) expect(fs.existsSync(path.resolve(root, `supabase/rollbacks/${name}.rollback.sql`)), name).toBe(true);
+      for (const name of [ROUTES, ...SELLER_PHONE_MIGRATIONS]) expect(fs.existsSync(path.resolve(root, `supabase/rollbacks/${name}.rollback.sql`)), name).toBe(true);
     });
   });
 });

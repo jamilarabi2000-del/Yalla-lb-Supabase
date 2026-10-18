@@ -1,5 +1,5 @@
 -- Red-team review RT-8, step 3 of 3: close the public column. DO NOT APPLY until
---   (a) 20261018210000_seller_phone_private_routes.sql is applied, and
+--   (a) 20261018232313_seller_phone_private_routes.sql is applied, and
 --   (b) the website that no longer asks for contact_phone in the public read has been live for AT LEAST A DAY.
 -- A browser tab opened before that website went live still asks for the column; after this runs it would get "permission
 -- denied" on the seller read (an empty seller list) until the shopper reloads.
@@ -17,7 +17,7 @@
 do $migration$
 begin
   if to_regprocedure('public.admin_list_seller_phones()') is null or to_regprocedure('public.my_seller_contact()') is null then
-    raise exception 'The private seller-phone routes (20261018210000) are not there: nothing was changed';
+    raise exception 'The private seller-phone routes (20261018232313) are not there: nothing was changed';
   end if;
 
   revoke select (contact_phone) on public.sellers from anon, authenticated;

@@ -10,7 +10,7 @@
  *   node scripts/db/dryrun-hardening.mjs --compact --evidence > /tmp/dryrun.sql   (ends by showing one row of facts, then rolls back)
  *   node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > /tmp/dryrun2.sql   (the two red-team fixes of 2026-10-18, applied)
  *   node scripts/db/dryrun-hardening.mjs --set=followups --compact --evidence > /tmp/dryrun3.sql   (RT-6 sign-in lock, RT-9 size limits: written, not applied)
- *   node scripts/db/dryrun-hardening.mjs --set=sellerphones --compact --evidence > /tmp/dryrun4.sql   (RT-8 seller phone numbers: routes, then the column revoke: written, not applied)
+ *   node scripts/db/dryrun-hardening.mjs --set=sellerphones --compact --evidence > /tmp/dryrun4.sql   (RT-8 seller phone numbers: the column revoke, step 3, held; the routes are already applied)
  *
  * test/db/dryrun.db.test.ts runs the printed script in a scratch database and checks that it leaves the
  * database exactly as it found it.
@@ -60,15 +60,15 @@ export const FOLLOWUP_EVIDENCE_SQL = `select 'dry run finished: both migrations 
   (select max(octet_length(items::text)) from public.carts) as largest_saved_cart_bytes,
   (select max(octet_length(shipping::text)) from public.orders) as largest_shipping_bytes;`;
 
-/** RT-8, seller phone numbers: step 1 the private routes (additive), step 3 the column revoke (held until the website that no longer
- *  asks for the column has been live for a day). Written and tested, not applied. The dry run applies both, in that order, to check
- *  the revoke's assumptions (no table-wide SELECT grant) against the real database, then rolls everything back. */
+/** RT-8, seller phone numbers. Step 1, the private routes, was applied to the project on 2026-10-18 (version 20261018232313, in
+ *  supabase/migrations). Step 3, the column revoke, is written and tested and HELD until the website that no longer asks for the
+ *  column has been live for a day; its dry run needs the routes (it stops if they are missing) and rolls everything back. */
+export const SELLER_PHONE_ROUTES = '20261018232313_seller_phone_private_routes';
 export const SELLER_PHONE_MIGRATIONS = [
-  '20261018210000_seller_phone_private_routes',
   '20261018210100_revoke_seller_phone_from_browsers',
 ];
 
-export const SELLER_PHONE_EVIDENCE_SQL = `select 'dry run finished: both migrations applied and every check passed; the next statement rolls it all back' as note,
+export const SELLER_PHONE_EVIDENCE_SQL = `select 'dry run finished: the revoke applied and every check passed; the next statement rolls it all back' as note,
   has_function_privilege('anon', 'public.admin_list_seller_phones()', 'EXECUTE') as anon_can_call_admin_route,
   has_function_privilege('authenticated', 'public.admin_list_seller_phones()', 'EXECUTE') as signed_in_can_call_admin_route,
   has_function_privilege('anon', 'public.my_seller_contact()', 'EXECUTE') as anon_can_call_seller_route,
@@ -104,7 +104,7 @@ export const EVIDENCE_SQL = `select 'dry run finished: all five migrations appli
 export const MIGRATION_SETS = {
   hardening: { dir: 'supabase/pending', names: HARDENING_MIGRATIONS, label: 'the database hardening migrations', done: 'all five migrations applied and their checks passed', evidence: () => EVIDENCE_SQL },
   followups: { dir: 'supabase/pending', names: FOLLOWUP_MIGRATIONS, label: 'the red-team follow-ups (sign-in lock, size limits)', done: 'both migrations applied and their checks passed', evidence: () => FOLLOWUP_EVIDENCE_SQL },
-  sellerphones: { dir: 'supabase/pending', names: SELLER_PHONE_MIGRATIONS, label: 'the seller phone number fix (private routes, then the column revoke)', done: 'both migrations applied and their checks passed', evidence: () => SELLER_PHONE_EVIDENCE_SQL },
+  sellerphones: { dir: 'supabase/pending', names: SELLER_PHONE_MIGRATIONS, label: 'the seller phone number revoke (step 3 of 3; the private routes are already applied)', done: 'the revoke applied and its checks passed', evidence: () => SELLER_PHONE_EVIDENCE_SQL },
   redteam: { dir: 'supabase/migrations', names: REDTEAM_MIGRATIONS, label: 'the red-team fixes (checkout, seller badges)', done: 'both migrations applied and their checks passed', evidence: () => REDTEAM_EVIDENCE_SQL },
 };
 
