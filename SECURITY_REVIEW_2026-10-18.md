@@ -90,7 +90,7 @@ and in the shop's own "Bestseller" badge, and overwrite the system product numbe
 *Proof:* `F1`; `redteam.db.test.ts`. *Fix:* `20261018182835_seller_cannot_set_storefront_flags`. Admin and the seller
 screen are unaffected (tested).
 
-### RT-6 — Anyone can lock any customer out of password sign-in — MEDIUM — decision needed
+### RT-6 — Anyone can lock any customer out of password sign-in — MEDIUM — fix written and tested, NOT applied
 
 *What:* the password check is a database function open to visitors. It locks an email after 5 wrong guesses in 15 minutes
 (20 a day), **counted per email, not per person guessing**, and a locked email refuses even the correct password.
@@ -99,9 +99,11 @@ screen are unaffected (tested).
 (which skips the password step), so it is a nuisance, not a lock-out for good.
 *Not covered by CAPTCHA:* Turnstile protects Supabase's own e-mail-code requests. This check is a database function that
 receives only email and password, so, as far as the code shows, no CAPTCHA token reaches it.
-*Recommendation (needs your yes, I have not built it):* lock per email **and** per guesser (5 each, 15 minutes), plus a much
-higher per-email ceiling (for example 50 in 15 minutes) so a distributed guess is still bounded. The password is only the
-first of two steps (an e-mailed code follows), so a higher ceiling costs little. Say "build RT-6" and I will.
+*Fix (written 2026-10-18, tested, not applied):* `supabase/pending/20261018200000_sign_in_lock_is_per_guesser.sql`. Five wrong guesses
+in 15 minutes now lock **that guesser** out of **that e-mail**; the owner on their own connection is unaffected. A guesser who
+rotates addresses is stopped by a per-e-mail ceiling of 50 in 15 minutes or 200 a day (it bounds a password attack to 200 tries a
+day against one account; the password is only the first of two steps, an e-mailed code follows). A stranger now needs 50 failed
+guesses spread over many addresses to lock the owner out, instead of 5.
 
 ### RT-7 — The sign-in check tells a stranger whether an e-mail has an account — LOW — product decision, noted
 
@@ -116,12 +118,14 @@ The shop's public read of sellers includes `contact_phone`; the page code that s
 *Fix options:* stop selecting it for visitors and revoke the public column right, keeping a private route for the seller's
 own screen and for admin. It touches the seller screen, so I did not do it unasked.
 
-### RT-9 — Signed-in users can store unlimited data in their own rows — LOW/MEDIUM — recommendation
+### RT-9 — Signed-in users can store unlimited data in their own rows — LOW/MEDIUM — fix written and tested, NOT applied
 
 `carts.items`, `wishlists.product_ids`, `user_addresses`, `orders.shipping` (set by checkout from the browser) and, until RT-2's
 fix, `phone_registry` have no size limit. Needs one account per megabyte-sized request, so it is slower than RT-1, but
-sign-up is free and CAPTCHA is still off. *Recommendation:* the same "NOT VALID size check" pattern migration D uses
-(for example cart ≤ 64 KB, shipping ≤ 8 KB, ≤ 20 addresses a user). I can write it on request.
+sign-up is free and CAPTCHA is still off. *Fix (written 2026-10-18, tested, not applied):* `supabase/pending/20261018200100_size_limits_for_signed_in_writes.sql`, the same "NOT VALID
+pattern as migration D: cart ≤ 512 KB (a full 50-line basket is about 300 KB), wishlist ≤ 500, shipping ≤ 8 KB, ≤ 20 addresses a
+person, and length limits on the profile's text fields. Live data is tiny (largest cart 5 bytes, largest shipping record 304 bytes),
+so no one is affected today.
 
 ### RT-10 — A Firebase key from before the move is in the public repository's history — LOW — owner step (task #112)
 
@@ -188,7 +192,9 @@ commits and run with read-only tokens.
    This closes RT-1 and RT-2, the two that matter most. The Supabase tool gives up after 60 seconds and asks for approval on
    scripts that contain `alter table` / `drop policy`, so the reliable way is the SQL editor: `node scripts/db/dryrun-hardening.mjs --compact --evidence`.
    The dry run passed on the live database for change A and for both RT-3/RT-4/RT-5 fixes; B to E were not completed through the tool.
-2. **Say yes or no** to RT-6 (lock per guesser), RT-8 (seller phone numbers), RT-9 (size limits).
+2. **RT-6 and RT-9 are written and tested** (not applied): they go through the same dry run and your approval as the five older ones.
+   **RT-8** (seller phone numbers) is deliberately not built yet: it must change the website first, then the database, in that order, or the
+   storefront stops loading sellers. Say "go" when you want it planned.
 3. **Do** RT-10 (Firebase key) and, before leaving Vercel, RT-11's `ALLOWED_ORIGINS`.
 4. **Allow the live site** in the session's network settings if you want me to look at it in a browser.
 

@@ -134,3 +134,21 @@ Adds `is_featured`, `is_bestseller`, `is_new_arrival` and `yalla_item_code` to t
 already refuses for sellers. Administrators and the seller screen (which never sends these four) are unaffected. Same
 safeguards as above (one exact piece of text, grants unchanged, SECURITY DEFINER kept, idempotent). Rollback removes the four
 checks again. Tests as above.
+
+## 20261018200000_sign_in_lock_is_per_guesser  (red-team review RT-6) — WRITTEN AND TESTED, NOT APPLIED
+
+`private.verify_login_password` locked an e-mail for everyone after 5 wrong guesses in 15 minutes (20 a day), so a stranger could keep
+any customer from signing in with a password. Now: 5 in 15 minutes per **e-mail and guesser** (the owner on their own connection is not
+affected), plus a per-e-mail ceiling for guessers who change address: 50 in 15 minutes, 200 a day. The per-caller limit (30 in 15 minutes
+across e-mails) and every answer word are unchanged. Patched by exact text (two pieces, each found exactly once), grants unchanged,
+idempotent. Rollback restores the old constants and condition exactly. Tests: `test/db/followups.db.test.ts` (the attack before and
+after, the ceiling at 49/50 and 199/200, the caller limit, clearing on success, twice, wrong function, rollback; five deliberate
+breakages each caught). **Dry run:** `node scripts/db/dryrun-hardening.mjs --set=followups --compact --evidence`.
+
+## 20261018200100_size_limits_for_signed_in_writes  (red-team review RT-9) — WRITTEN AND TESTED, NOT APPLIED
+
+Four NOT VALID checks and one trigger: cart items ≤ 512 KB of JSON text, wishlist ≤ 500 products, order shipping ≤ 8 KB, profile text fields
+bounded (name 300, first/last name 100, phone 40, governorate/city 120, address 300, building 200, notes 1,000, avatar 2,048), and at most
+20 saved addresses per person (trigger `private.limit_user_addresses`, not callable by browsers). Nothing stored is rewritten and no stored
+row breaks a limit today (largest cart 5 bytes, largest shipping record 304). Needs the same care as migration D: each check takes a brief
+lock on its table; the file gives up after 5 seconds rather than queue. Rollback removes all of it and touches no data. Tests as above.

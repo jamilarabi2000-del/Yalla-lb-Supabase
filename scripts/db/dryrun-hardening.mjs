@@ -8,7 +8,8 @@
  *   node scripts/db/dryrun-hardening.mjs > /tmp/dryrun.sql             (the migrations verbatim)
  *   node scripts/db/dryrun-hardening.mjs --compact > /tmp/dryrun.sql   (without comment-only lines: shorter to send)
  *   node scripts/db/dryrun-hardening.mjs --compact --evidence > /tmp/dryrun.sql   (ends by showing one row of facts, then rolls back)
- *   node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > /tmp/dryrun2.sql   (the two red-team fixes of 2026-10-18)
+ *   node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > /tmp/dryrun2.sql   (the two red-team fixes of 2026-10-18, applied)
+ *   node scripts/db/dryrun-hardening.mjs --set=followups --compact --evidence > /tmp/dryrun3.sql   (RT-6 sign-in lock, RT-9 size limits: written, not applied)
  *
  * test/db/dryrun.db.test.ts runs the printed script in a scratch database and checks that it leaves the
  * database exactly as it found it.
@@ -45,6 +46,19 @@ select 'dry run finished: both migrations applied and every check passed; the ne
   (select def ~ 'new\\.is_bestseller is distinct from old\\.is_bestseller' and def ~ 'new\\.yalla_item_code is distinct from old\\.yalla_item_code' from guard) as sellers_cannot_set_badges,
   (select value from public.app_settings where key = 'lbp_usd_rate') as lbp_rate_now;`;
 
+/** The two follow-ups from the red-team review (RT-6 the sign-in lock is per guesser, RT-9 size limits): written and tested, not applied. */
+export const FOLLOWUP_MIGRATIONS = [
+  '20261018200000_sign_in_lock_is_per_guesser',
+  '20261018200100_size_limits_for_signed_in_writes',
+];
+
+export const FOLLOWUP_EVIDENCE_SQL = `select 'dry run finished: both migrations applied and every check passed; the next statement rolls it all back' as note,
+  (select position('>= c_email_any_limit' in pg_get_functiondef(p.oid)) > 0 and position('and caller_key = v_caller and created_at' in pg_get_functiondef(p.oid)) > 0 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'verify_login_password') as sign_in_lock_is_per_guesser,
+  (select count(*) from pg_constraint where conname in ('carts_items_size', 'wishlists_product_ids_count', 'orders_shipping_size', 'profiles_text_lengths')) as size_checks_present,
+  exists (select 1 from pg_trigger where tgname = 'trg_limit_user_addresses') as address_limit_present,
+  (select max(octet_length(items::text)) from public.carts) as largest_saved_cart_bytes,
+  (select max(octet_length(shipping::text)) from public.orders) as largest_shipping_bytes;`;
+
 /** The migration text without its comment-only lines (the SQL is identical; the script is much shorter to send). */
 export const withoutCommentLines = sql => sql.split('\n').filter(line => !/^\s*--/.test(line)).join('\n').replace(/\n{3,}/g, '\n\n');
 
@@ -70,6 +84,7 @@ export const EVIDENCE_SQL = `select 'dry run finished: all five migrations appli
 
 export const MIGRATION_SETS = {
   hardening: { dir: 'supabase/pending', names: HARDENING_MIGRATIONS, label: 'the database hardening migrations', done: 'all five migrations applied and their checks passed', evidence: () => EVIDENCE_SQL },
+  followups: { dir: 'supabase/pending', names: FOLLOWUP_MIGRATIONS, label: 'the red-team follow-ups (sign-in lock, size limits)', done: 'both migrations applied and their checks passed', evidence: () => FOLLOWUP_EVIDENCE_SQL },
   redteam: { dir: 'supabase/migrations', names: REDTEAM_MIGRATIONS, label: 'the red-team fixes (checkout, seller badges)', done: 'both migrations applied and their checks passed', evidence: () => REDTEAM_EVIDENCE_SQL },
 };
 
