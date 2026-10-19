@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { startScratchPostgres, postgresAvailable } from '../../scripts/db/scratchPostgres.mjs';
-import { dryRunSql, FOLLOWUP_MIGRATIONS } from '../../scripts/db/dryrun-hardening.mjs';
+import { dryRunSql, FOLLOWUP_MIGRATIONS, SIGN_IN_LOCK_MIGRATION } from '../../scripts/db/dryrun-hardening.mjs';
 
 // The red-team follow-ups, run for real in a scratch PostgreSQL: RT-6 (the password check locks per guesser, not per
 // e-mail) and RT-9 (size limits for what a signed-in user can store). Both are written and tested here and NOT applied to
@@ -17,9 +17,9 @@ if (process.env.REQUIRE_SCRATCH_POSTGRES === '1') {
 
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.resolve(root, file), 'utf8');
-const LOCK = '20261018200000_sign_in_lock_is_per_guesser';
+const LOCK = '20261018234917_sign_in_lock_is_per_guesser';
 const LIMITS = '20261018200100_size_limits_for_signed_in_writes';
-const up = (name: string) => read(`supabase/pending/${name}.sql`);
+const up = (name: string) => read(`supabase/${name === LOCK ? 'migrations' : 'pending'}/${name}.sql`);
 const down = (name: string) => read(`supabase/rollbacks/${name}.rollback.sql`);
 
 const U = { victim: '00000000-0000-4000-8000-0000000000b2', other: '00000000-0000-4000-8000-0000000000c3', adm: '00000000-0000-4000-8000-0000000000a1' } as const;
@@ -284,17 +284,19 @@ describe.skipIf(!available)('red-team follow-ups RT-6 and RT-9 in a scratch Post
   });
 
   // ── the dry run the owner runs before approving the apply ────────────────────────────────────────────────────
-  describe('dry run of both (node scripts/db/dryrun-hardening.mjs --set=followups)', () => {
-    it.each([['verbatim', false], ['compact', true]])('%s: applies both, shows a row of facts, and leaves the database exactly as it found it', (_label, compact) => {
+  describe('dry run of the size limits (node scripts/db/dryrun-hardening.mjs --set=followups)', () => {
+    it.each([['verbatim', false], ['compact', true]])('%s: applies the size limits, shows a row of facts, and leaves the database exactly as it found it', (_label, compact) => {
       const db = fresh();
+      applyOk(db, up(LOCK));   // the project already has the sign-in lock fix (applied 2026-10-18)
       const before = pg.dump(db);
       const result = pg.run(db, dryRunSql(root, { compact, evidence: true, set: 'followups' }));
-      expect(result.out).toMatch(/^dry run finished: both migrations applied and every check passed.*\|t\|4\|t\|/m);
+      expect(result.out).toMatch(/^dry run finished: the size limits applied and every check passed.*\|t\|4\|t\|/m);
       expect(pg.dump(db)).toBe(before);
     });
-    it('covers exactly the two migration files, in order, each with a rollback beside it', () => {
-      expect(FOLLOWUP_MIGRATIONS).toEqual([LOCK, LIMITS]);
-      for (const name of FOLLOWUP_MIGRATIONS) expect(fs.existsSync(path.resolve(root, `supabase/rollbacks/${name}.rollback.sql`)), name).toBe(true);
+    it('covers exactly the size-limits file (RT-6 is applied), each migration with a rollback beside it', () => {
+      expect(SIGN_IN_LOCK_MIGRATION).toBe(LOCK);
+      expect(FOLLOWUP_MIGRATIONS).toEqual([LIMITS]);
+      for (const name of [LOCK, ...FOLLOWUP_MIGRATIONS]) expect(fs.existsSync(path.resolve(root, `supabase/rollbacks/${name}.rollback.sql`)), name).toBe(true);
     });
   });
 });

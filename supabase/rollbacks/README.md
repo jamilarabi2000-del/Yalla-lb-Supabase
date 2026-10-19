@@ -135,7 +135,7 @@ already refuses for sellers. Administrators and the seller screen (which never s
 safeguards as above (one exact piece of text, grants unchanged, SECURITY DEFINER kept, idempotent). Rollback removes the four
 checks again. Tests as above.
 
-## 20261018200000_sign_in_lock_is_per_guesser  (red-team review RT-6) — WRITTEN AND TESTED, NOT APPLIED
+## 20261018234917_sign_in_lock_is_per_guesser  (red-team review RT-6) — APPLIED 2026-10-18
 
 `private.verify_login_password` locked an e-mail for everyone after 5 wrong guesses in 15 minutes (20 a day), so a stranger could keep
 any customer from signing in with a password. Now: 5 in 15 minutes per **e-mail and guesser** (the owner on their own connection is not
@@ -144,6 +144,8 @@ across e-mails) and every answer word are unchanged. Patched by exact text (two 
 idempotent. Rollback restores the old constants and condition exactly. Tests: `test/db/followups.db.test.ts` (the attack before and
 after, the ceiling at 49/50 and 199/200, the caller limit, clearing on success, twice, wrong function, rollback; five deliberate
 breakages each caught). **Dry run:** `node scripts/db/dryrun-hardening.mjs --set=followups --compact --evidence`.
+
+**Applied:** written as `20261018200000_...`; Supabase recorded it as version `20261018234917`. Checked on the project before and after: the hashes of every other function, the policies, the table rights and the triggers were identical (96 functions both times); the sign-in function kept its rights, SECURITY DEFINER and VOLATILE, and now counts per guesser. The dry run on the project passed first and left nothing behind.
 
 ## 20261018200100_size_limits_for_signed_in_writes  (red-team review RT-9) — WRITTEN AND TESTED, NOT APPLIED
 

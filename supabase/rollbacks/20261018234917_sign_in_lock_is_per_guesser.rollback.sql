@@ -1,4 +1,4 @@
--- Undoes 20261018200000_sign_in_lock_is_per_guesser: puts back the lock that counts wrong guesses per e-mail whoever makes
+-- Undoes 20261018234917_sign_in_lock_is_per_guesser: puts back the lock that counts wrong guesses per e-mail whoever makes
 -- them (5 in 15 minutes, 20 a day). This restores the weakness on purpose: a stranger can lock any e-mail out of password
 -- sign-in with five wrong guesses.
 --

@@ -9,7 +9,7 @@
  *   node scripts/db/dryrun-hardening.mjs --compact > /tmp/dryrun.sql   (without comment-only lines: shorter to send)
  *   node scripts/db/dryrun-hardening.mjs --compact --evidence > /tmp/dryrun.sql   (ends by showing one row of facts, then rolls back)
  *   node scripts/db/dryrun-hardening.mjs --set=redteam --compact --evidence > /tmp/dryrun2.sql   (the two red-team fixes of 2026-10-18, applied)
- *   node scripts/db/dryrun-hardening.mjs --set=followups --compact --evidence > /tmp/dryrun3.sql   (RT-6 sign-in lock, RT-9 size limits: written, not applied)
+ *   node scripts/db/dryrun-hardening.mjs --set=followups --compact --evidence > /tmp/dryrun3.sql   (RT-9 size limits: written, not applied; RT-6 is already applied)
  *   node scripts/db/dryrun-hardening.mjs --set=sellerphones --compact --evidence > /tmp/dryrun4.sql   (RT-8 seller phone numbers: the column revoke, step 3, held; the routes are already applied)
  *
  * test/db/dryrun.db.test.ts runs the printed script in a scratch database and checks that it leaves the
@@ -47,13 +47,14 @@ select 'dry run finished: both migrations applied and every check passed; the ne
   (select def ~ 'new\\.is_bestseller is distinct from old\\.is_bestseller' and def ~ 'new\\.yalla_item_code is distinct from old\\.yalla_item_code' from guard) as sellers_cannot_set_badges,
   (select value from public.app_settings where key = 'lbp_usd_rate') as lbp_rate_now;`;
 
-/** The two follow-ups from the red-team review (RT-6 the sign-in lock is per guesser, RT-9 size limits): written and tested, not applied. */
+/** The follow-ups from the red-team review. RT-6 (the sign-in lock is per guesser) was applied to the project on 2026-10-18 (version
+ *  20261018234917, now in supabase/migrations). What is left is RT-9, size limits for signed-in users: written and tested, not applied. */
+export const SIGN_IN_LOCK_MIGRATION = '20261018234917_sign_in_lock_is_per_guesser';
 export const FOLLOWUP_MIGRATIONS = [
-  '20261018200000_sign_in_lock_is_per_guesser',
   '20261018200100_size_limits_for_signed_in_writes',
 ];
 
-export const FOLLOWUP_EVIDENCE_SQL = `select 'dry run finished: both migrations applied and every check passed; the next statement rolls it all back' as note,
+export const FOLLOWUP_EVIDENCE_SQL = `select 'dry run finished: the size limits applied and every check passed; the next statement rolls it all back' as note,
   (select position('>= c_email_any_limit' in pg_get_functiondef(p.oid)) > 0 and position('and caller_key = v_caller and created_at' in pg_get_functiondef(p.oid)) > 0 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'private' and p.proname = 'verify_login_password') as sign_in_lock_is_per_guesser,
   (select count(*) from pg_constraint where conname in ('carts_items_size', 'wishlists_product_ids_count', 'orders_shipping_size', 'profiles_text_lengths')) as size_checks_present,
   exists (select 1 from pg_trigger where tgname = 'trg_limit_user_addresses') as address_limit_present,
@@ -103,7 +104,7 @@ export const EVIDENCE_SQL = `select 'dry run finished: all five migrations appli
 
 export const MIGRATION_SETS = {
   hardening: { dir: 'supabase/pending', names: HARDENING_MIGRATIONS, label: 'the database hardening migrations', done: 'all five migrations applied and their checks passed', evidence: () => EVIDENCE_SQL },
-  followups: { dir: 'supabase/pending', names: FOLLOWUP_MIGRATIONS, label: 'the red-team follow-ups (sign-in lock, size limits)', done: 'both migrations applied and their checks passed', evidence: () => FOLLOWUP_EVIDENCE_SQL },
+  followups: { dir: 'supabase/pending', names: FOLLOWUP_MIGRATIONS, label: 'the red-team size limits (RT-9; the sign-in lock RT-6 is already applied)', done: 'the size limits applied and their checks passed', evidence: () => FOLLOWUP_EVIDENCE_SQL },
   sellerphones: { dir: 'supabase/pending', names: SELLER_PHONE_MIGRATIONS, label: 'the seller phone number revoke (step 3 of 3; the private routes are already applied)', done: 'the revoke applied and its checks passed', evidence: () => SELLER_PHONE_EVIDENCE_SQL },
   redteam: { dir: 'supabase/migrations', names: REDTEAM_MIGRATIONS, label: 'the red-team fixes (checkout, seller badges)', done: 'both migrations applied and their checks passed', evidence: () => REDTEAM_EVIDENCE_SQL },
 };

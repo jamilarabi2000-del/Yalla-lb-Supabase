@@ -20,7 +20,7 @@
 -- It reads the live function, replaces two exact pieces of text (and stops unless each is found exactly once, so it cannot
 -- patch a function it was not written for), recreates it, and checks the grants are unchanged. Running it twice is harmless.
 --
--- Rollback: supabase/rollbacks/20261018200000_sign_in_lock_is_per_guesser.rollback.sql
+-- Rollback: supabase/rollbacks/20261018234917_sign_in_lock_is_per_guesser.rollback.sql
 
 do $migration$
 declare

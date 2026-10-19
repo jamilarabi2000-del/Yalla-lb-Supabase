@@ -8,8 +8,8 @@ Requested: "a full bug, logic and security review, as deep as a red team or a re
   free order.** I tried twelve concrete attacks of that kind against copies of the live rules; every one was stopped (section 3).
 * **The most serious problem is not a break-in but a flood:** anyone can fill the free database with junk until the shop
   goes read-only and nobody can order (RT-1). The fix is already written and tested; it is waiting for your approval.
-* **Five more real problems reproduced** (RT-2 to RT-6). Three are now **fixed on the live database** (RT-3, RT-4, RT-5, applied 2026-10-18 after a passing dry run);
-  one has its fix written earlier and waiting (RT-2); one needs a decision from you (RT-6).
+* **Five more real problems reproduced** (RT-2 to RT-6). Four are now **fixed on the live database** (RT-3, RT-4, RT-5 and RT-6, applied 2026-10-18 after a passing dry run);
+  one has its fix written earlier and waiting (RT-2).
 * **The review itself changed nothing on the live site or the live database.** Every proof ran in a scratch database on this machine.
   Afterwards, with your approval, two small database fixes were applied (migration versions `20261018182807` and
   `20261018182835`), and a site-only clean-up went to `main` (`11f067f`). The database before/after check showed only those
@@ -90,7 +90,7 @@ and in the shop's own "Bestseller" badge, and overwrite the system product numbe
 *Proof:* `F1`; `redteam.db.test.ts`. *Fix:* `20261018182835_seller_cannot_set_storefront_flags`. Admin and the seller
 screen are unaffected (tested).
 
-### RT-6 — Anyone can lock any customer out of password sign-in — MEDIUM — fix written and tested, NOT applied
+### RT-6 — Anyone can lock any customer out of password sign-in — MEDIUM — FIXED (applied 2026-10-18, version 20261018234917)
 
 *What:* the password check is a database function open to visitors. It locks an email after 5 wrong guesses in 15 minutes
 (20 a day), **counted per email, not per person guessing**, and a locked email refuses even the correct password.
@@ -99,7 +99,7 @@ screen are unaffected (tested).
 (which skips the password step), so it is a nuisance, not a lock-out for good.
 *Not covered by CAPTCHA:* Turnstile protects Supabase's own e-mail-code requests. This check is a database function that
 receives only email and password, so, as far as the code shows, no CAPTCHA token reaches it.
-*Fix (written 2026-10-18, tested, not applied):* `supabase/pending/20261018200000_sign_in_lock_is_per_guesser.sql`. Five wrong guesses
+*Fix (applied 2026-10-18 as version 20261018234917; checked on the project before and after: only the sign-in function changed):* `supabase/migrations/20261018234917_sign_in_lock_is_per_guesser.sql`. Five wrong guesses
 in 15 minutes now lock **that guesser** out of **that e-mail**; the owner on their own connection is unaffected. A guesser who
 rotates addresses is stopped by a per-e-mail ceiling of 50 in 15 minutes or 200 a day (it bounds a password attack to 200 tries a
 day against one account; the password is only the first of two steps, an e-mailed code follows). A stranger now needs 50 failed
@@ -221,10 +221,10 @@ commits and run with read-only tokens.
    This closes RT-1 and RT-2, the two that matter most. The Supabase tool gives up after 60 seconds and asks for approval on
    scripts that contain `alter table` / `drop policy`, so the reliable way is the SQL editor: `node scripts/db/dryrun-hardening.mjs --compact --evidence`.
    The dry run passed on the live database for change A and for both RT-3/RT-4/RT-5 fixes; B to E were not completed through the tool.
-2. **RT-6 and RT-9 are written and tested** (not applied): they go through the same dry run and your approval as the five older ones.
+2. **RT-9 is written and tested** (not applied); RT-6 is applied. RT-9 goes through the same dry run and your approval as the five older ones.
    **RT-8** (seller phone numbers): the private routes are applied (additive, checked). The website change is on this branch, not on `main`,
    and the revoke is held. Order matters: routes (done), website live for a day, then the revoke; the revoke must never go first.
 3. **Do** RT-10 (Firebase key) and, before leaving Vercel, RT-11's `ALLOWED_ORIGINS`.
 4. **Allow the live site** in the session's network settings if you want me to look at it in a browser.
 
-Applied to the live database so far: RT-3/RT-4, RT-5 and the RT-8 private routes (step 1, additive). This report and the proof script are on the review branch, not on `main`.
+Applied to the live database so far: RT-3/RT-4, RT-5, RT-6 (sign-in lock per guesser) and the RT-8 private routes (step 1, additive). This report and the proof script are on the review branch, not on `main`.
