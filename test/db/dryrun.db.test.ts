@@ -7,6 +7,8 @@ import { dryRunSql, withoutCommentLines, EVIDENCE_SQL, HARDENING_MIGRATIONS } fr
 // five migrations and rolls them back. Both must leave the database exactly as they found it.
 const available = postgresAvailable();
 const strip = (sql: string) => sql.replace(/--[^\n]*/g, '');
+/** A migration's text, from supabase/pending, or from supabase/migrations once it has been applied to the project. */
+const migrationText = (name: string) => { try { return read(`supabase/pending/${name}.sql`); } catch { return read(`supabase/migrations/${name}.sql`); } };
 
 describe('the read-only preflight, as a file', () => {
   const sql = read('scripts/db/preflight_hardening.sql');
@@ -28,7 +30,7 @@ describe('the dry run, as a file', () => {
     let at = sql.indexOf('begin;');
     expect(at).toBeGreaterThan(-1);
     for (const name of HARDENING_MIGRATIONS) {
-      const next = sql.indexOf(read(`supabase/pending/${name}.sql`), at);
+      const next = sql.indexOf(migrationText(name), at);
       expect(next, name).toBeGreaterThan(at);
       at = next;
     }
@@ -40,7 +42,7 @@ describe('the dry run, compact form and timeouts', () => {
     const sql = dryRunSql();
     const timeouts = sql.indexOf("set local lock_timeout = '3s';");
     expect(timeouts).toBeGreaterThan(sql.indexOf('begin;'));
-    expect(timeouts).toBeLessThan(sql.indexOf('-- ===== 20261004100000'));
+    expect(timeouts).toBeLessThan(sql.indexOf('-- ===== 20261020001140'));
     expect(sql).toContain("set local statement_timeout = '120s';");
   });
 
@@ -50,7 +52,7 @@ describe('the dry run, compact form and timeouts', () => {
     expect(compact.length).toBeLessThan(full.length * 0.7);
     let at = compact.indexOf('begin;');
     for (const name of HARDENING_MIGRATIONS) {
-      const next = compact.indexOf(withoutCommentLines(read(`supabase/pending/${name}.sql`)), at);
+      const next = compact.indexOf(withoutCommentLines(migrationText(name)), at);
       expect(next, name).toBeGreaterThan(at);
       at = next;
     }

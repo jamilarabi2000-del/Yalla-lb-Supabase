@@ -20,9 +20,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const HARDENING_MIGRATIONS = [
-  '20261004100000_admin_delete_functions_callable',
+  '20261020001140_admin_delete_functions_callable',
   '20261004100100_phone_registry_written_only_by_trigger',
-  '20261004100200_revoke_unneeded_browser_grants',
+  '20261020003138_revoke_unneeded_browser_grants',
   '20261004100300_anonymous_insert_size_caps_and_log_purge',
   '20261010100000_rate_limit_uses_edge_ip',
 ];
@@ -123,7 +123,9 @@ export function dryRunSql(root = process.cwd(), { compact = false, evidence = fa
   for (const name of chosen.names) {
     parts.push(`\n-- ===== ${name} =====`);
     parts.push(`do $$ begin raise notice 'dry run: applying ${name}'; end $$;`);
-    const sql = fs.readFileSync(path.join(root, chosen.dir, `${name}.sql`), 'utf8');
+    // a migration already applied to the project lives in supabase/migrations under the version Supabase recorded
+    const inSetDir = path.join(root, chosen.dir, `${name}.sql`);
+    const sql = fs.readFileSync(fs.existsSync(inSetDir) ? inSetDir : path.join(root, 'supabase/migrations', `${name}.sql`), 'utf8');
     parts.push(compact ? withoutCommentLines(sql) : sql);
   }
   parts.push(`\ndo $$ begin raise notice 'dry run: ${chosen.done}; rolling back'; end $$;`);

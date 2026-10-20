@@ -41,7 +41,7 @@ text that runs live.
 Severity words: **High** = a stranger can hurt the shop with no account. **Medium** = needs an account, or hurts one person or
 one rule. **Low** = small, or needs unusual conditions. Status: **Fixed** = applied to the live database and checked afterwards; **Fix ready** = written and tested here, waiting for you.
 
-### RT-1 — Anyone can fill the free database and take the shop offline — HIGH — open (fix ready since 10-10)
+### RT-1 — Anyone can fill the free database and take the shop offline — HIGH — open; part-fixed 2026-10-20 (see status below)
 
 *What:* searching, applying to be a seller and page analytics are open to visitors without sign-in. Two things are wrong
 live today: (a) the "no more than 60 a minute" limit counts visitors by an address they write themselves
@@ -55,6 +55,8 @@ largest request Supabase's gateway accepts, which I did not test.
 *Fix:* pending migrations D (size limits + a purge function) and E (count by the address Cloudflare sets, per account when
 signed in, throttle never ban). Apply order and the dry run are in `supabase/rollbacks/README.md`.
 *You:* approve the dry run, then the apply.
+
+**Status 2026-10-20:** of the five older fixes, `…100000` (delete functions) and `…100200` (revoke needless browser rights, including visitors' read of the search log, coupons and seller applications) are applied (versions `20261020001140`, `20261020003138`), each checked before and after. The two that close the flood itself are not yet: `…10100000` (the rate limiter counts by the address Cloudflare saw instead of a header a visitor writes: dry run passed, apply stopped at the tool's approval step three times, nothing changed) and `…100300` (size caps, needs the SQL Editor).
 
 ### RT-2 — Anyone with an account can reserve other people's phone numbers — MEDIUM — open (fix ready since 10-04)
 

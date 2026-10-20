@@ -26,7 +26,7 @@
 -- deleted and no row-level policy changes. MAINTAIN exists only on PostgreSQL 17 and later; on an older
 -- server that statement is skipped.
 --
--- Rollback: supabase/rollbacks/20261004100200_revoke_unneeded_browser_grants.rollback.sql
+-- Rollback: supabase/rollbacks/20261020003138_revoke_unneeded_browser_grants.rollback.sql
 
 -- What an anonymous insert does: 'ok', 'permission' (no table privilege), 'rls' (a row-level policy), or the error.
 create function pg_temp.probe_anon_insert(p_sql text) returns text

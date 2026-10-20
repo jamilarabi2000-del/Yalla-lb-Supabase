@@ -12,13 +12,20 @@ Supabase GitHub integration ("Deploy to production") is still switched on, and i
 apply them by itself. When they are applied (with approval, in the order below), each file moves into
 `supabase/migrations/` under the version the project recorded, as earlier migrations were (see commit 34e9ce6).
 
-## The database hardening (Build 3): five migrations, in `supabase/pending/`
+## The database hardening (Build 3): five migrations
+
+**Status, 2026-10-20:** two of the five are APPLIED to the project, each after a passing dry run and checked before and after (the hashes of every
+other function, the policies, the triggers and, for the first, the table rights were identical; only the intended objects changed):
+`20261020001140_admin_delete_functions_callable` (was `20261004100000`) and `20261020003138_revoke_unneeded_browser_grants` (was `20261004100200`);
+both now live in `supabase/migrations/` and their rollbacks are the files named `…20261020001140…` / `…20261020003138…` here.
+Still in `supabase/pending/`: `20261004100100` (phone registry), `20261004100300` (size caps) and `20261010100000` (rate limiter, dry run passed;
+apply was attempted and stopped at the Supabase tool's approval step, nothing changed).
 
 | Migration | What it changes | Undo with |
 |---|---|---|
-| `20261004100000_admin_delete_functions_callable` | A verified administrator can delete a category or a seller (both failed with "permission denied"). | `…100000….rollback.sql` |
+| `20261020001140_admin_delete_functions_callable` | A verified administrator can delete a category or a seller (both failed with "permission denied"). | `…100000….rollback.sql` |
 | `20261004100100_phone_registry_written_only_by_trigger` | Signed-in users can no longer write `phone_registry` directly; the trigger still keeps it in step. | `…100100….rollback.sql` |
-| `20261004100200_revoke_unneeded_browser_grants` | Takes MAINTAIN (PostgreSQL 17) from the browser roles, SELECT on four admin-only tables from anon, UPDATE/DELETE on the audit trail from browsers. | `…100200….rollback.sql` |
+| `20261020003138_revoke_unneeded_browser_grants` | Takes MAINTAIN (PostgreSQL 17) from the browser roles, SELECT on four admin-only tables from anon, UPDATE/DELETE on the audit trail from browsers. | `…100200….rollback.sql` |
 | `20261004100300_anonymous_insert_size_caps_and_log_purge` | Caps a logged search at 200 characters and a seller application at 16 kB (new rows only); adds a search-log purge function that nothing runs yet. | `…100300….rollback.sql` |
 | `20261010100000_rate_limit_uses_edge_ip` | The anonymous-insert rate limit counts signed-out visitors by the address Cloudflare saw (`CF-Connecting-IP`, which a visitor cannot choose) instead of the first `X-Forwarded-For` address (which they can), and counts signed-in callers by account. Same limits, still only a throttle: nothing is banned or remembered. | `…10100000….rollback.sql` |
 
@@ -37,7 +44,7 @@ does not hold; and each ends by checking the state it was meant to reach. They a
    lines, and `--evidence` to end with one row showing the state the migrations would leave) prints one script that applies the five migrations and rolls everything back; it sets a 3 s lock
    timeout first, so on the live database it gives up rather than queue behind other work. Every check inside them runs against the real data; nothing stays.
    (`test/db/dryrun.db.test.ts` proves the database is identical before and after.)
-3. **Apply,** in order: 20261004100000, …100100, …100200, …100300, then 20261010100000.
+3. **Apply,** in order: A (20261004100000), …100100, C (20261004100200), …100300, then 20261010100000. (A and C are already applied.)
 4. **Check on the live site:** delete a test category from the admin panel; a storefront search still appears
    in Search Trends; the sign-up phone check still answers.
 5. **If anything is wrong,** run the rollbacks in reverse order (20261010100000, then 100300, 100200, 100100, 100000).

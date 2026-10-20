@@ -1,4 +1,4 @@
--- Undoes 20261004100200_revoke_unneeded_browser_grants.sql: gives back what Supabase's default privileges had
+-- Undoes 20261020003138_revoke_unneeded_browser_grants.sql: gives back what Supabase's default privileges had
 -- granted, so the state is the one the audit found (SEC-9). Row-level security is unchanged either way.
 
 do $rollback$

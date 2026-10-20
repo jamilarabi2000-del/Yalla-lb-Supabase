@@ -26,7 +26,7 @@
 -- is granted. The seller function is looked at, not assumed: if the live project has no such function
 -- it is skipped; the category function must exist.
 --
--- Rollback: supabase/rollbacks/20261004100000_admin_delete_functions_callable.rollback.sql
+-- Rollback: supabase/rollbacks/20261020001140_admin_delete_functions_callable.rollback.sql
 
 create function pg_temp.probe_as_non_admin(p_sql text) returns text
 language plpgsql

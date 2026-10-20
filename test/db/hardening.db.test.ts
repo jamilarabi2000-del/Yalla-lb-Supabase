@@ -14,11 +14,12 @@ if (process.env.REQUIRE_SCRATCH_POSTGRES === '1') {
   it('a PostgreSQL server is available to run the migrations in', () => { expect(available).toBe(true); });
 }
 
-const A = '20261004100000_admin_delete_functions_callable';
+const A = '20261020001140_admin_delete_functions_callable';
 const B = '20261004100100_phone_registry_written_only_by_trigger';
-const C = '20261004100200_revoke_unneeded_browser_grants';
+const C = '20261020003138_revoke_unneeded_browser_grants';
 const D = '20261004100300_anonymous_insert_size_caps_and_log_purge';
-const up = (name: string) => read(`supabase/pending/${name}.sql`);
+/** The migration's text: supabase/pending until it is applied to the project, then supabase/migrations under its recorded version. */
+const up = (name: string) => { try { return read(`supabase/pending/${name}.sql`); } catch { return read(`supabase/migrations/${name}.sql`); } };
 const down = (name: string) => read(`supabase/rollbacks/${name}.rollback.sql`);
 
 const CAT = '11111111-1111-4111-8111-111111111111';
@@ -570,7 +571,7 @@ describe('the hardening migrations as files', () => {
     // Two later fixes (the 2026-10-18 red-team review) were written after these five and applied first, so they carry a later
     // version. These five take their applied version when they are applied, as every earlier migration did; until then they
     // only have to sort after the migrations that existed when they were written.
-    const appliedLater = ['20261018182807_', '20261018182835_', '20261018232313_', '20261018234917_'];
+    const appliedLater = ['20261018182807_', '20261018182835_', '20261018232313_', '20261018234917_', '20261020001140_', '20261020003138_'];
     const earlier = fs.readdirSync('supabase/migrations').filter(f => f.endsWith('.sql') && !names.some(n => f.startsWith(n)) && !appliedLater.some(n => f.startsWith(n))).sort();
     for (const name of names) {
       expect(fs.existsSync(`supabase/rollbacks/${name}.rollback.sql`), name).toBe(true);

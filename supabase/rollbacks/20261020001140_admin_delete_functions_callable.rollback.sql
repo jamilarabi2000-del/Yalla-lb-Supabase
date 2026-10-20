@@ -1,4 +1,4 @@
--- Undoes 20261004100000_admin_delete_functions_callable.sql: signed-in users lose EXECUTE on the private delete
+-- Undoes 20261020001140_admin_delete_functions_callable.sql: signed-in users lose EXECUTE on the private delete
 -- functions again, which puts "Delete category" and "Delete seller" back to failing with "permission denied"
 -- (the state the migration fixed). Nothing else changes: the functions, their checks and their data are untouched.
 --
