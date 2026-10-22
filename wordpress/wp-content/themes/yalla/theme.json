@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 2,
+  "settings": {
+    "appearanceTools": false,
+    "useRootPaddingAwareAlignments": false,
+    "layout": { "contentSize": "1536px", "wideSize": "1536px" },
+    "color": {
+      "custom": false,
+      "customGradient": false,
+      "defaultPalette": false,
+      "defaultGradients": false,
+      "palette": [
+        { "slug": "gold", "color": "#B89753", "name": "Yalla Gold" },
+        { "slug": "gold-light", "color": "#F3E5AB", "name": "Gold Light" },
+        { "slug": "gold-dark", "color": "#8F7137", "name": "Gold Dark" },
+        { "slug": "ink", "color": "#111111", "name": "Ink" },
+        { "slug": "ink-soft", "color": "#171717", "name": "Ink Soft" },
+        { "slug": "muted", "color": "#666666", "name": "Muted" },
+        { "slug": "surface", "color": "#FFFFFF", "name": "Surface" },
+        { "slug": "canvas", "color": "#F7F7F8", "name": "Canvas" },
+        { "slug": "border", "color": "#E5E5E5", "name": "Border" },
+        { "slug": "success", "color": "#16803C", "name": "Success" },
+        { "slug": "danger", "color": "#C62828", "name": "Danger" }
+      ]
+    },
+    "typography": {
+      "customFontSize": false,
+      "fontFamilies": [
+        {
+          "slug": "plus-jakarta",
+          "name": "Plus Jakarta Sans",
+          "fontFamily": "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        },
+        { "slug": "playfair", "name": "Playfair Display", "fontFamily": "'Playfair Display', serif" },
+        { "slug": "inter", "name": "Inter", "fontFamily": "'Inter', sans-serif" },
+        { "slug": "tajawal", "name": "Tajawal", "fontFamily": "'Tajawal', sans-serif" },
+        { "slug": "cairo", "name": "Cairo", "fontFamily": "'Cairo', sans-serif" },
+        { "slug": "amiri", "name": "Amiri", "fontFamily": "'Amiri', serif" }
+      ]
+    },
+    "spacing": { "customSpacingSize": false },
+    "border": { "color": false, "radius": false, "style": false, "width": false }
+  },
+  "styles": {
+    "color": { "background": "#F7F7F8", "text": "#111111" },
+    "typography": {
+      "fontFamily": "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "yalla-theme",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Yalla WordPress storefront theme",
+  "scripts": {
+    "dev": "tailwindcss -i ./assets/css/main.css -o ./assets/css/build.css --watch",
+    "build": "tailwindcss -i ./assets/css/main.css -o ./assets/css/build.css --minify",
+    "lint:php": "phpcs --standard=WordPress --extensions=php --ignore=assets/ .",
+    "lint:php:fix": "phpcbf --standard=WordPress --extensions=php --ignore=assets/ ."
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.14",
+    "tailwindcss": "^4.1.14"
+  }
+}
